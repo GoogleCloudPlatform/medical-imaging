@@ -1,0 +1,86 @@
+<!-- Copyright 2023 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+============================================================================== -->
+<book xmlns="http://docbook.org/ns/docbook" xmlns:xl="http://www.w3.org/1999/xlink" label="PS3.6" version="5.0" xml:id="PS3.6">
+<title>PS3.6</title>
+<subtitle>DICOM PS3.6 2021b - Data Dictionary</subtitle>
+<info>
+<author>
+<orgname>DICOM Standards Committee</orgname>
+</author>
+<copyright>
+<year>2021</year>
+<holder>NEMA</holder>
+</copyright>
+<legalnotice>
+<para xml:id="para_644774e9-c64e-4af0-9ccd-ea6545ae2ffe">A DICOM® publication</para>
+</legalnotice>
+</info>
+<chapter label="" status="1" xml:id="chapter_Notice">
+<title>Notice and Disclaimer</title>
+<para xml:id="para_dc52d22b-44f9-45cd-a5da-4fc14671a911">The information in this publication was considered technically sound by the consensus of persons engaged in the development and approval of the document at the time it was developed. Consensus does not necessarily mean that there is unanimous agreement among every person participating in the development of this document.</para>
+<para xml:id="para_ce52e7d7-cd24-4c37-849f-676ff019e4cf">NEMA standards and guideline publications, of which the document contained herein is one, are developed through a voluntary consensus standards development process. This process brings together volunteers and/or seeks out the views of persons who have an interest in the topic covered by this publication. While NEMA administers the process and establishes rules to promote fairness in the development of consensus, it does not write the document and it does not independently test, evaluate, or verify the accuracy or completeness of any information or the soundness of any judgments contained in its standards and guideline publications.</para>
+<para xml:id="para_b99c5c42-dddb-427c-a26d-ce9d2f22c6f2">NEMA disclaims liability for any personal injury, property, or other damages of any nature whatsoever, whether special, indirect, consequential, or compensatory, directly or indirectly resulting from the publication, use of, application, or reliance on this document. NEMA disclaims and makes no guaranty or warranty, expressed or implied, as to the accuracy or completeness of any information published herein, and disclaims and makes no warranty that the information in this document will fulfill any of your particular purposes or needs. NEMA does not undertake to guarantee the performance of any individual manufacturer or seller's products or services by virtue of this standard or guide.</para>
+<para xml:id="para_f80cd9c1-fead-4586-b701-0439c81204bc">In publishing and making this document available, NEMA is not undertaking to render professional or other services for or on behalf of any person or entity, nor is NEMA undertaking to perform any duty owed by any person or entity to someone else. Anyone using this document should rely on his or her own independent judgment or, as appropriate, seek the advice of a competent professional in determining the exercise of reasonable care in any given circumstances. Information and other standards on the topic covered by this publication may be available from other sources, which the user may wish to consult for additional views or information not covered by this publication.</para>
+<para xml:id="para_0a64ed30-87b4-4b96-a704-19bae89492b6">NEMA has no power, nor does it undertake to police or enforce compliance with the contents of this document. NEMA does not certify, test, or inspect products, designs, or installations for safety or health purposes. Any certification or other statement of compliance with any health or safety-related information in this document shall not be attributable to NEMA and is solely the responsibility of the certifier or maker of the statement.</para>
+</chapter>
+
+
+<chapter label="A" status="1" xml:id="chapter_A">
+</chapter>
+  
+
+
+<chapter label="C" status="1" xml:id="chapter_C">
+<title>Information Module Definitions (Normative)</title>
+<section label="C.31.3" status="3" xml:id="sect_C.31.3">
+<title>RT Ion Machine Verification Module</title>
+<para xml:id="para_40d08673-92d6-4320-a681-f307a12a374a">
+<xref linkend="table_C.31-3" xrefstyle="select: label"/>
+specifies the Attributes used to convey the parameters used in external verification of a radiotherapy ion treatment delivery.
+</para>
+<table frame="box" label="C.31-3" rules="all" xml:id="table_C.31-3">
+<caption>RT Ion Machine Verification Module Attributes</caption>
+<thead>
+<tr valign="top">
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_02fc3143-9a1c-4642-8dea-9af654cb99e1">Attribute Name</para>
+</th>
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_a330f1af-c4e9-4f75-9af2-0808e902ea6d">Tag</para>
+</th>
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_bd2e76bd-1404-47b6-adfd-ca310b7cc950">Description</para>
+</th>
+</tr>
+</thead>
+<tbody>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_780e7a38-7821-47ea-babb-31d40fb8b1c5">Ion Machine Verification Sequence</para>
+</td>
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_a03a6856-2966-4dd9-9963-491ddd39c51f">(0074,1046)</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_616c1b74-aa1e-4799-b36f-0a4149cb1da7">Sequence containing ion machine verification parameters.</para>
+<para xml:id="para_75952205-f0f3-42ac-adcd-24527fd81df4">Zero or one Item shall be included in this Sequence.</para>
+</td>
+</tr>
+</tbody>
+</table>
+ </section>
+</chapter>
+</book>
+

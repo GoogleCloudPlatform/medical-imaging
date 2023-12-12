@@ -1,0 +1,180 @@
+<!-- Copyright 2023 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+============================================================================== -->
+<book xmlns="http://docbook.org/ns/docbook" xmlns:xl="http://www.w3.org/1999/xlink" label="PS3.6" version="5.0" xml:id="PS3.6">
+<title>PS3.6</title>
+<subtitle>DICOM PS3.6 2021b - Data Dictionary</subtitle>
+<info>
+<author>
+<orgname>DICOM Standards Committee</orgname>
+</author>
+<copyright>
+<year>2021</year>
+<holder>NEMA</holder>
+</copyright>
+<legalnotice>
+<para xml:id="para_644774e9-c64e-4af0-9ccd-ea6545ae2ffe">A DICOM® publication</para>
+</legalnotice>
+</info>
+<chapter label="B" status="1" xml:id="chapter_B">
+<title>Storage Service Class (Normative)</title>
+<section label="B.5" status="2" xml:id="sect_B.5">
+<title>Standard SOP Classes</title>
+<para xml:id="para_31132281-abf4-449c-bba6-9e5508758d41">
+The SOP Classes in the Storage Service Class identify the Composite IODs to be stored.
+<xref linkend="table_B.5-1" xrefstyle="select: label"/>
+identifies Standard SOP Classes.
+</para>
+<table frame="box" label="B.5-1" rules="all" xml:id="table_B.5-1">
+<caption>Standard SOP Classes</caption>
+<thead>
+<tr valign="top">
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_d5ac09f7-fad0-454d-ae01-98de6af5e14f">SOP Class Name</para>
+</th>
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_873bad43-46ef-4569-afca-d49dafa57b07">SOP Class UID</para>
+</th>
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_faee907c-fdfc-4e5a-ba41-631a1b2e811f">
+<emphasis role="bold">
+IOD Specification (defined in
+<olink targetdoc="PS3.3" targetptr="PS3.3" xrefstyle="select: labelnumber"/>
+)
+</emphasis>
+</para>
+</th>
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_4c27cc42-a225-466b-a8c7-250fc4fd9f21">Specialization</para>
+</th>
+</tr>
+</thead>
+<tbody>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_d457aa36-c718-4fa4-b8ec-ef7fd4bd6c06">Secondary Capture Image Storage</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_827cf4ec-25b0-4dcd-987c-c07acd8aaa88">1.2.840.10008.5.1.4.1.1.7</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_f3fd5250-7dff-4711-a520-e21284af51d5">
+<olink targetdoc="PS3.3" targetptr="sect_A.8.1" xrefstyle="select: title"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1"/>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_c525684e-a407-4d66-9543-bd253fac918c">Multi-frame Single Bit Secondary Capture Image Storage</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_df501bd1-4f37-4f42-b62c-59ac15804392">1.2.840.10008.5.1.4.1.1.7.1</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_ba1a8b1b-b659-4edd-b746-f4c0b010a177">
+<olink targetdoc="PS3.3" targetptr="sect_A.8.2" xrefstyle="select: title"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1"/>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_6a559560-72f3-46eb-9060-5d595b574d6a">Multi-frame Grayscale Byte Secondary Capture Image Storage</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_6b124eaa-6a1e-4363-8852-f1dbff76062d">1.2.840.10008.5.1.4.1.1.7.2</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_ced6b2db-5a35-43c9-a3e2-e3088af1f752">
+<olink targetdoc="PS3.3" targetptr="sect_A.8.3" xrefstyle="select: title"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1"/>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_1fde2498-68ea-4a26-937a-9a6bea9153c8">Multi-frame Grayscale Word Secondary Capture Image Storage</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_4507a464-c514-445b-b2a4-a101a3cee0fd">1.2.840.10008.5.1.4.1.1.7.3</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_42f16b10-6016-44bb-b89f-584d495a3003">
+<olink targetdoc="PS3.3" targetptr="sect_A.8.4" xrefstyle="select: title"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1"/>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_cbc8d477-40e9-4c36-9313-6085a3df6d94">Multi-frame True Color Secondary Capture Image Storage</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_15a2072f-fcb8-4bad-8b72-f2246e7f862f">1.2.840.10008.5.1.4.1.1.7.4</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_6407426d-ba5c-428a-a6a1-98a06e00387a">
+<olink targetdoc="PS3.3" targetptr="sect_A.8.5" xrefstyle="select: title"/>
+</para>
+</td>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_a94d0177-2e58-454e-be95-92d9bb08fffa">VL Whole Slide Microscopy Image Storage</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_5a6b231a-f3d0-4399-bf49-c20b04b4eb65">1.2.840.10008.5.1.4.1.1.77.1.6</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_dab0e95b-c95f-4235-a135-9172ebcfdb94">
+<olink targetdoc="PS3.3" targetptr="sect_A.32.8" xrefstyle="select: title"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1"/>
+</tr>
+<td align="left" colspan="1" rowspan="1"/>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_7612a423-0b50-4119-8a33-55895895c846">Enhanced SR Storage</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_5a2001cd-383d-4744-a9d5-377af3caca47">1.2.840.10008.5.1.4.1.1.88.22</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_c636d063-4ef9-44d8-b2c2-54ac9a6dd3b5">
+<olink targetdoc="PS3.3" targetptr="sect_A.35.2" xrefstyle="select: title"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1"/>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_289306d2-4508-442c-bf13-a37f4244fa21">Extensible SR Storage</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_43cbbada-bd76-4e36-b66e-13a241df83ff">1.2.840.10008.5.1.4.1.1.88.35</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_876c0e6c-ab95-4859-b74a-a6d5e79315d1">
+<olink targetdoc="PS3.3" targetptr="sect_A.35.15" xrefstyle="select: title"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1"/>
+</tr>
+</tbody>
+</table>
+</section>
+</chapter>
+</book>

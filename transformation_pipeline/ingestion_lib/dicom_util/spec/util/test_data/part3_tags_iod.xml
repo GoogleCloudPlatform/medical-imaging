@@ -1,0 +1,417 @@
+<!-- Copyright 2023 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+============================================================================== -->
+<book xmlns="http://docbook.org/ns/docbook" xmlns:xl="http://www.w3.org/1999/xlink" label="PS3.6" version="5.0" xml:id="PS3.6">
+<title>PS3.6</title>
+<subtitle>DICOM PS3.6 2021b - Data Dictionary</subtitle>
+<info>
+<author>
+<orgname>DICOM Standards Committee</orgname>
+</author>
+<copyright>
+<year>2021</year>
+<holder>NEMA</holder>
+</copyright>
+<legalnotice>
+<para xml:id="para_644774e9-c64e-4af0-9ccd-ea6545ae2ffe">A DICOM® publication</para>
+</legalnotice>
+</info>
+<chapter label="" status="1" xml:id="chapter_Notice">
+<title>Notice and Disclaimer</title>
+<para xml:id="para_dc52d22b-44f9-45cd-a5da-4fc14671a911">The information in this publication was considered technically sound by the consensus of persons engaged in the development and approval of the document at the time it was developed. Consensus does not necessarily mean that there is unanimous agreement among every person participating in the development of this document.</para>
+<para xml:id="para_ce52e7d7-cd24-4c37-849f-676ff019e4cf">NEMA standards and guideline publications, of which the document contained herein is one, are developed through a voluntary consensus standards development process. This process brings together volunteers and/or seeks out the views of persons who have an interest in the topic covered by this publication. While NEMA administers the process and establishes rules to promote fairness in the development of consensus, it does not write the document and it does not independently test, evaluate, or verify the accuracy or completeness of any information or the soundness of any judgments contained in its standards and guideline publications.</para>
+<para xml:id="para_b99c5c42-dddb-427c-a26d-ce9d2f22c6f2">NEMA disclaims liability for any personal injury, property, or other damages of any nature whatsoever, whether special, indirect, consequential, or compensatory, directly or indirectly resulting from the publication, use of, application, or reliance on this document. NEMA disclaims and makes no guaranty or warranty, expressed or implied, as to the accuracy or completeness of any information published herein, and disclaims and makes no warranty that the information in this document will fulfill any of your particular purposes or needs. NEMA does not undertake to guarantee the performance of any individual manufacturer or seller's products or services by virtue of this standard or guide.</para>
+<para xml:id="para_f80cd9c1-fead-4586-b701-0439c81204bc">In publishing and making this document available, NEMA is not undertaking to render professional or other services for or on behalf of any person or entity, nor is NEMA undertaking to perform any duty owed by any person or entity to someone else. Anyone using this document should rely on his or her own independent judgment or, as appropriate, seek the advice of a competent professional in determining the exercise of reasonable care in any given circumstances. Information and other standards on the topic covered by this publication may be available from other sources, which the user may wish to consult for additional views or information not covered by this publication.</para>
+<para xml:id="para_0a64ed30-87b4-4b96-a704-19bae89492b6">NEMA has no power, nor does it undertake to police or enforce compliance with the contents of this document. NEMA does not certify, test, or inspect products, designs, or installations for safety or health purposes. Any certification or other statement of compliance with any health or safety-related information in this document shall not be attributable to NEMA and is solely the responsibility of the certifier or maker of the statement.</para>
+</chapter>
+
+
+<chapter label="A" status="1" xml:id="chapter_A">
+<title>Composite Information Object Definitions (Normative)</title>
+<section>
+<table frame="box" label="A.32.8-1" rules="all" xml:id="table_A.32.8-1">
+<caption>VL Whole Slide Microscopy Image IOD Modules</caption>
+<thead>
+<tr valign="top">
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_eb33a04a-73c0-41fc-a4fe-7c8fb9316e64">IE</para>
+</th>
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_7e383b2d-2788-4ee5-97e6-4bbf5959a5e8">Module</para>
+</th>
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_0c39971c-5a9c-4692-9c43-97d2ca3b6275">Reference</para>
+</th>
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_8fb856bb-dd94-4d2c-9d27-5ff66fca97fc">Usage</para>
+</th>
+</tr>
+</thead>
+<tbody>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="2">
+<para xml:id="para_320c6918-9632-4a00-ae8a-5fb4b28e4d1a">Patient</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_4a504b48-eab1-4980-a5b1-14019f96c3b6">Patient</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_41913b79-c971-46d9-baaa-e77ca219a2db">
+<xref linkend="sect_C.7.1.1" xrefstyle="select: labelnumber"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_74e501ee-5c6b-4c35-afa4-2bb1a787e3e1">M</para>
+</td>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_5f24067a-a59a-447f-bf04-122394e66f26">Clinical Trial Subject</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_e60dd6db-f988-4b4f-be9f-57e925fada8b">
+<xref linkend="sect_C.7.1.3" xrefstyle="select: labelnumber"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_3534f6a1-531a-495d-b610-1d1dcc6e85e8">U</para>
+</td>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="3">
+<para xml:id="para_aeb48a77-9cb3-43fe-bfd7-53fa15c55b28">Study</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_3b675d7b-e7ec-448f-8279-e4a1b13bb774">General Study</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_68e8bbdb-c271-4881-9e2e-6b8c7336b0ef">
+<xref linkend="sect_C.7.2.1" xrefstyle="select: labelnumber"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_be0da7ff-d024-4d35-b8b5-690a7122f8ed">M</para>
+</td>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_d4b5c158-89e5-4b7a-9d0b-c842f4228811">Patient Study</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_fbf22541-795b-4447-8581-07f30ffc2a37">
+<xref linkend="sect_C.7.2.2" xrefstyle="select: labelnumber"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_29c732e8-5042-4973-b160-e852dad1058d">U</para>
+</td>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_e8bb0c4c-6b28-4c08-b099-16a8be6a3aa5">Clinical Trial Study</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_e44eae31-157d-44e4-ba12-8a7a7484e54b">
+<xref linkend="sect_C.7.2.3" xrefstyle="select: labelnumber"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_96ca5359-cd14-454b-9a9d-723afde6720b">U</para>
+</td>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="3">
+<para xml:id="para_33b60570-e731-4d59-8d44-275339bf4891">Series</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_1f4d3383-6770-469d-b743-63e10616c06b">General Series</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_ce2364eb-8390-4f0b-be8c-078a3d1c02af">
+<xref linkend="sect_C.7.3.1" xrefstyle="select: labelnumber"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_1c662022-0e24-448e-8cec-e9ea997ccd32">M</para>
+</td>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_dddf9296-1c3e-44d2-b8a8-45f6b15e6bd9">Whole Slide Microscopy Series</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_9cfd56fe-cf65-47a0-9a54-dcdc6e0657e7">
+<xref linkend="sect_C.8.12.3" xrefstyle="select: labelnumber"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_20cfb123-d696-41fc-92bf-fcf0acae9f62">M</para>
+</td>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_95c0ab6b-7540-4e4d-9b95-337bb933a4b7">Clinical Trial Series</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_42678f44-4fd0-4fd1-a132-5f6557e1af4d">
+<xref linkend="sect_C.7.3.2" xrefstyle="select: labelnumber"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_6f950102-c4bb-4fe5-84ec-60a04683ca05">U</para>
+</td>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_d9957255-a01a-4661-8cd3-05818063f693">Frame of Reference</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_1d08a784-8e38-45b4-917d-17875f6cf8e7">Frame of Reference</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_c577f627-7be7-478b-bbd7-7eaed25fba03">
+<xref linkend="sect_C.7.4.1" xrefstyle="select: labelnumber"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_f108cea2-c2e5-47f9-a045-3a3e2aa4296e">M</para>
+</td>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="2">
+<para xml:id="para_5a145364-25f8-4ed7-b90b-1ad6f5adca85">Equipment</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_7b5fbb2b-65f7-4e83-a9d3-f106d6befa62">General Equipment</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_8486f4a6-56f9-44e7-9d0f-92e42a405d25">
+<xref linkend="sect_C.7.5.1" xrefstyle="select: labelnumber"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_91bab745-911c-4f5e-bb62-a6be7121a701">M</para>
+</td>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_24325e10-ce95-4553-a3b8-b1d711c8bd51">Enhanced General Equipment</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_c3d610bc-f1ae-4252-bae6-fece2cad0dc6">
+<xref linkend="sect_C.7.5.2" xrefstyle="select: labelnumber"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_030bb10c-f0d6-4f07-85ae-258cdd38d92b">M</para>
+</td>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="14">
+<para xml:id="para_7375a25a-5403-4de8-9a4c-45b30c5be07a">Image</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_f20a33ce-5b09-4dd7-8c69-37b2e0cda0b6">General Image</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_790b103c-7a37-4517-b467-f6f1108da467">
+<xref linkend="sect_C.7.6.1" xrefstyle="select: labelnumber"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_6c162cc7-ae32-4a46-aa06-cb620d26a27d">M</para>
+</td>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_97029079-24ab-4cd7-b101-6fdcd1b04311">General Reference</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_b827e86f-6eab-4903-847c-7e7a930817bc">
+<xref linkend="sect_C.12.4" xrefstyle="select: labelnumber"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_b78b86fa-c8f3-4b34-b17d-a67d81538aa3">U</para>
+</td>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_2f883737-c2c7-4972-a4da-e70c019fb143">Image Pixel</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_ca7e8f1a-ac02-49ed-bba3-289fe0435f40">
+<xref linkend="sect_C.7.6.3" xrefstyle="select: labelnumber"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_ced6afa9-37df-405c-bdba-a9c4b151166d">M</para>
+</td>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_d4596786-626f-462f-a32e-9c49a173f46c">Acquisition Context</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_2f12e8ec-1ec0-41c6-999c-57d7a20cb2d0">
+<xref linkend="sect_C.7.6.14" xrefstyle="select: labelnumber"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_84afd14d-b896-48db-88b3-b5530817cf37">M</para>
+</td>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_e15cd9e7-d68f-44eb-953d-540e0b4ca2b2">Multi-frame Functional Groups</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_4f172328-99c9-4000-87c4-b2cb77ec3a3f">
+<xref linkend="sect_C.7.6.16" xrefstyle="select: labelnumber"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_731c5a92-fd45-4ec9-8ac9-85d315abb765">M</para>
+</td>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_746402a4-0af5-4630-a9d1-a654727e401c">Multi-frame Dimension</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_5f895da2-3484-4b6b-8008-873c5d81f575">
+<xref linkend="sect_C.7.6.17" xrefstyle="select: labelnumber"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_13e00028-3e42-4eeb-9157-802f96ca1b58">M</para>
+</td>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_528f7ec0-77fc-4cf0-9971-08a704e580bf">Specimen</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_0e13a989-972f-4c62-8eb0-96fee82f9373">
+<xref linkend="sect_C.7.6.22" xrefstyle="select: labelnumber"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_4e7e7ae9-7986-48d2-be21-07cd491fe8d3">M</para>
+</td>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_5e1d6075-346d-4a57-b0ec-52a2234b92d7">Whole Slide Microscopy Image</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_1bf64cff-c4c1-4e6b-853f-855bad364810">
+<xref linkend="sect_C.8.12.4" xrefstyle="select: labelnumber"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_611700fc-a735-4464-840b-c66d18d3e095">M</para>
+</td>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_4e3fc080-f518-4077-bb11-b7441c9a9925">Optical Path</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_7cd0f9d8-1e96-48b0-8974-f999d7b841d6">
+<xref linkend="sect_C.8.12.5" xrefstyle="select: labelnumber"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_8b664085-1c72-494f-86b2-01c05d2f0f50">M</para>
+</td>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_08f5b135-1390-4843-a4dd-835bfa088f93">Multi-Resolution Navigation</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_8bf48559-c208-43e6-ac2b-3dfbeda6f018">
+<xref linkend="sect_C.8.12.7" xrefstyle="select: labelnumber"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_3ae19513-f0f7-47b8-9fc4-279232b3aa73">C - Required if Image Type (0008,0008) Value 3 is LOCALIZER</para>
+</td>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_0e07c6e5-9797-4dc6-9608-243b0158ab26">Slide Label</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_9f1a66d7-35a2-437a-8173-f706055c2da0">
+<xref linkend="sect_C.8.12.8" xrefstyle="select: labelnumber"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_4d77831d-26a2-466b-bd25-e8d29fb6b64a">C - Required if Image Type (0008,0008) Value 3 is LABEL; may be present otherwise</para>
+</td>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_fc1ca4b1-fd53-4b9d-8561-fcb30736d654">SOP Common</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_61998379-8957-42bf-bebe-8e94117a357b">
+<xref linkend="sect_C.12.1" xrefstyle="select: labelnumber"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_1a13a5e7-473a-4374-ab8a-733114bd3046">M</para>
+</td>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_eb5e5f65-414e-4d97-ae1c-0f9ed2c6d328">Common Instance Reference</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_d0c8a88f-45dc-4b94-a7c1-a5359f24d54c">
+<xref linkend="sect_C.12.2" xrefstyle="select: labelnumber"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_dbbe92a1-082f-44a3-9342-abf8eb64720c">M</para>
+</td>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_974f541e-478d-4fd4-a949-41ded223a630">Frame Extraction</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_ff7e5cab-f99e-4551-9727-0755e020d958">
+<xref linkend="sect_C.12.3" xrefstyle="select: labelnumber"/>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_f14b76a7-69e2-4628-b35e-b9425325544c">C - Required if the SOP Instance was created in response to a Frame-Level retrieve request</para>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+</chapter>
+
+ 
+<chapter label="C" status="1" xml:id="chapter_C">
+<title>Information Module Definitions (Normative)</title>
+<section label="C.2.1" status="3" xml:id="sect_C.2.1">
+
+ </section>
+</chapter>
+</book>

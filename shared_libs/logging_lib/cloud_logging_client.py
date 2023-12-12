@@ -1,0 +1,239 @@
+# Copyright 2023 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+"""Wrapper for cloud ops structured logging."""
+from __future__ import annotations
+
+import os
+import sys
+import threading
+from typing import List, Optional
+
+from absl import flags
+import psutil
+
+from shared_libs.flags import flag_utils
+from shared_libs.logging_lib import cloud_logging_client_instance
+
+# name of cloud ops log
+CLOUD_OPS_LOG_NAME_FLG = flags.DEFINE_string(
+    'ops_log_name',
+    os.getenv('CLOUD_OPS_LOG_NAME', 'python'),
+    'Cloud ops log name to write logs to.',
+)
+CLOUD_OPS_LOG_PROJECT_FLG = flags.DEFINE_string(
+    'ops_log_project',
+    os.getenv('CLOUD_OPS_LOG_PROJECT'),
+    'GCP project name to write log to. Undefined = default',
+)
+POD_HOSTNAME_FLG = flags.DEFINE_string(
+    'pod_hostname',
+    os.getenv('HOSTNAME'),
+    'Host name of GKE pod. Set by container ENV. '
+    'Set to mock value in unit test.',
+)
+POD_UID_FLG = flags.DEFINE_string(
+    'pod_uid',
+    os.getenv('MY_POD_UID'),
+    'UID of GKE pod. Do not set unless in test.',
+)
+
+DISABLE_STRUCTURED_LOGGING_FLG = flags.DEFINE_boolean(
+    'disable_structured_logging',
+    flag_utils.env_value_to_bool('DISABLE_STRUCTURED_LOGGING'),
+    'Disable structured logging.',
+)
+
+_DEBUG_LOGGING_USE_ABSL_LOGGING_FLG = flags.DEFINE_boolean(
+    'debug_logging_use_absl_logging',
+    cloud_logging_client_instance.DEBUG_LOGGING_USE_ABSL_LOGGING,
+    'Debug/testing option to logs to absl.logger. Automatically set when '
+    'running unit tests.',
+)
+
+LOG_ALL_PYTHON_LOGS_TO_CLOUD_FLG = flags.DEFINE_boolean(
+    'log_all_python_logs_to_cloud',
+    flag_utils.env_value_to_bool('LOG_ALL_PYTHON_LOGS_TO_CLOUD'),
+    'Logs every modules log to Cloud Ops.',
+)
+
+PER_THREAD_LOG_SIGNATURES_FLG = flags.DEFINE_boolean(
+    'per_thread_log_signatures',
+    flag_utils.env_value_to_bool('PER_THREAD_LOG_SIGNATURES', True),
+    'If True Log signatures are not shared are across threads if false '
+    'Process threads share a common log signature',
+)
+
+
+def _are_flags_initialized() -> bool:
+  """Returns True if flags are initialized."""
+  try:
+    return CLOUD_OPS_LOG_PROJECT_FLG.value is not None
+  except (flags.UnparsedFlagAccessError, AttributeError):
+    return False
+
+
+def _check_param_sets_flag(param: str, flag_lst: List[str]) -> bool:
+  """Tests if parameter is the start of flag definition."""
+  for flag in flag_lst:
+    if param.startswith(f'--{flag}'):
+      return True
+    if param.startswith(f'-{flag}'):
+      return True
+  return False
+
+
+def _get_logger_flags(argv: List[str]) -> List[str]:
+  """Initalize logger with only flags required for logger initialization.
+
+     Workaround if application defines accepts additional flags not which
+     haven't been defined at the time the logger is initialized.
+
+  Args:
+    argv: Command line arguments.
+
+  Returns:
+    List of passed commandline arguments required for logger init.
+  """
+  if not argv:
+    return []
+  command_line_flags = [argv[0]]
+  flg_lst = [
+      CLOUD_OPS_LOG_NAME_FLG.name,
+      CLOUD_OPS_LOG_PROJECT_FLG.name,
+      POD_HOSTNAME_FLG.name,
+      POD_UID_FLG.name,
+      DISABLE_STRUCTURED_LOGGING_FLG.name,
+      LOG_ALL_PYTHON_LOGS_TO_CLOUD_FLG.name,
+      PER_THREAD_LOG_SIGNATURES_FLG.name,
+  ]
+  add_flg = False
+  for param in argv[1:]:
+    if _check_param_sets_flag(param, flg_lst):
+      add_flg = True
+    elif param.startswith('-'):
+      add_flg = False
+    if add_flg:
+      command_line_flags.append(param)
+  return command_line_flags
+
+
+class CloudLoggingClient(
+    cloud_logging_client_instance.CloudLoggingClientInstance
+):
+  """Wrapper for cloud ops structured logging.
+
+  Automatically adds signature to structured logs to make traceable.
+  """
+
+  # lock for log makes access to singleton
+  # safe across threads. Logging used in main thread and ack_timeout_mon
+  _singleton_instance: Optional[CloudLoggingClient] = None
+  _startup_message_logged = False
+  _singleton_lock = threading.RLock()
+
+  @classmethod
+  def _init_fork_module_state(cls) -> None:
+    cls._singleton_instance = None
+    cls._startup_message_logged = True
+    cls._singleton_lock = threading.RLock()
+
+  @classmethod
+  def _fork_shutdown(cls) -> None:
+    with cls._singleton_lock:
+      cls._singleton_instance = None
+
+  def __init__(self):
+    with CloudLoggingClient._singleton_lock:
+      if not _are_flags_initialized():
+        # if flags are not initalize then init logging flags
+        flags.FLAGS(_get_logger_flags(sys.argv))
+      if CloudLoggingClient._singleton_instance is not None:
+        raise cloud_logging_client_instance.CloudLoggerInstanceExceptionError(
+            'Singleton already initialized.'
+        )
+      gcp_project = (
+          ''
+          if CLOUD_OPS_LOG_PROJECT_FLG.value is None
+          else CLOUD_OPS_LOG_PROJECT_FLG.value
+      )
+      pod_host_name = (
+          '' if POD_HOSTNAME_FLG.value is None else POD_HOSTNAME_FLG.value
+      )
+      pod_uid = '' if POD_UID_FLG.value is None else POD_UID_FLG.value
+      super().__init__(
+          log_name=CLOUD_OPS_LOG_NAME_FLG.value,
+          gcp_project_to_write_logs_to=gcp_project,
+          gcp_credentials=None,
+          pod_hostname=pod_host_name,
+          pod_uid=pod_uid,
+          disable_structured_logging=DISABLE_STRUCTURED_LOGGING_FLG.value,
+          use_absl_logging=_DEBUG_LOGGING_USE_ABSL_LOGGING_FLG.value,
+          log_all_python_logs_to_cloud=LOG_ALL_PYTHON_LOGS_TO_CLOUD_FLG.value,
+          per_thread_log_signatures=PER_THREAD_LOG_SIGNATURES_FLG.value,
+      )
+      CloudLoggingClient._singleton_instance = self
+
+  def startup_msg(self) -> None:
+    """Logs default messages after logger fully initialized."""
+    if self.use_absl_logging() or CloudLoggingClient._startup_message_logged:
+      return
+    CloudLoggingClient._startup_message_logged = True
+    pid = os.getpid()
+    process_name = psutil.Process(pid).name()
+    self.debug(
+        'Container process started.',
+        {'process_name': process_name, 'process_id': pid},
+    )
+    self.debug('Container environmental variables.', os.environ)  # pytype: disable=wrong-arg-types  # kwargs-checking
+    vm = psutil.virtual_memory()
+    self.debug(
+        'Compute instance',
+        {
+            'processors(count)': os.cpu_count(),
+            'total_system_mem_(bytes)': vm.total,
+            'available_system_mem_(bytes)': vm.available,
+        },
+    )
+    project_name = self.gcp_project_name if self.gcp_project_name else 'DEFAULT'
+    self.debug(f'Logging to GCP project: {project_name}')
+
+  @classmethod
+  def logger(cls) -> CloudLoggingClient:
+    if cls._singleton_instance is None:
+      with cls._singleton_lock:  # makes instance creation thread safe.
+        if cls._singleton_instance is None:
+          cls._singleton_instance = CloudLoggingClient()
+          cls._singleton_instance.startup_msg()  # pytype: disable=attribute-error
+    return cls._singleton_instance  # pytype: disable=bad-return-type
+
+
+def logger() -> CloudLoggingClient:
+  return CloudLoggingClient.logger()
+
+
+# Logging interfaces are used from processes which are forked (gunicorn,
+# DICOM Proxy, Orchestrator, Refresher). In Python, forked processes do not
+# copy threads running within parent processes or re-initalize global/module
+# state. This can result in forked modules being executed with invalid global
+# state, e.g., acquired locks that will not release or references to invalid
+# state. The cloud logging library utilizes a background thread transporting
+# logs to cloud. The background threading is not compatiable with forking and
+# will seg-fault (python queue wait). This  can be avoided, by stoping and
+# the background transport prior to forking and then restarting the transport
+# following the fork.
+os.register_at_fork(
+    before=CloudLoggingClient._fork_shutdown,  # pylint: disable=protected-access
+    after_in_child=CloudLoggingClient._init_fork_module_state,  # pylint: disable=protected-access
+)

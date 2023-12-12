@@ -1,0 +1,185 @@
+<!-- Copyright 2023 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+============================================================================== -->
+<book xmlns="http://docbook.org/ns/docbook" xmlns:xl="http://www.w3.org/1999/xlink" label="PS3.6" version="5.0" xml:id="PS3.6">
+<title>PS3.6</title>
+<subtitle>DICOM PS3.6 2021b - Data Dictionary</subtitle>
+<info>
+<author>
+<orgname>DICOM Standards Committee</orgname>
+</author>
+<copyright>
+<year>2021</year>
+<holder>NEMA</holder>
+</copyright>
+<legalnotice>
+<para xml:id="para_644774e9-c64e-4af0-9ccd-ea6545ae2ffe">A DICOM® publication</para>
+</legalnotice>
+</info>
+
+<table frame="box" label="E.2-1" rules="all" xml:id="table_E.2-1">
+<caption>Retired Command Fields</caption>
+<thead>
+<tr valign="top">
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_d62f2f11-09d3-4e23-a529-eb45dcfec2f4">
+<emphasis role="bold">Tag</emphasis>
+</para>
+</th>
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_56094014-9d25-44fa-8b4a-797bd9aa24ba">
+<emphasis role="bold">Message Field</emphasis>
+</para>
+</th>
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_7d8e9d06-73da-46a3-b583-0880d97482f9">
+<emphasis role="bold">Keyword</emphasis>
+</para>
+</th>
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_9b80c358-f4e3-42fa-a9a0-b4ff04853f35">
+<emphasis role="bold">VR</emphasis>
+</para>
+</th>
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_76de7f2a-456b-4810-9f5f-d21a085d9116">
+<emphasis role="bold">VM</emphasis>
+</para>
+</th>
+</tr>
+</thead>
+<tbody>
+<tr valign="top">
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_da6567cc-2477-4483-a5d9-03c669e57d53">(0000,0001)</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_fbff5d25-a4ae-4339-afe3-f728e60b63a5">Command Length to End</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_af6f9684-fc12-470c-a164-c85791d153fb">CommandLengthToEnd</para>
+</td>
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_979ec487-397c-4829-bf4d-fc3e120a4416">UL</para>
+</td>
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_e1276e64-287f-4f9e-8ba7-7de903bd8939">1</para>
+</td>
+</tr>
+</tbody>
+</table>
+
+<table frame="box" label="E.1-1" rules="all" xml:id="table_E.1-1">
+<caption>Command Fields</caption>
+<thead>
+<tr valign="top">
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_dc41cdd3-1cf8-4093-a749-3efb1a95bcf2">
+<emphasis role="bold">Tag</emphasis>
+</para>
+</th>
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_1c62e73c-ed73-4e13-953d-3985745fd5df">
+<emphasis role="bold">Message Field</emphasis>
+</para>
+</th>
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_098214f2-d180-4bcc-be16-994fa0d28765">
+<emphasis role="bold">Keyword</emphasis>
+</para>
+</th>
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_4f262ed6-6784-48a1-903f-39e318f2622f">
+<emphasis role="bold">VR</emphasis>
+</para>
+</th>
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_ca27c3bb-b6fa-42c9-adbd-1734d3588913">
+<emphasis role="bold">VM</emphasis>
+</para>
+</th>
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_58221eb2-0e57-445c-90fd-6688b0632fec">
+<emphasis role="bold">Description of Field</emphasis>
+</para>
+</th>
+</tr>
+</thead>
+<tbody>
+<tr valign="top">
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_32d86c00-f704-4787-bac6-df4f967a974a">(0000,0000)</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_8cda3b1e-ef71-4c3b-bd46-7ef58695edf2">Command Group Length</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_773d4b16-a32b-4105-b552-e23c57c2c558">CommandGroupLength</para>
+</td>
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_6d75a9e5-2efd-44fc-abf1-99962a415258">UL</para>
+</td>
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_f64bd98c-a369-471a-a0e9-218092c12453">1</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_3ccfa4fc-0261-4383-a8f2-18098a986eef">The even number of bytes from the end of the value field to the beginning of the next group.</para>
+</td>
+</tr>
+<tr valign="top">
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_c2f1b58d-3b30-4dd1-bb69-32d7672116e9">(0000,0100)</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_11b7ca51-898e-4806-a969-45b0ec78944e">Command Field</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_49954f6c-075f-45d7-87fc-00147bc52b04">CommandField</para>
+</td>
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_4201812b-4a7f-42d9-aabe-d655ce90feed">US</para>
+</td>
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_f1b61919-254d-415e-ac40-04caedf8c8ec">1</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_0f783436-6289-4d20-a19b-3c3a806c53e7">This field distinguishes the DIMSE operation conveyed by this Message. This field shall be set to one of the following values:</para>
+<para xml:id="para_173495ad-5024-412d-9ad4-5ccc4d527b30">0001H C-STORE-RQ</para>
+<para xml:id="para_ff9d05c1-e853-4815-a37b-04dbec212732">8001H C-STORE-RSP</para>
+<para xml:id="para_73d79fae-95a3-487e-8487-5212590e9f67">0010H C-GET-RQ</para>
+<para xml:id="para_44eca31a-b206-4f3d-87a4-7d7683a2205f">8010H C-GET-RSP</para>
+<para xml:id="para_42938c88-86dd-445f-ae54-0d1f1d81bc23">0020H C-FIND-RQ</para>
+<para xml:id="para_a3053ce3-51cf-40ed-bb53-8ea272f6c893">8020H C-FIND-RSP</para>
+<para xml:id="para_af78a437-ef60-40cb-a1b2-2a859d8a03d6">0021HC-MOVE-RQ</para>
+<para xml:id="para_add6bdd9-8366-40be-b532-f282aa28600c">8021H C-MOVE-RSP</para>
+<para xml:id="para_e64d57df-2e03-437a-b831-3a79b027cdb1">0030H C-ECHO-RQ</para>
+<para xml:id="para_7e31dd3d-b98f-45b3-b4f1-10278760dafe">8030H C-ECHO-RSP</para>
+<para xml:id="para_07ea6c20-ea0f-47b6-af2f-f7a3787e0d3e">0100H N-EVENT-REPORT-RQ</para>
+<para xml:id="para_99506906-7cbc-4a5c-b916-12abe99dfb06">8100H N-EVENT-REPORT-RSP</para>
+<para xml:id="para_4250a288-c4f7-484f-9597-658dc3ecbb1b">0110H N-GET-RQ</para>
+<para xml:id="para_54af94b2-5fdd-48fa-9197-0f314e251ff3">8110H N-GET-RSP</para>
+<para xml:id="para_47f3f781-3aa1-496d-ae15-3bd29cc79ee0">0120H N-SET-RQ</para>
+<para xml:id="para_2aac26d6-2999-4153-bc01-daa8166354b5">8120H N-SET-RSP</para>
+<para xml:id="para_c4a9e35f-040a-4c31-bba7-3e54b2ab5ce7">0130H N-ACTION-RQ</para>
+<para xml:id="para_e29a9334-4849-4648-bb6b-7c9d9df69955">8130H N-ACTION-RSP</para>
+<para xml:id="para_ea288910-c966-4369-8f70-3c2bc895b843">0140H N-CREATE-RQ</para>
+<para xml:id="para_988f400b-4459-4d33-a5a1-bf37ebd9c474">8140H N-CREATE-RSP</para>
+<para xml:id="para_6e65ff6b-1e54-4ed0-b780-d5af4cd47c0d">0150H N-DELETE-RQ</para>
+<para xml:id="para_1bc83add-e044-4243-8eb4-0812cabc03f1">8150H N-DELETE-RSP</para>
+<para xml:id="para_bb450519-568b-46b5-9605-e34e76af564b">0FFFH C-CANCEL-RQ</para>
+</td>
+</tr>
+</tbody>
+</table>
+</book>

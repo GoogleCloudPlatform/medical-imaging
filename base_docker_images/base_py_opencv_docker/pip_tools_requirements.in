@@ -1,0 +1,5 @@
+# Do not modify requirements.txt directly. Run
+# generate_requirements.sh to build requirements.txt from this file.
+# LINT.IfChange
+pip-tools==7.3.0
+# LINT.ThenChange(//depot/base_docker_images/base_py_opencv_docker/pip_tools_requirements.txt)

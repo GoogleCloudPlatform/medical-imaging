@@ -1,0 +1,161 @@
+<!-- Copyright 2023 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+============================================================================== -->
+<book xmlns="http://docbook.org/ns/docbook" xmlns:xl="http://www.w3.org/1999/xlink" label="PS3.6" version="5.0" xml:id="PS3.6">
+<title>PS3.6</title>
+<subtitle>DICOM PS3.6 2021b - Data Dictionary</subtitle>
+<info>
+<author>
+<orgname>DICOM Standards Committee</orgname>
+</author>
+<copyright>
+<year>2021</year>
+<holder>NEMA</holder>
+</copyright>
+<legalnotice>
+<para xml:id="para_644774e9-c64e-4af0-9ccd-ea6545ae2ffe">A DICOM® publication</para>
+</legalnotice>
+</info>
+<chapter label="" status="1" xml:id="chapter_Notice">
+<title>Notice and Disclaimer</title>
+<para xml:id="para_dc52d22b-44f9-45cd-a5da-4fc14671a911">The information in this publication was considered technically sound by the consensus of persons engaged in the development and approval of the document at the time it was developed. Consensus does not necessarily mean that there is unanimous agreement among every person participating in the development of this document.</para>
+<para xml:id="para_ce52e7d7-cd24-4c37-849f-676ff019e4cf">NEMA standards and guideline publications, of which the document contained herein is one, are developed through a voluntary consensus standards development process. This process brings together volunteers and/or seeks out the views of persons who have an interest in the topic covered by this publication. While NEMA administers the process and establishes rules to promote fairness in the development of consensus, it does not write the document and it does not independently test, evaluate, or verify the accuracy or completeness of any information or the soundness of any judgments contained in its standards and guideline publications.</para>
+<para xml:id="para_b99c5c42-dddb-427c-a26d-ce9d2f22c6f2">NEMA disclaims liability for any personal injury, property, or other damages of any nature whatsoever, whether special, indirect, consequential, or compensatory, directly or indirectly resulting from the publication, use of, application, or reliance on this document. NEMA disclaims and makes no guaranty or warranty, expressed or implied, as to the accuracy or completeness of any information published herein, and disclaims and makes no warranty that the information in this document will fulfill any of your particular purposes or needs. NEMA does not undertake to guarantee the performance of any individual manufacturer or seller's products or services by virtue of this standard or guide.</para>
+<para xml:id="para_f80cd9c1-fead-4586-b701-0439c81204bc">In publishing and making this document available, NEMA is not undertaking to render professional or other services for or on behalf of any person or entity, nor is NEMA undertaking to perform any duty owed by any person or entity to someone else. Anyone using this document should rely on his or her own independent judgment or, as appropriate, seek the advice of a competent professional in determining the exercise of reasonable care in any given circumstances. Information and other standards on the topic covered by this publication may be available from other sources, which the user may wish to consult for additional views or information not covered by this publication.</para>
+<para xml:id="para_0a64ed30-87b4-4b96-a704-19bae89492b6">NEMA has no power, nor does it undertake to police or enforce compliance with the contents of this document. NEMA does not certify, test, or inspect products, designs, or installations for safety or health purposes. Any certification or other statement of compliance with any health or safety-related information in this document shall not be attributable to NEMA and is solely the responsibility of the certifier or maker of the statement.</para>
+</chapter>
+
+
+<chapter label="A" status="1" xml:id="chapter_A">
+</chapter>
+  
+<chapter label="C" status="1" xml:id="chapter_A">
+</chapter>
+
+<table frame="box" label="C.8.12.5-1" rules="all" xml:id="table_C.8.12.5-1">
+<caption>Optical Path Module Attributes</caption>
+<thead>
+<tr valign="top">
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_9624cf4b-bf88-42cb-85ef-9d0f3b0c34c5">Attribute Name</para>
+</th>
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_b8f08c93-5a12-408b-8656-814f41cf5364">Tag</para>
+</th>
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_4ae9fb3a-d97e-4a7b-99e6-c861757845b1">Type</para>
+</th>
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_a6b8c736-a727-4bd6-a714-6711e543176d">Attribute Description</para>
+</th>
+</tr>
+</thead>
+<tbody>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_51112e25-3f7b-4440-9c85-25c7917dfa9d">Number of Optical Paths</para>
+</td>
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_358e9019-b530-4e5c-9de4-86539dd57338">(0048,0302)</para>
+</td>
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_b29422fa-a50f-4aa1-96a8-f13d6949128d">1C</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_3c4d15b6-9551-495b-b6dd-63cf0fe1deab">Number of Items in the Optical Path Sequence (0048,0105).</para>
+<para xml:id="para_ffe1b1b0-a2d5-4a37-8f47-5b737a1abc2c">Required if Dimension Organization Type (0020,9311) is present with a value of TILED_FULL. May be present otherwise.</para>
+</td>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_841243ef-6254-4d8a-8006-d17549a4a2ab">Optical Path Sequence</para>
+</td>
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_1d1cc020-82da-4d9a-bfa6-4bf0f05e154a">(0048,0105)</para>
+</td>
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_28f18616-4453-4a58-95b6-cf8350a4797e">1</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_c84eaf30-8dbf-4dcf-b8ae-4cfa8213952c">Describes the optical paths used during the acquisition of this image.</para>
+<para xml:id="para_4f8d4228-42b4-4a6e-839b-8e1ee55cb0b4">One or more Items shall be included in this Sequence.</para>
+<para xml:id="para_3eff3655-b3d0-4c5a-9a1b-edc5f165d078">
+See
+<xref linkend="sect_C.8.12.5.1.1" xrefstyle="select: label"/>
+</para>
+</td>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_7326d592-a8d5-402d-b334-cb8ec8ad6276">>Optical Path Identifier</para>
+</td>
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_5066d401-23bc-4291-bd4e-77f064a5a845">(0048,0106)</para>
+</td>
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_2b0d8d9b-086f-4faf-bb01-bd4b1c120fef">1</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_fa9263c4-8c23-411a-b40e-a9e8aaccd2c5">Identifier for the optical path specified in the Sequence Item. The identifier shall be unique for each Item within the Optical Path Sequence.</para>
+</td>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_1aa8562d-9b5f-4b49-8f09-82789bf667c1">>Optical Path Description</para>
+</td>
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_0ec74a6e-b315-4a14-9c75-5d23c53e0736">(0048,0107)</para>
+</td>
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_67a0b2d7-5c46-4b14-9036-86714b9eeffb">3</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_0e7f3f85-0193-4cf4-a307-f25505693f63">Description of the optical path specified in the Sequence Item.</para>
+</td>
+</tr>
+<tr valign="top">
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_5fb31703-b93a-48e7-9ec7-7b643090287d">>Illuminator Type Code Sequence</para>
+</td>
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_f727f699-1275-4a72-af52-375c9e7e8bb3">(0048,0100)</para>
+</td>
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_5587a413-2368-4b1d-b82a-b934a4f032d2">3</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_6886715c-696e-4819-9c78-f7b9a07521be">Type of illuminator.</para>
+<para xml:id="para_67dbe28a-e9c9-4c4d-aee6-2636b68a8fbf">Only a single Item is permitted in this Sequence.</para>
+</td>
+</tr>
+<tr valign="top">
+<td align="left" colspan="3" rowspan="1">
+<para xml:id="para_fa9dc9af-a0b2-4b58-83df-13c6d939e36a">
+<emphasis role="italic">
+>>Include
+<xref linkend="table_8.8-1" xrefstyle="select: label quotedtitle"/>
+</emphasis>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_0717914c-0e4d-4769-ac00-74b989ce7aeb">
+<emphasis role="italic">CID may be defined in the IOD constraints.</emphasis>
+</para>
+</td>
+</tr>
+</tbody>
+</table>
+
+</book>
+

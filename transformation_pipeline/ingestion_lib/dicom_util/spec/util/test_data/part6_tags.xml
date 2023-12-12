@@ -1,0 +1,184 @@
+<!-- Copyright 2023 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+============================================================================== -->
+<book xmlns="http://docbook.org/ns/docbook" xmlns:xl="http://www.w3.org/1999/xlink" label="PS3.6" version="5.0" xml:id="PS3.6">
+<title>PS3.6</title>
+<subtitle>DICOM PS3.6 2021b - Data Dictionary</subtitle>
+<info>
+<author>
+<orgname>DICOM Standards Committee</orgname>
+</author>
+<copyright>
+<year>2021</year>
+<holder>NEMA</holder>
+</copyright>
+<legalnotice>
+<para xml:id="para_644774e9-c64e-4af0-9ccd-ea6545ae2ffe">A DICOM® publication</para>
+</legalnotice>
+</info>
+<chapter label="6" status="1" xml:id="chapter_6">
+<title>Registry of DICOM Data Elements</title>
+<note>
+<para xml:id="para_1371e1fd-401d-4a1d-b6b5-b3b02871fc12">For data elements that were present in ACR-NEMA 1.0 and 2.0 and that have been retired, the specifications of Value Representation and Value Multiplicity provided are recommendations for the purpose of interpreting their values in objects created in accordance with earlier editions of this Standard. These recommendations are suggested as most appropriate for a particular data element; however, there is no guarantee that historical objects will not violate some requirements or specified VR and/or VM.</para>
+</note>
+<table frame="box" label="6-1" rules="all" xml:id="table_6-1">
+<caption>Registry of DICOM Data Elements</caption>
+<thead>
+<tr valign="top">
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_3e8c52d5-3582-4ec4-a7e6-acd7604caf32">
+<emphasis role="bold">Tag</emphasis>
+</para>
+</th>
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_ac298c3b-bcdd-462b-9240-c38e738bfb7c">
+<emphasis role="bold">Name</emphasis>
+</para>
+</th>
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_99f6b0ff-e1b0-484e-83b5-c3003d61704c">
+<emphasis role="bold">Keyword</emphasis>
+</para>
+</th>
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_42b3621d-8b30-46eb-8992-10bb21310ac7">
+<emphasis role="bold">VR</emphasis>
+</para>
+</th>
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_551ea829-a949-4bfd-a201-bb102024e64c">
+<emphasis role="bold">VM</emphasis>
+</para>
+</th>
+<th align="center" colspan="1" rowspan="1">
+<para xml:id="para_3a18713f-2e81-4664-b9a1-e4e3d41957ab"/>
+</th>
+</tr>
+</thead>
+<tbody>
+<tr valign="top">
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_fe47e8b1-d995-4c42-a316-8a60c72db316">(0010,0020)</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_9e896174-5f4d-4dbb-bea7-8099f1171aaf">Patient ID</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_de964eb5-5fc5-4a4b-a2de-6e06983feacd">Patient​ID</para>
+</td>
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_2dd5476e-2228-4a14-8d6d-6b39537502fc">LO</para>
+</td>
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_5d774077-9acc-4fcb-9751-7103a8dcba94">1</para>
+</td>
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_d399719c-6fe6-468f-a0fc-107ea064b426"/>
+</td>
+</tr>
+<tr valign="top">
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_b68b0246-9ece-4055-bc78-e1b5d44e424e">(0010,0010)</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_bbf5edc4-f7e1-438b-97c1-ecf0962eb121">Patient's Name</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_70e69d0d-03d7-44a2-bc69-b150a501b9c4">Patient​Name</para>
+</td>
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_ce120478-a123-4826-b89d-bcd7ae7bcd0a">PN</para>
+</td>
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_6536f404-09b3-437a-a1d9-597b1d3eae3a">1</para>
+</td>
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_11e19338-48c9-4251-a747-5f2d7b9f66fc"/>
+</td>
+</tr>
+<tr valign="top">
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_6b7dede5-2f04-4ab8-a427-aa9f0e5e9f8f">(0010,0032)</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_6e64b059-de28-4fd2-859d-f260973c1946">Patient's Birth Time</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_68c8b2a1-1544-4c31-99a8-c5b4e3650993">Patient​Birth​Time</para>
+</td>
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_8da38baf-5f79-441d-becc-c98ebe3e3365">TM</para>
+</td>
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_755a4bc4-1d4c-4f27-bd7b-928a17efbb66">1</para>
+</td>
+</tr>
+<tr valign="top">
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_c14657bb-bab3-4f86-a485-d21e39695a4b">
+<emphasis role="italic">(7Fxx,0020)</emphasis>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_eb991021-03e7-4d2b-971f-94c52b8101a6">
+<emphasis role="italic">Variable Coefficients SDVN</emphasis>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+<para xml:id="para_edc8e288-a10d-4a7f-82c2-ebc15bf4433d">
+<emphasis role="italic">Variable​Coefficients​SDVN</emphasis>
+</para>
+</td>
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_3683080b-24da-4bf3-8943-da2b0a09e4e8">
+<emphasis role="italic">OW</emphasis>
+</para>
+</td>
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_f39d25f1-5a61-4b08-b2b2-ee1dfac56284">
+<emphasis role="italic">1</emphasis>
+</para>
+</td>
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_8e101061-a33b-4d97-9ada-7b7af309f152">
+<emphasis role="italic">RET (2007)</emphasis>
+</para>
+</td>
+</tr>
+
+<tr valign="top">
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_c14657bb-bab3-4f86-a485-d21e39695a4b">
+<emphasis role="italic">(1234,6789)</emphasis>
+</para>
+</td>
+<td align="left" colspan="1" rowspan="1">
+</td>
+<td align="left" colspan="1" rowspan="1">
+</td>
+<td align="center" colspan="1" rowspan="1">
+</td>
+<td align="center" colspan="1" rowspan="1">
+</td>
+<td align="center" colspan="1" rowspan="1">
+<para xml:id="para_8e101061-a33b-4d97-9ada-7b7af309f152">
+<emphasis role="italic">RET (2007)</emphasis>
+</para>
+</td>
+</tr>
+
+</tbody>
+</table>
+</chapter>
+</book>
