@@ -326,7 +326,7 @@ DICOM store. For Convenience DICOM instances may also be copied to GCS.
 
 ## References
 
-* [1] [HowTo: Setting up a Cloud Pathology Preview Deployment](https://github.com/GoogleCloudPlatform/cloud-pathology-iac/blob/main/readme.md)
+* [1] HowTo: Setting up a Cloud Pathology Preview Deployment (Coming Soon!)
 
 * [2] [HowTo: Transform Pipeline DICOM Metadata Values and Schema](https://github.com/GoogleCloudPlatform/cloud-pathology/blob/main/transformation_pipeline/docs/transform_pipeline_metadata_values_and_schema.md)
 

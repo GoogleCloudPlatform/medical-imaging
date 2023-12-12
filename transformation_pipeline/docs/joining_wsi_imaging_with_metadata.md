@@ -107,4 +107,4 @@ The Barcode Value tag in DICOM instances is tested as a metadata primary key.
 
 ## References
 
-[1] [HowTo: Transform Pipeline DICOM Metadata Values and Schema](https://github.com/GoogleCloudPlatform/Cloud-Pathology/blob/main/transformation_pipeline/transform_pipeline_metadata_values_and_schema.md)
+[1] [HowTo: Transform Pipeline DICOM Metadata Values and Schema](https://github.com/GoogleCloudPlatform/Cloud-Pathology/blob/main/transformation_pipeline/docs/transform_pipeline_metadata_values_and_schema.md)

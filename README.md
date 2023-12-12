@@ -57,7 +57,7 @@ Get started [here](https://github.com/GoogleCloudPlatform/Cloud-Pathology/blob/m
 ## Deploying
 
 For more information on deploying our applications see our IaC repository
-[here](https://github.com/GoogleCloudPlatform/Cloud-Pathology-IaC).
+(Coming Soon!).
 
 ## Contributing
 
