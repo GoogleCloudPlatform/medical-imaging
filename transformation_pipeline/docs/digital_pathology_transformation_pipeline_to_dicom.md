@@ -10,9 +10,9 @@ pipeline's capabilities.
 
 ## Background
 
-![alt text](https://github.com/GoogleCloudPlatform/Cloud-Pathology/blob/main/transformation_pipeline/docs/graphical_overview_1.png?raw=true)
+![alt text](https://github.com/GoogleCloudPlatform/Cloud-Pathology/blob/main/transformation_pipeline/docs/images/graphical_overview_1.png?raw=true)
 
-![alt text](https://github.com/GoogleCloudPlatform/Cloud-Pathology/blob/main/transformation_pipeline/docs/graphical_overview_2.png?raw=true)
+![alt text](https://github.com/GoogleCloudPlatform/Cloud-Pathology/blob/main/transformation_pipeline/docs/images/graphical_overview_2.png?raw=true)
 
 Figure 1: A graphical overview of the digital pathology pipeline
 The process of transforming an input Whole Slide Imaging (WSI) file into DICOM

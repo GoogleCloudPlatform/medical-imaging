@@ -35,17 +35,17 @@ To get started, clone the repository:
   1. Run the following commands to make an installation directory for
     Cloud Pathology:
 
-    ```shell
+  ```shell
     export CLOUD_PATH=$HOME/cloud_pathology
     mkdir $CLOUD_PATH
     cd $CLOUD_PATH
-    ```
+  ```
 
   2. Clone Cloud pathology into the directory you just created:
 
-    ```shell
+  ```shell
     git clone https://github.com/GoogleCloudPlatform/cloud-pathology.git $CLOUD_PATH
-    ```
+  ```
 
 ## Applications
 

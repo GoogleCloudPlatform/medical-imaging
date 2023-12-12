@@ -32,7 +32,7 @@ Failed ingestions can be retried after the conditions causing the failure have
 been corrected by moving the imaging from the failure bucket back into the
 ingestion bucket.
 
-![alt text](https://github.com/GoogleCloudPlatform/Cloud-Pathology/blob/main/transformation_pipeline/docs/flowchart.png?raw=true)
+![alt text](https://github.com/GoogleCloudPlatform/Cloud-Pathology/blob/main/transformation_pipeline/docs/images/flowchart.png?raw=true)
 
 ## Image File Primary Key Detection
 
