@@ -48,10 +48,37 @@ _NONE = ingest_const.NONE
 _DERIVED = ingest_const.DERIVED
 _PRIMARY = ingest_const.PRIMARY
 _VOLUME = ingest_const.VOLUME
-_ORIGINAL_IMAGE_TYPE = (
-    f'{validate_ingested_dicom._ORIGINAL_IMAGE_TYPE}\\{_NONE}'
-)
-_DERIVED_IMAGE_TYPE = f'{_DERIVED}\\{_PRIMARY}\\{_VOLUME}\\{_RESAMPLED}'
+
+_WSI_IMAGE_TYPES = [
+    ([_ORIGINAL, _PRIMARY, _VOLUME],),
+    ([_ORIGINAL, _PRIMARY, _VOLUME, _NONE],),
+    ([_ORIGINAL, _PRIMARY, _VOLUME, _RESAMPLED],),
+    ([_DERIVED, _PRIMARY, _VOLUME],),
+    ([_DERIVED, _PRIMARY, _VOLUME, _NONE],),
+    ([_DERIVED, _PRIMARY, _VOLUME, _RESAMPLED],),
+    ([_DERIVED, _PRIMARY, _LABEL],),
+    ([_DERIVED, _PRIMARY, _LABEL, _NONE],),
+    ([_ORIGINAL, _PRIMARY, _LABEL],),
+    ([_ORIGINAL, _PRIMARY, _LABEL, _NONE],),
+    ([_DERIVED, _PRIMARY, _OVERVIEW],),
+    ([_DERIVED, _PRIMARY, _OVERVIEW, _NONE],),
+    ([_ORIGINAL, _PRIMARY, _OVERVIEW],),
+    ([_ORIGINAL, _PRIMARY, _OVERVIEW, _NONE],),
+    ([_DERIVED, _PRIMARY, _THUMBNAIL],),
+    ([_DERIVED, _PRIMARY, _THUMBNAIL, _NONE],),
+    ([_ORIGINAL, _PRIMARY, _THUMBNAIL],),
+    ([_ORIGINAL, _PRIMARY, _THUMBNAIL, _NONE],),
+]
+
+
+def _get_mock_image_pyarmid_types(base: str) -> List[List[str]]:
+  return [
+      [base, _PRIMARY, _VOLUME, _RESAMPLED],
+      [base, _PRIMARY, _VOLUME, _RESAMPLED],
+      [base, _PRIMARY, _THUMBNAIL],
+      [base, _PRIMARY, _OVERVIEW, _NONE],
+      [base, _PRIMARY, _LABEL],
+  ]
 
 
 class _GenTestDicom:
@@ -59,7 +86,7 @@ class _GenTestDicom:
 
   def __init__(
       self,
-      image_type: str = _ORIGINAL,
+      image_type: List[str],
       dcm_cpy: Optional[pydicom.Dataset] = None,
   ):
     if dcm_cpy:
@@ -68,7 +95,7 @@ class _GenTestDicom:
           pydicom.FileDataset,
           dicom_test_util.create_test_dicom_instance(dcm_json=dicom_metadata),
       )
-      self.set_image_frame_type(image_type)
+      self._set_image_frame_type(image_type)
       return
     dicom_metadata = dicom_test_util.create_metadata_dict()
     self._dcm = typing.cast(
@@ -90,26 +117,23 @@ class _GenTestDicom:
     self._dcm.SpecimenLabelInImage = 'NO'
     self._dcm.DimensionOrganizationType = ingest_const.TILED_FULL
     self._dcm.file_meta.TransferSyntaxUID = '1.2.840.10008.1.2.1'
-    self.set_image_frame_type(image_type)
+    self._set_image_frame_type(image_type)
 
-  def set_image_frame_type(self, image_type: str):
+  def _set_image_frame_type(self, image_type_list: List[str]):
     """Sets DICOM ImageType and FrameType."""
-    image_type = image_type.strip().upper()
-    if image_type == _CT:
+    if _CT in image_type_list:
       del self._dcm.TotalPixelMatrixRows
       del self._dcm.TotalPixelMatrixColumns
       del self._dcm.NumberOfFrames
       self._dcm.Modality = 'CT'
       self._dcm.ImageType = 'CT'
       return
-    set_one_frame = True
-    if image_type == _RESAMPLED:
-      self._dcm.ImageType = _DERIVED_IMAGE_TYPE
-    elif image_type in (_THUMBNAIL, _LABEL, _OVERVIEW):
-      self._dcm.ImageType = f'{_ORIGINAL}\\{_PRIMARY}\\{image_type}\\{_NONE}'
-    else:
-      self._dcm.ImageType = _ORIGINAL_IMAGE_TYPE
-      set_one_frame = False
+    set_one_frame = False
+    for ancillary_img_type in _THUMBNAIL, _LABEL, _OVERVIEW:
+      if ancillary_img_type in image_type_list:
+        set_one_frame = True
+        break
+    self._dcm.ImageType = '\\'.join(image_type_list)
     self._dcm.FrameType = self._dcm.ImageType
     if set_one_frame:
       self._dcm.TotalPixelMatrixRows = self._dcm.Rows
@@ -138,69 +162,70 @@ class _GenTestDicom:
     return self._dcm
 
 
-def _gen_first_dicom(
-    temp_dir: absltest._TempDir, image_type: str = _ORIGINAL
-) -> Tuple[List[str], pydicom.Dataset]:
-  """Generate first DICOM image in image list.
-
-  Args:
-    temp_dir: Temp dir to gen image in.
-    image_type: Image type to generate.
-
-  Returns:
-    Tuple[List[path to dicom], pydicom.Dataset]
-  """
-  original_dcm = _GenTestDicom(image_type=image_type)
-  path = os.path.join(temp_dir, 'dcm_0.dcm')
-  original_dcm.dicom.save_as(path)
-  return ([path], original_dcm.dicom)
-
-
-def _gen_next_dicom(
-    original_dcm: pydicom.Dataset,
-    temp_dir: absltest._TempDir,
-    image_type: str,
-    dcm_list: List[str],
-) -> Tuple[pydicom.Dataset, str]:
-  """Generate next DICOM image in image list.
-
-  Args:
-    original_dcm: dicom to base image on.
-    temp_dir: Temp dir to gen image in.
-    image_type: Image type to generate.
-    dcm_list: List of generated dicom file paths.
-
-  Returns:
-    Tuple[pydicom.Dataset  generated, path to image]
-  """
-  inc_count = len(dcm_list)
-  dcm = _GenTestDicom(image_type, original_dcm)
-  dcm.increment_instance(inc_count)
-  path = os.path.join(temp_dir, f'dcm_{inc_count}.dcm')
-  dcm_list.append(path)
-  return dcm.dicom, path
-
-
-def _gen_next_dicom_save(
-    original_dcm: pydicom.Dataset,
-    temp_dir: absltest._TempDir,
-    image_type: str,
-    dcm_list: List[str],
-):
-  """Generates and saves next DICOM image in image list.
-
-  Args:
-    original_dcm: dicom to base image on.
-    temp_dir: Temp dir to gen image in.
-    image_type: Image type to generate.
-    dcm_list: List of generated dicom file paths.
-  """
-  dcm, path = _gen_next_dicom(original_dcm, temp_dir, image_type, dcm_list)
-  dcm.save_as(path)
-
-
 class ValidateIngestedDicomTest(parameterized.TestCase):
   """Tests for validate_ingested_dicom."""
+
+  def setUp(self):
+    super().setUp()
+    self._temp_dir = self.create_tempdir()
+
+  def _get_temp_file_path(self, filename) -> str:
+    return os.path.join(self._temp_dir, filename)
+
+  def _gen_first_dicom(
+      self, image_type: List[str]
+  ) -> Tuple[List[str], pydicom.Dataset]:
+    """Generate first DICOM image in image list.
+
+    Args:
+      image_type: Image type to generate.
+
+    Returns:
+      Tuple[List[path to dicom], pydicom.Dataset]
+    """
+    original_dcm = _GenTestDicom(image_type=image_type)
+    path = self._get_temp_file_path('dcm_0.dcm')
+    original_dcm.dicom.save_as(path)
+    return ([path], original_dcm.dicom)
+
+  def _gen_next_dicom(
+      self,
+      original_dcm: pydicom.Dataset,
+      image_type: List[str],
+      dcm_list: List[str],
+  ) -> Tuple[pydicom.Dataset, str]:
+    """Generate next DICOM image in image list.
+
+    Args:
+      original_dcm: dicom to base image on.
+      image_type: Image type to generate.
+      dcm_list: List of generated dicom file paths.
+
+    Returns:
+      Tuple[pydicom.Dataset  generated, path to image]
+    """
+    inc_count = len(dcm_list)
+    dcm = _GenTestDicom(image_type, original_dcm)
+    dcm.increment_instance(inc_count)
+    path = self._get_temp_file_path(f'dcm_{inc_count}.dcm')
+    dcm_list.append(path)
+    return dcm.dicom, path
+
+  def _gen_next_dicom_save(
+      self,
+      original_dcm: pydicom.Dataset,
+      image_type: List[str],
+      dcm_list: List[str],
+  ):
+    """Generates and saves next DICOM image in image list.
+
+    Args:
+      original_dcm: dicom to base image on.
+      image_type: Image type to generate.
+      dcm_list: List of generated dicom file paths.
+    """
+    dcm, path = self._gen_next_dicom(original_dcm, image_type, dcm_list)
+    dcm.save_as(path)
 
   def test_validate_uid_succeeds(self):
     self.assertIsNone(validate_ingested_dicom._validate_uid('1.2.0.4', None))
@@ -229,12 +254,12 @@ class ValidateIngestedDicomTest(parameterized.TestCase):
     with self.assertRaises(ingested_dicom_file_ref.DicomIngestError):
       validate_ingested_dicom._validate_uid(f'2.{test_char}.4', None)
 
-  def test_validate_wsi_dicom_instance_succeeds(self):
-    temp_dir = self.create_tempdir()
-    original_dcm = _GenTestDicom(image_type=_ORIGINAL)
+  @parameterized.parameters(_WSI_IMAGE_TYPES)
+  def test_validate_wsi_dicom_instance_succeeds(self, image_type):
+    original_dcm = _GenTestDicom(image_type=image_type)
     self.assertFalse(original_dcm.dicom.is_implicit_VR)
     self.assertTrue(original_dcm.dicom.is_little_endian)
-    path = os.path.join(temp_dir, 'dcm_0.dcm')
+    path = self._get_temp_file_path('dcm_0.dcm')
     original_dcm.dicom.save_as(path)
     self.assertIsNone(
         validate_ingested_dicom._validate_wsi_dicom_instance(
@@ -242,10 +267,12 @@ class ValidateIngestedDicomTest(parameterized.TestCase):
         )
     )
 
-  def test_validate_wsi_dicom_instance_invalid_number_of_frames_raises(self):
-    temp_dir = self.create_tempdir()
-    original_dcm = _GenTestDicom(image_type=_ORIGINAL)
-    path = os.path.join(temp_dir, 'dcm_0.dcm')
+  @parameterized.parameters(_WSI_IMAGE_TYPES)
+  def test_validate_wsi_dicom_instance_invalid_number_of_frames_raises(
+      self, image_type
+  ):
+    original_dcm = _GenTestDicom(image_type=image_type)
+    path = self._get_temp_file_path('dcm_0.dcm')
     original_dcm.dicom.NumberOfFrames = '4'
     original_dcm.dicom.save_as(path)
     with self.assertRaises(ingested_dicom_file_ref.DicomIngestError):
@@ -253,11 +280,8 @@ class ValidateIngestedDicomTest(parameterized.TestCase):
       validate_ingested_dicom._validate_wsi_dicom_instance(result)
 
   def test_validate_wsi_dicom_instance_invalid_label_type_raises(self):
-    temp_dir = self.create_tempdir()
-    original_dcm = _GenTestDicom(image_type=_LABEL)
-    path = os.path.join(temp_dir, 'dcm_0.dcm')
-    original_dcm.dicom.ImageType = f'{_LABEL}\\{_OVERVIEW}\\{_THUMBNAIL}'
-    original_dcm.dicom.FrameType = original_dcm.dicom.ImageType
+    original_dcm = _GenTestDicom(image_type=[_LABEL, _OVERVIEW, _THUMBNAIL])
+    path = self._get_temp_file_path('dcm_0.dcm')
     original_dcm.dicom.save_as(path)
     with self.assertRaises(ingested_dicom_file_ref.DicomIngestError):
       result = ingested_dicom_file_ref.load_ingest_dicom_fileref(path)
@@ -266,26 +290,19 @@ class ValidateIngestedDicomTest(parameterized.TestCase):
   def test_validate_wsi_dicom_instance_incompatible_label_and_frame_raises(
       self,
   ):
-    temp_dir = self.create_tempdir()
-    original_dcm = _GenTestDicom(image_type=_LABEL)
-    path = os.path.join(temp_dir, 'dcm_0.dcm')
-    original_dcm.dicom.ImageType = (
-        f'{_ORIGINAL}\\{_PRIMARY}\\{_THUMBNAIL}\\{_NONE}'
+    original_dcm = _GenTestDicom(
+        image_type=[_ORIGINAL, _PRIMARY, _THUMBNAIL, _NONE]
     )
     original_dcm.dicom.FrameType = f'{_ORIGINAL}\\{_PRIMARY}\\{_LABEL}\\{_NONE}'
+    path = self._get_temp_file_path('dcm_0.dcm')
     original_dcm.dicom.save_as(path)
     with self.assertRaises(ingested_dicom_file_ref.DicomIngestError):
       result = ingested_dicom_file_ref.load_ingest_dicom_fileref(path)
       validate_ingested_dicom._validate_wsi_dicom_instance(result)
 
-  @parameterized.parameters(
-      [_ORIGINAL, _RESAMPLED, _THUMBNAIL, _OVERVIEW, _LABEL]
-  )
-  def test_validate_wsi_dicom_instance_various_types_succeeds(
-      self, image_type: str
-  ):
-    temp_dir = self.create_tempdir()
-    dcm_list, _ = _gen_first_dicom(temp_dir, image_type)
+  @parameterized.parameters(_WSI_IMAGE_TYPES)
+  def test_validate_wsi_dicom_instance_various_types_succeeds(self, image_type):
+    dcm_list, _ = self._gen_first_dicom(image_type)
     self.assertIsNone(
         validate_ingested_dicom._validate_wsi_dicom_instance(
             ingested_dicom_file_ref.load_ingest_dicom_fileref(dcm_list[0])
@@ -309,10 +326,9 @@ class ValidateIngestedDicomTest(parameterized.TestCase):
   def test_validate_wsi_dicom_instance_with_invalid_tag_value_raises(
       self, tag_keyword: str
   ):
-    temp_dir = self.create_tempdir()
-    original_dcm = _GenTestDicom(image_type=_ORIGINAL)
+    original_dcm = _GenTestDicom(image_type=[_ORIGINAL, _PRIMARY, _VOLUME])
     pydicom_util.set_dataset_tag_value(original_dcm.dicom, tag_keyword, '0')
-    path = os.path.join(temp_dir, 'dcm_0.dcm')
+    path = self._get_temp_file_path('dcm_0.dcm')
     original_dcm.dicom.save_as(path)
     with self.assertRaises(ingested_dicom_file_ref.DicomIngestError):
       result = ingested_dicom_file_ref.load_ingest_dicom_fileref(path)
@@ -322,26 +338,126 @@ class ValidateIngestedDicomTest(parameterized.TestCase):
   def test_validate_wsi_dicom_instance_ancillary_image_with_multiple_frames_raise(
       self, image: str
   ):
-    temp_dir = self.create_tempdir()
-    original_dcm = _GenTestDicom(image_type=_ORIGINAL)
-    path = os.path.join(temp_dir, 'dcm_0.dcm')
-    original_dcm.dicom.ImageType = f'{_ORIGINAL}\\PRIMARY\\{image}\\{_NONE}'
-    original_dcm.dicom.FrameType = original_dcm.dicom.ImageType
+    original_dcm = _GenTestDicom(image_type=[_ORIGINAL, _PRIMARY, image, _NONE])
+    path = self._get_temp_file_path('dcm_0.dcm')
+    original_dcm.dicom.NumberOfFrames = 2
     original_dcm.dicom.save_as(path)
     with self.assertRaises(ingested_dicom_file_ref.DicomIngestError):
       result = ingested_dicom_file_ref.load_ingest_dicom_fileref(path)
       validate_ingested_dicom._validate_wsi_dicom_instance(result)
 
-  def test_validate_dicom_files_with_full_set_of_instances_succeeds(self):
+  @parameterized.parameters([_ORIGINAL, _DERIVED])
+  def test_validate_dicom_files_with_multiple_modalities_raises(
+      self, base_type
+  ):
     # Build a set of test DICOM instances that contain required metadata.
-    temp_dir = self.create_tempdir()
-    dcm_list, original_dcm = _gen_first_dicom(temp_dir)
+    dcm_list, original_dcm = self._gen_first_dicom(
+        [base_type, _PRIMARY, _VOLUME]
+    )
     # RESAMPLED represent lower level pyramid levels and can show up more than
     # once. All other image types should only appear once.
-    for image_type in [_RESAMPLED, _RESAMPLED, _THUMBNAIL, _OVERVIEW, _LABEL]:
-      _gen_next_dicom_save(original_dcm, temp_dir, image_type, dcm_list)
+    for image_type in _get_mock_image_pyarmid_types(base_type):
+      self._gen_next_dicom_save(original_dcm, image_type, dcm_list)
     # generate one which not represent wsi image.
-    _gen_next_dicom_save(original_dcm, temp_dir, _CT, dcm_list)
+    self._gen_next_dicom_save(original_dcm, [_CT], dcm_list)
+    with self.assertRaisesRegex(
+        ingested_dicom_file_ref.DicomIngestError,
+        'dicom_instances_describe_multiple_modalities',
+    ):
+      validate_ingested_dicom.validate_dicom_files(
+          ingest_wsi_dicom.get_dicom_filerefs_list(dcm_list)
+      )
+
+  @parameterized.parameters([_ORIGINAL, _DERIVED])
+  def test_validate_dicom_files_with_multiple_patient_names_raises(
+      self, base_type
+  ):
+    # Build a set of test DICOM instances that contain required metadata.
+    dcm_list, original_dcm = self._gen_first_dicom(
+        [base_type, _PRIMARY, _VOLUME, _NONE]
+    )
+    # RESAMPLED represent lower level pyramid levels and can show up more than
+    # once. All other image types should only appear once.
+    original_dcm.PatientName = 'bob'
+    for image_type in _get_mock_image_pyarmid_types(base_type):
+      self._gen_next_dicom_save(original_dcm, image_type, dcm_list)
+    # generate one which not represent wsi image.
+    original_dcm.PatientName = 'other'
+    self._gen_next_dicom_save(
+        original_dcm, [base_type, _PRIMARY, _VOLUME, _RESAMPLED], dcm_list
+    )
+    with self.assertRaisesRegex(
+        ingested_dicom_file_ref.DicomIngestError,
+        'dicom_instances_have_multiple_patient_names',
+    ):
+      validate_ingested_dicom.validate_dicom_files(
+          ingest_wsi_dicom.get_dicom_filerefs_list(dcm_list)
+      )
+
+  @parameterized.parameters([_ORIGINAL, _DERIVED])
+  def test_validate_dicom_files_with_multiple_patient_id_raises(
+      self, base_type
+  ):
+    # Build a set of test DICOM instances that contain required metadata.
+    dcm_list, original_dcm = self._gen_first_dicom(
+        [base_type, _PRIMARY, _VOLUME, _NONE]
+    )
+    # RESAMPLED represent lower level pyramid levels and can show up more than
+    # once. All other image types should only appear once.
+    original_dcm.PatientID = '1234'
+    for image_type in _get_mock_image_pyarmid_types(base_type):
+      self._gen_next_dicom_save(original_dcm, image_type, dcm_list)
+    # generate one which not represent wsi image.
+    original_dcm.PatientID = '567'
+    self._gen_next_dicom_save(
+        original_dcm, [base_type, _PRIMARY, _VOLUME, _RESAMPLED], dcm_list
+    )
+    with self.assertRaisesRegex(
+        ingested_dicom_file_ref.DicomIngestError,
+        'dicom_instances_have_multiple_patient_ids',
+    ):
+      validate_ingested_dicom.validate_dicom_files(
+          ingest_wsi_dicom.get_dicom_filerefs_list(dcm_list)
+      )
+
+  @parameterized.parameters([_ORIGINAL, _DERIVED])
+  def test_validate_dicom_files_with_multiple_accession_number_raises(
+      self, base_type
+  ):
+    # Build a set of test DICOM instances that contain required metadata.
+    dcm_list, original_dcm = self._gen_first_dicom(
+        [base_type, _PRIMARY, _VOLUME, _NONE]
+    )
+    # RESAMPLED represent lower level pyramid levels and can show up more than
+    # once. All other image types should only appear once.
+    original_dcm.AccessionNumber = '1234'
+    for image_type in _get_mock_image_pyarmid_types(base_type):
+      self._gen_next_dicom_save(original_dcm, image_type, dcm_list)
+    # generate one which not represent wsi image.
+    original_dcm.AccessionNumber = '567'
+    self._gen_next_dicom_save(
+        original_dcm, [base_type, _PRIMARY, _VOLUME, _RESAMPLED], dcm_list
+    )
+    with self.assertRaisesRegex(
+        ingested_dicom_file_ref.DicomIngestError,
+        'dicom_instances_have_multiple_accession_numbers',
+    ):
+      validate_ingested_dicom.validate_dicom_files(
+          ingest_wsi_dicom.get_dicom_filerefs_list(dcm_list)
+      )
+
+  @parameterized.parameters([_ORIGINAL, _DERIVED])
+  def test_validate_dicom_files_with_full_set_of_instances_succeeds(
+      self, base_type
+  ):
+    # Build a set of test DICOM instances that contain required metadata.
+    dcm_list, original_dcm = self._gen_first_dicom(
+        [base_type, _PRIMARY, _VOLUME, _NONE]
+    )
+    # RESAMPLED represent lower level pyramid levels and can show up more than
+    # once. All other image types should only appear once.
+    for image_type in _get_mock_image_pyarmid_types(base_type):
+      self._gen_next_dicom_save(original_dcm, image_type, dcm_list)
 
     # Validate test dicom should not throw
     result = validate_ingested_dicom.validate_dicom_files(
@@ -355,9 +471,9 @@ class ValidateIngestedDicomTest(parameterized.TestCase):
     self.assertEqual(original_ref.series_instance_uid, result.series_uid)
     self.assertEqual(original_ref.barcode_value, result.barcode_value)
     self.assertTrue(original_ref.equals(result.original_image))
-    self.assertLen(result.wsi_image_filerefs, len(dcm_list) - 1)
+    self.assertLen(result.wsi_image_filerefs, len(dcm_list))
     returned_wsi_filerefs = set(result.wsi_image_filerefs)
-    for path in dcm_list[:-1]:
+    for path in dcm_list:
       test_pathref = ingested_dicom_file_ref.load_ingest_dicom_fileref(path)
       found = None
       for returned_ref in returned_wsi_filerefs:
@@ -366,57 +482,33 @@ class ValidateIngestedDicomTest(parameterized.TestCase):
           break
       self.assertIsNotNone(found)
       returned_wsi_filerefs.remove(found)
-    self.assertEmpty(returned_wsi_filerefs, 0)
-
-    self.assertLen(result.other_dicom_filerefs, 1)
-    test_pathref = ingested_dicom_file_ref.load_ingest_dicom_fileref(
-        dcm_list[-1]
-    )
-    self.assertTrue(test_pathref.equals(result.other_dicom_filerefs[0]))
-
-  def test_validate_dicom_files_with_only_original_image_succeeds(self):
-    temp_dir = self.create_tempdir()
-    dcm_list, _ = _gen_first_dicom(temp_dir)
-
-    result = validate_ingested_dicom.validate_dicom_files(
-        ingest_wsi_dicom.get_dicom_filerefs_list(dcm_list)
-    )
-
-    # Test results test dicom should not verify results
-    original_ref = ingested_dicom_file_ref.load_ingest_dicom_fileref(
-        dcm_list[0]
-    )
-    self.assertEqual(original_ref.study_instance_uid, result.study_uid)
-    self.assertEqual(original_ref.series_instance_uid, result.series_uid)
-    self.assertEqual(original_ref.barcode_value, result.barcode_value)
-    self.assertTrue(original_ref.equals(result.original_image))
-    self.assertLen(result.wsi_image_filerefs, 1)
-    test_pathref = ingested_dicom_file_ref.load_ingest_dicom_fileref(
-        dcm_list[-1]
-    )
-    self.assertTrue(test_pathref.equals(result.wsi_image_filerefs[0]))
+    self.assertEmpty(returned_wsi_filerefs)
     self.assertEmpty(result.other_dicom_filerefs)
 
-  def test_validate_dicom_files_without_original_image_raises(self):
-    temp_dir = self.create_tempdir()
-    dcm_list, _ = _gen_first_dicom(temp_dir, _THUMBNAIL)
-    dcm_list = ingest_wsi_dicom.get_dicom_filerefs_list(dcm_list)
-
-    with self.assertRaises(ingested_dicom_file_ref.DicomIngestError):
-      validate_ingested_dicom.validate_dicom_files(dcm_list)
-
-  def test_validate_dicom_files_with_original_and_thumbnail_succeeds(self):
-    temp_dir = self.create_tempdir()
-    dcm_list, original_dcm = _gen_first_dicom(temp_dir)
-    _gen_next_dicom_save(original_dcm, temp_dir, _THUMBNAIL, dcm_list)
+  @parameterized.parameters([_ORIGINAL, _DERIVED])
+  def test_validate_dicom_files_with_original_and_thumbnail_succeeds(
+      self, base_type
+  ):
+    dcm_list, original_dcm = self._gen_first_dicom(
+        [base_type, _PRIMARY, _VOLUME]
+    )
+    self._gen_next_dicom_save(
+        original_dcm, [base_type, _PRIMARY, _THUMBNAIL], dcm_list
+    )
     dcm_list = ingest_wsi_dicom.get_dicom_filerefs_list(dcm_list)
 
     self.assertIsNotNone(validate_ingested_dicom.validate_dicom_files(dcm_list))
 
-  def test_validate_dicom_files_with_duplicate_sop_instance_uid_raises(self):
-    temp_dir = self.create_tempdir()
-    dcm_list, original_dcm = _gen_first_dicom(temp_dir)
-    dcm, path = _gen_next_dicom(original_dcm, temp_dir, _THUMBNAIL, dcm_list)
+  @parameterized.parameters([_ORIGINAL, _DERIVED])
+  def test_validate_dicom_files_with_duplicate_sop_instance_uid_raises(
+      self, base_type
+  ):
+    dcm_list, original_dcm = self._gen_first_dicom(
+        [_ORIGINAL, _PRIMARY, _VOLUME]
+    )
+    dcm, path = self._gen_next_dicom(
+        original_dcm, [base_type, _PRIMARY, _THUMBNAIL], dcm_list
+    )
     dcm.SOPInstanceUID = original_dcm.SOPInstanceUID
     dcm.save_as(path)
     dcm_list = ingest_wsi_dicom.get_dicom_filerefs_list(dcm_list)
@@ -424,17 +516,19 @@ class ValidateIngestedDicomTest(parameterized.TestCase):
     with self.assertRaises(ingested_dicom_file_ref.DicomIngestError):
       validate_ingested_dicom.validate_dicom_files(dcm_list)
 
-  @parameterized.parameters([_ORIGINAL, _THUMBNAIL, _OVERVIEW, _LABEL])
+  @parameterized.parameters(
+      [im_type for im_type in _WSI_IMAGE_TYPES if _RESAMPLED not in im_type[0]]
+  )
   def test_validate_dicom_files_with_duplicate_instances_raises(
-      self, duplicate_type: str
+      self, duplicate_type: List[str]
   ):
-    temp_dir = self.create_tempdir()
-    dcm_list, original_dcm = _gen_first_dicom(temp_dir)
-    for image_type in [_RESAMPLED, _RESAMPLED, _THUMBNAIL, _OVERVIEW, _LABEL]:
-      _gen_next_dicom_save(original_dcm, temp_dir, image_type, dcm_list)
-    _gen_next_dicom_save(original_dcm, temp_dir, duplicate_type, dcm_list)
+    dcm_list, original_dcm = self._gen_first_dicom(
+        [_ORIGINAL, _PRIMARY, _VOLUME]
+    )
+    for image_type in _get_mock_image_pyarmid_types(_ORIGINAL):
+      self._gen_next_dicom_save(original_dcm, image_type, dcm_list)
+    self._gen_next_dicom_save(original_dcm, duplicate_type, dcm_list)
     dcm_list = ingest_wsi_dicom.get_dicom_filerefs_list(dcm_list)
-
     with self.assertRaises(ingested_dicom_file_ref.DicomIngestError):
       validate_ingested_dicom.validate_dicom_files(dcm_list)
 
@@ -444,14 +538,69 @@ class ValidateIngestedDicomTest(parameterized.TestCase):
   def test_validate_dicom_files_with_tags_mismatch_raises(
       self, tag_keyword: str
   ):
-    temp_dir = self.create_tempdir()
-    dcm_list, original_dcm = _gen_first_dicom(temp_dir)
-    dcm, path = _gen_next_dicom(original_dcm, temp_dir, _THUMBNAIL, dcm_list)
+    dcm_list, original_dcm = self._gen_first_dicom(
+        [_ORIGINAL, _PRIMARY, _VOLUME]
+    )
+    dcm, path = self._gen_next_dicom(
+        original_dcm, [_ORIGINAL, _PRIMARY, _THUMBNAIL], dcm_list
+    )
     pydicom_util.set_dataset_tag_value(dcm, tag_keyword, '99')
     dcm.save_as(path)
     dcm_list = ingest_wsi_dicom.get_dicom_filerefs_list(dcm_list)
 
     with self.assertRaises(ingested_dicom_file_ref.DicomIngestError):
+      validate_ingested_dicom.validate_dicom_files(dcm_list)
+
+  @parameterized.parameters(
+      ['StudyInstanceUID', 'SeriesInstanceUID', 'SOPInstanceUID', 'SOPClassUID']
+  )
+  def test_validate_dicom_files_with_missing_tag_raises(self, tag_keyword: str):
+    dcm_list, original_dcm = self._gen_first_dicom(
+        [_ORIGINAL, _PRIMARY, _VOLUME]
+    )
+    del original_dcm[tag_keyword]
+    original_dcm.save_as(dcm_list[0])
+    dcm_list = ingest_wsi_dicom.get_dicom_filerefs_list(dcm_list)
+    with self.assertRaises(ingested_dicom_file_ref.DicomIngestError):
+      validate_ingested_dicom.validate_dicom_files(dcm_list)
+
+  def test_validate_dicom_files_with_no_instances_raises(self):
+    with self.assertRaises(ingested_dicom_file_ref.DicomIngestError):
+      validate_ingested_dicom.validate_dicom_files([])
+
+  @parameterized.parameters(_WSI_IMAGE_TYPES)
+  def test_validate_dicom_files_with_invalid_transfer_syntax_raises(
+      self, image_type
+  ):
+    dcm_list, original_dcm = self._gen_first_dicom(image_type)
+    original_dcm.file_meta.TransferSyntaxUID = '1.2.3'
+    original_dcm.save_as(dcm_list[0])
+    dcm_list = ingest_wsi_dicom.get_dicom_filerefs_list(dcm_list)
+    with self.assertRaises(ingested_dicom_file_ref.DicomIngestError):
+      validate_ingested_dicom.validate_dicom_files(dcm_list)
+
+  @parameterized.parameters([('5', 5), ('0', 0), ('-4', -4), ('A', -1)])
+  def test_dicom_ref_num(self, val, expected):
+    self.assertEqual(validate_ingested_dicom._dicom_ref_num(val), expected)
+
+  @parameterized.parameters([
+      ([_ORIGINAL, _PRIMARY, _THUMBNAIL],),
+      ([_ORIGINAL, _PRIMARY, _LABEL],),
+      ([_ORIGINAL, _PRIMARY, _OVERVIEW],),
+  ])
+  def test_validate_ancillary_with_multiple_frames_raises(self, image_type):
+    dcm_list, original_dcm = self._gen_first_dicom(image_type)
+    original_dcm.TotalPixelMatrixColumns = 4
+    original_dcm.TotalPixelMatrixRows = 2
+    original_dcm.Rows = 2
+    original_dcm.Columns = 2
+    original_dcm.NumberOfFrames = 2
+    original_dcm.save_as(dcm_list[0])
+    dcm_list = ingest_wsi_dicom.get_dicom_filerefs_list(dcm_list)
+    with self.assertRaisesRegex(
+        ingested_dicom_file_ref.DicomIngestError,
+        ingest_const.ErrorMsgs.WSI_DICOM_ANCILLARY_INSTANCE_HAS_MORE_THAN_ONE_FRAME,
+    ):
       validate_ingested_dicom.validate_dicom_files(dcm_list)
 
 

@@ -65,6 +65,9 @@ class WsiDicomFileRefTest(absltest.TestCase):
             '0x00209161',
             '0x00200052',
             '0x00201040',
+            '0x00080019',
+            '0x00200027',
+            '0x00081088',
             '0x00209228',
             '0x00209162',
             '0x30211001',
@@ -127,8 +130,8 @@ class WsiDicomFileRefTest(absltest.TestCase):
   ) -> None:
     tested_tags = set()
 
-    def _tag(tag_keyword: str) -> str:
-      if tag_keyword not in dcm:
+    def _tag(tag_keyword: str, tag_address: str = '') -> str:
+      if tag_keyword not in dcm and tag_address not in dcm:
         raise ValueError(f'{file_path} does not define tag {tag_keyword}.')
       if tag_keyword in tested_tags:
         raise ValueError(
@@ -136,9 +139,13 @@ class WsiDicomFileRefTest(absltest.TestCase):
             f'tag: {tag_keyword}.'
         )
       tested_tags.add(tag_keyword)
-      if isinstance(dcm[tag_keyword].value, pydicom.multival.MultiValue):
-        return '\\'.join(dcm[tag_keyword].value)
-      return str(dcm[tag_keyword].value)
+      if tag_keyword in dcm:
+        if isinstance(dcm[tag_keyword].value, pydicom.multival.MultiValue):
+          return '\\'.join(dcm[tag_keyword].value)
+        return str(dcm[tag_keyword].value)
+      if isinstance(dcm[tag_address].value, pydicom.multival.MultiValue):
+        return '\\'.join(dcm[tag_address].value)
+      return str(dcm[tag_address].value)
 
     with pydicom.dcmread(file_path, defer_size='512 KB') as dcm:
       self.assertEqual(
@@ -264,6 +271,27 @@ class WsiDicomFileRefTest(absltest.TestCase):
           fref.burned_in_annotation,
           _tag(ingest_const.DICOMTagKeywords.BURNED_IN_ANNOTATION),
       )
+      self.assertEqual(
+          fref.pyramid_uid,
+          _tag(
+              ingest_const.DICOMTagKeywords.PYRAMID_UID,
+              ingest_const.DICOMTagAddress.PYRAMID_UID,
+          ),
+      )
+      self.assertEqual(
+          fref.pyramid_label,
+          _tag(
+              ingest_const.DICOMTagKeywords.PYRAMID_LABEL,
+              ingest_const.DICOMTagAddress.PYRAMID_LABEL,
+          ),
+      )
+      self.assertEqual(
+          fref.pyramid_description,
+          _tag(
+              ingest_const.DICOMTagKeywords.PYRAMID_DESCRIPTION,
+              ingest_const.DICOMTagAddress.PYRAMID_DESCRIPTION,
+          ),
+      )
     # Test all attributes were tested.
     self.assertEqual(set(fref.tags.keys()), tested_tags)
 
@@ -287,6 +315,51 @@ class WsiDicomFileRefTest(absltest.TestCase):
     self._assert_expected(
         wsi_dicom_file_ref.init_wsi_dicom_file_ref_from_file(file_path),
         file_path,
+    )
+
+  def test_get_wsi_dicom_file_ref_tag_address_list(self):
+    self.assertEqual(
+        set(wsi_dicom_file_ref.get_wsi_dicom_file_ref_tag_address_list()),
+        {
+            '30210010',
+            '0020000D',
+            '0020000E',
+            '00080016',
+            '00080018',
+            '00080008',
+            '00089007',
+            '00280100',
+            '00280101',
+            '00280102',
+            '00280103',
+            '00280002',
+            '00280006',
+            '00080050',
+            '00200011',
+            '22000005',
+            '00200013',
+            '00280004',
+            '00480001',
+            '00480002',
+            '00480006',
+            '00480007',
+            '00280008',
+            '00280011',
+            '00280010',
+            '00209311',
+            '00080060',
+            '00480010',
+            '00280301',
+            '00209161',
+            '00200052',
+            '00201040',
+            '00080019',
+            '00200027',
+            '00081088',
+            '00209228',
+            '00209162',
+            '30211001',
+        },
     )
 
 

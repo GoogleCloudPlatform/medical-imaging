@@ -39,21 +39,21 @@ def validate_topic_exists(topic_name: str) -> None:
   except google_exceptions.NotFound as exp:
     cloud_logging_client.logger().critical(
         'Pub/sub topic is not defined.',
-        {ingest_const.LogKeywords.pubsub_topic_name: topic_name},
+        {ingest_const.LogKeywords.PUBSUB_TOPIC_NAME: topic_name},
         exp,
     )
     raise
   except google_exceptions.PermissionDenied as exp:
     cloud_logging_client.logger().critical(
         'Permission denied accessing pub/sub topic.',
-        {ingest_const.LogKeywords.pubsub_topic_name: topic_name},
+        {ingest_const.LogKeywords.PUBSUB_TOPIC_NAME: topic_name},
         exp,
     )
     raise
   except Exception as exp:
     cloud_logging_client.logger().critical(
         'Unexpected exception accessing pub/sub topic.',
-        {ingest_const.LogKeywords.pubsub_topic_name: topic_name},
+        {ingest_const.LogKeywords.PUBSUB_TOPIC_NAME: topic_name},
         exp,
     )
     raise

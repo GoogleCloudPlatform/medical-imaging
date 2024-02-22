@@ -53,10 +53,16 @@ def load_ingest_dicom_fileref(path: str) -> IngestDicomFileRef:
 
   Raises:
     pydicom.errors.InvalidDicomError: Invalid DICOM file.
+    DicomIngestError: Unaable to determine transfer syntax.
   """
   with pydicom.dcmread(path, defer_size='512 KB', force=False) as dcm:
     dcm_ref = dicom_file_ref.init_from_loaded_file(
         path, dcm, IngestDicomFileRef()
     )
-    dcm_ref.set_transfer_syntax(dcm.file_meta.TransferSyntaxUID)
+    try:
+      dcm_ref.set_transfer_syntax(dcm.file_meta.TransferSyntaxUID)
+    except AttributeError as exp:
+      raise DicomIngestError(
+          'unable_to_determine_dicom_transfer_syntrax'
+      ) from exp
     return dcm_ref

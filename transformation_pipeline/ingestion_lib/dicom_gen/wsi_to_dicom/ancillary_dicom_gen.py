@@ -15,7 +15,7 @@
 """Generate Ancillary Image (Thumbnail, Marco, Label) DICOM."""
 
 import os
-from typing import Any, Dict, List, Mapping
+from typing import Any, Dict, List, Mapping, Optional
 
 import cv2
 import pydicom
@@ -40,7 +40,7 @@ def _gen_ancillary_dicom_instance(
     instance_number: str,
     wsi_dcm_json: Dict[str, Any],
     private_tags: List[dicom_private_tag_generator.DicomPrivateTag],
-    frame_of_ref_md: dicom_util.DicomFrameOfReferenceModuleMetadata,
+    additional_wsi_metadata: pydicom.Dataset,
 ) -> str:
   """Converts jpg(label, thumbnail and macro images) into wsi-dicom.
 
@@ -52,7 +52,7 @@ def _gen_ancillary_dicom_instance(
     instance_number: DICOM instance number.
     wsi_dcm_json: metadata mapping schema.
     private_tags: private tags to add to DICOMS.
-    frame_of_ref_md: DICOM frame of ref module metadata.
+    additional_wsi_metadata: Additional metadata to merge with gen DICOM.
 
   Returns:
      Path to file name of generated DICOM file.
@@ -139,21 +139,20 @@ def _gen_ancillary_dicom_instance(
     del ds['OpticalPathSequence']
   dicom_util.add_default_optical_path_sequence(ds, icc)
   dicom_util.add_metadata_to_dicom(
-      frame_of_ref_md, wsi_dcm_json, private_tags, ds
+      additional_wsi_metadata, wsi_dcm_json, private_tags, ds
   )
   filename = f'{image_path}.dcm'
+  dicom_util.add_missing_type2_dicom_metadata(ds)
   ds.save_as(filename, write_like_original=False)
   return filename
 
 
 def generate_ancillary_dicom(
     gen_dicom: abstract_dicom_generation.GeneratedDicomFiles,
-    ancillary_images: List[AncillaryImage],
-    study_uid: str,
-    series_uid: str,
+    ancillary_images: Optional[List[AncillaryImage]],
     wsi_dcm_json: Dict[str, Any],
     private_tags: List[dicom_private_tag_generator.DicomPrivateTag],
-    frame_of_ref_md: dicom_util.DicomFrameOfReferenceModuleMetadata,
+    additional_wsi_metadata: pydicom.Dataset,
     metadata: Mapping[str, pydicom.DataElement],
 ) -> List[str]:
   """Generates svs ancillary DICOM images (thumbnail, macro, label).
@@ -163,24 +162,22 @@ def generate_ancillary_dicom(
   Args:
     gen_dicom: Structure containing generated dicom, source svs file, hash, etc.
     ancillary_images: List of ancillary images to generate DICOMS.
-    study_uid: DICOM StudyInstanceUID.
-    series_uid: DICOM SeriesInstanceUID.
     wsi_dcm_json: Metadata mapping schema.
     private_tags: Private tags to add to DICOMS.
-    frame_of_ref_md: DICOM frame of ref module metadata.
+    additional_wsi_metadata: Additional metadata to merge with gen DICOM.
     metadata: Metadata to merge with DICOMS.
 
   Returns:
     List of paths to DICOM files generated.
   """
+  if ancillary_images is None or not ancillary_images:
+    return []
   ancillary_dicom_files = []
   svs_path = gen_dicom.localfile
 
   # Initialize Base DICOM tags that are common
   # across all ancillary images.
   reference_dcm = pydicom.Dataset()
-  reference_dcm.StudyInstanceUID = study_uid
-  reference_dcm.SeriesInstanceUID = series_uid
   reference_dcm.Modality = 'SM'
   reference_dcm.SamplesPerPixel = 3
   reference_dcm.PlanarConfiguration = 0
@@ -210,7 +207,7 @@ def generate_ancillary_dicom(
         str(instance_number),
         wsi_dcm_json,
         private_tags,
-        frame_of_ref_md,
+        additional_wsi_metadata,
     )
     ancillary_dicom_files.append(dcm_file)
     cloud_logging_client.logger().info(f'Gen DICOM: {instance_description}')

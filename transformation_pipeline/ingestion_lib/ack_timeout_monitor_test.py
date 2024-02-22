@@ -23,6 +23,7 @@ from google.cloud import pubsub_v1
 
 from transformation_pipeline.ingestion_lib import ack_timeout_monitor
 from transformation_pipeline.ingestion_lib import ingest_const
+from transformation_pipeline.ingestion_lib import mock_redis_client
 from transformation_pipeline.ingestion_lib import redis_client
 from transformation_pipeline.ingestion_lib.pubsub_msgs import cloud_storage_pubsub_msg
 
@@ -45,16 +46,27 @@ class _MockPubSubMsg(cloud_storage_pubsub_msg.CloudStoragePubSubMsg):
 
 class AckTimeoutMonitorTest(parameterized.TestCase):
 
-  @parameterized.parameters([None, 'foo'])
   @mock.patch(
       'google.auth.default',
       autospec=True,
       return_value=(mock.Mock(), _PROJECT_ID),
   )
-  def test_subscription_path(self, subscription_path, mk_auth):
+  def test_subscription_path(self, mk_auth):
+    subscription_path = 'foo'
     ack_mon = ack_timeout_monitor.PubSubAckTimeoutMonitor(subscription_path)
     self.assertEqual(ack_mon._subscription_path, subscription_path)
     mk_auth.assert_called_once()
+
+  @parameterized.parameters([None, ''])
+  @mock.patch(
+      'google.auth.default',
+      autospec=True,
+      return_value=(mock.Mock(), _PROJECT_ID),
+  )
+  def test_subscription_path_none_or_empty(self, subscription_path, mk_auth):
+    ack_mon = ack_timeout_monitor.PubSubAckTimeoutMonitor(subscription_path)
+    self.assertEqual(ack_mon._subscription_path, subscription_path)
+    mk_auth.assert_not_called()
 
   @mock.patch(
       'google.auth.default',
@@ -75,19 +87,6 @@ class AckTimeoutMonitorTest(parameterized.TestCase):
     ack_mon = ack_timeout_monitor.PubSubAckTimeoutMonitor('foo')
     ack_mon.set_subscription(subscription_path)
     self.assertEqual(ack_mon._subscription_path, subscription_path)
-    mk_auth.assert_called_once()
-
-  @mock.patch(
-      'google.auth.default',
-      autospec=True,
-      return_value=(mock.Mock(), _PROJECT_ID),
-  )
-  def test_set_pubsub_msg_on_undefined_subcription_raises(self, mk_auth):
-    ack_mon = ack_timeout_monitor.PubSubAckTimeoutMonitor(None)
-    with self.assertRaises(
-        ack_timeout_monitor.UndefinedPubSubSubscriptionError
-    ):
-      ack_mon.set_pubsub_msg(_MockPubSubMsg(), time.time())
     mk_auth.assert_called_once()
 
   @mock.patch.object(
@@ -128,9 +127,6 @@ class AckTimeoutMonitorTest(parameterized.TestCase):
     mk_auth.assert_called_once()
 
   @mock.patch.object(
-      redis_client.RedisClient, 'extend_lock_timeouts', autospec=True
-  )
-  @mock.patch.object(
       pubsub_v1.SubscriberClient, 'modify_ack_deadline', autospec=True
   )
   @mock.patch(
@@ -139,45 +135,85 @@ class AckTimeoutMonitorTest(parameterized.TestCase):
       return_value=(mock.Mock(), _PROJECT_ID),
   )
   def test_set_pubsub_msg_extended_if_pubsub_msg_set(
-      self, mk_auth, mk_pubsub_client, mk_redis_client
+      self, mk_auth, mk_pubsub_client
   ):
-    subscription_path = 'foo'
-    wait_time = 10
-    ack_extension_time_interval = 2
-    ack_mon = ack_timeout_monitor.PubSubAckTimeoutMonitor(
-        subscription_path, ack_extension_time_interval
-    )
-    mock_pubsub_msg = _MockPubSubMsg()
-    ack_mon.start()
-    start_time = time.time()
-    ack_mon.set_pubsub_msg(mock_pubsub_msg, start_time)
-    time.sleep(wait_time + (2 * ack_extension_time_interval))
-    self.assertGreaterEqual(ack_mon.get_ack_time_extension(), wait_time)
-    ack_mon.shutdown()
+    with mock_redis_client.MockRedisClient(None):
+      subscription_path = 'foo'
+      wait_time = 10
+      ack_extension_time_interval = 2
+      ack_mon = ack_timeout_monitor.PubSubAckTimeoutMonitor(
+          subscription_path, ack_extension_time_interval
+      )
+      mock_pubsub_msg = _MockPubSubMsg()
+      ack_mon.start()
+      start_time = time.time()
+      ack_mon.set_pubsub_msg(mock_pubsub_msg, start_time)
+      time.sleep(wait_time + (2 * ack_extension_time_interval))
+      self.assertGreaterEqual(ack_mon.get_ack_time_extension(), wait_time)
+      ack_mon.shutdown()
 
-    mk_pubsub_client.assert_called()
-    call_count = mk_pubsub_client.call_count
-    pubsub_client_call = mock.call(
-        ack_mon._pubsub_subscriber,
-        request={
-            'subscription': subscription_path,
-            'ack_ids': [mock_pubsub_msg.ack_id],
-            'ack_deadline_seconds': ingest_const.MESSAGE_TTL_S,
-        },
-    )
-    mk_pubsub_client.assert_has_calls(
-        [pubsub_client_call] * call_count, any_order=False
-    )
-    mk_redis_client.assert_has_calls(
-        [
-            mock.call(
-                redis_client.redis_client(), amount=ingest_const.MESSAGE_TTL_S
-            )
-        ]
-        * call_count,
-        any_order=False,
-    )
-    mk_auth.assert_called_once()
+      mk_pubsub_client.assert_called()
+      call_count = mk_pubsub_client.call_count
+      pubsub_client_call = mock.call(
+          ack_mon._pubsub_subscriber,
+          request={
+              'subscription': subscription_path,
+              'ack_ids': [mock_pubsub_msg.ack_id],
+              'ack_deadline_seconds': ingest_const.MESSAGE_TTL_S,
+          },
+      )
+      mk_pubsub_client.assert_has_calls(
+          [pubsub_client_call] * call_count, any_order=False
+      )
+      mk_auth.assert_called_once()
+
+  @mock.patch.object(
+      pubsub_v1.SubscriberClient, 'modify_ack_deadline', autospec=True
+  )
+  @mock.patch(
+      'google.auth.default',
+      autospec=True,
+      return_value=(mock.Mock(), _PROJECT_ID),
+  )
+  def test_set_pubsub_msg_and_redis_lock_extended_if_pubsub_msg_set(
+      self, mk_auth, mk_pubsub_client
+  ):
+    lock_name = 'foo'
+    with mock_redis_client.MockRedisClient('1.2.3.4.5'):
+      redis_client.redis_client().acquire_non_blocking_lock(lock_name, 'abc', 6)
+      lock_time = time.time()
+      subscription_path = 'foo'
+      wait_time = 10
+      ack_extension_time_interval = 2
+      ack_mon = ack_timeout_monitor.PubSubAckTimeoutMonitor(
+          subscription_path, ack_extension_time_interval
+      )
+      mock_pubsub_msg = _MockPubSubMsg()
+      ack_mon.start()
+      start_time = time.time()
+      ack_mon.set_pubsub_msg(mock_pubsub_msg, start_time)
+      time.sleep(wait_time + (2 * ack_extension_time_interval))
+      self.assertGreaterEqual(ack_mon.get_ack_time_extension(), wait_time)
+      ack_mon.shutdown()
+
+      mk_pubsub_client.assert_called()
+      call_count = mk_pubsub_client.call_count
+      pubsub_client_call = mock.call(
+          ack_mon._pubsub_subscriber,
+          request={
+              'subscription': subscription_path,
+              'ack_ids': [mock_pubsub_msg.ack_id],
+              'ack_deadline_seconds': ingest_const.MESSAGE_TTL_S,
+          },
+      )
+      mk_pubsub_client.assert_has_calls(
+          [pubsub_client_call] * call_count, any_order=False
+      )
+      mk_auth.assert_called_once()
+      self.assertGreater(
+          redis_client.redis_client().client.get_lock_expire_time(lock_name),
+          6 + lock_time,
+      )
 
   @mock.patch.object(
       pubsub_v1.SubscriberClient, 'modify_ack_deadline', autospec=True
@@ -196,6 +232,48 @@ class AckTimeoutMonitorTest(parameterized.TestCase):
     self.assertEqual(ack_mon.get_ack_time_extension(), 0)
     ack_mon.shutdown()
     mk_auth.assert_called_once()
+
+  @mock.patch(
+      'google.auth.default',
+      autospec=True,
+      return_value=(mock.Mock(), _PROJECT_ID),
+  )
+  def test_ack_monitor_subscription_init(self, unused_mk_auth):
+    subscription_path = 'foo'
+    ack_mon = ack_timeout_monitor.PubSubAckTimeoutMonitor(subscription_path)
+    self.assertEqual(ack_mon._subscription_path, subscription_path)
+    self.assertIsNotNone(ack_mon._pubsub_subscriber)
+
+  def test_ack_monitor_no_subscription_init(self):
+    ack_mon = ack_timeout_monitor.PubSubAckTimeoutMonitor('')
+    self.assertEmpty(ack_mon._subscription_path)
+    self.assertIsNone(ack_mon._pubsub_subscriber)
+
+  @mock.patch(
+      'google.auth.default',
+      autospec=True,
+      return_value=(mock.Mock(), _PROJECT_ID),
+  )
+  def test_ack_monitor_set_subscription(self, unused_mk_auth):
+    subscription_path = 'foo'
+    ack_mon = ack_timeout_monitor.PubSubAckTimeoutMonitor('')
+    ack_mon.set_subscription(subscription_path)
+    self.assertEqual(ack_mon._subscription_path, subscription_path)
+    self.assertIsNotNone(ack_mon._pubsub_subscriber)
+
+  @mock.patch(
+      'google.auth.default',
+      autospec=True,
+      return_value=(mock.Mock(), _PROJECT_ID),
+  )
+  def test_ack_monitor_set_null_subscription_after_client_acquired_keeps_client(
+      self, unused_mk_auth
+  ):
+    ack_mon = ack_timeout_monitor.PubSubAckTimeoutMonitor('')
+    ack_mon.set_subscription('foo')
+    ack_mon.set_subscription('')
+    self.assertEmpty(ack_mon._subscription_path)
+    self.assertIsNotNone(ack_mon._pubsub_subscriber)
 
 
 if __name__ == '__main__':

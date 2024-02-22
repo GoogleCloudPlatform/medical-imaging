@@ -28,6 +28,7 @@ import tifffile
 
 from shared_libs.logging_lib import cloud_logging_client
 from transformation_pipeline.ingestion_lib import ingest_const
+from transformation_pipeline.ingestion_lib.dicom_gen import dicom_json_util
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ancillary_image_extractor
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
 
@@ -174,7 +175,8 @@ def _create_image_dicom_metadata(image_path: str) -> _ImageDicomMetadata:
       reading image, unsupported image format or dimensions, etc).
   """
   try:
-    img = PIL.Image.open(image_path)
+    with PIL.Image.open(image_path) as img:
+      img.load()
   except Exception as exp:
     raise InvalidFlatImageError(
         f'Failed to open image: {image_path}.',
@@ -201,7 +203,8 @@ def _create_image_dicom_metadata(image_path: str) -> _ImageDicomMetadata:
     with io.BytesIO() as jpg_bytes:
       img.save(jpg_bytes, format='JPEG2000', irreversible=False)
       image_bytes = jpg_bytes.getvalue()
-      img = PIL.Image.open(jpg_bytes)
+      with PIL.Image.open(jpg_bytes) as img:
+        img.load()
     image_type = _DICOM_IMAGE_TYPE_DERIVED
     transfer_syntax = ingest_const.DicomImageTransferSyntax.JPEG_2000
   elif img.format == 'TIFF':
@@ -215,14 +218,14 @@ def _create_image_dicom_metadata(image_path: str) -> _ImageDicomMetadata:
     if not ancillary_image_extractor.extract_jpg_image(
         image_path,
         ancillary_image,
-        flip_red_blue=False,
         convert_to_jpeg_2000=True,
     ):
       raise InvalidFlatImageError(
           f'Failed to convert TIF to JPG: {image_path}',
           ingest_const.ErrorMsgs.FLAT_IMAGE_FAILED_TO_CONVERT_TIF_TO_JPG,
       )
-    img = PIL.Image.open(ancillary_image.path)
+    with PIL.Image.open(ancillary_image.path) as img:
+      img.load()
     with open(ancillary_image.path, 'rb') as img_file:
       image_bytes = img_file.read()
     if ancillary_image.extracted_without_decompression:
@@ -366,21 +369,17 @@ def _create_dicom(
 
 def create_encapsulated_flat_image_dicom(
     image_path: str,
-    study_uid: str,
-    series_uid: str,
     instance_uid: str,
     sop_class: ingest_const.DicomSopClass,
-    dcm_json: Optional[Mapping[str, Any]] = None,
+    dcm_json: Mapping[str, Any],
 ) -> pydicom.Dataset:
   """Creates VL Slide-Coordinates Microscopic Image DICOM with embedded image.
 
   Args:
     image_path: Path to an image.
-    study_uid: DICOM study UID for the image.
-    series_uid: DICOM series UID for the image.
     instance_uid: DICOM instance UID for the image.
     sop_class: DICOM SOP Class to use for the image.
-    dcm_json: Optional DICOM metadata to embed in the DICOM instance.
+    dcm_json: DICOM metadata to embed in the DICOM instance.
 
   Returns:
     Pydicom dataset representing DICOM instance.
@@ -389,6 +388,8 @@ def create_encapsulated_flat_image_dicom(
     InvalidFlatImageError: If invalid flat image (e.g. invalid path, error
       reading image, unsupported image format or dimensions, etc).
   """
+  study_uid = dicom_json_util.get_study_instance_uid(dcm_json)
+  series_uid = dicom_json_util.get_series_instance_uid(dcm_json)
   img = _create_image_dicom_metadata(image_path)
   return _create_dicom(
       image_path, img, study_uid, series_uid, instance_uid, sop_class, dcm_json

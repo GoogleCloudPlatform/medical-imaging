@@ -335,8 +335,8 @@ def create_ingest_complete_pubsub_msg(
 
   # Add struct to cloud op logs.
   log_struct = {
-      ingest_const.LogKeywords.pubsub_topic_name: topic_name,
-      ingest_const.LogKeywords.hash: hash_val,
+      ingest_const.LogKeywords.PUBSUB_TOPIC_NAME: topic_name,
+      ingest_const.LogKeywords.HASH: hash_val,
       ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID: series_uid,
       ingest_const.DICOMTagKeywords.STUDY_INSTANCE_UID: study_uid,
   }

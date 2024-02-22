@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """Utility function to merge json formatted dicom with pydicom dataset."""
-from typing import Any, Dict, Mapping, MutableMapping, Optional
+from typing import Any, Mapping, MutableMapping, Optional
 
 import pydicom
 
@@ -53,7 +53,7 @@ class MissingPatientIDMetadataError(Exception):
 
 def merge_json_metadata_with_pydicom_ds(
     dcm_file: pydicom.dataset.Dataset,
-    dcm_json: Optional[Dict[str, Any]] = None,
+    dcm_json: Optional[Mapping[str, Any]] = None,
     tags_to_skip: Optional[Any] = None,
 ) -> pydicom.dataset.Dataset:
   """Merge JSON formatted dataset with existing pydicom Dataset.
@@ -66,12 +66,12 @@ def merge_json_metadata_with_pydicom_ds(
   Returns:
     Merged pydicom Dataset.
   """
-  if not dcm_json:
+  if dcm_json is None or not dcm_json:
     return dcm_file
-  if not tags_to_skip:
+  if tags_to_skip is None or not tags_to_skip:
     tags_to_skip = set()
 
-  json_ds = pydicom.dataset.Dataset.from_json(dcm_json)
+  json_ds = pydicom.dataset.Dataset.from_json(dict(dcm_json))
   for key, value in json_ds.items():
     if key in tags_to_skip:
       continue
@@ -160,29 +160,62 @@ def set_study_instance_uid_in_metadata(
       ingest_const.VALUE: [study_uid],
   }
   if old_uid is None:
-    cloud_logging_client.logger().info(
-        'Setting DICOM Study Instance UID defined in metadata.',
-        {ingest_const.LogKeywords.study_instance_uid: study_uid},
-        dcm_json,
-    )
+    log = {ingest_const.LogKeywords.STUDY_INSTANCE_UID: study_uid}
   else:
-    cloud_logging_client.logger().info(
-        'Overriding DICOM Study Instance UID defined in metadata.',
-        {
-            ingest_const.LogKeywords.PREVIOUS_STUDY_INSTANCE_UID: old_uid,
-            ingest_const.LogKeywords.study_instance_uid: study_uid,
-        },
-        dcm_json,
-    )
+    log = {
+        ingest_const.LogKeywords.PREVIOUS_STUDY_INSTANCE_UID: old_uid,
+        ingest_const.LogKeywords.STUDY_INSTANCE_UID: study_uid,
+    }
+  cloud_logging_client.logger().info(
+      'Setting DICOM study instance UID defined in metadata.', log, dcm_json
+  )
 
 
-def get_series_instance_uid(dcm_json: Mapping[str, Any]) -> str:
+def get_series_instance_uid(
+    dcm_json: Mapping[str, Any], log_error: bool = True
+) -> str:
+  """Returns DICOM Series Instance UID stored in metadata."""
   series_uid = _get_dicom_tag_key_val(
       dcm_json, ingest_const.DICOMTagAddress.SERIES_INSTANCE_UID
   )
   if series_uid is None or not series_uid:
-    cloud_logging_client.logger().warning(
-        'SeriesInstanceUID not found in metadata.'
-    )
+    if log_error:
+      cloud_logging_client.logger().warning(
+          'DICOM series instance UID not found in metadata.'
+      )
     raise MissingSeriesUIDInMetadataError()
   return series_uid
+
+
+def set_series_instance_uid_in_metadata(
+    dcm_json: MutableMapping[str, Any], series_uid: str
+):
+  """Set DICOM Series Instance UID in DICOM formated JSON metadata."""
+  try:
+    old_uid = get_series_instance_uid(dcm_json, log_error=False)
+  except MissingSeriesUIDInMetadataError:
+    old_uid = None
+  dcm_json[ingest_const.DICOMTagAddress.SERIES_INSTANCE_UID] = {
+      ingest_const.VR: ingest_const.DICOMVRCodes.UI,
+      ingest_const.VALUE: [series_uid],
+  }
+  if old_uid is None:
+    log = {ingest_const.LogKeywords.SERIES_INSTANCE_UID: series_uid}
+  else:
+    log = {
+        ingest_const.LogKeywords.PREVIOUS_SERIES_INSTANCE_UID: old_uid,
+        ingest_const.LogKeywords.SERIES_INSTANCE_UID: series_uid,
+    }
+  cloud_logging_client.logger().info(
+      'Setting DICOM series instance UID defined in metadata.', log, dcm_json
+  )
+
+
+def remove_sop_instance_uid_from_metadata(dcm_json: MutableMapping[str, Any]):
+  if ingest_const.DICOMTagAddress.SOP_INSTANCE_UID in dcm_json:
+    del dcm_json[ingest_const.DICOMTagAddress.SOP_INSTANCE_UID]
+
+
+def remove_sop_class_uid_from_metadata(dcm_json: MutableMapping[str, Any]):
+  if ingest_const.DICOMTagAddress.SOP_CLASS_UID in dcm_json:
+    del dcm_json[ingest_const.DICOMTagAddress.SOP_CLASS_UID]

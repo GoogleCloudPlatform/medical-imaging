@@ -14,7 +14,6 @@
 # ==============================================================================
 """Unit tests for ancillary_dicom_gen."""
 import datetime
-import json
 import os
 import shutil
 import typing
@@ -30,7 +29,6 @@ from transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_gener
 from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ancillary_dicom_gen
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ancillary_image_extractor
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
 from transformation_pipeline.ingestion_lib.dicom_util import dicom_test_util
 
 
@@ -60,9 +58,11 @@ class AncillaryDicomGenTest(parameterized.TestCase):
     svs_path = ''
     dcm_gen = abstract_dicom_generation.GeneratedDicomFiles(svs_path, None)
     dcm_gen.generated_dicom_files = [dcm_file_path]
-    metadata = json.loads(
-        '{"00100010": {"Value": [{"Alphabetic": "Bob"}], "vr": "PN"}}'
-    )
+    ds = pydicom.Dataset()
+    ds.PatientName = 'Bob'
+    ds.StudyInstanceUID = '1.2.3'
+    ds.SeriesInstanceUID = '1.2.3.4'
+    metadata = ds.to_json_dict()
     img = ancillary_image_extractor.AncillaryImage(test_img)
     img.photometric_interpretation = 'RGB'
     img.extracted_without_decompression = True
@@ -72,15 +72,16 @@ class AncillaryDicomGenTest(parameterized.TestCase):
     svs_metadata['AcquisitionDate'] = pydicom.DataElement(
         '00080022', 'DA', ac_date
     )
+    additional_metadata = pydicom.Dataset()
+    additional_metadata.FrameOfReferenceUID = '2.3.4'
+    additional_metadata.PositionReferenceIndicator = 'Edge'
 
     sec_capture_list = ancillary_dicom_gen.generate_ancillary_dicom(
         dcm_gen,
         [img],
-        '1.2.3',
-        '1.2.3.4',
         metadata,
         [],
-        dicom_util.DicomFrameOfReferenceModuleMetadata('2.3.4', 'Edge'),
+        additional_metadata,
         svs_metadata,
     )
 
@@ -134,6 +135,8 @@ class AncillaryDicomGenTest(parameterized.TestCase):
     img = ancillary_image_extractor.AncillaryImage(test_img)
     img.photometric_interpretation = 'YBR_FULL_422'
     img.extracted_without_decompression = False
+    additional_metadata = pydicom.Dataset()
+    additional_metadata.FrameOfReferenceUID = '2.3.5'
 
     tst_dcm_path = ancillary_dicom_gen._gen_ancillary_dicom_instance(
         test_img,
@@ -143,7 +146,7 @@ class AncillaryDicomGenTest(parameterized.TestCase):
         '9',
         {},
         [],
-        dicom_util.DicomFrameOfReferenceModuleMetadata('2.3.5', ''),
+        additional_metadata,
     )
     dcm = pydicom.dcmread(tst_dcm_path)
     self.assertEqual(dcm.PatientName, 'test')

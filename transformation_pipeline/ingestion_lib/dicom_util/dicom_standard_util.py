@@ -190,6 +190,9 @@ class DicomStandardIODUtil(object):
         'dicom_tables_part_3.json', json_dir
     )
     self._tags = DicomStandardIODUtil._read_json('dicom_tags.json', json_dir)
+    self._iod_functional_group_modules = DicomStandardIODUtil._read_json(
+        'dicom_iod_func_groups.json', json_dir
+    )
 
     self._header_test_result = self._check_header_versions()
     if not self._header_test_result:
@@ -204,6 +207,10 @@ class DicomStandardIODUtil(object):
     self._table = self._table['dicom_tables_part_1']
     self._table2 = self._table2['dicom_tables_part_2']
     self._table3 = self._table3['dicom_tables_part_3']
+    self._iod_functional_group_modules = self._iod_functional_group_modules[
+        'dicom_iod_func_groups'
+    ]
+
     for key, value in self._table2.items():
       self._table[key] = value
     del self._table2
@@ -297,6 +304,7 @@ class DicomStandardIODUtil(object):
         self._iod_uid,
         self._table2,
         self._table3,
+        self._iod_functional_group_modules,
     ]:
       version_set.add(tstobj['header']['dicom_standard_version']['Version'])
     if len(version_set) != 1:
@@ -369,6 +377,46 @@ class DicomStandardIODUtil(object):
         for module in module_list
     ]
 
+  def get_iod_functional_group_modules(
+      self, iod_name: IODName
+  ) -> List[ModuleDef]:
+    """Returns list of modules defined in an IOD functional group.
+
+    Args:
+      iod_name: Name of DICOM IOD to return modules (str).
+
+    Returns:
+      List of module definitions
+
+    Raises:
+      DICOMSpecMetadataError: DICOM IOD name not found or functional group not
+        found.
+    """
+    module_list = self._iod_functional_group_modules.get(iod_name)
+    if module_list is None:
+      raise DICOMSpecMetadataError(f'IOD: {iod_name} not found.')
+    return [
+        ModuleDef(module['name'], module['ref'], module['usage'])
+        for module in module_list
+    ]
+
+  def has_iod_functional_groups(self, iod_name: IODName) -> bool:
+    """Returns list of functional group names defined in an IOD.
+
+    Args:
+      iod_name: Name of DICOM IOD to return modules (str).
+
+    Returns:
+      True if DICOM IOD contains functional group definition.
+
+    Raises:
+      DICOMSpecMetadataError: DICOM IOD name not found.
+    """
+    module_list = self._iod_functional_group_modules.get(iod_name)
+    if module_list is None:
+      return False
+    return module_list is not None and module_list
+
   def get_iod_module_names(self, iod_name: IODName) -> List[ModuleName]:
     """Returns list of modules names defined by an IOD.
 
@@ -400,9 +448,9 @@ class DicomStandardIODUtil(object):
     Raises:
       DICOMSpecMetadataError : iod name not found
     """
-    for module in self.get_iod_modules(iod_name):
-      if module.name == module:
-        usage = module.usage
+    for test_module in self.get_iod_modules(iod_name):
+      if test_module.name == module:
+        usage = test_module.usage
         if full_text:
           return usage
         return usage[0].upper()
@@ -427,6 +475,24 @@ class DicomStandardIODUtil(object):
     for module in self.get_iod_modules(iod_name):
       if module.name == module:
         return module.ref
+
+  def is_repeated_group_element_tag(self, tag_address: str) -> bool:
+    """Returns True if tag address defines a repeated group element tag address.
+
+    https://dicom.nema.org/dicom/2013/output/chtml/part05/sect_7.6.html
+
+    For tag definitions see:
+    /transformation_pipeline/ingestion_lib/dicom_util/spec/dicom_tags.json
+
+    Args:
+      tag_address: DICOM tag address as string (hex formatted).
+
+    Returns:
+      True if tag address defines repeated group element.
+    """
+    if tag_address.startswith('0x'):
+      tag_address = tag_address[2:]  # masked tags do not start with 0x
+    return self._tags['mask'].get(tag_address, None) is not None
 
   def get_tag(self, tag_address: Union[int, str]) -> Optional[DcmTagDef]:
     """Returns DICOM tag definition for tag address.
@@ -560,6 +626,11 @@ class DicomStandardIODUtil(object):
         | DicomStandardIODUtil._OTHER_TYPE_VR_SET
     )
     return bool(recognized_types & vr_type)
+
+  @classmethod
+  def is_vr_ui_type(cls, vr_type: Set[Union[DicomVRCode, str]]) -> bool:
+    """Returns True if vr type is a string type."""
+    return bool(frozenset(['UI']) & vr_type)
 
   @classmethod
   def is_vr_str_type(cls, vr_type: Set[Union[DicomVRCode, str]]) -> bool:

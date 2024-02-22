@@ -129,7 +129,9 @@ class DicomAbstractXmlParser:
     if text:
       if isinstance(text, str):
         if re.fullmatch(r'^[\x00-\x7F]+$', text) is None:
-          raise DicomIodGeneratorError(f'Text: {text} contains unicode.')
+          raise DicomIodGeneratorError(
+              f'Text: {text} contains unicode. Ascii encoding: {ascii(text)}'
+          )
       elif isinstance(text, list):
         for item in text:
           DicomAbstractXmlParser.unicode_check(item)

@@ -36,7 +36,7 @@ The dicom standard describes a document model (IOD) as a:
   level representations of the document model.
 
 
-class DicomIODDatsetUtil : Wraps, a representation of the dicom standard,
+class DicomIODDatasetUtil : Wraps, a representation of the dicom standard,
   and provides access to flattened, at IOD node level, representations
   the IOD document model. The class caches IOD decoding to avoid repeative
   IOD node generation.
@@ -57,12 +57,16 @@ from __future__ import annotations
 import collections
 import copy
 import dataclasses
-from typing import Any, Generator, List, NewType, Optional, Set, Tuple, Union
+from typing import Any, Generator, Iterator, List, NewType, Optional, Set, Tuple, Union
 
 from transformation_pipeline.ingestion_lib.dicom_util import dicom_standard_util as dcm_util
 
 _DicomTableTagRequirement = dcm_util.DicomTableTagRequirement
 DicomModuleUsageRequirement = NewType('DicomModuleUsageRequirement', str)
+
+
+class IODDoesNotDefineModuleError(Exception):
+  """IOD does not define one or more modules."""
 
 
 class DicomPathError(Exception):
@@ -115,7 +119,7 @@ class DICOMTag:
   def module_usage(self) -> Set[DicomModuleUsageRequirement]:
     """Returns DICOM module level requirement(s) for tag instance.
 
-    Can have multiple due to multiple modoues defining instances of tags
+    Can have multiple due to multiple modules defining instances of tags
     """
     return self._module_usage
 
@@ -146,14 +150,14 @@ class DICOMTag:
   def required(self) -> Set[_DicomTableTagRequirement]:
     """Returns DICOM Table requirement(s) for tag instance.
 
-    Can have multiple due to multiple modoues defining instances of tags
+    Can have multiple due to multiple modules defining instances of tags
     """
     return self._required
 
   def has_required(self, requirement: _DicomTableTagRequirement) -> bool:
     """Returns True if tag defines specified requirement.
 
-       Can have multiple due to multiple modoues defining instances of tags
+       Can have multiple due to multiple modules defining instances of tags
 
     Args:
       requirement: Requirement to test e.g. ('1','1C','2','2C', or '3').
@@ -162,6 +166,14 @@ class DICOMTag:
       True if requirement is specified.
     """
     return requirement.upper() in self._required
+
+  @property
+  def lowest_tag_type_requirement(self) -> str:
+    """Returns lowest DICOM tag type for tag."""
+    for dicom_tag_type in ('1', '1C', '2', '2C', '3'):
+      if dicom_tag_type in self._required:
+        return dicom_tag_type
+    raise ValueError('Tag is missing type requirement.')
 
   @property
   def vm(self) -> dcm_util.DicomVMCode:
@@ -241,7 +253,13 @@ class DICOMDataset:
     * Accessing tags.
   """
 
-  def __init__(self, path: str, dicom_standard: dcm_util.DicomStandardIODUtil):
+  def __init__(
+      self,
+      iod_name: dcm_util.IODName,
+      path: str,
+      dicom_standard: dcm_util.DicomStandardIODUtil,
+  ):
+    self._iod_name = iod_name
     self._path = path  # path to dataset in dicom IOD
     self._dicom_standard = dicom_standard  # ref to dicom standard util.
     self._dataset = collections.OrderedDict()  # parsed dataset container.
@@ -348,7 +366,7 @@ class DICOMDataset:
             f'Can not dataset on for non sq tag; Tag: {tag}'
         )
       path = self._path + ':' + tag.keyword
-      dataset = DICOMDataset(path, self._dicom_standard)
+      dataset = DICOMDataset(self._iod_name, path, self._dicom_standard)
       tag.sq_dataset = dataset
     return dataset
 
@@ -375,6 +393,24 @@ class DICOMDataset:
           f'table line def {table_line}'
       )
     return name[1:]
+
+  def get_module_tables(
+      self, iod_module_list: List[dcm_util.ModuleDef]
+  ) -> Iterator[List[UnDecodedTableLine]]:
+    """Returns iterator which returns lines which define the module root tables."""
+    for iod_module in iod_module_list:
+      module_section_table_name = iod_module.module_section_table_name
+      module_tables = self._dicom_standard.get_module_section_tables(
+          module_section_table_name  # pytype: disable=wrong-arg-types
+      )
+      iod_module_usage = DicomModuleUsageRequirement(iod_module.usage[0])
+      for module_table in module_tables:
+        ref_table = self._dicom_standard.get_table(module_table.table_name)
+        table_lines = [
+            UnDecodedTableLine(iod_module_usage, line)
+            for line in ref_table.table_lines
+        ]
+        yield table_lines
 
   def decode_dataset(self, line_stack: List[UnDecodedTableLine]):
     """Decode list of table lines to create the dicom dataset.
@@ -461,13 +497,24 @@ class DICOMDataset:
         tag_table_level = table_line.prefix.count('>')
         if tag_table_level == 0:
           # table is inline reference. push inline tags into parse stack.
-          #
-          lnk_tbl = self._dicom_standard.get_table(table_line.table_name)
-          linked_tablelines = copy.copy(lnk_tbl.table_lines)
-          linked_tablelines.reverse()
-          # push tags onto decoding stack.
-          for linked_line in linked_tablelines:
-            line_stack.append(UnDecodedTableLine(module_usage, linked_line))
+          if table_line.table_name == 'IODFunctionalGroupMacros':
+            iod_module_list = (
+                self._dicom_standard.get_iod_functional_group_modules(
+                    self._iod_name
+                )
+            )
+            for module_table_lines in self.get_module_tables(iod_module_list):
+              module_table_lines = copy.copy(module_table_lines)
+              module_table_lines.reverse()
+              for line in module_table_lines:
+                line_stack.append(line)
+          else:
+            lnk_tbl = self._dicom_standard.get_table(table_line.table_name)
+            linked_tablelines = copy.copy(lnk_tbl.table_lines)
+            linked_tablelines.reverse()
+            # push tags onto decoding stack.
+            for linked_line in linked_tablelines:
+              line_stack.append(UnDecodedTableLine(module_usage, linked_line))
         else:
           if last_tag is None or not last_tag.is_sq():
             raise dcm_util.DICOMSpecMetadataError(
@@ -596,45 +643,44 @@ class DICOMDataset:
     return '\n'.join(result)
 
 
-class DicomIODDatsetUtil:
+class DicomIODDatasetUtil:
   """Main class to extract arbitrary representations of IOD Tables."""
 
   def __init__(self, json_dir: Optional[str] = None):
     self._dicom_standard = dcm_util.DicomStandardIODUtil(json_dir=json_dir)
-    self._iod_name = None
-    self._iod_cache = None
 
   @property
   def dicom_standard(self) -> dcm_util.DicomStandardIODUtil:
     return self._dicom_standard
 
-  def _get_module_table(
+  def _decode_table_lines(
       self,
-      table_name: dcm_util.TableName,
-      module_usage: DicomModuleUsageRequirement,
+      iod_name: dcm_util.IODName,
+      table_lines: List[UnDecodedTableLine],
   ) -> DICOMDataset:
-    """Returns root level DICOMDataset for module table.
+    """Converts list of UnDecodedTableLine to DICOMDataset.
 
     Args:
-      table_name: Name of table to return dataset for.
-      module_usage: Module usage requirements.
+      iod_name: Name of DICOM IOD.
+      table_lines: List of undecoded table lines.
 
     Returns:
       DICOMDataset
     """
-    ref_table = self._dicom_standard.get_table(table_name)
-    table = DICOMDataset('root', self._dicom_standard)
-    table_lines = [
-        UnDecodedTableLine(module_usage, line) for line in ref_table.table_lines
-    ]
+    table = DICOMDataset(iod_name, 'root', self._dicom_standard)
     table.decode_dataset(table_lines)
     return table
 
-  def _get_iod_root_table(self, iod_name: dcm_util.IODName) -> DICOMDataset:
+  def _get_iod_root_table(
+      self,
+      iod_name: dcm_util.IODName,
+      iod_module_list: List[dcm_util.ModuleDef],
+  ) -> DICOMDataset:
     """Returns root level DICOMDataset for IOD.
 
     Args:
       iod_name: Name of DICOM IOD.
+      iod_module_list: DICOM IOD module list.
 
     Returns:
       DICOMDataset
@@ -642,32 +688,141 @@ class DicomIODDatsetUtil:
     Raises:
       DICOMSpecMetadataError : Invalid IOD Name
     """
-    if self._iod_name == iod_name:
-      return self._iod_cache
-    self._iod_name = iod_name
-    try:
-      iod_module_list = self._dicom_standard.get_iod_modules(self._iod_name)
-    except dcm_util.DICOMSpecMetadataError:
-      self._iod_name = None
-      self._iod_cache = None
-      raise
-    root_dataset = DICOMDataset('root', self._dicom_standard)
-    for iod_module in iod_module_list:
-      module_section_table_name = iod_module.module_section_table_name
-      if module_section_table_name is not None:
-        module_tables = self._dicom_standard.get_module_section_tables(
-            module_section_table_name  # pytype: disable=wrong-arg-types
+    root_dataset = DICOMDataset(iod_name, 'root', self._dicom_standard)
+    for module_table in root_dataset.get_module_tables(iod_module_list):
+      dataset = self._decode_table_lines(iod_name, module_table)
+      root_dataset.merge(dataset)
+    return root_dataset
+
+  def _get_iod_dataset_at_path(
+      self,
+      dataset_level: DICOMDataset,
+      iod_name: dcm_util.IODName,
+      iod_path: dcm_util.DicomPathType,
+  ) -> Optional[DICOMDataset]:
+    """Returns DicomDataset for path specified position in IOD.
+
+    Args:
+      dataset_level: Root DICOMDataset to iterate from.
+      iod_name: Name of DICOM IOD.
+      iod_path: List of tags to iterate over which define a path to a DICOM
+        dataset.
+
+    Returns:
+      DICOMDataset
+
+    Raises:
+       DicomPathError: Invalid path.
+    """
+    for index, path in enumerate(iod_path):
+      if path == 'root' and index == 0:
+        continue
+      tag = dataset_level[path]
+      if tag is None:
+        decoded_tag = '.'.join(iod_path[: index + 1])
+        raise DicomPathError(
+            (
+                f'Dicom tag path specifies tag({decoded_tag}) not '
+                f' in {iod_name} IOD.'
+            ),
+            iod_name,
+            iod_path[: index + 1],
+            iod_path,
         )
-        iod_module_usage = DicomModuleUsageRequirement(iod_module.usage[0])
-        for module_tabels in module_tables:
-          dataset = self._get_module_table(
-              module_tabels.table_name, iod_module_usage
-          )
-          root_dataset.merge(dataset)
-    self._iod_cache = root_dataset
-    return self._iod_cache
+      # intermediate nodes of the must be sq tags.
+      if tag.is_sq():
+        dataset_level = tag.sq_dataset
+      elif index + 1 != len(iod_path):
+        # if node is not sq tag and node is not a leaf then path is incorrect.
+        decoded_tag = '.'.join(iod_path[: index + 1])
+        raise DicomPathError(
+            (
+                f'Dicom tag path specifies non-sq tag({decoded_tag}) in'
+                ' middle  of path.'
+            ),
+            iod_name,
+            iod_path[: index + 1],
+            iod_path,
+        )
+    return dataset_level
+
+  def _norm_iod_name(self, iod_name: dcm_util.IODName) -> dcm_util.IODName:
+    if iod_name.endswith(' Storage'):
+      txtlen = len(' Storage')
+      iod_name = f'{iod_name[:-txtlen]} IOD Modules'
+    return dcm_util.IODName(iod_name)
 
   def get_iod_dicom_dataset(
+      self,
+      iod_name: dcm_util.IODName,
+      iod_path: Optional[dcm_util.DicomPathType] = None,
+      module_name_subset: Optional[Set[str]] = None,
+  ) -> DICOMDataset:
+    """Returns DicomDataset for path specified position in IOD.
+
+       if iod_path specified.
+         ignores 'root' if specified first element
+         ignores 'non-sq' tag if last element.
+
+    Args:
+      iod_name: Name of DICOM IOD
+      iod_path: Optional list of tags to iterate over which define a path to a
+        DICOM dataset.
+      module_name_subset: List of names of modules defined within the IOD to
+        selectively return DICOM tags for.
+
+    Returns:
+      DICOMDataset
+
+    Raises:
+       DICOMSpecMetadataError : invalid iod name
+       DicomPathError : invalid path
+       IODDoesNotDefineModuleError: IOD does not define one or more modules in
+         module_name_subset.
+    """
+    iod_name = self._norm_iod_name(iod_name)
+    iod_module_list = self._dicom_standard.get_iod_modules(iod_name)
+    if module_name_subset is not None:
+      iod_modules = {str(module.name) for module in iod_module_list}
+      missing_module_names = module_name_subset - iod_modules
+      if missing_module_names:
+        raise IODDoesNotDefineModuleError(
+            f'IOD does not define module names: {missing_module_names}.',
+            'iod_does_not_define_module_name',
+        )
+      iod_module_list = [
+          module
+          for module in iod_module_list
+          if module.name in module_name_subset
+      ]
+
+    dataset_level = self._get_iod_root_table(iod_name, iod_module_list)
+    if iod_path is not None:
+      dataset_level = self._get_iod_dataset_at_path(
+          dataset_level, iod_name, iod_path
+      )
+    return dataset_level
+
+  def get_root_level_iod_tag_keywords(
+      self,
+      iod_name: dcm_util.IODName,
+      module_name_subset: Optional[Set[str]] = None,
+  ) -> List[str]:
+    """Returns DICOM tag keywords defined at root level of IOD.
+
+    Args:
+      iod_name: Name of DICOM IOD.
+      module_name_subset: Optional subset of IOD modules to return tags keywords
+        for.
+    """
+    ds = self.get_iod_dicom_dataset(
+        iod_name=iod_name,
+        iod_path=None,
+        module_name_subset=module_name_subset,
+    )
+    return [tag.keyword for tag in ds.values()]
+
+  def get_iod_function_group_dicom_dataset(
       self,
       iod_name: dcm_util.IODName,
       iod_path: Optional[dcm_util.DicomPathType] = None,
@@ -690,39 +845,13 @@ class DicomIODDatsetUtil:
        DICOMSpecMetadataError : invalid iod name
        DicomPathError : invalid path
     """
-    if iod_name.endswith(' Storage'):
-      txtlen = len(' Storage')
-      iod_name = f'{iod_name[:-txtlen]} IOD Modules'
-    dataset_level = self._get_iod_root_table(iod_name)
-    if iod_path:
-      for index, path in enumerate(iod_path):
-        if path == 'root' and index == 0:
-          continue
-        tag = dataset_level[path]
-        if tag is None:
-          decoded_tag = '.'.join(iod_path[: index + 1])
-          raise DicomPathError(
-              (
-                  f'Dicom tag path specifies tag({decoded_tag}) not '
-                  f' in {iod_name} IOD.'
-              ),
-              iod_name,
-              iod_path[: index + 1],
-              iod_path,
-          )
-        # intermediate nodes of the must be sq tags.
-        if tag.is_sq():
-          dataset_level = tag.sq_dataset
-        elif index + 1 != len(iod_path):
-          # if node is not sq tag and node is not a leaf then path is incorrect.
-          decoded_tag = '.'.join(iod_path[: index + 1])
-          raise DicomPathError(
-              (
-                  f'Dicom tag path specifies non-sq tag({decoded_tag}) in'
-                  ' middle  of path.'
-              ),
-              iod_name,
-              iod_path[: index + 1],
-              iod_path,
-          )
+    iod_name = self._norm_iod_name(iod_name)
+    iod_module_list = self._dicom_standard.get_iod_functional_group_modules(
+        iod_name
+    )
+    dataset_level = self._get_iod_root_table(iod_name, iod_module_list)
+    if iod_path is not None:
+      dataset_level = self._get_iod_dataset_at_path(
+          dataset_level, iod_name, iod_path
+      )
     return dataset_level

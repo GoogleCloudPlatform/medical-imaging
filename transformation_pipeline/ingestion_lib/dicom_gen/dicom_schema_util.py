@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """DICOM schema utilities."""
+
 from __future__ import annotations
 
 import abc
@@ -25,8 +26,10 @@ import pandas
 
 from shared_libs.logging_lib import cloud_logging_client
 from transformation_pipeline import ingest_flags
+from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
 from transformation_pipeline.ingestion_lib.dicom_util import dicom_standard
 from transformation_pipeline.ingestion_lib.dicom_util import dicomtag
+
 
 _DICOM_TYPE_1_TAG = '1'
 _DICOM_TYPE_2_TAG = '2'
@@ -213,6 +216,7 @@ class DictMetadataTableWrapper(MetadataTableWrapper):
     for column_text in self.slide_metadata:
       if norm_column_name(column_text) == searchtxt:
         return column_text
+    return None
 
   def lookup_metadata_value(self, metadata_column_name: str) -> Optional[Any]:
     """Look up column name in and return associated value.
@@ -319,7 +323,6 @@ class SchemaDICOMTag:
     lines.append(f'  Keyword path: {self.keyword_path()}')
     lines.append(f'  vr: {self.vr}')
     lines.append(f'  type: {self._table_req}')
-    lines.append(f'  tag_value_required: {self._tag_value_definition_required}')
     lines.append('  schema:')
     for key, value in self._schema_def.items():
       if not isinstance(value, list):
@@ -510,6 +513,36 @@ class SchemaDICOMTag:
         return index
     return len(val)
 
+  def _test_tag_value_is_formatted_correctly_for_vr_type(
+      self, val: Any
+  ) -> None:
+    """Test DICOM Tag value is formatted as required by DICOM Standard.
+
+    Args:
+      val: Value of DICOM tag.
+
+    Raises:
+     DICOMSchemaTagError: Tag value formatting violates DICOM Standard.
+    """
+    uid_validation = ingest_flags.METADATA_UID_VALIDATION_FLG.value
+    if (
+        dicom_standard.dicom_standard_util().is_vr_ui_type(self.vr)
+        and uid_validation != ingest_flags.MetadataUidValidation.NONE
+        and isinstance(val, str)
+        and not uid_generator.validate_uid_format(val)
+    ):
+      msg = 'Metadata defines incorrectly formatted DICOM UID.'
+      log = {'tag': str(self), 'value': val}
+      if uid_validation == ingest_flags.MetadataUidValidation.LOG_WARNING:
+        cloud_logging_client.logger().warning(msg, log)
+        return
+      cloud_logging_client.logger().error(msg, log)
+      raise DICOMSchemaTagError(
+          self,
+          'DICOMTag has UI VR code, tag value does not UI VR code formatting'
+          ' requirements.',
+      )
+
   def crop_str_to_vr_type(self, val: Any) -> Any:
     """Crops string values to VR type max character count definitions.
 
@@ -517,12 +550,17 @@ class SchemaDICOMTag:
       val: value to crop
 
     Returns:
-      Val (does nothing) if vr type is not string or val is not a string or val
-      does not exceed strings size limits.  Otherwise returns cropped val.
+      Value either unchangned or cropped.
+    Raises:
+     DICOMSchemaTagError: Length of tag value violates DICOM Standard VR code
+       requirements.
     """
     if not isinstance(
         val, str
     ) or not dicom_standard.dicom_standard_util().is_vr_str_type(self.vr):
+      return val
+    length_validation = ingest_flags.METADATA_TAG_LENGTH_VALIDATION_FLG.value
+    if length_validation == ingest_flags.MetadataTagLengthValidation.NONE:
       return val
     max_str_len = [
         dicom_standard.dicom_standard_util().get_vr_max_chars(self.vr)
@@ -531,17 +569,46 @@ class SchemaDICOMTag:
     if max_bytes > 0:
       max_str_len.append(SchemaDICOMTag._get_byte_char_count(val, max_bytes))
     max_str_len = max(max_str_len)
-    if max_str_len > 0 and len(val) > max_str_len:
+    # VR Codes: 'OB', 'OV', 'OL', 'OW' do not have defined lengths and return -1
+    if max_str_len < 0 or len(val) <= max_str_len:
+      return val
+    if (
+        length_validation
+        == ingest_flags.MetadataTagLengthValidation.LOG_WARNING
+    ):
+      cloud_logging_client.logger().warning(
+          'DICOM tag value exceeds DICOM Standard length limits for tag VR'
+          ' type.',
+          {'tag_value': val, 'tag': str(self)},
+      )
+      return val
+    elif (
+        length_validation
+        == ingest_flags.MetadataTagLengthValidation.LOG_WARNING_AND_CLIP
+    ):
       cropped_val = val[:max_str_len]
       cloud_logging_client.logger().warning(
-          'DICOM value cropped. Value exceeded vr type length',
-          {'uncropped_value': val, 'cropped': cropped_val, 'tag': str(self)},
+          'DICOM tag value cropped; value exceeds DICOM Standard length limits'
+          ' for tag VR type.',
+          {
+              'uncropped_tag_value': val,
+              'cropped_tag_value': cropped_val,
+              'tag': str(self),
+          },
       )
-      val = cropped_val
-    return val
+      return cropped_val
+    msg = (
+        'DICOM tag value exceeds DICOM Standard length limits for tag VR type.'
+    )
+    cloud_logging_client.logger().error(
+        msg,
+        {'tag_value': val, 'tag': str(self)},
+    )
+    raise DICOMSchemaTagError(self, msg)
 
   @value.setter
   def value(self, val: Any):
+    self._test_tag_value_is_formatted_correctly_for_vr_type(val)
     self._value = self.crop_str_to_vr_type(val)
 
   def is_value_set(self) -> bool:

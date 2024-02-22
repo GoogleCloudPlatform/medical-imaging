@@ -52,23 +52,23 @@ RUN wget -O abseil.zip "https://github.com/abseil/abseil-cpp/archive/refs/tags/$
     cmake  --build . --target install &&  \
     rm -rf "/abseil-cpp-${ABSEIL_VERSION}"
 
-#Install DCMTK 3.6.7
-ARG DCMTK_VERSION="3.6.7"
+#Install DCMTK 3.6.8
+ARG DCMTK_VERSION="3.6.8"
 RUN wget -O "dcmtk-${DCMTK_VERSION}.zip" "https://github.com/DCMTK/dcmtk/archive/refs/tags/DCMTK-${DCMTK_VERSION}.zip" > /dev/null && \
     unzip "dcmtk-${DCMTK_VERSION}.zip" > /dev/null  && \
     rm "dcmtk-${DCMTK_VERSION}.zip" && \
     mkdir -p "/dcmtk-DCMTK-${DCMTK_VERSION}/build" && \
     cd "/dcmtk-DCMTK-${DCMTK_VERSION}/build"  && \
-    cmake -DJPEG_LIBRARY=/opt/libjpeg-turbo/lib64/libjpeg.a -DJPEG_INCLUDE_DIR=/opt/libjpeg-turbo/include -DDCMTK_FORCE_FPIC_ON_UNIX:BOOL=TRUE -DDCMTK_ENABLE_CXX11:BOOL=TRUE -DDCMTK_ENABLE_CHARSET_CONVERSION:BOOL=FALSE -DBUILD_SHARED_LIBS:BOOL=ON -DDCMTK_MODULES:STRING="ofstd;oflog;dcmdata;dcmimgle;dcmimage;dcmjpeg" ..  && \
+    cmake -DJPEG_LIBRARY=/opt/libjpeg-turbo/lib64/libjpeg.a -DJPEG_INCLUDE_DIR=/opt/libjpeg-turbo/include -DDCMTK_FORCE_FPIC_ON_UNIX:BOOL=TRUE -DDCMTK_ENABLE_CXX11:BOOL=TRUE -DDCMTK_ENABLE_CHARSET_CONVERSION:BOOL=FALSE -DBUILD_SHARED_LIBS:BOOL=ON -DDCMTK_MODULES:STRING="oficonv;ofstd;oflog;dcmdata;dcmimgle;dcmimage;dcmjpeg" ..  && \
     make -j12 && \
     make DESTDIR=/ install && \
     rm -rf "/dcmtk-DCMTK-${DCMTK_VERSION}"
-ENV DCMDICTPATH=/usr/local/share/dcmtk/dicom.dic
+ENV DCMDICTPATH=/usr/local/share/dcmtk-3.6.8/dicom.dic
 ENV PATH=/usr/local/bin:$PATH
 
-#Install Boost 1.83.0
-ARG BOOST_VERSION="1.83.0"
-ARG BOOST_UNDERSCORE="1_83_0"
+#Install Boost 1.84.0
+ARG BOOST_VERSION="1.84.0"
+ARG BOOST_UNDERSCORE="1_84_0"
 RUN wget -O "boost_${BOOST_UNDERSCORE}.tar.gz" "https://boostorg.jfrog.io/artifactory/main/release/${BOOST_VERSION}/source/boost_${BOOST_UNDERSCORE}.tar.gz" > /dev/null && \
     tar xvzf "boost_${BOOST_UNDERSCORE}.tar.gz"  > /dev/null && \
     rm "boost_${BOOST_UNDERSCORE}.tar.gz" && \

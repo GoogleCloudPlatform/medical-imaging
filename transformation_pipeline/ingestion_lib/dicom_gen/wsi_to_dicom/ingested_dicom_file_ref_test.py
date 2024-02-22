@@ -60,6 +60,18 @@ class IngestedDicomFileRefTest(absltest.TestCase):
 
     self.assertEqual(dcm_ref.source, wikipedia_dicom_path)
 
+  def test_load_ingest_dicom_fileref_raises_if_cannot_read_transfer_syntax(
+      self,
+  ):
+    path = os.path.join(self.create_tempdir(), 'test_dicom.dcm')
+    file_meta = pydicom.dataset.FileMetaDataset()
+    ds = pydicom.dataset.FileDataset(
+        '', pydicom.Dataset(), file_meta=file_meta, preamble=b'\0' * 128
+    )
+    ds.save_as(path)
+    with self.assertRaises(ingested_dicom_file_ref.DicomIngestError):
+      ingested_dicom_file_ref.load_ingest_dicom_fileref(path)
+
 
 if __name__ == '__main__':
   absltest.main()

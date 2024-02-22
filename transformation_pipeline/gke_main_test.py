@@ -73,6 +73,7 @@ class GkeMainTest(absltest.TestCase):
       gcs_ingest_study_instance_uid_source=ingest_flags.UidSource.METADATA,
       ingest_succeeded_uri='gs://mybucket/success',
       ingest_failed_uri='gs://mybucket/failed',
+      metadata_bucket='test',
   )
   @mock.patch.object(polling_client.PollingClient, '__enter__', autospec=True)
   @mock.patch.object(polling_client.PollingClient, '__exit__', autospec=True)
@@ -98,6 +99,7 @@ class GkeMainTest(absltest.TestCase):
       ingest_failed_uri='gs://mybucket/failed',
       dicom_store_subscription='dcm_sub',
       dicom_store_ingest_gcs_uri='dcm-store-recovery-bucket',
+      metadata_bucket='test',
   )
   @mock.patch.object(polling_client.PollingClient, '__enter__', autospec=True)
   @mock.patch.object(polling_client.PollingClient, '__exit__', autospec=True)

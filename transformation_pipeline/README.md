@@ -30,18 +30,19 @@ refer to the documentation [here](https://github.com/GoogleCloudPlatform/Cloud-P
 
 ## Building the Transformation Pipeline
 
-To build a new image, run:
+To build a new image (use image built from
+`base_docker_images/base_transformation_docker/` as base), run:
 
 ```
 gcloud builds submit --config=./transformation_pipeline/cloudbuild.yaml \
-      --timeout=24h \
-      --substitutions=REPO_NAME="<YOUR GCR DESTINATION>",_BASE_CONTAINER="<YOUR BASE CONTAINER GCR>"
+  --timeout=24h \
+  --substitutions=REPO_NAME="<YOUR GCR DESTINATION>",_BASE_CONTAINER="<YOUR BASE CONTAINER GCR>"
 ```
 
 ## Deployment
 
 To deploy the container you built follow the deployment instructions in the IaC
-repository [here](https://github.com/GoogleCloudPlatform/Cloud-Pathology-IaC/blob/main/README.md)
+repository [here](https://github.com/GoogleCloudPlatform/cloud-pathology-iac/blob/main/README.md)
 .
 
 ## Test your deployment

@@ -1038,7 +1038,7 @@ class CloudLoggingTest(parameterized.TestCase):
         autospec=True,
     ) as mock_debug:
       cloud_logging_client.logger().info('test')
-    self.assertEqual(mock_debug.call_count, 4)
+    self.assertEqual(mock_debug.call_count, 5)
     self.assertTrue(
         cloud_logging_client.CloudLoggingClient._startup_message_logged
     )

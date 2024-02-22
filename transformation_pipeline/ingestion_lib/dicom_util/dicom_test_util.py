@@ -141,15 +141,16 @@ def _create_json_wsi_metadata(
   return metadata_dict
 
 
-def create_wsi_fref(
+def create_mock_non_dpas_generated_wsi_fref(
     metadata_changes: Optional[Mapping[str, Union[str, int, float]]] = None
 ) -> wsi_dicom_file_ref.WSIDicomFileRef:
   """Returns mocked WSIDicomFileRef initialized from mock metadata."""
-  metadata = _create_json_wsi_metadata(metadata_changes)
-  return wsi_dicom_file_ref.init_wsi_dicom_file_ref_from_json(metadata)
+  return wsi_dicom_file_ref.init_wsi_dicom_file_ref_from_json(
+      _create_json_wsi_metadata(metadata_changes)
+  )
 
 
-def create_mock_dicom_fref(
+def create_mock_dpas_generated_dicom_fref(
     metadata_changes: Optional[Mapping[str, Union[str, int, float]]] = None
 ) -> wsi_dicom_file_ref.WSIDicomFileRef:
   """Returns WSIDicomFileRef with default initialized mocked metadata."""

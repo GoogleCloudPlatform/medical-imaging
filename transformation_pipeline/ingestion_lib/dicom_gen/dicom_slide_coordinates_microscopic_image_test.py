@@ -18,6 +18,7 @@ import datetime
 import itertools
 import os
 import shutil
+from typing import Any, Mapping
 from unittest import mock
 
 from absl import logging
@@ -39,6 +40,15 @@ _INSTANCE_UID = '1.2.3.4.5.6.7'
 DicomImageTransferSyntax = ingest_const.DicomImageTransferSyntax
 
 
+def _test_dicom_json(patient_name: str = '') -> Mapping[str, Any]:
+  ds = pydicom.Dataset()
+  ds.StudyInstanceUID = _STUDY_UID
+  ds.SeriesInstanceUID = _SERIES_UID
+  if patient_name:
+    ds.PatientName = patient_name
+  return ds.to_json_dict()
+
+
 class DicomSlideCoordinatesMicroscopicImageTest(parameterized.TestCase):
   """Tests for VL Slide-Coordinates Microscopic Image DICOM builder."""
 
@@ -50,10 +60,9 @@ class DicomSlideCoordinatesMicroscopicImageTest(parameterized.TestCase):
     ):
       _ = dicom_slide_coordinates_microscopic_image.create_encapsulated_flat_image_dicom(
           image_path,
-          _STUDY_UID,
-          _SERIES_UID,
           _INSTANCE_UID,
           ingest_const.DicomSopClasses.SLIDE_COORDINATES_IMAGE,
+          _test_dicom_json(),
       )
 
   def test_create_encapsulated_flat_image_dicom_invalid_image_mode_fails(self):
@@ -64,10 +73,9 @@ class DicomSlideCoordinatesMicroscopicImageTest(parameterized.TestCase):
     ):
       _ = dicom_slide_coordinates_microscopic_image.create_encapsulated_flat_image_dicom(
           image_path,
-          _STUDY_UID,
-          _SERIES_UID,
           _INSTANCE_UID,
           ingest_const.DicomSopClasses.SLIDE_COORDINATES_IMAGE,
+          _test_dicom_json(),
       )
 
   def test_create_encapsulated_flat_image_dicom_unsupported_format_fails(self):
@@ -78,10 +86,9 @@ class DicomSlideCoordinatesMicroscopicImageTest(parameterized.TestCase):
     ):
       _ = dicom_slide_coordinates_microscopic_image.create_encapsulated_flat_image_dicom(
           image_path,
-          _STUDY_UID,
-          _SERIES_UID,
           _INSTANCE_UID,
           ingest_const.DicomSopClasses.SLIDE_COORDINATES_IMAGE,
+          _test_dicom_json(),
       )
 
   @mock.patch.object(
@@ -100,10 +107,9 @@ class DicomSlideCoordinatesMicroscopicImageTest(parameterized.TestCase):
     ):
       _ = dicom_slide_coordinates_microscopic_image.create_encapsulated_flat_image_dicom(
           image_path,
-          _STUDY_UID,
-          _SERIES_UID,
           _INSTANCE_UID,
           ingest_const.DicomSopClasses.SLIDE_COORDINATES_IMAGE,
+          _test_dicom_json(),
       )
 
   @parameterized.parameters(
@@ -159,7 +165,7 @@ class DicomSlideCoordinatesMicroscopicImageTest(parameterized.TestCase):
     image_path = os.path.join(temp_dir, input_image)
     shutil.copyfile(src_image_path, image_path)
     dcm = dicom_slide_coordinates_microscopic_image.create_encapsulated_flat_image_dicom(
-        image_path, _STUDY_UID, _SERIES_UID, _INSTANCE_UID, sop_class
+        image_path, _INSTANCE_UID, sop_class, _test_dicom_json()
     )
 
     # Saves DICOM file locally and read it.
@@ -189,20 +195,16 @@ class DicomSlideCoordinatesMicroscopicImageTest(parameterized.TestCase):
     )
 
   def test_create_encapsulated_flat_image_dicom_additional_tags_succeeds(self):
-    temp_dir = self.create_tempdir()
     image_path = gen_test_util.test_file_path('logo.jpg')
-    dcm_json = {'00100010': {'vr': 'PN', 'Value': ['John^Doe']}}
     dcm = dicom_slide_coordinates_microscopic_image.create_encapsulated_flat_image_dicom(
         image_path,
-        _STUDY_UID,
-        _SERIES_UID,
         _INSTANCE_UID,
         ingest_const.DicomSopClasses.SLIDE_COORDINATES_IMAGE,
-        dcm_json,
+        _test_dicom_json(patient_name='John^Doe'),
     )
 
     # Saves DICOM file locally and read it.
-    dcm_tmp_filepath = os.path.join(temp_dir, 'test_jpg_tags.dcm')
+    dcm_tmp_filepath = os.path.join(self.create_tempdir(), 'test_jpg_tags.dcm')
     dcm.save_as(dcm_tmp_filepath, write_like_original=False)
     saved_dcm = pydicom.dcmread(dcm_tmp_filepath)
     logging.info(saved_dcm)
@@ -226,18 +228,16 @@ class DicomSlideCoordinatesMicroscopicImageTest(parameterized.TestCase):
     )
 
   def test_create_encapsulated_flat_image_dicom_grayscale_succeeds(self):
-    temp_dir = self.create_tempdir()
     image_path = gen_test_util.test_file_path('logo_grayscale.jpg')
     dcm = dicom_slide_coordinates_microscopic_image.create_encapsulated_flat_image_dicom(
         image_path,
-        _STUDY_UID,
-        _SERIES_UID,
         _INSTANCE_UID,
         ingest_const.DicomSopClasses.SLIDE_COORDINATES_IMAGE,
+        _test_dicom_json(),
     )
 
     # Saves DICOM file locally and read it.
-    dcm_tmp_filepath = os.path.join(temp_dir, 'test_jpg_gray.dcm')
+    dcm_tmp_filepath = os.path.join(self.create_tempdir(), 'test_jpg_gray.dcm')
     dcm.save_as(dcm_tmp_filepath, write_like_original=False)
     saved_dcm = pydicom.dcmread(dcm_tmp_filepath)
     logging.info(saved_dcm)
@@ -266,10 +266,9 @@ class DicomSlideCoordinatesMicroscopicImageTest(parameterized.TestCase):
     shutil.copyfile(src_image_path, image_path)
     dcm = dicom_slide_coordinates_microscopic_image.create_encapsulated_flat_image_dicom(
         image_path,
-        _STUDY_UID,
-        _SERIES_UID,
         _INSTANCE_UID,
         ingest_const.DicomSopClasses.SLIDE_COORDINATES_IMAGE,
+        _test_dicom_json(),
     )
 
     # Saves DICOM file locally and read it.
@@ -309,10 +308,9 @@ class DicomSlideCoordinatesMicroscopicImageTest(parameterized.TestCase):
     shutil.copyfile(src_image_path, image_path)
     dcm = dicom_slide_coordinates_microscopic_image.create_encapsulated_flat_image_dicom(
         image_path,
-        _STUDY_UID,
-        _SERIES_UID,
         _INSTANCE_UID,
         ingest_const.DicomSopClasses.SLIDE_COORDINATES_IMAGE,
+        _test_dicom_json(),
     )
 
     # Saves DICOM file locally and read it.

@@ -18,8 +18,10 @@ from unittest import mock
 
 from absl.testing import absltest
 from absl.testing import flagsaver
+from absl.testing import parameterized
 import pydicom
 
+from shared_libs.test_utils.dicom_store_mock import dicom_store_mock
 from transformation_pipeline.ingestion_lib import gen_test_util
 from transformation_pipeline.ingestion_lib import ingest_const
 from transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
@@ -44,13 +46,11 @@ _INSTANCE_UID = '1.2.3.4.5.6.7'
 _MESSAGE_ID = 'message_id'
 
 
-class IngestFlatImageTest(absltest.TestCase):
+class IngestFlatImageTest(parameterized.TestCase):
   """Tests for flat image ingestion."""
 
   @flagsaver.flagsaver(metadata_bucket='test')
-  def _create_metadata_client(
-      self, schema_filename=_SLIDE_COORDINATES_SCHEMA_FILENAME
-  ):
+  def _create_metadata_client(self, schema_filename):
     schema_filename = gen_test_util.test_file_path(schema_filename)
     metadata_path = gen_test_util.test_file_path(_METADATA_PATH)
     metadata_client = metadata_storage_client.MetadataStorageClient()
@@ -58,9 +58,13 @@ class IngestFlatImageTest(absltest.TestCase):
     return metadata_client
 
   def _create_flat_image_ingest(
-      self, ingest_buckets=ingest_base.GcsIngestionBuckets('foo', 'bar')
+      self,
+      ingest_buckets=ingest_base.GcsIngestionBuckets('foo', 'bar'),
+      schema_filename=_SLIDE_COORDINATES_SCHEMA_FILENAME,
   ):
-    return ingest_flat_image.IngestFlatImage(ingest_buckets)
+    return ingest_flat_image.IngestFlatImage(
+        ingest_buckets, self._create_metadata_client(schema_filename)
+    )
 
   def setUp(self):
     super().setUp()
@@ -99,20 +103,21 @@ class IngestFlatImageTest(absltest.TestCase):
 
   @flagsaver.flagsaver(flat_images_vl_microscopic_image_iod=True)
   def test_generate_dicom_microscopic_image_succeeds(self):
-    ingest = self._create_flat_image_ingest()
-    ingest._metadata_storage_client = self._create_metadata_client(
+    ingest = self._create_flat_image_ingest(
         schema_filename=_MICROSCOPIC_IMAGE_SCHEMA_FILENAME
     )
     image_path = gen_test_util.test_file_path(_TEST_PATH_JPG)
+    dicom_gen = abstract_dicom_generation.GeneratedDicomFiles(image_path, None)
+    slide_transform_lock = ingest.get_slide_id(
+        dicom_gen, self.mock_dicom_handler
+    )
     gen_dicom_result = ingest.generate_dicom(
         dicom_gen_dir=self.create_tempdir().full_path,
-        dicom_gen=abstract_dicom_generation.GeneratedDicomFiles(
-            image_path, None
-        ),
+        dicom_gen=dicom_gen,
         message_id=_MESSAGE_ID,
         abstract_dicom_handler=self.mock_dicom_handler,
     )
-
+    self.assertEqual(slide_transform_lock, _SLIDE_ID)
     self.assertLen(gen_dicom_result.files_to_upload.main_store_instances, 1)
     self.assertTrue(gen_dicom_result.generated_series_instance_uid)
     dcm = pydicom.dcmread(
@@ -129,17 +134,18 @@ class IngestFlatImageTest(absltest.TestCase):
 
   def test_generate_dicom_slide_coordinates_image_succeeds(self):
     ingest = self._create_flat_image_ingest()
-    ingest._metadata_storage_client = self._create_metadata_client()
     image_path = gen_test_util.test_file_path(_TEST_PATH_JPG)
+    dicom_gen = abstract_dicom_generation.GeneratedDicomFiles(image_path, None)
+    slide_transform_lock = ingest.get_slide_id(
+        dicom_gen, self.mock_dicom_handler
+    )
     gen_dicom_result = ingest.generate_dicom(
         dicom_gen_dir=self.create_tempdir().full_path,
-        dicom_gen=abstract_dicom_generation.GeneratedDicomFiles(
-            image_path, None
-        ),
+        dicom_gen=dicom_gen,
         message_id=_MESSAGE_ID,
         abstract_dicom_handler=self.mock_dicom_handler,
     )
-
+    self.assertEqual(slide_transform_lock, _SLIDE_ID)
     self.assertLen(gen_dicom_result.files_to_upload.main_store_instances, 1)
     self.assertTrue(gen_dicom_result.generated_series_instance_uid)
     dcm = pydicom.dcmread(
@@ -161,16 +167,17 @@ class IngestFlatImageTest(absltest.TestCase):
             'gs://success-bucket', 'gs://failure-bucket'
         )
     )
-    ingest._metadata_storage_client = self._create_metadata_client()
     image_path = gen_test_util.test_file_path(_TEST_PATH_GIF)
+    dicom_gen = abstract_dicom_generation.GeneratedDicomFiles(image_path, None)
+    handler = mock.Mock()
+    slide_transform_lock = ingest.get_slide_id(dicom_gen, handler)
     dcm_result = ingest.generate_dicom(
         dicom_gen_dir=self.create_tempdir().full_path,
-        dicom_gen=abstract_dicom_generation.GeneratedDicomFiles(
-            image_path, None
-        ),
+        dicom_gen=dicom_gen,
         message_id=_MESSAGE_ID,
-        abstract_dicom_handler=mock.Mock(),
+        abstract_dicom_handler=handler,
     )
+    self.assertEqual(slide_transform_lock, _SLIDE_ID)
     self.assertEqual(
         dcm_result.dest_uri, 'gs://failure-bucket/flat_image_unexpected_format'
     )
@@ -184,20 +191,106 @@ class IngestFlatImageTest(absltest.TestCase):
             'gs://success-bucket', 'gs://failure-bucket'
         )
     )
-    ingest._metadata_storage_client = self._create_metadata_client()
     image_path = gen_test_util.test_file_path(_TEST_PATH_JPG)
-    mock_dicom_handler = mock.Mock()
-    dcm_result = ingest.generate_dicom(
-        dicom_gen_dir=self.create_tempdir().full_path,
-        dicom_gen=abstract_dicom_generation.GeneratedDicomFiles(
-            image_path, None
-        ),
-        message_id=_MESSAGE_ID,
-        abstract_dicom_handler=mock_dicom_handler,
+    dicom_gen = abstract_dicom_generation.GeneratedDicomFiles(image_path, None)
+    dest_uri = ''
+    try:
+      ingest.get_slide_id(dicom_gen, mock.Mock())
+    except ingest_base.DetermineSlideIDError as exp:
+      dest_uri = exp.dest_uri
+    self.assertEqual(dest_uri, 'gs://failure-bucket/slideid_not_found')
+
+  @flagsaver.flagsaver(enable_metadata_free_ingestion=True)
+  def test_generate_dicom_missing_slide_id_triggers_enable_metadata_free(self):
+    self.mock_slideid.side_effect = decode_slideid.SlideIdIdentificationError(
+        'slideid_not_found', decode_slideid._SlideIdErrorLevel.BASE_ERROR_LEVEL
     )
+    ingest = self._create_flat_image_ingest(
+        ingest_base.GcsIngestionBuckets(
+            'gs://success-bucket', 'gs://failure-bucket'
+        )
+    )
+    image_path = gen_test_util.test_file_path(_TEST_PATH_JPG)
+    dicom_gen = abstract_dicom_generation.GeneratedDicomFiles(image_path, None)
+    self.assertEqual(ingest.get_slide_id(dicom_gen, mock.Mock()), 'google')
+
+  def test_uninitialized_slide_id_raises_value_error(self):
+    ingest = self._create_flat_image_ingest(
+        ingest_base.GcsIngestionBuckets(
+            'gs://success-bucket', 'gs://failure-bucket'
+        )
+    )
+    ingest.init_handler_for_ingestion()
+    with self.assertRaises(ValueError):
+      ingest.generate_dicom(
+          '',
+          abstract_dicom_generation.GeneratedDicomFiles('filename', 'uri'),
+          '',
+          mock.Mock(),
+      )
+
+  def test_generate_metadata_free_slide_metadata(self):
+    ingest = self._create_flat_image_ingest(
+        ingest_base.GcsIngestionBuckets(
+            'gs://success-bucket', 'gs://failure-bucket'
+        )
+    )
+    mock_dicomweb_url = 'https://mock.dicomstore.com/dicomWeb'
+    with dicom_store_mock.MockDicomStoreClient(mock_dicomweb_url):
+      dicom_client = dicom_store_client.DicomStoreClient(mock_dicomweb_url)
+      result = ingest._generate_metadata_free_slide_metadata(
+          'mock_slide_id', dicom_client
+      )
     self.assertEqual(
-        dcm_result.dest_uri, 'gs://failure-bucket/slideid_not_found'
+        result.dicom_json,
+        {
+            '00100020': {'vr': 'LO', 'Value': ['mock_slide_id']},
+            '0020000D': {'vr': 'UI'},
+            '00400512': {'vr': 'LO', 'Value': ['mock_slide_id']},
+        },
     )
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='both_factors_true',
+          init_series_from_metadata=True,
+          is_metadata_free=True,
+          expected=False,
+      ),
+      dict(
+          testcase_name='metadata_free',
+          init_series_from_metadata=False,
+          is_metadata_free=True,
+          expected=False,
+      ),
+      dict(
+          testcase_name='all_false',
+          init_series_from_metadata=False,
+          is_metadata_free=False,
+          expected=False,
+      ),
+      dict(
+          testcase_name='init_series_from_metadata',
+          init_series_from_metadata=True,
+          is_metadata_free=False,
+          expected=True,
+      ),
+  ])
+  def test_init_series_instance_uid_from_metadata(
+      self, is_metadata_free, init_series_from_metadata, expected
+  ):
+    ingest = self._create_flat_image_ingest(
+        ingest_base.GcsIngestionBuckets(
+            'gs://success-bucket', 'gs://failure-bucket'
+        )
+    )
+    ingest.set_slide_id('mock_slide_id', is_metadata_free)
+    with flagsaver.flagsaver(
+        init_series_instance_uid_from_metadata=init_series_from_metadata
+    ):
+      self.assertEqual(
+          ingest._init_series_instance_uid_from_metadata(), expected
+      )
 
 
 if __name__ == '__main__':

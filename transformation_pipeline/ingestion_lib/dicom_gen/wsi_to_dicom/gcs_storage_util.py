@@ -16,7 +16,6 @@
 from typing import Mapping, Optional
 
 from transformation_pipeline.ingestion_lib import cloud_storage_client
-from transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
 from transformation_pipeline.ingestion_lib.pubsub_msgs import ingestion_complete_pubsub
 
 
@@ -25,8 +24,9 @@ class CloudStorageBlobMoveError(Exception):
 
 
 def move_ingested_dicom_and_publish_ingest_complete(
+    local_file: str,
+    source_uri: Optional[str],
     destination_uri: str,
-    dicom_gen: abstract_dicom_generation.GeneratedDicomFiles,
     dst_metadata: Mapping[str, str],
     files_copied_msg: Optional[ingestion_complete_pubsub.PubSubMsg],
     delete_file_in_ingestion_bucket_at_ingest_success_or_failure: bool = True,
@@ -34,8 +34,9 @@ def move_ingested_dicom_and_publish_ingest_complete(
   """Move input svs to destination_uri.
 
   Args:
+    local_file: Local file path of file to move.
+    source_uri: Source URI of file to move.
     destination_uri: Destination uri to move input file to.
-    dicom_gen: Input DICOM gen file to move.
     dst_metadata: Metadata to tags to add to destination blob.
     files_copied_msg: Pub/Sub message to publish after files copied.
     delete_file_in_ingestion_bucket_at_ingest_success_or_failure: Delete file in
@@ -46,9 +47,9 @@ def move_ingested_dicom_and_publish_ingest_complete(
       CloudStorageBlobMoveError: if file copy or delete fails.
   """
   if not cloud_storage_client.copy_blob_to_uri(
-      source_uri=dicom_gen.source_uri,
-      local_source=dicom_gen.localfile,
+      source_uri=source_uri,
       dst_uri=destination_uri,
+      local_source=local_file,
       dst_metadata=dst_metadata,
   ):
     raise CloudStorageBlobMoveError()
@@ -60,7 +61,7 @@ def move_ingested_dicom_and_publish_ingest_complete(
   if (
       delete_file_in_ingestion_bucket_at_ingest_success_or_failure
       and not cloud_storage_client.del_blob(
-          uri=dicom_gen.source_uri, ignore_file_not_found=True
+          uri=source_uri, ignore_file_not_found=True
       )
   ):
     raise CloudStorageBlobMoveError()

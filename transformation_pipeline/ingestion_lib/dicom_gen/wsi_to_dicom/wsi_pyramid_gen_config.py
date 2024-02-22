@@ -18,20 +18,13 @@ import math
 import os
 from typing import Any, List, Optional, Set
 
+import openslide
 import pydicom
 import yaml
 
 from shared_libs.logging_lib import cloud_logging_client
 from transformation_pipeline import ingest_flags
 from transformation_pipeline.ingestion_lib import ingest_const
-
-# The following try/except block allows for two separate executions of the code:
-# A docker container deployed in GKE and within unit testing framework.
-# pylint: disable=g-import-not-at-top
-try:
-  import openslide  # pytype: disable=import-error  # Deployed GKE container
-except ImportError:
-  import openslide_python as openslide  # Google3
 
 
 class MissingPixelSpacingError(Exception):

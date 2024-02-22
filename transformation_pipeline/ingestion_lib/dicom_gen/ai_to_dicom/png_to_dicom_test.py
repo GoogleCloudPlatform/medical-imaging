@@ -13,35 +13,33 @@
 # limitations under the License.
 # ==============================================================================
 """Tests for PNG to DICOM conversion."""
+
 import json
 import os
 import time
-from typing import Any, Dict, Mapping, Optional, Tuple
+from typing import Any, Mapping, Tuple
 from unittest import mock
 
 from absl import logging
 from absl.testing import absltest
 from absl.testing import flagsaver
 from absl.testing import parameterized
-from hcls_imaging_ml_toolkit import dicom_json
-from hcls_imaging_ml_toolkit import tags
 from google.cloud import pubsub_v1
 import pydicom
 
 from shared_libs.test_utils.dicom_store_mock import dicom_store_mock
-from transformation_pipeline.ingestion_lib import abstract_polling_client
 from transformation_pipeline.ingestion_lib import cloud_storage_client
 from transformation_pipeline.ingestion_lib import gen_test_util
 from transformation_pipeline.ingestion_lib import ingest_const
+from transformation_pipeline.ingestion_lib import mock_redis_client
+from transformation_pipeline.ingestion_lib import polling_client
+from transformation_pipeline.ingestion_lib import redis_client
 from transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
 from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
 from transformation_pipeline.ingestion_lib.dicom_gen.ai_to_dicom import png_to_dicom
-from transformation_pipeline.ingestion_lib.pubsub_msgs import abstract_pubsub_msg
-from transformation_pipeline.ingestion_lib.pubsub_msgs import inference_pubsub_msg
 
-PROJECT_ID = 'test'
-STUDY_UID = '1.2.3.4.5'
-SERIES_UID = '1.2.3.4.5.6'
+_STUDY_UID = '1.2.3.4.5'
+_SERIES_UID = '1.2.3.4.5.6'
 
 
 def _mock_inference_pubsub_msg(
@@ -77,47 +75,8 @@ def _mock_inference_pubsub_msg(
   )
 
 
-class _MockPollingClient(abstract_polling_client.AbstractPollingClient):
-
-  def __init__(self, msg: inference_pubsub_msg.InferencePubSubMsg):
-    self._ack = None
-    self._current_msg = msg
-
-  def nack(self, retry_ttl: int = 0):
-    if self._ack is None:
-      self._ack = 'NACK'
-
-  def ack(self, retry_ttl: int = 0):
-    if self._ack is None:
-      self._ack = 'ACK'
-
-  def is_acked(self) -> bool:
-    if self._ack is None:
-      return False
-    return self._ack == 'ACK'
-
-  @property
-  def current_msg(self) -> Optional[abstract_pubsub_msg.AbstractPubSubMsg]:
-    return self._current_msg
-
-
 class AiPngtoDicomSecondaryCaptureTest(parameterized.TestCase):
   """Tests for PNG to DICOM conversion."""
-
-  @flagsaver.flagsaver(
-      pod_hostname='1234', dicom_guid_prefix=uid_generator.TEST_UID_PREFIX
-  )
-  def assertJsonTag(
-      self, dicomjson: Dict[str, Any], tag: tags.DicomTag, expected: Any
-  ) -> None:  # pytype: disable=invalid-annotation
-    """Given a DICOM JSON dict asserts whether the tag's value matches the expected value.
-
-    Args:
-      dicomjson: Dict representing the DICOM JSON structure.
-      tag: A tuple representing a DICOM Tag and its associated value.
-      expected: Value that is expected.
-    """
-    self.assertEqual(dicom_json.GetValue(dicomjson, tag), expected)
 
   @flagsaver.flagsaver(
       pod_hostname='1234', dicom_guid_prefix=uid_generator.TEST_UID_PREFIX
@@ -129,8 +88,8 @@ class AiPngtoDicomSecondaryCaptureTest(parameterized.TestCase):
     result = png_to_dicom_converter._convert_png_to_dicom(
         gen_test_util.test_file_path('logo.png'),
         self.create_tempdir().full_path,
-        STUDY_UID,
-        SERIES_UID,
+        _STUDY_UID,
+        _SERIES_UID,
     )
 
     # Verify DICOM was generated
@@ -140,10 +99,9 @@ class AiPngtoDicomSecondaryCaptureTest(parameterized.TestCase):
     ds = pydicom.dcmread(result[0])
     logging.info('Dataset: %s', ds)
 
-    dicom_dict = ds.to_json_dict()
     # Verify metadata tags
-    self.assertJsonTag(dicom_dict, tags.STUDY_INSTANCE_UID, STUDY_UID)
-    self.assertJsonTag(dicom_dict, tags.SERIES_INSTANCE_UID, SERIES_UID)
+    self.assertEqual(ds.StudyInstanceUID, _STUDY_UID)
+    self.assertEqual(ds.SeriesInstanceUID, _SERIES_UID)
 
   def test_handle_unexpected_exception(self):
     ingest_file = abstract_dicom_generation.GeneratedDicomFiles(
@@ -160,7 +118,6 @@ class AiPngtoDicomSecondaryCaptureTest(parameterized.TestCase):
       pubsub_msg: pubsub_v1.types.ReceivedMessage,
       local_path: str,
   ) -> Tuple[
-      _MockPollingClient,
       png_to_dicom.AiPngtoDicomSecondaryCapture,
       abstract_dicom_generation.GeneratedDicomFiles,
   ]:
@@ -168,13 +125,11 @@ class AiPngtoDicomSecondaryCaptureTest(parameterized.TestCase):
         mock_dicomweb_url
     )
     mock_triggering_msg = png_to_dicom_converter.decode_pubsub_msg(pubsub_msg)
-    mock_polling_client = _MockPollingClient(mock_triggering_msg)
     abstract_gen_dicom_files = abstract_dicom_generation.GeneratedDicomFiles(
         local_path, mock_triggering_msg.uri
     )
     png_to_dicom_converter.root_working_dir = self.create_tempdir()
     return (
-        mock_polling_client,
         png_to_dicom_converter,
         abstract_gen_dicom_files,
     )
@@ -198,11 +153,16 @@ class AiPngtoDicomSecondaryCaptureTest(parameterized.TestCase):
           'mock.ai_ml_dest.store.com',
       ),
   ])
+  @mock.patch.object(polling_client, 'PollingClient', autospec=True)
   @mock.patch.object(
       cloud_storage_client, 'del_blob', autospec=True, return_value=True
   )
   def test_png_to_dicom_pipeline_succeeds_and_does_not_delete_source_imaging(
-      self, params, dicom_store_to_clean, mock_gcs_del
+      self,
+      params,
+      dicom_store_to_clean,
+      mock_gcs_del,
+      mock_polling_client,
   ):
     mock_oof_source_dicomweb_url = 'https://mock.oof_source.com/dicomWeb'
     mock_oof_dest_dicomweb_url = 'https://mock.ai_ml_dest.store.com/dicomWeb'
@@ -224,18 +184,18 @@ class AiPngtoDicomSecondaryCaptureTest(parameterized.TestCase):
           source_dicom_instance_path
       )
       with flagsaver.flagsaver(dicom_store_to_clean=dicom_store_to_clean):
-        rs = self.get_client_convert_and_test_input(
-            mock_oof_dest_dicomweb_url, pubsub_msg, local_path
+        png_to_dicom_converter, abstract_gen_dicom_files = (
+            self.get_client_convert_and_test_input(
+                mock_oof_dest_dicomweb_url, pubsub_msg, local_path
+            )
         )
-        (
-            mock_polling_client,
-            png_to_dicom_converter,
-            abstract_gen_dicom_files,
-        ) = rs
-
-        png_to_dicom_converter.generate_dicom_and_push_to_store(
-            abstract_gen_dicom_files, mock_polling_client
+        mock_polling_client.current_msg = (
+            png_to_dicom_converter.decode_pubsub_msg(pubsub_msg)
         )
+        with mock_redis_client.MockRedisClient('1.2.3.4'):
+          png_to_dicom_converter._generate_dicom_and_push_to_store_lock_wrapper(
+              abstract_gen_dicom_files, mock_polling_client
+          )
 
       # test source instance not deleted
       mk_store[mock_oof_source_dicomweb_url].assert_not_empty(self)
@@ -249,11 +209,16 @@ class AiPngtoDicomSecondaryCaptureTest(parameterized.TestCase):
       # pipeline succeeded
       self.assertTrue(mock_polling_client.is_acked())
 
+  @parameterized.named_parameters([
+      dict(testcase_name='redis_transform_lock_enabled', redis_ip='1.2.3.4'),
+      dict(testcase_name='redis_transform_lock_disabled', redis_ip=None),
+  ])
+  @mock.patch.object(polling_client, 'PollingClient', autospec=True)
   @mock.patch.object(
       cloud_storage_client, 'del_blob', autospec=True, return_value=True
   )
   def test_png_to_dicom_pipeline_succeeds_and_deletes_source_imaging(
-      self, mock_gcs_del
+      self, mock_gcs_del, mock_polling_client, redis_ip
   ):
     mock_oof_source_dicomweb_url = 'https://mock.oof_source.com/dicomWeb'
     mock_oof_dest_dicomweb_url = 'https://mock.ai_ml_dest.store.com/dicomWeb'
@@ -271,7 +236,6 @@ class AiPngtoDicomSecondaryCaptureTest(parameterized.TestCase):
         params,
         source_dicom_instance_path,
     )
-
     with dicom_store_mock.MockDicomStores(
         mock_oof_source_dicomweb_url, mock_oof_dest_dicomweb_url
     ) as mk_store:
@@ -279,20 +243,20 @@ class AiPngtoDicomSecondaryCaptureTest(parameterized.TestCase):
           source_dicom_instance_path
       )
       with flagsaver.flagsaver(dicom_store_to_clean=dicom_store_to_clean):
-        rs = self.get_client_convert_and_test_input(
-            mock_oof_dest_dicomweb_url, pubsub_msg, local_path
+        png_to_dicom_converter, abstract_gen_dicom_files = (
+            self.get_client_convert_and_test_input(
+                mock_oof_dest_dicomweb_url, pubsub_msg, local_path
+            )
         )
-        (
-            mock_polling_client,
-            png_to_dicom_converter,
-            abstract_gen_dicom_files,
-        ) = rs
-
-        png_to_dicom_converter.generate_dicom_and_push_to_store(
-            abstract_gen_dicom_files, mock_polling_client
+        mock_polling_client.current_msg = (
+            png_to_dicom_converter.decode_pubsub_msg(pubsub_msg)
         )
+        with mock_redis_client.MockRedisClient(redis_ip):
+          png_to_dicom_converter._generate_dicom_and_push_to_store_lock_wrapper(
+              abstract_gen_dicom_files, mock_polling_client
+          )
 
-      # test source instance not deleted
+      # test source instance deleted
       mk_store[mock_oof_source_dicomweb_url].assert_empty(self)
       # test_instance uploaded to store
       mk_store[mock_oof_dest_dicomweb_url].assert_not_empty(self)
@@ -303,6 +267,108 @@ class AiPngtoDicomSecondaryCaptureTest(parameterized.TestCase):
       )
       # pipeline succeeded
       self.assertTrue(mock_polling_client.is_acked())
+
+  @mock.patch.object(polling_client, 'PollingClient', autospec=True)
+  @mock.patch.object(
+      cloud_storage_client, 'del_blob', autospec=True, return_value=True
+  )
+  def test_png_to_dicom_pipeline_delayed_due_to_lock(
+      self, mock_gcs_del, mock_polling_client
+  ):
+    # Tests that AI transformation will do nothing and nack if redis lock
+    # cannot be acquired.
+    redis_ip = '1.2.3.4'
+    mock_oof_source_dicomweb_url = 'https://mock.oof_source.com/dicomWeb'
+    mock_oof_dest_dicomweb_url = 'https://mock.ai_ml_dest.store.com/dicomWeb'
+    params = {
+        ingest_const.OofPassThroughKeywords.SOURCE_DICOM_IN_MAIN_STORE: False
+    }
+    dicom_store_to_clean = 'https://mock.oof_source.com/dicomWeb'
+    local_path = gen_test_util.test_file_path('logo.png')
+    source_dicom_instance_path = gen_test_util.test_file_path(
+        'test_png_to_dicom_source.dcm'
+    )
+    pubsub_msg = _mock_inference_pubsub_msg(
+        mock_oof_source_dicomweb_url,
+        local_path,
+        params,
+        source_dicom_instance_path,
+    )
+    with dicom_store_mock.MockDicomStores(
+        mock_oof_source_dicomweb_url, mock_oof_dest_dicomweb_url
+    ) as mk_store:
+      mk_store[mock_oof_source_dicomweb_url].add_instance(
+          source_dicom_instance_path
+      )
+      with flagsaver.flagsaver(dicom_store_to_clean=dicom_store_to_clean):
+        png_to_dicom_converter, abstract_gen_dicom_files = (
+            self.get_client_convert_and_test_input(
+                mock_oof_dest_dicomweb_url, pubsub_msg, local_path
+            )
+        )
+        mock_polling_client.current_msg = (
+            png_to_dicom_converter.decode_pubsub_msg(pubsub_msg)
+        )
+        with mock_redis_client.MockRedisClient(redis_ip):
+          # Simulate a lock by another pod on the images identiying lock name.
+          png_transform_lock = png_to_dicom_converter.get_slide_transform_lock(
+              abstract_gen_dicom_files, mock_polling_client
+          )
+          redis_client.redis_client().acquire_non_blocking_lock(
+              png_transform_lock.name, 'ANOTHER_POD_UID', 100
+          )
+
+          # Now to try process the image with the acquired lock.
+          png_to_dicom_converter._generate_dicom_and_push_to_store_lock_wrapper(
+              abstract_gen_dicom_files, mock_polling_client
+          )
+
+      # test that nothing happend
+      # source instance not deleted
+      mk_store[mock_oof_source_dicomweb_url].assert_not_empty(self)
+      # test_instance not uploaded to store
+      mk_store[mock_oof_dest_dicomweb_url].assert_empty(self)
+      # pipeline did not delete the image from the input gcs bucket
+      mock_gcs_del.assert_not_called()
+      # pub/sub message was nacked.
+      self.assertTrue(mock_polling_client.is_nacked())
+
+  @mock.patch.object(polling_client, 'PollingClient', autospec=True)
+  def test_png_to_dicom_pipeline_get_slide_transform_lock(
+      self, mock_polling_client
+  ):
+    params = {
+        ingest_const.OofPassThroughKeywords.SOURCE_DICOM_IN_MAIN_STORE: False
+    }
+    local_path = 'mock_local_file_path'
+    source_dicom_instance_path = gen_test_util.test_file_path(
+        'test_png_to_dicom_source.dcm'
+    )
+    pubsub_msg = _mock_inference_pubsub_msg(
+        'https://mock.oof_source.com/dicomWeb',
+        'local_path',
+        params,
+        source_dicom_instance_path,
+    )
+    png_to_dicom_converter, abstract_gen_dicom_files = (
+        self.get_client_convert_and_test_input(
+            'https://mock.ai_ml_dest.store.com/dicomWeb',
+            pubsub_msg,
+            local_path,
+        )
+    )
+    mock_polling_client.current_msg = png_to_dicom_converter.decode_pubsub_msg(
+        pubsub_msg
+    )
+
+    # Now to try process the image with the acquired lock.
+    lock = png_to_dicom_converter.get_slide_transform_lock(
+        abstract_gen_dicom_files, mock_polling_client
+    )
+    self.assertEqual(
+        lock.name,
+        'oof_result_study:1.2.276.0.7230010.3.1.2.296485376.46.1648688993.578030_series:1.2.276.0.7230010.3.1.3.296485376.46.1648688993.578031',
+    )
 
 
 if __name__ == '__main__':

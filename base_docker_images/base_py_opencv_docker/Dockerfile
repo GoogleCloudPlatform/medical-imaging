@@ -29,16 +29,16 @@ RUN apt-get update && \
     apt-get upgrade -y gnutls-bin
 
 RUN rm -rf /usr/lib/google-cloud-sdk/bin/anthoscli \
-					 /usr/lib/google-cloud-sdk/bin/gcloud-crc32c
+           /usr/lib/google-cloud-sdk/bin/gcloud-crc32c
 
 WORKDIR /
 
-#Install LibJpegTurbo 3.0.0
+#Install LibJpegTurbo 3.0.1
 RUN apt-get install -y nasm && \
-    wget -O libjpeg_turbo.zip https://github.com/libjpeg-turbo/libjpeg-turbo/archive/refs/tags/3.0.0.zip > /dev/null && \
+    wget -O libjpeg_turbo.zip https://github.com/libjpeg-turbo/libjpeg-turbo/archive/refs/tags/3.0.1.zip > /dev/null && \
     unzip libjpeg_turbo.zip > /dev/null && \
     rm libjpeg_turbo.zip && \
-    mv libjpeg-turbo-3.0.0 libjpeg-turbo && \
+    mv libjpeg-turbo-3.0.1 libjpeg-turbo && \
     mkdir -p /libjpeg-turbo/build && \
     cd /libjpeg-turbo/build && \
     cmake -G"Unix Makefiles" -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DBUILD_SHARED_LIBS:bool=on .. && \
@@ -67,7 +67,7 @@ RUN apt-get install -y liblcms2-dev libzstd-dev libwebp-dev && \
 # (see https://gitlab.com/libtiff/libtiff/-/issues/483#note_1189949359).
 # Specifically, to address https://nvd.nist.gov/vuln/detail/CVE-2022-3970
 # fixed in https://gitlab.com/libtiff/libtiff/-/commit/227500897dfb07fb7d27f7aa570050e62617e3be
-RUN git clone https://gitlab.com/libtiff/libtiff.git && \  
+RUN git clone https://gitlab.com/libtiff/libtiff.git && \
   cd libtiff && \
   # Last known commit with green pipeline as of 6/2023.  Version 4.6.0
   # https://gitlab.com/libtiff/libtiff/-/commit/8b20804fc0ddeaa93667b799b5e1a2a7dc9e3fb2
@@ -82,7 +82,7 @@ RUN git clone https://gitlab.com/libtiff/libtiff.git && \
     -DCMAKE_POSITION_INDEPENDENT_CODE=ON . && \
   make install
 
-#Install OpenCV 4.8.0 (numpy required to build opencv python interface)
+#Install OpenCV 4.9.0 (numpy required to build opencv python interface)
 # OpenCV build is using above built: LibJpegTurbo & OpenJPEG for
 # jpeg and JPEG2000 decoding.
 COPY /opencv_build_test_requirements.txt /opencv_build_test_requirements.txt
@@ -91,10 +91,10 @@ COPY /opencv_build_test.py /opencv_build_test.py
 RUN python3 -m pip install -r opencv_build_requirements.txt --require-hashes && \
     apt-get update && \
     apt-get install -y libglib2.0-0 && \
-    wget -O opencv.zip https://github.com/opencv/opencv/archive/refs/tags/4.8.0.zip > /dev/null && \
+    wget -O opencv.zip https://github.com/opencv/opencv/archive/refs/tags/4.9.0.zip > /dev/null && \
     unzip opencv.zip > /dev/null && \
     rm opencv.zip  && \
-    mv opencv-4.8.0 opencv && \
+    mv opencv-4.9.0 opencv && \
     mkdir -p /opencv/build && \
     cd /opencv/build && \
     cmake -DWITH_JPEG=ON -DBUILD_JPEG=OFF -DWITH_TIFF=ON -DBUILD_TIFF=OFF -DJPEG_LIBRARY=/opt/libjpeg-turbo/lib64/libjpeg.a -DJPEG_INCLUDE_DIR=/opt/libjpeg-turbo/include .. -DBUILD_LIST=core,imgproc,imgcodecs,python3  && \

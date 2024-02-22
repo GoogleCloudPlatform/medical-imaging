@@ -49,6 +49,19 @@ def get_value(
   return default_value
 
 
+class MetadataUidValidation(enum.Enum):
+  NONE = 1
+  LOG_WARNING = 2
+  ERROR = 3
+
+
+class MetadataTagLengthValidation(enum.Enum):
+  NONE = 1
+  LOG_WARNING = 2
+  LOG_WARNING_AND_CLIP = 3
+  ERROR = 4
+
+
 class UidSource(enum.Enum):
   DICOM = 1
   METADATA = 2
@@ -91,15 +104,9 @@ class Wsi2DcmPixelEquivalentTransform(enum.Enum):
 
 TRANSFORMATION_PIPELINE_FLG = flags.DEFINE_string(
     'transformation_pipeline',
-    os.getenv('TRANSFORMATION_PIPELINE', ''),
+    os.getenv('TRANSFORMATION_PIPELINE', 'default'),
     '[optional|default,oof] Defines transformation pipeline to run. Must be one'
     ' of {default, oof}.',
-)
-
-REDIS_HOST_IP_FLG = flags.DEFINE_string(
-    'redis_host_ip',
-    os.getenv('REDIS_HOST_IP', ''),
-    '[optional|default/oof] IP address for Memorystore Redis instance.',
 )
 
 EMBED_ICC_PROFILE_FLG = flags.DEFINE_boolean(
@@ -123,7 +130,7 @@ BIG_QUERY_METADATA_TABLE_FLG = flags.DEFINE_string(
 
 DICOM_GUID_PREFIX_FLG = flags.DEFINE_string(
     'dicom_guid_prefix',
-    os.getenv('DICOM_GUID_PREFIX', None),
+    os.getenv('DICOM_GUID_PREFIX', ingest_const.DPAS_UID_PREFIX),
     '[obscure|default] Prefix for generated DICOM GUIDs.',
 )
 
@@ -209,7 +216,7 @@ INGEST_IGNORE_ROOT_DIR_FLG = flags.DEFINE_multi_string(
 )
 GCS_FILE_INGEST_LIST_FLG = flags.DEFINE_multi_string(
     'gcs_file_to_ingest_list',
-    os.getenv('GCS_FILE_INGEST_LIST', None),
+    os.getenv('GCS_FILE_INGEST_LIST'),
     '[optional|default] Fixed list of GCS files to ingest. Client will'
     'terminate at end of ingestion.',
 )
@@ -222,22 +229,49 @@ GCS_UPLOAD_IGNORE_FILE_EXTS_FLG = flags.DEFINE_list(
 )
 FILENAME_SLIDEID_REGEX_FLG = flags.DEFINE_string(
     'wsi2dcm_filename_slideid_regex',
-    os.getenv('SLIDEID_REGEX', '^[a-zA-Z0-9]+-[a-zA-Z0-9]+(-[a-zA-Z0-9]+)+'),
-    '[optional|default] Regular expression used to identify candidate slide id'
-    ' in GCS filename. Default value matches 3 or more hyphen separated'
+    os.getenv(
+        'SLIDEID_REGEX',
+        os.getenv(
+            'METADATA_PRIMARY_KEY_REGEX',
+            '^[a-zA-Z0-9]+-[a-zA-Z0-9]+(-[a-zA-Z0-9]+)+',
+        ),
+    ),
+    '[optional|default] Regular expression used to identify candidate metadata'
+    ' primary key in filename. Default value matches 3 or more hyphen separated'
     ' alpha-numeric blocks, e.g. SR-21-2 and SR-21-2-B1-5.',
 )
 FILENAME_SLIDEID_SPLIT_STR_FLG = flags.DEFINE_string(
     'filename_slideid_split_str',
-    os.getenv('FILENAME_SLIDEID_SPLIT_STR', '_'),
+    os.getenv(
+        'FILENAME_SLIDEID_SPLIT_STR',
+        os.getenv('FILENAME_METADATA_PRIMARY_KEY_SPLIT_STR', '_'),
+    ),
     '[optional|default] Character or string to split GCS filename to find'
-    ' slide id using regex defined in FILENAME_SLIDEID_REGEX_FLG.',
+    ' metadata primary key using regex defined in FILENAME_SLIDEID_REGEX_FLG.',
 )
 TEST_WHOLE_FILENAME_AS_SLIDEID_FLG = flags.DEFINE_boolean(
     'test_whole_filename_as_slideid',
-    flag_utils.env_value_to_bool('TEST_WHOLE_FILENAME_AS_SLIDEID'),
-    '[obscure|default] Include whole filename excluding file extension in'
-    ' slide id test.',
+    flag_utils.env_value_to_bool(
+        'TEST_WHOLE_FILENAME_AS_SLIDEID',
+        flag_utils.env_value_to_bool(
+            'TEST_WHOLE_FILENAME_AS_METADATA_PRIMARY_KEY',
+        ),
+    ),
+    '[obscure|default] Include slide whole filename excluding file extension as'
+    ' a candidate metadata primary key.',
+)
+INCLUDE_UPLOAD_BUCKET_PATH_IN_WHOLE_FILENAME_SLIDEID_FLG = flags.DEFINE_boolean(
+    'include_upload_bucket_path_in_whole_filename_slideid',
+    flag_utils.env_value_to_bool(
+        'INCLUDE_UPLOAD_BUCKET_PATH_IN_WHOLE_FILENAME_SLIDEID',
+        flag_utils.env_value_to_bool(
+            'INCLUDE_UPLOAD_BUCKET_PATH_IN_WHOLE_FILENAME_METADATA_PRIMARY_KEY'
+        ),
+    ),
+    '[obscure|default] Include bucket upload path in whole filename metadata '
+    'primary key. If enabled and file upload to gs://mybucket/foo/bar.svs then '
+    'whole filename metadata primary key will be foo/bar. If False (default), '
+    'then whole filename metadata primary key will be bar.',
 )
 
 ENABLE_CREATE_MISSING_STUDY_INSTANCE_UID_FLG = flags.DEFINE_boolean(
@@ -245,6 +279,36 @@ ENABLE_CREATE_MISSING_STUDY_INSTANCE_UID_FLG = flags.DEFINE_boolean(
     flag_utils.env_value_to_bool('ENABLE_CREATE_MISSING_STUDY_INSTANCE_UID'),
     '[optional|default] If True pipeline will create instance Study Instance '
     'UID if its missing. Requires metadata to define accession number.',
+)
+
+ENABLE_METADATA_FREE_INGESTION_FLG = flags.DEFINE_boolean(
+    'enable_metadata_free_ingestion',
+    flag_utils.env_value_to_bool('ENABLE_METADATA_FREE_INGESTION'),
+    '[optional|default] If True pipeline will ingest images without requiring '
+    'metadata. Each image will be ingested into unique study and series '
+    'instance uid. The PatientID will be set to the ingested file name.',
+)
+
+METADATA_UID_VALIDATION_FLG = flags.DEFINE_enum_class(
+    'metadata_uid_validation',
+    get_value(
+        env_var='METADATA_UID_VALIDATION',
+        default_value=MetadataUidValidation.LOG_WARNING.name,
+    ),
+    MetadataUidValidation,
+    '[optional|default] How to report errors in metadata UID formating.',
+)
+
+
+METADATA_TAG_LENGTH_VALIDATION_FLG = flags.DEFINE_enum_class(
+    'metadata_tag_length_validation',
+    get_value(
+        env_var='METADATA_TAG_LENGTH_VALIDATION',
+        default_value=MetadataUidValidation.LOG_WARNING.name,
+    ),
+    MetadataTagLengthValidation,
+    '[optional|default] How to handles DICOM tags which exceed the length/size '
+    'limits that are defined by the DICOM standard for the tags VR code.',
 )
 
 
@@ -258,6 +322,34 @@ DELETE_FILE_FROM_INGEST_AT_BUCKET_AT_INGEST_SUCCESS_OR_FAILURE_FLG = flags.DEFIN
     'ingestion bucket. If disabled, file will be copied to the success/failure '
     'bucket at the end of ingestion but not removed from the ingestion bucket '
     'to help de-duplicate uploads.',
+)
+
+REDIS_SERVER_IP_FLG = flags.DEFINE_string(
+    'redis_server_ip',
+    os.getenv('REDIS_SERVER_IP'),
+    '[optional|default] IP address of cloud memory store for redis. Used to '
+    'back cross GKE redis locks.',
+)
+
+REDIS_SERVER_PORT_FLG = flags.DEFINE_integer(
+    'redis_server_port',
+    int(os.getenv('REDIS_SERVER_PORT', '6379')),
+    '[optional|default] Port of cloud memory store for redis. Used to back '
+    'cross GKE redis locks.',
+)
+
+TRANSFORM_POD_UID_FLG = flags.DEFINE_string(
+    'transform_pod_uid',
+    os.getenv('MY_POD_UID'),
+    'UID of GKE pod. Do not set unless in test.',
+)
+
+TRANSFORMATION_LOCK_RETRY_FLG = flags.DEFINE_integer(
+    'transformation_lock_retry',
+    int(os.getenv('TRANSFORMATION_LOCK_RETRY', '300')),
+    '[optional|default] Amount of time in seconds that pipeline should wait '
+    'before retrying image ingestion when an image cannot be ingested due to '
+    'another instance of the pipleine holding an transformation lock.',
 )
 
 OOF_INFERENCE_CONFIG_PATH_FLG = flags.DEFINE_string(
@@ -286,11 +378,21 @@ REQUIRE_TYPE1_DICOM_TAG_METADATA_IS_DEFINED_FLG = flags.DEFINE_boolean(
     ' MissingRequiredMetadataValueError exception and  fail ingestion.',
 )
 
+CREATE_NULL_TYPE2C_DICOM_TAG_IF_METADATA_IS_UNDEFINED_FLG = flags.DEFINE_boolean(
+    'create_null_type2c_dicom_tag_if_metadata_if_undefined',
+    flag_utils.env_value_to_bool(
+        'CREATE_NULL_TYPE2C_DICOM_TAG_IF_METADATA_IS_UNDEFINED'
+    ),
+    '[optional|default] Undefined mandatory type2 tags are always initalized to'
+    ' None. Flag enables automatic initialization of undefined type2c DICOM '
+    ' tags to None.',
+)
+
 METADATA_PRIMARY_KEY_COLUMN_NAME_FLG = flags.DEFINE_string(
     'metadata_primary_key_column_name',
     os.getenv('METADATA_PRIMARY_KEY_COLUMN_NAME', 'Bar Code Value'),
     '[optional|default] Defines column name used as primary key for joining '
-    'candidate imaging slide id with BigQuery or CSV metadata.',
+    'candidate imaging with BigQuery or CSV metadata.',
 )
 
 # DICOM Store ingestion flags
@@ -300,6 +402,25 @@ DICOM_STORE_INGEST_GCS_URI_FLG = flags.DEFINE_string(
     '[optional|default] GCS URI for temporarily storing DICOM files when'
     ' ingesting from DICOM Store. Files are stored as backup before deletion'
     ' from DICOM Store.',
+)
+
+# Openslide metadata flags
+ADD_OPENSLIDE_BACKGROUND_COLOR_METADATA_FLG = flags.DEFINE_boolean(
+    'add_openslide_background_color_metadata',
+    flag_utils.env_value_to_bool('ADD_OPENSLIDE_BACKGROUND_COLOR_METADATA'),
+    '[optional|default] OpenSlide provides hooks to return WSI background color'
+    ' however metadata retrieval and embedding is experimental and disabled by '
+    'default. At time of writing none of the available openslide supported WSI '
+    'imaging encoded this metadata.',
+)
+
+ADD_OPENSLIDE_TOTAL_PIXEL_MATRIX_ORIGIN_SEQ_FLG = flags.DEFINE_boolean(
+    'add_openslide_total_pixel_matrix_origin_seq',
+    flag_utils.env_value_to_bool('ADD_OPENSLIDE_TOTAL_PIXEL_MATRIX_ORIGIN_SEQ'),
+    '[optional|default] Openslide provides hooks to return the slide '
+    'coordinates of the imaged region however metadata retrieval and embedding '
+    'is experimental and disabled by default. At time of writing none of the '
+    'available openslide supported WSI imaging encoded this metadata.',
 )
 
 # WSI specific flags
@@ -365,15 +486,15 @@ WSI2DCM_PIXEL_EQUIVALENT_TRANSFORM_FLG = flags.DEFINE_enum_class(
     'use to perform pixel equivalent transform on.',
 )
 INIT_SERIES_INSTANCE_UID_FROM_METADATA_FLG = flags.DEFINE_boolean(
-    'initialize_svs_ingestion_series_uid_from_metadata',
+    'init_series_instance_uid_from_metadata',
     flag_utils.env_value_to_bool(
-        'INIT_SVS_INGEST_SERIES_INSTANCE_UID_FROM_METADATA',
+        'INIT_SERIES_INSTANCE_UID_FROM_METADATA',
         undefined_value=False,
     ),
     '[optional|default] Initialize series instance UID from metadata.'
     ' Recommended setting = False. If true disables auto-reingestion of rescans'
     ' into new series and correct handling of rescans would need to be handled'
-    ' outside of DPAS ingestion. Used in golden grahams project.',
+    ' outside of DPAS ingestion.',
 )
 
 # Flat image specific flags
@@ -411,11 +532,22 @@ ZXING_CLI_FLG = flags.DEFINE_string(
 )
 DISABLE_CLOUD_VISION_BARCODE_SEG_FLG = flags.DEFINE_boolean(
     'testing_disable_cloudvision',
-    flag_utils.env_value_to_bool('DISABLE_CLOUD_VISION_BARCODE_SEG'),
+    flag_utils.env_value_to_bool(
+        'DISABLE_CLOUD_VISION_BARCODE_SEG',
+        not (
+            flag_utils.env_value_to_bool(
+                'ENABLE_CLOUD_VISION_BARCODE_SEGMENTATION', True
+            )
+        ),
+    ),
     '[private] Unit testing flag. Disables cloud vision.',
 )
+
 DISABLE_BARCODE_DECODER_FLG = flags.DEFINE_boolean(
     'disable_barcode_decoder',
-    flag_utils.env_value_to_bool('DISABLE_BARCODE_DECODER'),
+    flag_utils.env_value_to_bool(
+        'DISABLE_BARCODE_DECODER',
+        not (flag_utils.env_value_to_bool('ENABLE_BARCODE_DECODER', True)),
+    ),
     '[optional|default] Disable barcode decoder.',
 )

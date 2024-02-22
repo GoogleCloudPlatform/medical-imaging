@@ -13,37 +13,28 @@
 # limitations under the License.
 # ==============================================================================
 """Tests for dicom_util."""
+
 import datetime
 import os
 import shutil
-from typing import Any, Optional
+from typing import Any, MutableMapping, Optional
 from unittest import mock
 
-from absl import flags
 from absl.testing import absltest
 from absl.testing import flagsaver
+from absl.testing import parameterized
+import openslide
 import PIL
 import pydicom
 
+from shared_libs.test_utils.dicom_store_mock import dicom_store_mock
 from transformation_pipeline.ingestion_lib import gen_test_util
 from transformation_pipeline.ingestion_lib import ingest_const
+from transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
 from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
 from transformation_pipeline.ingestion_lib.dicom_gen import wsi_dicom_file_ref
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
 
-# The following try/except block allows for two separate executions of the code:
-# A docker container deployed in GKE and within unit testing framework.
-# pylint: disable=g-import-not-at-top
-try:
-  import openslide  # pytype: disable=import-error  # Deployed GKE container
-
-  _OPENSLIDE_MOCK = 'openslide.OpenSlide'
-except ImportError:
-  import openslide_python as openslide  # Google3
-
-  _OPENSLIDE_MOCK = 'openslide_python.OpenSlide'
-
-FLAGS = flags.FLAGS
 
 _WIKIPEDIA_DCM_FILENAME = 'test_wikipedia.dcm'
 
@@ -54,20 +45,13 @@ def _get_value(val: Optional[pydicom.dataelem.DataElement]) -> Any:
   return None
 
 
-def _create_frame_of_reference_metadata(
-    uid: str, ref_indicator: str
-) -> wsi_dicom_file_ref.WSIDicomFileRef:
-  metadata = {
-      '00200052': {  # FrameOfReferenceUID
-          'Value': [uid],
-          'vr': 'UI',
-      },
-      '00201040': {  # PositionReferenceIndicator
-          'Value': [ref_indicator],
-          'vr': 'LO',
-      },
-  }
-  return wsi_dicom_file_ref.init_wsi_dicom_file_ref_from_json(metadata)
+def _mock_study_series_uid_dicom_json(
+    study_uid: str = '1.2.3', series_uid='1.2.3.4'
+) -> MutableMapping[str, Any]:
+  ds = pydicom.Dataset()
+  ds.StudyInstanceUID = study_uid
+  ds.SeriesInstanceUID = series_uid
+  return ds.to_json_dict()
 
 
 def icc_bytes() -> bytes:
@@ -76,7 +60,118 @@ def icc_bytes() -> bytes:
     return infile.read()
 
 
-class DicomUtilTest(absltest.TestCase):
+class DicomUtilTest(parameterized.TestCase):
+
+  def test_add_add_openslide_dicom_properties(self):
+    ds = pydicom.Dataset()
+    dicom_util.add_default_optical_path_sequence(ds, None)
+    path = gen_test_util.test_file_path('ndpi_test.ndpi')
+    dicom_util.add_openslide_dicom_properties(ds, path)
+    self.assertEqual(ds.OpticalPathSequence[0].ObjectiveLensPower, '20')
+    self.assertNotIn('RecommendedAbsentPixelCIELabValue', ds)
+    self.assertEqual(
+        ds.TotalPixelMatrixOriginSequence[0].XOffsetInSlideCoordinateSystem, 0
+    )
+    self.assertEqual(
+        ds.TotalPixelMatrixOriginSequence[0].YOffsetInSlideCoordinateSystem, 0
+    )
+
+  @parameterized.parameters(
+      ['TotalPixelMatrixOriginSequence', 'OpticalPathSequence']
+  )
+  @flagsaver.flagsaver(add_openslide_total_pixel_matrix_origin_seq=True)
+  def test_add_add_openslide_dicom_properties_raises_value_error_missing_sq(
+      self, sq_name
+  ):
+    ds = pydicom.Dataset()
+    dicom_util.add_default_optical_path_sequence(ds, None)
+    path = gen_test_util.test_file_path('ndpi_test.ndpi')
+    del ds[sq_name]
+    with self.assertRaises(ValueError):
+      dicom_util.add_openslide_dicom_properties(ds, path)
+
+  @flagsaver.flagsaver(add_openslide_total_pixel_matrix_origin_seq=True)
+  def test_add_total_pixel_matrix_origin_sequence(self):
+    ds = pydicom.Dataset()
+    ds.TotalPixelMatrixOriginSequence = [pydicom.Dataset()]
+    ds.TotalPixelMatrixOriginSequence[0].XOffsetInSlideCoordinateSystem = 0
+    ds.TotalPixelMatrixOriginSequence[0].YOffsetInSlideCoordinateSystem = 0
+    mock_openslide = mock.create_autospec(openslide.OpenSlide, instance=True)
+    mock_openslide.properties = {
+        openslide.PROPERTY_NAME_BOUNDS_X: 50,
+        openslide.PROPERTY_NAME_BOUNDS_Y: 75,
+        openslide.PROPERTY_NAME_MPP_X: 1000,
+        openslide.PROPERTY_NAME_MPP_Y: 500,
+    }
+    dicom_util._add_total_pixel_matrix_origin_sequence(ds, mock_openslide)
+    origin_seq = ds.TotalPixelMatrixOriginSequence[0]
+    self.assertEqual(origin_seq.XOffsetInSlideCoordinateSystem, 50)
+    self.assertEqual(origin_seq.YOffsetInSlideCoordinateSystem, 37.5)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='missing_bounds_x',
+          properties={
+              openslide.PROPERTY_NAME_BOUNDS_Y: 75,
+              openslide.PROPERTY_NAME_MPP_X: 1000,
+              openslide.PROPERTY_NAME_MPP_Y: 500,
+          },
+          flag_enabled=True,
+      ),
+      dict(
+          testcase_name='missing_bounds_y',
+          properties={
+              openslide.PROPERTY_NAME_BOUNDS_X: 50,
+              openslide.PROPERTY_NAME_MPP_X: 1000,
+              openslide.PROPERTY_NAME_MPP_Y: 500,
+          },
+          flag_enabled=True,
+      ),
+      dict(
+          testcase_name='missing_mpp_x',
+          properties={
+              openslide.PROPERTY_NAME_BOUNDS_X: 50,
+              openslide.PROPERTY_NAME_BOUNDS_Y: 75,
+              openslide.PROPERTY_NAME_MPP_Y: 500,
+          },
+          flag_enabled=True,
+      ),
+      dict(
+          testcase_name='missing_mpp_y',
+          properties={
+              openslide.PROPERTY_NAME_BOUNDS_X: 50,
+              openslide.PROPERTY_NAME_BOUNDS_Y: 75,
+              openslide.PROPERTY_NAME_MPP_X: 1000,
+          },
+          flag_enabled=True,
+      ),
+      dict(
+          testcase_name='flag_disabled',
+          properties={
+              openslide.PROPERTY_NAME_BOUNDS_X: 50,
+              openslide.PROPERTY_NAME_BOUNDS_Y: 75,
+              openslide.PROPERTY_NAME_MPP_X: 1000,
+              openslide.PROPERTY_NAME_MPP_Y: 500,
+          },
+          flag_enabled=False,
+      ),
+  ])
+  def test_add_total_pixel_matrix_origin_sequence_not_set_if_property_missing(
+      self, properties, flag_enabled
+  ):
+    ds = pydicom.Dataset()
+    ds.TotalPixelMatrixOriginSequence = [pydicom.Dataset()]
+    ds.TotalPixelMatrixOriginSequence[0].XOffsetInSlideCoordinateSystem = 0
+    ds.TotalPixelMatrixOriginSequence[0].YOffsetInSlideCoordinateSystem = 0
+    mock_openslide = mock.create_autospec(openslide.OpenSlide, instance=True)
+    mock_openslide.properties = properties
+    with flagsaver.flagsaver(
+        add_openslide_total_pixel_matrix_origin_seq=flag_enabled
+    ):
+      dicom_util._add_total_pixel_matrix_origin_sequence(ds, mock_openslide)
+    origin_seq = ds.TotalPixelMatrixOriginSequence[0]
+    self.assertEqual(origin_seq.XOffsetInSlideCoordinateSystem, 0)
+    self.assertEqual(origin_seq.YOffsetInSlideCoordinateSystem, 0)
 
   def test_should_fix_icc_colorspace_no_colorspace(self):
     ds = pydicom.Dataset()
@@ -149,9 +244,19 @@ class DicomUtilTest(absltest.TestCase):
     ds = pydicom.FileDataset('foo.dcm', pydicom.Dataset())
     self.assertTrue(dicom_util.add_default_optical_path_sequence(ds, profile))
     self.assertLen(ds.OpticalPathSequence, 1)
+    self.assertEqual(ds.NumberOfOpticalPaths, 1)
     first_seq = ds.OpticalPathSequence[0]
     self.assertLen(first_seq.IlluminationTypeCodeSequence, 1)
     self.assertLen(first_seq.IlluminationColorCodeSequence, 1)
+    self.assertLen(ds.TotalPixelMatrixOriginSequence, 1)
+    self.assertEqual(
+        ds.TotalPixelMatrixOriginSequence[0].XOffsetInSlideCoordinateSystem,
+        0,
+    )
+    self.assertEqual(
+        ds.TotalPixelMatrixOriginSequence[0].YOffsetInSlideCoordinateSystem,
+        0,
+    )
     illumination_color = (
         first_seq.IlluminationColorCodeSequence[0].CodeValue,
         first_seq.IlluminationColorCodeSequence[0].CodingSchemeDesignator,
@@ -269,9 +374,7 @@ class DicomUtilTest(absltest.TestCase):
     mock_result = mock.Mock()
     mock_result.properties = props
     _ = openslide.OpenSlide
-    with mock.patch(_OPENSLIDE_MOCK) as mock_method:
-      mock_method.return_value = mock_result
-
+    with mock.patch.object(openslide, 'OpenSlide', return_value=mock_result):
       md = dicom_util.get_svs_metadata('foobar.svs')
 
     self.assertEqual(md['AcquisitionDate'].value, '20210312')
@@ -354,7 +457,21 @@ class DicomUtilTest(absltest.TestCase):
     self.assertEqual(tags['OpticalPathSequence'][0].PatientName, 'Test')
     self.assertEqual(tags['OpticalPathSequence'][1].PatientName, 'Test')
 
-  def test_set_defined_pydicom_tags(self):
+  @parameterized.named_parameters(
+      dict(
+          testcase_name='overwrite_existing_values',
+          overwrite_existing_values=True,
+          expected_num=5,
+      ),
+      dict(
+          testcase_name='do_not_overwrite_existing_values',
+          overwrite_existing_values=False,
+          expected_num=1,
+      ),
+  )
+  def test_set_defined_pydicom_tags(
+      self, overwrite_existing_values, expected_num
+  ):
     temp_dir = self.create_tempdir()
     wikipedia_dicom_path = gen_test_util.test_file_path(_WIKIPEDIA_DCM_FILENAME)
     test_dicom_path = os.path.join(temp_dir, 'temp.dcm')
@@ -370,28 +487,31 @@ class DicomUtilTest(absltest.TestCase):
         ('BarcodeValue', 'NumberOfOpticalPaths', 'OpticalPathSequence'),
     )
     test_ds = pydicom.Dataset()
-
+    test_ds.NumberOfOpticalPaths = 1
     dicom_util.set_defined_pydicom_tags(
         test_ds,
         tags,
         ('BarcodeValue', 'NumberOfOpticalPaths', 'OpticalPathSequence'),
+        overwrite_existing_values=overwrite_existing_values,
     )
 
     self.assertLen(test_ds, 2)
     self.assertNotIn('BarcodeValue', test_ds)
-    self.assertEqual(_get_value(test_ds['NumberOfOpticalPaths']), 5)
+    self.assertEqual(_get_value(test_ds['NumberOfOpticalPaths']), expected_num)
     self.assertEqual(test_ds['OpticalPathSequence'][0].PatientName, 'Test')
     self.assertEqual(test_ds['OpticalPathSequence'][1].PatientName, 'Test')
 
-  def test_set_wsi_frame_of_ref_metadata(self):
-    ds = pydicom.Dataset()
+  def test_copy_pydicom_dataset(self):
+    source = pydicom.Dataset()
+    source.FrameOfReferenceUID = '1.2.3'
+    source.PositionReferenceIndicator = 'bar'
+    dest = pydicom.Dataset()
 
-    dicom_util.set_wsi_frame_of_ref_metadata(
-        ds, dicom_util.DicomFrameOfReferenceModuleMetadata('1.2.3', 'bar')
-    )
+    dicom_util.copy_pydicom_dataset(source, dest)
+    source.FrameOfReferenceUID = '1.2.3.4'
 
-    self.assertEqual(ds.FrameOfReferenceUID, '1.2.3')
-    self.assertEqual(ds.PositionReferenceIndicator, 'bar')
+    self.assertEqual(dest.FrameOfReferenceUID, '1.2.3')
+    self.assertEqual(dest.PositionReferenceIndicator, 'bar')
 
   @flagsaver.flagsaver(
       pod_hostname='1234', dicom_guid_prefix=uid_generator.TEST_UID_PREFIX
@@ -416,92 +536,267 @@ class DicomUtilTest(absltest.TestCase):
     self.assertEqual(ds.file_meta.MediaStorageSOPInstanceUID, sop_instance_uid)
     self.assertEqual(ds.SOPInstanceUID, sop_instance_uid)
 
-  def test_create_dicom_frame_of_ref_module_metadata_from_file_ref(self):
-    study_instance_uid = '1.2.3'
-    series_instance_uid = '1.2.3.4'
-    dicom_store = mock.Mock()
-    dicom_ref = _create_frame_of_reference_metadata('1.2.3', 'foobar')
-
-    result = dicom_util.create_dicom_frame_of_ref_module_metadata(
-        study_instance_uid, series_instance_uid, dicom_store, dicom_ref, None
-    )
-
-    self.assertEqual(result.uid, '1.2.3')
-    self.assertEqual(result.position_reference_indicator, 'foobar')
-
-  def test_create_dicom_frame_of_ref_module_metadata_from_file_ref_list(self):
-    study_instance_uid = '1.2.3'
-    series_instance_uid = '1.2.3.4'
-    dicom_ref1 = _create_frame_of_reference_metadata('', 'foobar')
-    dicom_ref2 = _create_frame_of_reference_metadata('1.2.3.4', 'second')
-    dicom_store = mock.Mock()
-
-    result = dicom_util.create_dicom_frame_of_ref_module_metadata(
-        study_instance_uid,
-        series_instance_uid,
-        dicom_store,
-        None,
-        [dicom_ref1, dicom_ref2],
-    )
-
-    self.assertEqual(result.uid, '1.2.3.4')
-    self.assertEqual(result.position_reference_indicator, 'second')
-
-  def test_create_dicom_frame_of_ref_module_metadata_from_dicom_store(self):
-    study_instance_uid = '1.2.3'
-    series_instance_uid = '1.2.3.4'
-    dicom_ref1 = _create_frame_of_reference_metadata('', 'foobar')
-    dicom_ref2 = _create_frame_of_reference_metadata('1.2.3.4.5', 'third')
-    dicom_store = mock.Mock()
-    dicom_store.get_study_dicom_file_ref.return_value = [dicom_ref1, dicom_ref2]
-
-    result = dicom_util.create_dicom_frame_of_ref_module_metadata(
-        study_instance_uid, series_instance_uid, dicom_store, None, None
-    )
-
-    self.assertEqual(result.uid, '1.2.3.4.5')
-    self.assertEqual(result.position_reference_indicator, 'third')
-
-  @flagsaver.flagsaver(
-      pod_hostname='1234', dicom_guid_prefix=uid_generator.TEST_UID_PREFIX
+  @mock.patch.object(
+      uid_generator, 'generate_uid', autospec=True, return_value='1.9.9'
   )
-  def test_create_dicom_frame_of_ref_module_metadata_from_partial_file_ref(
-      self,
+  def test_get_additional_wsi_specific_dicom_metadata_no_prior_data(
+      self, unused_mock
   ):
-    study_instance_uid = '1.2.3'
-    series_instance_uid = '1.2.3.4'
-    dicom_ref = _create_frame_of_reference_metadata('', 'foobar')
-    dicom_store = mock.Mock()
-    dicom_store.get_study_dicom_file_ref.return_value = []
+    dicom_store_url = 'https://mock.dicom.store.com/dicomWeb'
+    client = dicom_store_client.DicomStoreClient(dicom_store_url)
+    with dicom_store_mock.MockDicomStores(dicom_store_url):
 
-    result = dicom_util.create_dicom_frame_of_ref_module_metadata(
-        study_instance_uid, series_instance_uid, dicom_store, dicom_ref, None
+      additional_data = dicom_util.get_additional_wsi_specific_dicom_metadata(
+          client, _mock_study_series_uid_dicom_json()
+      )
+
+    self.assertLen(list(additional_data.keys()), 2)
+    self.assertEqual(additional_data.FrameOfReferenceUID, '1.9.9')
+    self.assertEqual(
+        additional_data[ingest_const.DICOMTagAddress.PYRAMID_UID].value,
+        '1.9.9',
     )
 
-    self.assertStartsWith(result.uid, ingest_const.DPAS_UID_PREFIX)
-    self.assertEqual(result.position_reference_indicator, 'foobar')
-
-  @flagsaver.flagsaver(
-      pod_hostname='1234', dicom_guid_prefix=uid_generator.TEST_UID_PREFIX
-  )
-  def test_create_dicom_frame_of_ref_module_metadata_from_none(self):
+  def test_get_additional_wsi_specific_dicom_metadata_from_store_data(self):
     study_instance_uid = '1.2.3'
     series_instance_uid = '1.2.3.4'
-    dicom_store = mock.Mock()
-    dicom_store.get_study_dicom_file_ref.return_value = []
+    prior = pydicom.Dataset()
+    prior.SOPClassUID = ingest_const.DicomSopClasses.WHOLE_SLIDE_IMAGE.uid
+    prior.StudyInstanceUID = study_instance_uid
+    prior.SeriesInstanceUID = series_instance_uid
+    prior.SOPInstanceUID = '1.2'
+    prior.FrameOfReferenceUID = '1.2.3.4'
+    prior.PositionReferenceIndicator = 'bar'
+    prior.add(
+        pydicom.DataElement(
+            ingest_const.DICOMTagAddress.PYRAMID_UID, 'UI', '1.2.3.4.5'
+        )
+    )
+    prior.add(
+        pydicom.DataElement(
+            ingest_const.DICOMTagAddress.PYRAMID_LABEL, 'LO', 'mock_label'
+        )
+    )
+    prior.add(
+        pydicom.DataElement(
+            ingest_const.DICOMTagAddress.PYRAMID_DESCRIPTION,
+            'LO',
+            'mock_description',
+        )
+    )
+    dicom_store_url = 'https://mock.dicom.store.com/dicomWeb'
+    client = dicom_store_client.DicomStoreClient(dicom_store_url)
+    with dicom_store_mock.MockDicomStores(dicom_store_url) as mock_store:
+      mock_store[dicom_store_url].add_instance(prior.to_json_dict())
+      additional_data = dicom_util.get_additional_wsi_specific_dicom_metadata(
+          client,
+          _mock_study_series_uid_dicom_json(
+              study_instance_uid, series_instance_uid
+          ),
+      )
 
-    result = dicom_util.create_dicom_frame_of_ref_module_metadata(
-        study_instance_uid, series_instance_uid, dicom_store, None, None
+    self.assertLen(list(additional_data.keys()), 5)
+    self.assertEqual(additional_data.FrameOfReferenceUID, '1.2.3.4')
+    self.assertEqual(additional_data.PositionReferenceIndicator, 'bar')
+    self.assertEqual(
+        additional_data[ingest_const.DICOMTagAddress.PYRAMID_UID].value,
+        '1.2.3.4.5',
+    )
+    self.assertEqual(
+        additional_data[ingest_const.DICOMTagAddress.PYRAMID_LABEL].value,
+        'mock_label',
+    )
+    self.assertEqual(
+        additional_data[ingest_const.DICOMTagAddress.PYRAMID_DESCRIPTION].value,
+        'mock_description',
     )
 
-    self.assertStartsWith(result.uid, ingest_const.DPAS_UID_PREFIX)
-    self.assertEmpty(result.position_reference_indicator)
+  def test_get_additional_wsi_specific_dicom_metadata_from_passed_data(self):
+    study_instance_uid = '1.2.3'
+    series_instance_uid = '1.2.3.4'
+    prior = pydicom.Dataset()
+    prior.SOPClassUID = ingest_const.DicomSopClasses.WHOLE_SLIDE_IMAGE.uid
+    prior.StudyInstanceUID = study_instance_uid
+    prior.SeriesInstanceUID = series_instance_uid
+    prior.SOPInstanceUID = '1.2'
+    prior.FrameOfReferenceUID = '1.2.3.4'
+    prior.PositionReferenceIndicator = 'bar'
+    prior.add(
+        pydicom.DataElement(
+            ingest_const.DICOMTagAddress.PYRAMID_UID, 'UI', '1.2.3.4.6'
+        )
+    )
+    prior.add(
+        pydicom.DataElement(
+            ingest_const.DICOMTagAddress.PYRAMID_LABEL, 'LO', 'mock_label2'
+        )
+    )
+    prior.add(
+        pydicom.DataElement(
+            ingest_const.DICOMTagAddress.PYRAMID_DESCRIPTION,
+            'LO',
+            'mock_description2',
+        )
+    )
+
+    dicom_store_url = 'https://mock.dicom.store.com/dicomWeb'
+    client = dicom_store_client.DicomStoreClient(dicom_store_url)
+    with dicom_store_mock.MockDicomStores(dicom_store_url):
+      additional_data = dicom_util.get_additional_wsi_specific_dicom_metadata(
+          client,
+          _mock_study_series_uid_dicom_json(
+              study_instance_uid, series_instance_uid
+          ),
+          [
+              wsi_dicom_file_ref.init_wsi_dicom_file_ref_from_json(
+                  prior.to_json_dict()
+              )
+          ],
+      )
+
+    self.assertLen(list(additional_data.keys()), 5)
+    self.assertEqual(additional_data.FrameOfReferenceUID, '1.2.3.4')
+    self.assertEqual(additional_data.PositionReferenceIndicator, 'bar')
+    self.assertEqual(
+        additional_data[ingest_const.DICOMTagAddress.PYRAMID_UID].value,
+        '1.2.3.4.6',
+    )
+    self.assertEqual(
+        additional_data[ingest_const.DICOMTagAddress.PYRAMID_LABEL].value,
+        'mock_label2',
+    )
+    self.assertEqual(
+        additional_data[ingest_const.DICOMTagAddress.PYRAMID_DESCRIPTION].value,
+        'mock_description2',
+    )
 
   def test_add_date_and_equipment_metadata_to_dicom(self):
     dcm = pydicom.dataset.FileDataset(filename_or_obj='', dataset={})
     dicom_util.add_general_metadata_to_dicom(dcm)
     self.assertEqual(dcm.Manufacturer, 'GOOGLE')
     self.assertIn('ContentDate', dcm)
+
+  @parameterized.named_parameters(
+      dict(
+          testcase_name='add_type2_tags',
+          add_type2c=False,
+          additional_expected_tags=set(),
+      ),
+      dict(
+          testcase_name='add_type2_and_2c_tags',
+          add_type2c=True,
+          additional_expected_tags={
+              'PatientBreedCodeSequence',
+              'ResponsibleOrganization',
+              'BreedRegistrationSequence',
+              'PatientPosition',
+              'ResponsiblePerson',
+              'PatientOrientation',
+              'Laterality',
+              'PatientBreedDescription',
+          },
+      ),
+  )
+  def test_add_missing_type2_dicom_metadata(
+      self, add_type2c, additional_expected_tags
+  ):
+    def _get_dicom_tags(ds):
+      keywords = set()
+      for tag, tag_value in ds.items():
+        tag_address = f'{tag.group:04X}{tag.element:04X}'
+        kw = pydicom.datadict.keyword_for_tag(tag_address)
+        vr = pydicom.datadict.dictionary_VR(tag_address)
+        if vr != 'SQ' or not tag_value.value:
+          keywords.add(kw)
+        else:
+          for index, ds in enumerate(tag_value):
+            for inner_kw in _get_dicom_tags(ds):
+              keywords.add(f'{kw}[{index}].{inner_kw}')
+      return keywords
+
+    expected_tags = {
+        'PatientName',
+        'PatientID',
+        'PatientBirthDate',
+        'PatientSex',
+        'StudyDate',
+        'StudyTime',
+        'ReferringPhysicianName',
+        'StudyID',
+        'AccessionNumber',
+        'SeriesNumber',
+        'PositionReferenceIndicator',
+        'AcquisitionContextSequence',
+        'IssuerOfTheContainerIdentifierSequence',
+        'ContainerTypeCodeSequence',
+        'BarcodeValue',
+        'AlternateContainerIdentifierSequence[0].IssuerOfTheContainerIdentifierSequence',
+    }
+    expected_tags = additional_expected_tags | expected_tags
+    ds = pydicom.Dataset()
+    ds.SOPClassUID = ingest_const.DicomSopClasses.WHOLE_SLIDE_IMAGE.uid
+    ds.AlternateContainerIdentifierSequence = [pydicom.Dataset()]
+    with flagsaver.flagsaver(
+        create_null_type2c_dicom_tag_if_metadata_if_undefined=add_type2c
+    ):
+      dicom_util.add_missing_type2_dicom_metadata(ds)
+    self.assertEqual(_get_dicom_tags(ds) - {'SOPClassUID'}, expected_tags)
+
+  def test_add_missing_type2_dicom_metadata_doesnt_overwrite_existing_tags(
+      self,
+  ):
+    ds = pydicom.Dataset()
+    ds.SOPClassUID = ingest_const.DicomSopClasses.WHOLE_SLIDE_IMAGE.uid
+    ds.StudyID = 'abc'
+    dicom_util.add_missing_type2_dicom_metadata(ds)
+    self.assertEqual(ds.StudyID, 'abc')
+
+  def test_set_frametype_to_imagetype_no_image_type(self):
+    ds = pydicom.Dataset()
+    dicom_util.set_frametype_to_imagetype(ds)
+    self.assertNotIn('ImageType', ds)
+    self.assertNotIn('FrameType', ds)
+
+  def test_set_frametype_to_imagetype_create_structure(self):
+    ds = pydicom.Dataset()
+    ds.ImageType = ['FOO', 'BAR']
+    dicom_util.set_frametype_to_imagetype(ds)
+    self.assertEqual(ds.ImageType, ['FOO', 'BAR'])
+    self.assertNotIn(
+        ds.SharedFunctionalGroupsSequence[0]
+        .WholeSlideMicroscopyImageFrameTypeSequence[0]
+        .FrameType,
+        ['FOO', 'BAR'],
+    )
+
+  def test_set_frametype_to_imagetype_merge_with_structure(self):
+    ds = pydicom.Dataset()
+    ds.ImageType = ['FOO', 'BAR']
+    ds.SharedFunctionalGroupsSequence = [pydicom.Dataset()]
+    ds.SharedFunctionalGroupsSequence[0].StudyInstanceUID = '1.2.3'
+    ds.SharedFunctionalGroupsSequence[
+        0
+    ].WholeSlideMicroscopyImageFrameTypeSequence = [pydicom.Dataset()]
+    ds.SharedFunctionalGroupsSequence[
+        0
+    ].WholeSlideMicroscopyImageFrameTypeSequence[0].StudyInstanceUID = '4.6.3'
+    dicom_util.set_frametype_to_imagetype(ds)
+    self.assertEqual(ds.ImageType, ['FOO', 'BAR'])
+    self.assertNotIn(
+        ds.SharedFunctionalGroupsSequence[0]
+        .WholeSlideMicroscopyImageFrameTypeSequence[0]
+        .FrameType,
+        ['FOO', 'BAR'],
+    )
+    self.assertEqual(
+        ds.SharedFunctionalGroupsSequence[0].StudyInstanceUID, '1.2.3'
+    )
+    self.assertEqual(
+        ds.SharedFunctionalGroupsSequence[0]
+        .WholeSlideMicroscopyImageFrameTypeSequence[0]
+        .StudyInstanceUID,
+        '4.6.3',
+    )
 
 
 if __name__ == '__main__':

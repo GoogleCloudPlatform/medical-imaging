@@ -31,16 +31,20 @@ import pydicom
 
 from shared_libs.logging_lib import cloud_logging_client_instance
 from shared_libs.test_utils.dicom_store_mock import dicom_store_mock
+from shared_libs.test_utils.gcs_mock import gcs_mock
 from transformation_pipeline import ingest_flags
 from transformation_pipeline.ingestion_lib import cloud_storage_client
 from transformation_pipeline.ingestion_lib import gen_test_util
 from transformation_pipeline.ingestion_lib import ingest_const
+from transformation_pipeline.ingestion_lib import polling_client
 from transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
 from transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
 from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
 from transformation_pipeline.ingestion_lib.dicom_gen import wsi_dicom_file_ref
+from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import gcs_storage_util
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_base
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_gcs_handler
+from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
 from transformation_pipeline.ingestion_lib.dicom_util import dicom_test_util
 from transformation_pipeline.ingestion_lib.pubsub_msgs import ingestion_complete_pubsub
 
@@ -73,6 +77,11 @@ def _create_test_pubsub_msg(
 
 class IngestGcsPubSubHandlerTest(parameterized.TestCase):
   """Tests for IngestGcsPubSubHandler."""
+
+  def setUp(self):
+    super().setUp()
+    self.enter_context(flagsaver.flagsaver(metadata_bucket='test_bucket'))
+    cloud_storage_client.reset_storage_client('')
 
   def assert_ingested_list(
       self,
@@ -162,6 +171,7 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
         dicom_store_web_path=dicom_store_web_path,
         ingest_ignore_root_dirs=ingest_ignore_root_dirs,
         oof_trigger_config=oof_trigger_config,
+        metadata_client=metadata_storage_client.MetadataStorageClient(),
     )
 
   @mock.patch.object(cloud_logging_client_instance, '_absl_log')
@@ -205,6 +215,7 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
           ingest_failed_uri='foo',
           dicom_store_web_path='dstore',
           ingest_ignore_root_dirs=frozenset(),
+          metadata_client=metadata_storage_client.MetadataStorageClient(),
       )
 
   def test_verify_success_and_failure_buckets_missing_success(self):
@@ -464,12 +475,12 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
     )
     dicomweb_path = ingest_handler.dcm_store_client.dicomweb_path
     ingest = [
-        dicom_test_util.create_mock_dicom_fref(
+        dicom_test_util.create_mock_dpas_generated_dicom_fref(
             {ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID: '1'}
         )
     ]
     previous = [
-        dicom_test_util.create_mock_dicom_fref(
+        dicom_test_util.create_mock_dpas_generated_dicom_fref(
             {ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID: '2'}
         )
     ]
@@ -521,12 +532,12 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
         )
     )
     ingest = [
-        dicom_test_util.create_mock_dicom_fref(
+        dicom_test_util.create_mock_dpas_generated_dicom_fref(
             {ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID: '1'}
         )
     ]
     previous = [
-        dicom_test_util.create_mock_dicom_fref(
+        dicom_test_util.create_mock_dpas_generated_dicom_fref(
             {ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID: '2'}
         )
     ]
@@ -825,6 +836,269 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
     ingest = self._create_ingestion_handler()
     results = dicom_store_client.UploadSlideToDicomStoreResults([], [])
     self.assertIsNone(ingest._create_ingest_complete_pubsub_msg(results, None))
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='slide_id_in_filename',
+          filename='SR-21-2-A1-5_test.dcm',
+          barcode_value='MD-01-1-A1-1',
+          expected='SR-21-2-A1-5',
+      ),
+      dict(
+          testcase_name='slide_id_not_found',
+          barcode_value='',
+          filename='test.dcm',
+          expected='',
+      ),
+      dict(
+          testcase_name='slide_id_in_barcode',
+          barcode_value='SR-21-2-A1-5',
+          filename='test.dcm',
+          expected='SR-21-2-A1-5',
+      ),
+  ])
+  @flagsaver.flagsaver(
+      gcs_ingest_study_instance_uid_source=ingest_flags.UidSource.METADATA,
+  )
+  @mock.patch.object(polling_client, 'PollingClient', autospec=True)
+  def test_generic_dicom_get_slide_transform_lock(
+      self, mk_polling, barcode_value, filename, expected
+  ):
+    source_uri = 'gs://test_bucket/test.dcm'
+    test_bucket_path = self.create_tempdir().full_path
+    dicom_path = os.path.join(test_bucket_path, filename)
+    shutil.copyfile(
+        gen_test_util.test_file_path('test_wikipedia.dcm'), dicom_path
+    )
+    shutil.copyfile(
+        gen_test_util.test_file_path('metadata_duplicate.csv'),
+        os.path.join(test_bucket_path, 'test.csv'),
+    )
+    dcm = pydicom.dcmread(dicom_path)
+    dcm.SOPClassUID = '1.2.3'
+    dcm.BarcodeValue = barcode_value
+    dcm.save_as(dicom_path)
+    ingest_file = abstract_dicom_generation.GeneratedDicomFiles(
+        localfile=dicom_path, source_uri=source_uri
+    )
+    ingest = ingest_gcs_handler.IngestGcsPubSubHandler(
+        'gs://test_bucket/success',
+        'gs://test_bucket/failure',
+        'mock_dicom_store_web_path',
+        ingest_ignore_root_dirs=frozenset([]),
+        oof_trigger_config=None,
+        metadata_client=metadata_storage_client.MetadataStorageClient(),
+    )
+    ingest.root_working_dir = self.create_tempdir()
+    os.mkdir(ingest.img_dir)
+    _, ext = os.path.splitext(filename)
+    ingest._decoded_file_ext = ext.lower()
+    with gcs_mock.GcsMock({'test_bucket': test_bucket_path}):
+      transform_lock = ingest.get_slide_transform_lock(ingest_file, mk_polling)
+    self.assertEqual(transform_lock.name, expected)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='filename_preceeds_barcode',
+          filename='MD-01-1-A1-1_ingest.zip',
+          expected='MD-01-1-A1-1',
+      ),
+      dict(
+          testcase_name='barcode_if_not_from_filename',
+          filename='not_found.dcm',
+          expected='SR-21-2-A1-5',
+      ),
+  ])
+  @flagsaver.flagsaver(
+      gcs_ingest_study_instance_uid_source=ingest_flags.UidSource.METADATA,
+  )
+  @mock.patch.object(polling_client, 'PollingClient', autospec=True)
+  def test_wsi_dicom_ingest_gcs_handler_transform_lock(
+      self, mock_polling_client, filename, expected
+  ):
+    dicom_path = os.path.join(self.create_tempdir(), filename)
+    gen_test_util.write_test_dicom(
+        dicom_path,
+        gen_test_util.create_mock_wsi_dicom_dataset(
+            barcode_value='SR-21-2-A1-5'
+        ),
+    )
+    test_bucket_path = self.create_tempdir().full_path
+    shutil.copyfile(dicom_path, os.path.join(test_bucket_path, filename))
+    shutil.copyfile(
+        gen_test_util.test_file_path('metadata_duplicate.csv'),
+        os.path.join(test_bucket_path, 'test.csv'),
+    )
+    with gcs_mock.GcsMock({'test_bucket': test_bucket_path}):
+      ingest_handler = ingest_gcs_handler.IngestGcsPubSubHandler(
+          'gs://test_bucket/success',
+          'gs://test_bucket/failure',
+          'mock_dicom_store_web_path',
+          ingest_ignore_root_dirs=frozenset([]),
+          oof_trigger_config=None,
+          metadata_client=metadata_storage_client.MetadataStorageClient(),
+      )
+      ingest_handler.root_working_dir = self.create_tempdir()
+      os.mkdir(ingest_handler.img_dir)
+      _, ext = os.path.splitext(filename)
+      ingest_handler._decoded_file_ext = ext.lower()
+      result = ingest_handler.get_slide_transform_lock(
+          abstract_dicom_generation.GeneratedDicomFiles(
+              dicom_path, f'gs://test_bucket/{filename}'
+          ),
+          mock_polling_client,
+      )
+    self.assertEqual(result.name, expected)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='filename_preceeds_barcode',
+          expected='MD-01-1-A1-1',
+      ),
+  ])
+  @flagsaver.flagsaver(
+      gcs_ingest_study_instance_uid_source=ingest_flags.UidSource.METADATA,
+  )
+  @mock.patch.object(polling_client, 'PollingClient', autospec=True)
+  def test_gcs_handler_ndpi_transform_lock(self, mock_polling_client, expected):
+    filename = f'{expected}_ndpi_test.ndpi'
+    dicom_path = os.path.join(self.create_tempdir(), filename)
+    shutil.copyfile(gen_test_util.test_file_path('ndpi_test.ndpi'), dicom_path)
+    test_bucket_path = self.create_tempdir().full_path
+    shutil.copyfile(
+        gen_test_util.test_file_path('metadata_duplicate.csv'),
+        os.path.join(test_bucket_path, 'test.csv'),
+    )
+    with gcs_mock.GcsMock({'test_bucket': test_bucket_path}):
+      ingest_handler = ingest_gcs_handler.IngestGcsPubSubHandler(
+          'gs://test_bucket/success',
+          'gs://test_bucket/failure',
+          'mock_dicom_store_web_path',
+          ingest_ignore_root_dirs=frozenset([]),
+          metadata_client=metadata_storage_client.MetadataStorageClient(),
+          oof_trigger_config=None,
+      )
+      ingest_handler.root_working_dir = self.create_tempdir()
+      os.mkdir(ingest_handler.img_dir)
+      _, ext = os.path.splitext(filename)
+      ingest_handler._decoded_file_ext = ext.lower()
+      result = ingest_handler.get_slide_transform_lock(
+          abstract_dicom_generation.GeneratedDicomFiles(
+              dicom_path, f'gs://test_bucket/{filename}'
+          ),
+          mock_polling_client,
+      )
+    self.assertEqual(result.name, expected)
+
+  @parameterized.parameters([True, False])
+  @mock.patch.object(polling_client, 'PollingClient', autospec=True)
+  @flagsaver.flagsaver(
+      gcs_ingest_study_instance_uid_source=ingest_flags.UidSource.METADATA,
+  )
+  def test_move_ingested_file_to_success_or_failure_bucket(
+      self,
+      delete_file_from_ingest_or_bucket,
+      mock_polling_client,
+  ):
+    filename = 'ndpi_test.ndpi'
+    dicom_gen = abstract_dicom_generation.GeneratedDicomFiles(
+        localfile=gen_test_util.test_file_path(filename),
+        source_uri=f'gs://test_bucket/{filename}',
+    )
+    files_to_upload = ingest_base.DicomInstanceIngestionSets(set())
+    dicom_ingest_result = ingest_base.GenDicomResult(
+        dicom_gen, 'gs://test_bucket/success', files_to_upload, True
+    )
+    test_bucket_path = self.create_tempdir().full_path
+    shutil.copyfile(
+        gen_test_util.test_file_path(filename),
+        os.path.join(test_bucket_path, filename),
+    )
+    with gcs_mock.GcsMock({'test_bucket': test_bucket_path}):
+      ingest_handler = ingest_gcs_handler.IngestGcsPubSubHandler(
+          'gs://test_bucket/success',
+          'gs://test_bucket/failure',
+          'mock_dicom_store_web_path',
+          ingest_ignore_root_dirs=frozenset([]),
+          oof_trigger_config=None,
+          metadata_client=metadata_storage_client.MetadataStorageClient(),
+      )
+
+      with flagsaver.flagsaver(
+          delete_file_from_ingest_or_bucket=delete_file_from_ingest_or_bucket
+      ):
+        ingest_handler._move_ingested_file_to_success_or_failure_bucket(
+            dicom_ingest_result, mock_polling_client, None
+        )
+      self.assertTrue(
+          google.cloud.storage.Blob.from_string(
+              f'gs://test_bucket/success/{filename}',
+              client=google.cloud.storage.Client(),
+          ).exists()
+      )
+      self.assertEqual(
+          google.cloud.storage.Blob.from_string(
+              f'gs://test_bucket/{filename}',
+              client=google.cloud.storage.Client(),
+          ).exists(),
+          not delete_file_from_ingest_or_bucket,
+      )
+      mock_polling_client.ack.assert_called_once()
+
+  @mock.patch.object(polling_client, 'PollingClient', autospec=True)
+  @flagsaver.flagsaver(
+      gcs_ingest_study_instance_uid_source=ingest_flags.UidSource.METADATA,
+  )
+  def test_move_ingested_file_to_bucket_fails_retrys_transform(
+      self,
+      mock_polling_client,
+  ):
+    filename = 'ndpi_test.ndpi'
+    dicom_gen = abstract_dicom_generation.GeneratedDicomFiles(
+        localfile=gen_test_util.test_file_path(filename),
+        source_uri=f'gs://test_bucket/{filename}',
+    )
+    files_to_upload = ingest_base.DicomInstanceIngestionSets(set())
+    dicom_ingest_result = ingest_base.GenDicomResult(
+        dicom_gen, 'gs://test_bucket/success', files_to_upload, True
+    )
+    test_bucket_path = self.create_tempdir().full_path
+    shutil.copyfile(
+        gen_test_util.test_file_path(filename),
+        os.path.join(test_bucket_path, filename),
+    )
+    with gcs_mock.GcsMock({'test_bucket': test_bucket_path}):
+      ingest_handler = ingest_gcs_handler.IngestGcsPubSubHandler(
+          'gs://test_bucket/success',
+          'gs://test_bucket/failure',
+          'mock_dicom_store_web_path',
+          ingest_ignore_root_dirs=frozenset([]),
+          oof_trigger_config=None,
+          metadata_client=metadata_storage_client.MetadataStorageClient(),
+      )
+
+      with mock.patch.object(
+          gcs_storage_util,
+          'move_ingested_dicom_and_publish_ingest_complete',
+          side_effect=gcs_storage_util.CloudStorageBlobMoveError,
+      ):
+        ingest_handler._move_ingested_file_to_success_or_failure_bucket(
+            dicom_ingest_result, mock_polling_client, None
+        )
+      self.assertFalse(
+          google.cloud.storage.Blob.from_string(
+              f'gs://test_bucket/success/{filename}',
+              client=google.cloud.storage.Client(),
+          ).exists()
+      )
+      self.assertTrue(
+          google.cloud.storage.Blob.from_string(
+              f'gs://test_bucket/{filename}',
+              client=google.cloud.storage.Client(),
+          ).exists()
+      )
+      mock_polling_client.ack.assert_not_called()
+      mock_polling_client.nack.assert_called_once()
 
 
 if __name__ == '__main__':

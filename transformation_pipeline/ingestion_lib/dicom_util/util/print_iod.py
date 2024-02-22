@@ -30,7 +30,7 @@ DICOM_IOD_NAME_FLG = flags.DEFINE_string(
 
 
 def _print_iod(
-    dcm_util: dicom_iod_util.DicomIODDatsetUtil, path: List[str]
+    dcm_util: dicom_iod_util.DicomIODDatasetUtil, path: List[str]
 ) -> None:
   """Recursive function to print out IOD, will not work for all IOD.
 
@@ -66,6 +66,6 @@ def _print_iod(
 if __name__ == '__main__':
   # Parse commandline arguments.
   flags.FLAGS(sys.argv)
-  iod_util = dicom_iod_util.DicomIODDatsetUtil()
+  iod_util = dicom_iod_util.DicomIODDatasetUtil()
   print(f'IOD {DICOM_IOD_NAME_FLG.value}\n')
   _print_iod(iod_util, [])

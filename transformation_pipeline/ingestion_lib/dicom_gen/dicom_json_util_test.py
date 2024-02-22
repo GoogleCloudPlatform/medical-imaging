@@ -17,6 +17,7 @@ import json
 from typing import Any, Dict
 
 from absl.testing import absltest
+from absl.testing import parameterized
 import pydicom
 
 from transformation_pipeline.ingestion_lib import gen_test_util
@@ -25,7 +26,7 @@ from transformation_pipeline.ingestion_lib.dicom_gen import dicom_json_util
 from transformation_pipeline.ingestion_lib.dicom_util import dicom_test_util
 
 
-class DICOMJSONUtilTest(absltest.TestCase):
+class DICOMJSONUtilTest(parameterized.TestCase):
   """Tests dicom_json_util."""
 
   def _validate_pydicom_matches_json(
@@ -220,17 +221,63 @@ class DICOMJSONUtilTest(absltest.TestCase):
 
   def test_missing_patient_id_from_metadata_false(self):
     self.assertFalse(
-        dicom_json_util.missing_patient_id(
-            {
-                ingest_const.DICOMTagAddress.PATIENT_ID: {
-                    ingest_const.VALUE: ['1.9.3']
-                }
+        dicom_json_util.missing_patient_id({
+            ingest_const.DICOMTagAddress.PATIENT_ID: {
+                ingest_const.VALUE: ['1.9.3']
             }
-        )
+        })
     )
 
   def test_missing_patient_id_from_metadata_true(self):
     self.assertTrue(dicom_json_util.missing_patient_id({}))
+
+  @parameterized.named_parameters([
+      dict(testcase_name='empty', metadata={}),
+      dict(
+          testcase_name='prexisting',
+          metadata={'0020000D': {'Value': ['6.5.4'], 'vr': 'UI'}},
+      ),
+  ])
+  def test_set_study_instance_uid_in_metadata(self, metadata):
+    dicom_json_util.set_study_instance_uid_in_metadata(metadata, '1.2.3')
+    self.assertEqual(metadata['0020000D'], {'Value': ['1.2.3'], 'vr': 'UI'})
+    self.assertLen(metadata, 1)
+
+  @parameterized.named_parameters([
+      dict(testcase_name='empty', metadata={}),
+      dict(
+          testcase_name='prexisting',
+          metadata={'0020000E': {'Value': ['6.5.4'], 'vr': 'UI'}},
+      ),
+  ])
+  def test_set_series_instance_uid_in_metadata(self, metadata):
+    dicom_json_util.set_series_instance_uid_in_metadata(metadata, '1.2.3')
+    self.assertEqual(metadata['0020000E'], {'Value': ['1.2.3'], 'vr': 'UI'})
+    self.assertLen(metadata, 1)
+
+  @parameterized.named_parameters([
+      dict(testcase_name='empty', metadata={}),
+      dict(
+          testcase_name='prexisting',
+          metadata={'00080018': {'Value': ['6.5.4'], 'vr': 'UI'}},
+      ),
+  ])
+  def remove_sop_instance_uid_from_metadata(self, metadata):
+    dicom_json_util.remove_sop_instance_uid_from_metadata(metadata)
+    self.assertNotIn('00080018', metadata)
+    self.assertEmpty(metadata)
+
+  @parameterized.named_parameters([
+      dict(testcase_name='empty', metadata={}),
+      dict(
+          testcase_name='prexisting',
+          metadata={'00080016': {'Value': ['6.5.4'], 'vr': 'UI'}},
+      ),
+  ])
+  def test_remove_sop_class_uid_from_metadata(self, metadata):
+    dicom_json_util.remove_sop_class_uid_from_metadata(metadata)
+    self.assertNotIn('00080016', metadata)
+    self.assertEmpty(metadata)
 
 
 if __name__ == '__main__':

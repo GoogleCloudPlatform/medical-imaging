@@ -27,7 +27,6 @@ from transformation_pipeline import ingest_flags
 from transformation_pipeline.ingestion_lib import abstract_polling_client
 from transformation_pipeline.ingestion_lib import cloud_storage_client
 from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib import redis_client
 from transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
 from transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import gcs_storage_util
@@ -182,6 +181,7 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
       ingest_failed_uri: str,
       dicom_store_web_path: str,
       ingest_ignore_root_dirs: FrozenSet[str],
+      metadata_client: metadata_storage_client.MetadataStorageClient,
       oof_trigger_config: Optional[InferenceTriggerConfig] = None,
   ):
     """Constructor.
@@ -191,6 +191,7 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
       ingest_failed_uri: Path to move input to if ingestion fails.
       dicom_store_web_path: DICOM Store to upload ingestion images to.
       ingest_ignore_root_dirs: Directories to ignore for ingestion of images.
+      metadata_client: Metadata storage client.
       oof_trigger_config: Config for triggering OOF inference pipeline at the
         end of WSI ingestion.
 
@@ -198,7 +199,6 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
       ValueError if any of the parameters is invalid.
     """
     super().__init__(dicom_store_web_path)
-
     if oof_trigger_config:
       try:
         oof_trigger_config.validate()
@@ -232,21 +232,36 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
       )
 
     self._ingest_wsi_handler = ingest_svs.IngestSVS(
-        self._ingest_buckets, self.is_oof_ingestion_enabled
+        self._ingest_buckets, self.is_oof_ingestion_enabled, metadata_client
     )
     self._ingest_flat_handler = ingest_flat_image.IngestFlatImage(
-        self._ingest_buckets
+        self._ingest_buckets, metadata_client
     )
     self._ingest_dicom_handler = ingest_dicom.IngestDicom(
         dicom_store_triggered_ingest=False,
         override_study_uid_with_metadata=override_study_uid_with_metadata,
+        metadata_client=metadata_client,
         ingest_buckets=self._ingest_buckets,
     )
     self._ingest_wsi_dicom_handler = ingest_wsi_dicom.IngestWsiDicom(
         self._ingest_buckets,
         self.is_oof_ingestion_enabled,
         override_study_uid_with_metadata,
+        metadata_client,
     )
+    self._current_handler: Optional[ingest_base.IngestBase] = None
+
+  @property
+  def current_handler(self) -> Optional[ingest_base.IngestBase]:
+    return self._current_handler
+
+  @current_handler.setter
+  def current_handler(self, val: Optional[ingest_base.IngestBase]) -> None:
+    self._current_handler = val
+
+  def _init_gcs_handler_ingestion(self) -> None:
+    self._current_handler = None
+    self._decoded_file_ext = None
 
   @property
   def is_oof_ingestion_enabled(self) -> bool:
@@ -274,7 +289,7 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
     Returns:
       Implementation of CloudStoragePubSubMsg
     """
-    self._decoded_file_ext = None
+    self._init_gcs_handler_ingestion()
     storage_msg = cloud_storage_pubsub_msg.CloudStoragePubSubMsg(msg)
     if storage_msg.event_type != 'OBJECT_FINALIZE':
       cloud_logging_client.logger().warning(
@@ -284,7 +299,7 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
               'OBJECT_FINALIZE event type.'
           ),
           {
-              ingest_const.LogKeywords.received_event_type: (
+              ingest_const.LogKeywords.RECEIVED_EVENT_TYPE: (
                   storage_msg.event_type
               )
           },
@@ -308,8 +323,8 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
               ' and will remain in the bucket until removed.'
           ),
           {
-              ingest_const.LogKeywords.file_extension: self._decoded_file_ext,
-              ingest_const.LogKeywords.uri: storage_msg.uri,
+              ingest_const.LogKeywords.FILE_EXTENSION: self._decoded_file_ext,
+              ingest_const.LogKeywords.URI: storage_msg.uri,
           },
       )
       storage_msg.ignore = True
@@ -317,7 +332,7 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
       storage_msg.ignore = file_parts[0] in self._ingest_ignore_root_dirs
     cloud_logging_client.logger().info(
         'Decoded cloud storage pub/sub msg.',
-        {ingest_const.LogKeywords.uri: storage_msg.uri},
+        {ingest_const.LogKeywords.URI: storage_msg.uri},
     )
     return storage_msg
 
@@ -470,13 +485,13 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
       additional_error_msg = 'File moved to failure bucket.'
     cloud_logging_client.logger().critical(
         (
-            'An unexpected exception occurred during GCS ingestion.'
+            'An unexpected exception occurred during GCS ingestion. '
             f'{additional_error_msg}'
         ),
         {
-            ingest_const.LogKeywords.uri: msg.uri,
-            ingest_const.LogKeywords.pubsub_message_id: msg.message_id,
-            ingest_const.LogKeywords.dest_uri: dest_uri,
+            ingest_const.LogKeywords.URI: msg.uri,
+            ingest_const.LogKeywords.PUBSUB_MESSAGE_ID: msg.message_id,
+            ingest_const.LogKeywords.DEST_URI: dest_uri,
         },
         exp,
     )
@@ -509,7 +524,7 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
     pipeline_passthrough_params[
         ingest_const.OofPassThroughKeywords.DPAS_INGESTION_TRACE_ID
     ] = cloud_logging_client.logger().log_signature.get(
-        ingest_const.LogKeywords.dpas_ingestion_trace_id,
+        ingest_const.LogKeywords.DPAS_INGESTION_TRACE_ID,
         ingest_const.MISSING_INGESTION_TRACE_ID,
     )
     pipeline_passthrough_params[
@@ -576,7 +591,7 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
       cloud_logging_client.logger().info(
           'Uploading main results.',
           {
-              ingest_const.LogKeywords.main_dicom_store: (
+              ingest_const.LogKeywords.MAIN_DICOM_STORE: (
                   self.dcm_store_client.dicomweb_path
               )
           },
@@ -608,7 +623,7 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
         cloud_logging_client.logger().info(
             'Uploading OOF results.',
             {
-                ingest_const.LogKeywords.main_dicom_store: (
+                ingest_const.LogKeywords.MAIN_DICOM_STORE: (
                     self._oof_trigger_config.dicom_store.dicomweb_path
                 )
             },
@@ -642,22 +657,23 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
         main_store_results, oof_ingest_results, ingest_complete_oof_trigger_msg
     )
 
-  def generate_dicom_and_push_to_store(
+  def get_slide_transform_lock(
       self,
       ingest_file: abstract_dicom_generation.GeneratedDicomFiles,
       polling_client: abstract_polling_client.AbstractPollingClient,
-  ):
-    """Converts downloaded image to DICOM based on file extension.
+  ) -> abstract_dicom_generation.TransformationLock:
+    """Returns lock to ensure transform processes only one instance of a slide at a time.
 
     Args:
       ingest_file: File payload to generate into DICOM.
       polling_client: Polling client receiving triggering pub/sub msg.
 
-    Raises:
-      StorageBucketNotSpecifiedError: if storage buckets not defined.
+    Returns:
+      Name of lock
     """
     ingest_file.generated_dicom_files = []
     handler = self._get_message_dicom_handler(ingest_file)
+    handler.init_handler_for_ingestion()
     cloud_logging_client.logger().info(
         'Processing ingestion with handler',
         {
@@ -670,31 +686,63 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
     except metadata_storage_client.MetadataDownloadExceptionError as exp:
       cloud_logging_client.logger().error('Error downloading metadata', exp)
       polling_client.nack()
-      return
+      return abstract_dicom_generation.TransformationLock()
+    self.current_handler = handler
+    try:
+      return abstract_dicom_generation.TransformationLock(
+          handler.get_slide_id(ingest_file, self)
+      )
+    except ingest_base.DetermineSlideIDError as exp:
+      # Move files triggering ingestion to exp.dest_uri failure bucket.
+      dicom_result = ingest_base.GenDicomResult(
+          exp.dicom_gen,
+          exp.dest_uri,
+          ingest_base.DicomInstanceIngestionSets([], None, []),
+          True,  # Series not generated; meaningless placeholder value
+      )
+      self._move_ingested_file_to_success_or_failure_bucket(
+          dicom_result, polling_client, None
+      )
+      return abstract_dicom_generation.TransformationLock()
 
+  def generate_dicom_and_push_to_store(
+      self,
+      transform_lock: abstract_dicom_generation.TransformationLock,
+      ingest_file: abstract_dicom_generation.GeneratedDicomFiles,
+      polling_client: abstract_polling_client.AbstractPollingClient,
+  ):
+    """Converts downloaded image to DICOM based on file extension.
+
+    Args:
+      transform_lock: Transformation pipeline lock.
+      ingest_file: File payload to generate into DICOM.
+      polling_client: Polling client receiving triggering pub/sub msg.
+
+    Raises:
+      StorageBucketNotSpecifiedError: if storage buckets not defined.
+    """
     dicom_gen_dir = os.path.join(self.root_working_dir, 'gen_dicom')
     os.mkdir(dicom_gen_dir)
-    try:
-      dicom = handler.generate_dicom(
-          dicom_gen_dir,
-          ingest_file,
-          polling_client.current_msg.message_id,
-          self,
-      )
-    except redis_client.CouldNotAcquireNonBlockingLockError:
-      cloud_logging_client.logger().info('Could not acquire lock. Retrying')
-      polling_client.nack(ingest_const.MESSAGE_TTL_S * 2)
-      return
-
+    dicom = self.current_handler.generate_dicom(
+        dicom_gen_dir,
+        ingest_file,
+        polling_client.current_msg.message_id,
+        self,
+    )
+    cloud_logging_client.logger().info('DICOM generation complete.')
     dst_metadata = {
         'pubsub_message_id': str(polling_client.current_msg.message_id)
     }
-    cloud_logging_client.logger().info('DICOM generation complete.')
     dicom_upload_discover_existing_series_option = (
         dicom_store_client.DiscoverExistingSeriesOptions.USE_HASH
         if dicom.generated_series_instance_uid
         else dicom_store_client.DiscoverExistingSeriesOptions.USE_STUDY_AND_SERIES
     )
+    if not self.validate_redis_lock_held(transform_lock):
+      polling_client.nack(
+          retry_ttl=ingest_flags.TRANSFORMATION_LOCK_RETRY_FLG.value
+      )
+      return
     try:
       ds_upload_result = self._upload_to_dicom_stores(
           dicom.files_to_upload,
@@ -706,16 +754,31 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
           retry_ttl=ingest_flags.DICOM_QUOTA_ERROR_RETRY_FLG.value
       )
       return
+    self._move_ingested_file_to_success_or_failure_bucket(
+        dicom, polling_client, ds_upload_result
+    )
 
+  def _move_ingested_file_to_success_or_failure_bucket(
+      self,
+      dicom: ingest_base.GenDicomResult,
+      polling_client: abstract_polling_client.AbstractPollingClient,
+      ds_upload_result: Optional[_UploadToDicomStoresResult],
+  ) -> None:
+    dst_metadata = {
+        'pubsub_message_id': str(polling_client.current_msg.message_id)
+    }
     del_file = (
         ingest_flags.DELETE_FILE_FROM_INGEST_AT_BUCKET_AT_INGEST_SUCCESS_OR_FAILURE_FLG.value
     )
     try:
       gcs_storage_util.move_ingested_dicom_and_publish_ingest_complete(
+          dicom.dicom_gen.localfile,
+          dicom.dicom_gen.source_uri,
           destination_uri=dicom.dest_uri,
-          dicom_gen=dicom.dicom_gen,
           dst_metadata=dst_metadata,
-          files_copied_msg=ds_upload_result.ingest_complete_oof_trigger_msg,
+          files_copied_msg=ds_upload_result.ingest_complete_oof_trigger_msg
+          if ds_upload_result is not None
+          else None,
           delete_file_in_ingestion_bucket_at_ingest_success_or_failure=del_file,
       )
       polling_client.ack()
@@ -733,8 +796,12 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
           exp,
       )
       polling_client.nack()
+      return
 
-    if ds_upload_result.main_store_results.slide_has_instances_in_dicom_store():
+    if (
+        ds_upload_result is not None
+        and ds_upload_result.main_store_results.slide_has_instances_in_dicom_store()
+    ):
       self.log_debug_url(
           viewer_debug_url=self._viewer_debug_url,
           ingested_dicom=ds_upload_result.main_store_results.slide_instances_in_dicom_store[

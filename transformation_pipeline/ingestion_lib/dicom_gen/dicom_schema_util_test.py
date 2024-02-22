@@ -22,6 +22,7 @@ from absl.testing import absltest
 from absl.testing import flagsaver
 from absl.testing import parameterized
 
+from transformation_pipeline import ingest_flags
 from transformation_pipeline.ingestion_lib import csv_util
 from transformation_pipeline.ingestion_lib import gen_test_util
 from transformation_pipeline.ingestion_lib.dicom_gen import dicom_schema_util
@@ -96,11 +97,51 @@ class DICOMSchemaUtilTest(parameterized.TestCase):
   """Tests the generation of DICOM metadata from csv and DICOM mapping schema."""
 
   @parameterized.named_parameters([
-      dict(testcase_name='uncropped_tag', tag_len=63, expected_len=63),
-      dict(testcase_name='cropped_tag', tag_len=65, expected_len=64),
+      dict(
+          testcase_name='uncropped_tag_none',
+          tag_len=63,
+          expected_len=63,
+          flg=ingest_flags.MetadataTagLengthValidation.NONE,
+      ),
+      dict(
+          testcase_name='uncropped_tag_warning',
+          tag_len=63,
+          expected_len=63,
+          flg=ingest_flags.MetadataTagLengthValidation.LOG_WARNING,
+      ),
+      dict(
+          testcase_name='uncropped_tag_log_clip',
+          tag_len=63,
+          expected_len=63,
+          flg=ingest_flags.MetadataTagLengthValidation.LOG_WARNING_AND_CLIP,
+      ),
+      dict(
+          testcase_name='uncropped_tag_error',
+          tag_len=63,
+          expected_len=63,
+          flg=ingest_flags.MetadataTagLengthValidation.ERROR,
+      ),
+      dict(
+          testcase_name='cropped_tag_none',
+          tag_len=65,
+          expected_len=65,
+          flg=ingest_flags.MetadataTagLengthValidation.NONE,
+      ),
+      dict(
+          testcase_name='cropped_tag_log_warning',
+          tag_len=65,
+          expected_len=65,
+          flg=ingest_flags.MetadataTagLengthValidation.LOG_WARNING,
+      ),
+      dict(
+          testcase_name='cropped_tag_log_warn_and_clip',
+          tag_len=65,
+          expected_len=64,
+          flg=ingest_flags.MetadataTagLengthValidation.LOG_WARNING_AND_CLIP,
+      ),
   ])
   def test_dicom_schema_tag_value_setter_crops_long_tag_values(
-      self, tag_len: int, expected_len: int
+      self, tag_len, expected_len, flg
   ):
     schema_dict = {}
     schema_dict['0x00100010'] = {
@@ -111,8 +152,156 @@ class DICOMSchemaUtilTest(parameterized.TestCase):
         schema_dict, 'VL Whole Slide Microscopy Image Storage'
     )
     tag = schema.tags[0]
-    tag.value = 'b' * tag_len
+    with flagsaver.flagsaver(metadata_tag_length_validation=flg):
+      tag.value = 'b' * tag_len
     self.assertEqual(tag.value, 'b' * expected_len)
+
+  @parameterized.parameters([
+      ingest_flags.MetadataTagLengthValidation.NONE,
+      ingest_flags.MetadataTagLengthValidation.LOG_WARNING,
+      ingest_flags.MetadataTagLengthValidation.LOG_WARNING_AND_CLIP,
+      ingest_flags.MetadataTagLengthValidation.ERROR,
+  ])
+  def test_dicom_schema_tag_value_setter_does_not_crop_tag_with_undef_len(
+      self, flg
+  ):
+    schema_dict = {}
+    schema_dict['0x0016002B'] = {
+        'Keyword': 'MakerNote',
+        'Meta': 'MakerNote',
+    }
+    schema = dicom_schema_util.SchemaDicomDatasetBlock(
+        schema_dict, 'VL Photographic Image Storage'
+    )
+    tag = schema.tags[0]
+    test_value = 'b' * 65
+    with flagsaver.flagsaver(metadata_tag_length_validation=flg):
+      tag.value = test_value
+    self.assertEqual(tag.value, test_value)
+
+  @flagsaver.flagsaver(
+      metadata_tag_length_validation=ingest_flags.MetadataTagLengthValidation.ERROR
+  )
+  def test_dicom_schema_tag_value_setter_raises_error_if_long_value_and_flg(
+      self,
+  ):
+    schema_dict = {}
+    schema_dict['0x00100010'] = {
+        'Keyword': 'PatientName',
+        'Meta': 'Patient Name',
+    }
+    schema = dicom_schema_util.SchemaDicomDatasetBlock(
+        schema_dict, 'VL Whole Slide Microscopy Image Storage'
+    )
+    tag = schema.tags[0]
+    with self.assertRaises(dicom_schema_util.DICOMSchemaTagError):
+      tag.value = 'b' * 65
+
+  @parameterized.parameters(
+      ['1.2.3', '1.0.2', '1.234.564', '1', f'1.{"1"*62}', '']
+  )
+  @flagsaver.flagsaver(
+      metadata_uid_validation=ingest_flags.MetadataUidValidation.ERROR,
+      metadata_tag_length_validation=ingest_flags.MetadataTagLengthValidation.LOG_WARNING_AND_CLIP,
+  )
+  def test_dicom_schema_tag_value_setter_test_vr_formatting_error_succeeds(
+      self, test_value
+  ):
+    schema_dict = {}
+    schema_dict['0x0020000D'] = {
+        'Keyword': 'StudyInstanceUID',
+        'Meta': 'StudyInstanceUID',
+    }
+    schema = dicom_schema_util.SchemaDicomDatasetBlock(
+        schema_dict, 'VL Whole Slide Microscopy Image Storage'
+    )
+    tag = schema.tags[0]
+    tag.value = test_value
+    self.assertEqual(tag.value, test_value)
+
+  @parameterized.parameters([
+      '1.2.3',
+      '1.0.2',
+      '1.234.564',
+      '1',
+      f'1.{"1"*62}',
+      '',
+      f'1.{"1"*63}',
+      '1.01',
+      'abc',
+      '1..1',
+      '1.2.3.A',
+  ])
+  @flagsaver.flagsaver(
+      metadata_uid_validation=ingest_flags.MetadataUidValidation.LOG_WARNING,
+      metadata_tag_length_validation=ingest_flags.MetadataTagLengthValidation.NONE,
+  )
+  def test_dicom_schema_tag_value_setter_test_vr_formatting_warning_succeeds(
+      self, test_value
+  ):
+    schema_dict = {}
+    schema_dict['0x0020000D'] = {
+        'Keyword': 'StudyInstanceUID',
+        'Meta': 'StudyInstanceUID',
+    }
+    schema = dicom_schema_util.SchemaDicomDatasetBlock(
+        schema_dict, 'VL Whole Slide Microscopy Image Storage'
+    )
+    tag = schema.tags[0]
+    tag.value = test_value
+    self.assertEqual(tag.value, test_value)
+
+  @parameterized.parameters([
+      '1.2.3',
+      '1.0.2',
+      '1.234.564',
+      '1',
+      f'1.{"1"*62}',
+      '',
+      f'1.{"1"*63}',
+      '1.01',
+      'abc',
+      '1..1',
+      '1.2.3.A',
+  ])
+  @flagsaver.flagsaver(
+      metadata_uid_validation=ingest_flags.MetadataUidValidation.NONE,
+      metadata_tag_length_validation=ingest_flags.MetadataTagLengthValidation.NONE,
+  )
+  def test_dicom_schema_tag_value_setter_test_vr_formatting_none_succeeds(
+      self, test_value
+  ):
+    schema_dict = {}
+    schema_dict['0x0020000D'] = {
+        'Keyword': 'StudyInstanceUID',
+        'Meta': 'StudyInstanceUID',
+    }
+    schema = dicom_schema_util.SchemaDicomDatasetBlock(
+        schema_dict, 'VL Whole Slide Microscopy Image Storage'
+    )
+    tag = schema.tags[0]
+    tag.value = test_value
+    self.assertEqual(tag.value, test_value)
+
+  @parameterized.parameters([f'1.{"1"*63}', '1.01', 'abc', '1..1', '1.2.3.A'])
+  @flagsaver.flagsaver(
+      metadata_uid_validation=ingest_flags.MetadataUidValidation.ERROR,
+      metadata_tag_length_validation=ingest_flags.MetadataTagLengthValidation.LOG_WARNING_AND_CLIP,
+  )
+  def test_dicom_schema_tag_value_setter_test_vr_formatting_raises_invalid_uid(
+      self, test_value
+  ):
+    schema_dict = {}
+    schema_dict['0x0020000D'] = {
+        'Keyword': 'StudyInstanceUID',
+        'Meta': 'StudyInstanceUID',
+    }
+    schema = dicom_schema_util.SchemaDicomDatasetBlock(
+        schema_dict, 'VL Whole Slide Microscopy Image Storage'
+    )
+    tag = schema.tags[0]
+    with self.assertRaises(dicom_schema_util.DICOMSchemaTagError):
+      tag.value = test_value
 
   def test_dicom_wsi_metadata_schema_gen(self):
     """Tests generation of example wsi dicom json metadata from schema."""
@@ -194,6 +383,9 @@ class DICOMSchemaUtilTest(parameterized.TestCase):
           expected_value='1345',
       ),
   ])
+  @flagsaver.flagsaver(
+      metadata_tag_length_validation=ingest_flags.MetadataTagLengthValidation.LOG_WARNING_AND_CLIP
+  )
   def test_simple_string_schema(
       self, csv: str, expected_name: str, expected_value: Optional[str]
   ):
@@ -405,17 +597,31 @@ class DICOMSchemaUtilTest(parameterized.TestCase):
 
   @parameterized.named_parameters([
       dict(
-          testcase_name='uncropped',
+          testcase_name='short_full_value_uncropped',
           csv='Col 1, Col 2\n Bob, 12345',
           expected_value='Bob-12345',
+          flg=ingest_flags.MetadataTagLengthValidation.LOG_WARNING_AND_CLIP,
       ),
       dict(
-          testcase_name='cropped',
+          testcase_name='long_value_cropped',
           csv=f'Col 1, Col 2\n Bob, {"*" * 64}',
           expected_value=f'Bob-{"*"*60}',
+          flg=ingest_flags.MetadataTagLengthValidation.LOG_WARNING_AND_CLIP,
+      ),
+      dict(
+          testcase_name='long_value_uncropped_length_cropping_disabled',
+          csv=f'Col 1, Col 2\n Bob, {"*" * 64}',
+          expected_value=f'Bob-{"*"*64}',
+          flg=ingest_flags.MetadataTagLengthValidation.NONE,
+      ),
+      dict(
+          testcase_name='long_value_uncropped_length_cropping_warning',
+          csv=f'Col 1, Col 2\n Bob, {"*" * 64}',
+          expected_value=f'Bob-{"*"*64}',
+          flg=ingest_flags.MetadataTagLengthValidation.LOG_WARNING,
       ),
   ])
-  def test_string_join_schema(self, csv: str, expected_value: str):
+  def test_string_join_schema(self, csv, expected_value, flg):
     """Json generation of string tags gen from join of multiple csv cols."""
     schemadef = {
         '0x00100010': {
@@ -425,12 +631,49 @@ class DICOMSchemaUtilTest(parameterized.TestCase):
         },
     }
     metadata = self._get_first_csv_row(csv)
-    ds_json = dicom_schema_util.get_json_dicom(
-        'VL Whole Slide Microscopy Image IOD Modules', metadata, schemadef
-    )
+    with flagsaver.flagsaver(metadata_tag_length_validation=flg):
+      ds_json = dicom_schema_util.get_json_dicom(
+          'VL Whole Slide Microscopy Image IOD Modules', metadata, schemadef
+      )
     self.assertEqual(
         ds_json['00100010']['Value'], [{'Alphabetic': expected_value}]
     )
+
+  def test_string_join_schema_tag_length_validation_raises_if_configured(self):
+    """Json generation of string tags gen from join of multiple csv cols."""
+    csv = f'Col 1, Col 2\n Bob, {"*" * 64}'
+    schemadef = {
+        '0x00100010': {
+            'Keyword': 'PatientName',
+            'Meta': ['Col 1', 'Col 2'],
+            'Meta_Join': '-',
+        },
+    }
+    metadata = self._get_first_csv_row(csv)
+    with flagsaver.flagsaver(
+        metadata_tag_length_validation=ingest_flags.MetadataTagLengthValidation.ERROR
+    ):
+      with self.assertRaises(dicom_schema_util.DICOMSchemaTagError):
+        dicom_schema_util.get_json_dicom(
+            'VL Whole Slide Microscopy Image IOD Modules', metadata, schemadef
+        )
+
+  def test_invalid_uid_raises_during_get_json_dicom_if_configured(self):
+    csv = 'Col 1, StudyInstanceUID\n Bob, 1.01'
+    schemadef = {
+        '0x0020000D': {
+            'Keyword': 'StudyInstanceUID',
+            'Meta': 'StudyInstanceUID',
+        }
+    }
+    metadata = self._get_first_csv_row(csv)
+    with flagsaver.flagsaver(
+        metadata_uid_validation=ingest_flags.MetadataUidValidation.ERROR
+    ):
+      with self.assertRaises(dicom_schema_util.DICOMSchemaTagError):
+        dicom_schema_util.get_json_dicom(
+            'VL Whole Slide Microscopy Image IOD Modules', metadata, schemadef
+        )
 
   @parameterized.named_parameters([
       dict(
@@ -721,6 +964,55 @@ class DICOMSchemaUtilTest(parameterized.TestCase):
     with self.assertRaises(dicom_schema_util.DICOMSchemaTagError):
       dicom_schema_util.get_json_dicom(
           'VL Whole Slide Microscopy Image IOD Modules', metadata, schemadef
+      )
+
+  def test_dict_metadata_table_wrapper_columns(self):
+    self.assertEqual(
+        dicom_schema_util.DictMetadataTableWrapper(
+            {'a a': 1, 'b b': 2}
+        ).column_names,
+        ['a a', 'b b'],
+    )
+
+  @parameterized.named_parameters([
+      dict(testcase_name='match', search='a a', expected='a a'),
+      dict(testcase_name='norm_match', search='BB', expected='b b'),
+      dict(testcase_name='no_match', search='CC', expected=None),
+  ])
+  def test_dict_metadata_table_wrapper_find_data_frame_column_name(
+      self, search, expected
+  ):
+    self.assertEqual(
+        dicom_schema_util.DictMetadataTableWrapper(
+            {'a a': 1, 'b b': 2}
+        ).find_data_frame_column_name(search),
+        expected,
+    )
+
+  @parameterized.named_parameters([
+      dict(testcase_name='match', search='a a', expected=1),
+      dict(testcase_name='norm_match', search='BB', expected=2),
+      dict(testcase_name='no_match', search='CC', expected=None),
+  ])
+  def test_dict_metadata_table_wrapper_lookup_metadata_value(
+      self, search, expected
+  ):
+    self.assertEqual(
+        dicom_schema_util.DictMetadataTableWrapper(
+            {'a a': 1, 'b b': 2}
+        ).lookup_metadata_value(search),
+        expected,
+    )
+
+  def test_dict_metadata_table_wrapper_copy(self):
+    tbl1 = dicom_schema_util.DictMetadataTableWrapper({'a a': 1, 'b b': 2})
+    tbl2 = tbl1.copy()
+    self.assertIsNot(tbl1, tbl2)
+    self.assertEqual(tbl1.column_names, tbl2.column_names)
+    for column_name in tbl1.column_names:
+      self.assertEqual(
+          tbl1.lookup_metadata_value(column_name),
+          tbl2.lookup_metadata_value(column_name),
       )
 
 

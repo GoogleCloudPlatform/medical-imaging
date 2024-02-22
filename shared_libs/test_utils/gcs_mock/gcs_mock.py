@@ -12,15 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Unit tests for gcs_blob_utils.py."""
+"""Core module for high level GCS mock."""
 from __future__ import annotations
 
 import contextlib
 import functools
 from typing import List, Mapping, Optional, Union
+from unittest import mock
 
+from absl.testing import absltest
 import google.cloud.storage
-import mock
 
 from shared_libs.test_utils.gcs_mock.gcs_mock_lib import blob_mock
 from shared_libs.test_utils.gcs_mock.gcs_mock_lib import bucket_mock
@@ -36,7 +37,12 @@ class GcsMock(contextlib.ExitStack):
   """Mocks of GCS within the context manager."""
 
   def __init__(
-      self, buckets: Union[None, List[str], Mapping[str, Optional[str]]] = None
+      self,
+      buckets: Union[
+          None,
+          List[str],
+          Mapping[str, Optional[Union[str, absltest._TempDir]]],
+      ] = None,
   ):
     """MockGcs Constructor.
 
@@ -47,6 +53,14 @@ class GcsMock(contextlib.ExitStack):
         lifetime of the mock.
     """
     super().__init__()
+    if isinstance(buckets, Mapping):
+      # If GCS bucket passed path to testing temp dir resolve full path.
+      temp_buckets = {}
+      for key, value in buckets.items():
+        temp_buckets[key] = (
+            value.full_path if isinstance(value, absltest._TempDir) else value
+        )
+      buckets = temp_buckets
     self._buckets = buckets
     self._mock_state = None
 
@@ -118,7 +132,7 @@ class GcsMock(contextlib.ExitStack):
         )
       return self
     except:
-      # Exception occurred during context manager entry. Force close any opened
+      # Exception occurred during context manager entry. Close any opened
       # context managers attached to this class.
       self.close()
       raise

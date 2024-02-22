@@ -16,6 +16,9 @@
 import dataclasses
 import math
 from typing import List, Optional
+
+import pydicom
+
 from shared_libs.logging_lib import cloud_logging_client
 from transformation_pipeline.ingestion_lib import ingest_const
 from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
@@ -26,9 +29,12 @@ _LABEL = ingest_const.LABEL
 _OVERVIEW = ingest_const.OVERVIEW
 _THUMBNAIL = ingest_const.THUMBNAIL
 _ORIGINAL = ingest_const.ORIGINAL
+_DERIVED = ingest_const.DERIVED
+_RESAMPLED = ingest_const.RESAMPLED
 _PRIMARY = ingest_const.PRIMARY
 _VOLUME = ingest_const.VOLUME
-_ORIGINAL_IMAGE_TYPE = f'{_ORIGINAL}\\{_PRIMARY}\\{_VOLUME}'
+_ORIGINAL_PRIMARY_VOLUME = ingest_const.ORIGINAL_PRIMARY_VOLUME
+_DERIVED_PRIMARY_VOLUME = ingest_const.DERIVED_PRIMARY_VOLUME
 _YES = 'YES'
 _NO = 'NO'
 _SM = 'SM'
@@ -51,7 +57,7 @@ class DicomFileInfo:
   study_uid: str
   series_uid: str
   barcode_value: Optional[str]
-  original_image: ingested_dicom_file_ref.IngestDicomFileRef
+  original_image: Optional[ingested_dicom_file_ref.IngestDicomFileRef]
   wsi_image_filerefs: List[
       ingested_dicom_file_ref.IngestDicomFileRef
   ]  # WSI IOD DICOM
@@ -94,18 +100,24 @@ def _validate_uid(
 
   if not uid:
     cloud_logging_client.logger().error('Empty UID', ref_dict)
-    raise ingested_dicom_file_ref.DicomIngestError('invalid_uid')
+    raise ingested_dicom_file_ref.DicomIngestError(
+        ingest_const.ErrorMsgs.DICOM_UID_INCORRECTLY_FORMATTED
+    )
   if len(uid) > uid_generator.MAX_LENGTH_OF_DICOM_UID:
     cloud_logging_client.logger().error(
         'UID exceeds max length', ref_dict, {'ERRORING_UID': uid}
     )
-    raise ingested_dicom_file_ref.DicomIngestError('invalid_uid')
+    raise ingested_dicom_file_ref.DicomIngestError(
+        ingest_const.ErrorMsgs.DICOM_UID_INCORRECTLY_FORMATTED
+    )
   for num_str in uid.split('.'):
     if not uid_generator.is_uid_block_correctly_formatted(num_str):
       cloud_logging_client.logger().error(
           'UID block contains invalid char.', ref_dict, {'ERRORING_UID': uid}
       )
-      raise ingested_dicom_file_ref.DicomIngestError('invalid_uid')
+      raise ingested_dicom_file_ref.DicomIngestError(
+          ingest_const.ErrorMsgs.DICOM_UID_INCORRECTLY_FORMATTED
+      )
 
 
 def _validate_wsi_dicom_instance(
@@ -128,7 +140,7 @@ def _validate_wsi_dicom_instance(
         dcm_ref.dict(),
     )
     raise ingested_dicom_file_ref.DicomIngestError(
-        'dicom_instance_encoded_with_unsupported_transfer_syntax'
+        ingest_const.ErrorMsgs.DICOM_INSTANCE_ENCODED_WITH_UNSUPPORTED_TRANSFER_SYNTAX
     )
   if _dicom_ref_num(dcm_ref.bits_allocated) != 8:
     cloud_logging_client.logger().error(
@@ -136,21 +148,21 @@ def _validate_wsi_dicom_instance(
         dcm_ref.dict(),
     )
     raise ingested_dicom_file_ref.DicomIngestError(
-        'wsi_dicom_instance_pixel_not_allocated_with_8_bits_per_pixel'
+        ingest_const.ErrorMsgs.WSI_DICOM_INSTANCE_PIXEL_NOT_ALLOCATED_WITH_8_BITS_PER_PIXEL
     )
   if _dicom_ref_num(dcm_ref.bits_stored) != 8:
     cloud_logging_client.logger().error(
         'DICOM instance pixel not stored with 8 bits per pixel.', dcm_ref.dict()
     )
     raise ingested_dicom_file_ref.DicomIngestError(
-        'wsi_dicom_instance_pixel_not_stored_with_8_bits_per_pixel'
+        ingest_const.ErrorMsgs.WSI_DICOM_INSTANCE_PIXEL_NOT_STORED_WITH_8_BITS_PER_PIXEL
     )
   if _dicom_ref_num(dcm_ref.high_bit) != 7:
     cloud_logging_client.logger().error(
         'DICOM instance pixel high bit != 7.', dcm_ref.dict()
     )
     raise ingested_dicom_file_ref.DicomIngestError(
-        'wsi_dicom_instance_encoded_with_invalid_high_pixel_bit'
+        ingest_const.ErrorMsgs.WSI_DICOM_INSTANCE_ENCODED_WITH_INVALID_HIGH_PIXEL_BIT
     )
   if _dicom_ref_num(dcm_ref.samples_per_pixel) not in (1, 3):
     cloud_logging_client.logger().error(
@@ -158,28 +170,28 @@ def _validate_wsi_dicom_instance(
         dcm_ref.dict(),
     )
     raise ingested_dicom_file_ref.DicomIngestError(
-        'wsi_dicom_instance_encoded_with_invalid_samples_per_pixel'
+        ingest_const.ErrorMsgs.WSI_DICOM_INSTANCE_ENCODED_WITH_INVALID_SAMPLES_PER_PIXEL
     )
   if _dicom_ref_num(dcm_ref.number_of_frames) <= 0:
     cloud_logging_client.logger().error(
         'WSI DICOM instance has 0 frames.', dcm_ref.dict()
     )
     raise ingested_dicom_file_ref.DicomIngestError(
-        'wsi_dicom_instance_has_0_frames'
+        ingest_const.ErrorMsgs.WSI_DICOM_INSTANCE_HAS_0_FRAMES
     )
   if _dicom_ref_num(dcm_ref.rows) <= 0:
     cloud_logging_client.logger().error(
         'WSI DICOM instance has 0 rows.', dcm_ref.dict()
     )
     raise ingested_dicom_file_ref.DicomIngestError(
-        'wsi_dicom_instance_has_0_rows'
+        ingest_const.ErrorMsgs.WSI_DICOM_INSTANCE_HAS_0_ROWS
     )
   if _dicom_ref_num(dcm_ref.columns) <= 0:
     cloud_logging_client.logger().error(
         'WSI DICOM instance has 0 columns.', dcm_ref.dict()
     )
     raise ingested_dicom_file_ref.DicomIngestError(
-        'wsi_dicom_instance_has_0_columns'
+        ingest_const.ErrorMsgs.WSI_DICOM_INSTANCE_HAS_0_COLUMNS
     )
   if _dicom_ref_num(dcm_ref.total_pixel_matrix_columns) <= 0:
     cloud_logging_client.logger().error(
@@ -193,21 +205,21 @@ def _validate_wsi_dicom_instance(
         'WSI DICOM instance has 0 total_pixel_matrix_rows.', dcm_ref.dict()
     )
     raise ingested_dicom_file_ref.DicomIngestError(
-        'wsi_dicom_instance_has_0_total_pixel_matrix_rows'
+        ingest_const.ErrorMsgs.WSI_DICOM_INSTANCE_HAS_0_TOTAL_PIXEL_MATRIX_ROWS
     )
   if dcm_ref.specimen_label_in_image not in (_YES, _NO):
     cloud_logging_client.logger().error(
         'WSI DICOM SpecimenLabelInImage != "YES" or "NO"', dcm_ref.dict()
     )
     raise ingested_dicom_file_ref.DicomIngestError(
-        'wsi_dicom_specimen_label_in_image_not_yes_or_no'
+        ingest_const.ErrorMsgs.WSI_DICOM_SPECIMEN_LABEL_IN_IMAGE_NOT_YES_OR_NO
     )
   if dcm_ref.burned_in_annotation not in (_YES, _NO):
     cloud_logging_client.logger().error(
         'WSI DICOM BurnedInAnnotation != "YES" or "NO"', dcm_ref.dict()
     )
     raise ingested_dicom_file_ref.DicomIngestError(
-        'wsi_dicom_burned_in_annotation_in_image_not_yes_or_no'
+        ingest_const.ErrorMsgs.WSI_DICOM_BURNED_IN_ANNOTATION_IN_IMAGE_NOT_YES_OR_NO
     )
   # validate frame count is as expected
   total_rows = _dicom_ref_num(dcm_ref.total_pixel_matrix_rows)
@@ -224,7 +236,7 @@ def _validate_wsi_dicom_instance(
         dcm_ref.dict(),
     )
     raise ingested_dicom_file_ref.DicomIngestError(
-        'wsi_dicom_instance_does_not_have_expected_frame_count'
+        ingest_const.ErrorMsgs.WSI_DICOM_INSTANCE_DOES_NOT_HAVE_EXPECTED_FRAME_COUNT
     )
 
   if (
@@ -239,7 +251,7 @@ def _validate_wsi_dicom_instance(
         dcm_ref.dict(),
     )
     raise ingested_dicom_file_ref.DicomIngestError(
-        'wsi_dicom_instance_has_invalid_dimensional_organization_type'
+        ingest_const.ErrorMsgs.WSI_DICOM_INSTANCE_HAS_INVALID_DIMENSIONAL_ORGANIZATION_TYPE
     )
 
   ancillary_image_indicator = 0
@@ -263,7 +275,7 @@ def _validate_wsi_dicom_instance(
         'DICOM instance image_type/frame_type indeterminate.', dcm_ref.dict()
     )
     raise ingested_dicom_file_ref.DicomIngestError(
-        'wsi_dicom_ancillary_instance_type_indeterminate'
+        ingest_const.ErrorMsgs.WSI_DICOM_ANCILLARY_INSTANCE_TYPE_INDETERMINATE
     )
   if (
       ancillary_image_indicator == 1
@@ -274,7 +286,7 @@ def _validate_wsi_dicom_instance(
         dcm_ref.dict(),
     )
     raise ingested_dicom_file_ref.DicomIngestError(
-        'wsi_dicom_ancillary_instance_has_more_than_one_frame'
+        ingest_const.ErrorMsgs.WSI_DICOM_ANCILLARY_INSTANCE_HAS_MORE_THAN_ONE_FRAME
     )
 
 
@@ -294,11 +306,17 @@ def validate_dicom_files(
   """
   if not dicom_file_list:
     cloud_logging_client.logger().error('No dicom instances found in payload.')
-    raise ingested_dicom_file_ref.DicomIngestError('dicom_instance_not_found')
+    raise ingested_dicom_file_ref.DicomIngestError(
+        ingest_const.ErrorMsgs.DICOM_INSTANCE_NOT_FOUND
+    )
   study_uid = None
   series_uid = None
   barcode_value = None
   instance_uid_set = set()
+  modality_found = set()
+  accession_number_found = set()
+  patient_name_found = set()
+  patient_id_found = set()
   wsi_image_filerefs = []
   other_dicom_filerefs = []
   original_image_count_found = 0
@@ -314,28 +332,28 @@ def validate_dicom_files(
           'DICOM instance missing StudyInstanceUID.', dcm_ref.dict()
       )
       raise ingested_dicom_file_ref.DicomIngestError(
-          'dicom_missing_study_instance_uid'
+          ingest_const.ErrorMsgs.DICOM_INSTANCE_MISSING_STUDY_INSTANCE_UID
       )
     if not dcm_ref.series_instance_uid:
       cloud_logging_client.logger().error(
           'DICOM instance missing SeriesInstanceUID.', dcm_ref.dict()
       )
       raise ingested_dicom_file_ref.DicomIngestError(
-          'dicom_missing_series_instance_uid'
+          ingest_const.ErrorMsgs.DICOM_INSTANCE_MISSING_SERIES_INSTANCE_UID
       )
     if not dcm_ref.sop_instance_uid:
       cloud_logging_client.logger().error(
           'DICOM instance missing SOPInstanceUID.', dcm_ref.dict()
       )
       raise ingested_dicom_file_ref.DicomIngestError(
-          'dicom_missing_sop_instance_uid'
+          ingest_const.ErrorMsgs.DICOM_INSTANCE_MISSING_SOP_INSTANCE_UID
       )
     if not dcm_ref.sop_class_uid:
       cloud_logging_client.logger().error(
           'DICOM instance missing SOPClassUID.', dcm_ref.dict()
       )
       raise ingested_dicom_file_ref.DicomIngestError(
-          'dicom_missing_sop_class_uid'
+          ingest_const.ErrorMsgs.DICOM_INSTANCE_MISSING_SOP_CLASS_UID
       )
 
     # Make sure all DICOM have same StudyInstanceUID, SeriesInstanceUID
@@ -349,7 +367,7 @@ def validate_dicom_files(
           dcm_ref.dict(),
       )
       raise ingested_dicom_file_ref.DicomIngestError(
-          'dicom_study_instance_uid_do_not_match'
+          ingest_const.ErrorMsgs.DICOM_INSTANCES_STUDY_INSTANCE_UID_DO_NOT_MATCH
       )
     if not series_uid:
       series_uid = dcm_ref.series_instance_uid
@@ -361,7 +379,7 @@ def validate_dicom_files(
           dcm_ref.dict(),
       )
       raise ingested_dicom_file_ref.DicomIngestError(
-          'dicom_series_instance_uid_do_not_match'
+          ingest_const.ErrorMsgs.DICOM_INSTANCES_SERIES_INSTANCE_UID_DO_NOT_MATCH
       )
 
     # Make sure all DICOM have same Unique SOPInstanceUID
@@ -372,7 +390,7 @@ def validate_dicom_files(
           dcm_ref.dict(),
       )
       raise ingested_dicom_file_ref.DicomIngestError(
-          'duplicate_dicom_sop_instance_uid'
+          ingest_const.ErrorMsgs.DICOM_INSTANCES_HAVE_DUPLICATE_SOP_INSTANCE_UID
       )
     _validate_uid(dcm_ref.sop_instance_uid, dcm_ref)
     instance_uid_set.add(dcm_ref.sop_instance_uid)
@@ -389,9 +407,20 @@ def validate_dicom_files(
             dcm_ref.dict(),
         )
         raise ingested_dicom_file_ref.DicomIngestError(
-            'dicom_instance_barcodevalue_do_not_match'
+            ingest_const.ErrorMsgs.DICOM_INSTANCES_BARCODES_DO_NOT_MATCH
         )
 
+    if dcm_ref.modality:
+      modality_found.add(dcm_ref.modality)
+    if dcm_ref.accession_number:
+      accession_number_found.add(dcm_ref.accession_number)
+    with pydicom.dcmread(dcm_ref.source, defer_size='512 KB') as dcm:
+      patient_name = dcm.get(ingest_const.DICOMTagKeywords.PATIENT_NAME)
+      if patient_name is not None:
+        patient_name_found.add(patient_name)
+      patient_id = dcm.get(ingest_const.DICOMTagKeywords.PATIENT_ID)
+      if patient_id is not None:
+        patient_id_found.add(patient_id)
     # if dicom is whole slide imaging. Validate imaging tags.
     if (
         dcm_ref.sop_class_uid
@@ -402,30 +431,35 @@ def validate_dicom_files(
     else:
       _validate_wsi_dicom_instance(dcm_ref)
       wsi_image_filerefs.append(dcm_ref)
-      if _ORIGINAL_IMAGE_TYPE in dcm_ref.image_type.upper():
+      image_type = dcm_ref.image_type.upper()
+      if _RESAMPLED not in image_type and (
+          _ORIGINAL_PRIMARY_VOLUME in image_type
+          or _DERIVED_PRIMARY_VOLUME in image_type
+      ):
         original_image_count_found += 1
         original_image = dcm_ref
         if original_image_count_found > 1:
           cloud_logging_client.logger().error(
               (
-                  'DICOM instances contain multiple instances with image_type'
-                  ' ORIGINAL\\PRIMARY\\VOLUME.'
+                  'Ingested DICOM contains multiple instances with an ImageType'
+                  ' that defines original imaging, e.g. '
+                  'ORIGINAL\\PRIMARY\\VOLUME or DERIVED\\PRIMARY\\VOLUME.'
               ),
               dcm_ref.dict(),
           )
           raise ingested_dicom_file_ref.DicomIngestError(
-              'dicom_contain_multiple_original_primary_volume'
+              ingest_const.ErrorMsgs.DICOM_INSTANCES_HAVE_MULTIPLE_PRIMARY_VOLUME_IMAGES
           )
-      elif _LABEL in dcm_ref.image_type.upper():
+      elif _LABEL in image_type:
         label_count += 1
         if label_count > 1:
           cloud_logging_client.logger().error(
               'DICOM instances contain multiple label images.', dcm_ref.dict()
           )
           raise ingested_dicom_file_ref.DicomIngestError(
-              'duplicate_label_images'
+              ingest_const.ErrorMsgs.DICOM_INSTANCES_HAVE_MULTIPLE_LABEL_IMAGES
           )
-      elif _OVERVIEW in dcm_ref.image_type.upper():
+      elif _OVERVIEW in image_type:
         overview_count += 1
         if overview_count > 1:
           cloud_logging_client.logger().error(
@@ -433,9 +467,9 @@ def validate_dicom_files(
               dcm_ref.dict(),
           )
           raise ingested_dicom_file_ref.DicomIngestError(
-              'duplicate_overview_images'
+              ingest_const.ErrorMsgs.DICOM_INSTANCES_HAVE_MULTIPLE_OVERVIEW_IMAGES
           )
-      elif _THUMBNAIL in dcm_ref.image_type.upper():
+      elif _THUMBNAIL in image_type:
         thumbnail_count += 1
         if thumbnail_count > 1:
           cloud_logging_client.logger().error(
@@ -443,25 +477,41 @@ def validate_dicom_files(
               dcm_ref.dict(),
           )
           raise ingested_dicom_file_ref.DicomIngestError(
-              'duplicate_thumbnail_images'
+              ingest_const.ErrorMsgs.DICOM_INSTANCES_HAVE_MULTIPLE_THUMBNAIL_IMAGES
           )
-  if original_image_count_found == 0:
+  if len(accession_number_found) > 1:
     cloud_logging_client.logger().error(
-        (
-            'DICOM instances do not contain an instance with image_type'
-            ' ORIGINAL\\PRIMARY\\VOLUME.'
-        )
+        'DICOM instances describe instances with multiple accession numbers.',
+        {'accession_numbers_found': accession_number_found},
     )
     raise ingested_dicom_file_ref.DicomIngestError(
-        'dicom_missing_original_primary_volume'
+        ingest_const.ErrorMsgs.DICOM_INSTANCES_HAVE_MULTIPLE_ACCESSION_NUMBERS
     )
-  if not wsi_image_filerefs:
+  if len(patient_name_found) > 1:
     cloud_logging_client.logger().error(
-        'DICOM instances do not contain wsi images.'
+        'DICOM instances describe instances with multiple patient names.',
+        {'patient_names_found': patient_name_found},
     )
     raise ingested_dicom_file_ref.DicomIngestError(
-        'dicom_does_not_contain_wsi_instance'
+        ingest_const.ErrorMsgs.DICOM_INSTANCES_HAVE_MULTIPLE_PATIENT_NAMES
     )
+  if len(patient_id_found) > 1:
+    cloud_logging_client.logger().error(
+        'DICOM instances describe instances with multiple patient ids.',
+        {'patient_ids_found': patient_id_found},
+    )
+    raise ingested_dicom_file_ref.DicomIngestError(
+        ingest_const.ErrorMsgs.DICOM_INSTANCES_HAVE_MULTIPLE_PATIENT_IDS
+    )
+  if len(modality_found) > 1:
+    cloud_logging_client.logger().error(
+        'DICOM instances describe instances from multiple modalties.',
+        {'modalities_found': modality_found},
+    )
+    raise ingested_dicom_file_ref.DicomIngestError(
+        ingest_const.ErrorMsgs.DICOM_INSTANCES_DESCRIBE_MULTIPLE_MODALITIES
+    )
+
   return DicomFileInfo(
       study_uid,
       series_uid,

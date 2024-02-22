@@ -14,9 +14,11 @@
 # ==============================================================================
 """Base class for image to DICOM generation implementations."""
 import abc
+import dataclasses
 import os
 import re
 import tempfile
+import time
 from typing import List, Optional
 
 from google.cloud import pubsub_v1
@@ -29,6 +31,7 @@ from transformation_pipeline.ingestion_lib import abstract_pubsub_message_handle
 from transformation_pipeline.ingestion_lib import cloud_storage_client
 from transformation_pipeline.ingestion_lib import hash_util
 from transformation_pipeline.ingestion_lib import ingest_const
+from transformation_pipeline.ingestion_lib import redis_client
 from transformation_pipeline.ingestion_lib.dicom_gen import dicom_private_tag_generator
 from transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
 from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
@@ -89,6 +92,27 @@ class GeneratedDicomFiles:
   def hash(self, val: str) -> None:
     self._hash = val
 
+  def within_bucket_file_path(self) -> str:
+    """Returns the path with in the source GS style uri to the file.
+
+    Returns:
+      path within bucket to file.
+
+    Raises:
+      ValueError: Not GS style URI or undefined URI.
+    """
+    if self._source_uri is None or not self._source_uri:
+      raise ValueError('Source URI is undefined.')
+    if not self._source_uri.startswith('gs://'):
+      raise ValueError('Source URI is is not google cloud storage URI.')
+    _, filename = os.path.split(self._localfile)
+    bucket_path = re.fullmatch(
+        (r'gs://.+?/(.*)/' f'{filename}'), self._source_uri
+    )
+    if bucket_path is None:
+      return ''
+    return bucket_path.groups()[0]
+
 
 class FileDownloadError(Exception):
   pass
@@ -101,8 +125,34 @@ class FileNameContainsInvalidCharError(Exception):
     self.invalid_char = invalid_char
 
 
+def get_ingest_triggering_file_path(
+    gen_dicom: GeneratedDicomFiles, include_file_path_within_bucket: bool = True
+) -> str:
+  """Returns path to file within bucket that triggerted ingestion pipeline.
+
+  Args:
+    gen_dicom: Reference to files triggering ingestion.
+    include_file_path_within_bucket: If true include within bucket file path.
+
+  Returns:
+    Name of file or path within bucket to file triggering ingestion.
+  """
+  _, filename = os.path.split(gen_dicom.localfile)
+  if not include_file_path_within_bucket:
+    return filename
+  try:
+    bucket_file_path = gen_dicom.within_bucket_file_path()
+  except ValueError:
+    return filename
+  if not bucket_file_path:
+    return filename
+  return os.path.join(bucket_file_path, filename)
+
+
 def get_private_tags_for_gen_dicoms(
-    gen_dicom: GeneratedDicomFiles, pubsub_msg_id: str
+    gen_dicom: GeneratedDicomFiles,
+    pubsub_msg_id: str,
+    include_integest_filename_tag: bool = True,
 ) -> List[dicom_private_tag_generator.DicomPrivateTag]:
   """Returns List of private tags to add to generated DICOM instances.
 
@@ -114,23 +164,27 @@ def get_private_tags_for_gen_dicoms(
   Args:
     gen_dicom: Generated DICOM files.
     pubsub_msg_id: Pub/sub message ID triggering DICOM file generation.
+    include_integest_filename_tag: Include private tag identifying ingested
+      file.
 
   Returns:
     List of private tags to add to DICOM files.
   """
-  _, ingest_filename = os.path.split(gen_dicom.localfile)
   private_tag_list = [
       dicom_private_tag_generator.DicomPrivateTag(
           ingest_const.DICOMTagKeywords.PUBSUB_MESSAGE_ID_TAG,
           'LT',
           pubsub_msg_id,
       ),
-      dicom_private_tag_generator.DicomPrivateTag(
-          ingest_const.DICOMTagKeywords.INGEST_FILENAME_TAG,
-          'LT',
-          ingest_filename,
-      ),
   ]
+  if include_integest_filename_tag:
+    private_tag_list.append(
+        dicom_private_tag_generator.DicomPrivateTag(
+            ingest_const.DICOMTagKeywords.INGEST_FILENAME_TAG,
+            'LT',
+            get_ingest_triggering_file_path(gen_dicom),
+        )
+    )
   # dicom ingestion does not add hash
   if gen_dicom.hash is not None and gen_dicom.hash:
     private_tag_list.append(
@@ -157,6 +211,15 @@ def _check_filename_for_invalid_chars(filename: str):
   result = re.search(INVALID_FILENAME_BYTES, filename.encode('utf-8'))
   if result:
     raise FileNameContainsInvalidCharError(str(result.group()))
+
+
+@dataclasses.dataclass(frozen=True)
+class TransformationLock:
+  name: str = ''
+
+  def is_defined(self) -> bool:
+    """Returns True if lock is defined."""
+    return bool(self.name)
 
 
 class AbstractDicomGeneration(
@@ -187,12 +250,14 @@ class AbstractDicomGeneration(
   @abc.abstractmethod
   def generate_dicom_and_push_to_store(
       self,
+      transform_lock: TransformationLock,
       ingest_file: GeneratedDicomFiles,
       polling_client: abstract_polling_client.AbstractPollingClient,
   ):
     """Converts downloaded image to DICOM.
 
     Args:
+      transform_lock: Transformation pipeline lock.
       ingest_file: File payload to generate into DICOM.
       polling_client: Polling client receiving triggering pub/sub msg.
     """
@@ -303,6 +368,105 @@ class AbstractDicomGeneration(
       exp: Exception which triggered method.
     """
 
+  @abc.abstractmethod
+  def get_slide_transform_lock(
+      self,
+      ingest_file: GeneratedDicomFiles,
+      polling_client: abstract_polling_client.AbstractPollingClient,
+  ) -> TransformationLock:
+    """Returns lock to ensure transform processes only one instance of a slide at a time.
+
+    Args:
+      ingest_file: File payload to generate into DICOM.
+      polling_client: Polling client receiving triggering pub/sub msg.
+
+    Returns:
+      Transformation pipeline lock
+    """
+
+  def validate_redis_lock_held(
+      self,
+      transform_lock: TransformationLock,
+  ) -> bool:
+    """Validates transformation pipeline is not using locks or the lock is held.
+
+    Args:
+      transform_lock: Transformation pipeline lock.
+
+    Returns:
+      True if locks are not being used or lock is held. False if locks are being
+      used and lock is not held.
+    """
+    r_client = redis_client.redis_client()
+    if not r_client.has_redis_client() or r_client.is_lock_owned(
+        transform_lock.name
+    ):
+      return True
+    cloud_logging_client.logger().warning(
+        'Slide ingestion lock is no longer owned; slide ingestion will be'
+        ' retried later.',
+        {'redis_lock_name': transform_lock.name},
+    )
+    return False
+
+  def _generate_dicom_and_push_to_store_lock_wrapper(
+      self,
+      ingest_file: GeneratedDicomFiles,
+      polling_client: abstract_polling_client.AbstractPollingClient,
+  ):
+    """Wrapper for generate_dicom_and_push_to_store.
+
+    Args:
+      ingest_file: File payload to generate into DICOM.
+      polling_client: Polling client receiving triggering pub/sub msg.
+    """
+    slide_lock = self.get_slide_transform_lock(ingest_file, polling_client)
+    if not slide_lock.is_defined():
+      return
+    r_client = redis_client.redis_client()
+    if not r_client.has_redis_client():
+      self.generate_dicom_and_push_to_store(
+          slide_lock, ingest_file, polling_client
+      )
+      return
+    # Lock used to protects against other processes interacting with
+    # dicom and or metadata stores prior to the data getting written into
+    # dicomstore. It is safe to move the ingested bits to success folder
+    # and acknowledge pub/sub msg in unlocked context.
+    expiry_seconds = ingest_const.MESSAGE_TTL_S
+    token = ingest_flags.TRANSFORM_POD_UID_FLG.value
+    lock_log = {
+        'lock_name': slide_lock.name,
+        'lock_token': token,
+        'redis_server_ip': r_client.redis_ip,
+        'redis_server_port': r_client.redis_port,
+    }
+    if not r_client.acquire_non_blocking_lock(
+        slide_lock.name, token, expiry_seconds
+    ):
+      retry_delay = ingest_flags.TRANSFORMATION_LOCK_RETRY_FLG.value
+      cloud_logging_client.logger().info(
+          'Could not acquire lock. Slide transformation will be retried in'
+          f' about {retry_delay} seconds.',
+          lock_log,
+      )
+      polling_client.nack(retry_delay)
+      return
+    start_time = time.time()
+    try:
+      cloud_logging_client.logger().info(
+          f'Acquired transformation lock: {slide_lock.name}', lock_log
+      )
+      self.generate_dicom_and_push_to_store(
+          slide_lock, ingest_file, polling_client
+      )
+    finally:
+      r_client.release_lock(slide_lock.name, ignore_redis_exception=True)
+      lock_log['sec_lock_held'] = time.time() - start_time
+      cloud_logging_client.logger().info(
+          f'Released transformation lock: {slide_lock.name}', lock_log
+      )
+
   def process_message(
       self, polling_client: abstract_polling_client.AbstractPollingClient
   ):
@@ -328,14 +492,13 @@ class AbstractDicomGeneration(
 
         ingest_file.hash = hash_util.sha512hash(
             ingest_file.localfile,
-            {ingest_const.LogKeywords.uri: ingest_file.source_uri},
+            {ingest_const.LogKeywords.URI: ingest_file.source_uri},
         )
-
-        self.generate_dicom_and_push_to_store(ingest_file, polling_client)
-
+        self._generate_dicom_and_push_to_store_lock_wrapper(
+            ingest_file, polling_client
+        )
         if polling_client.is_acked():
           cloud_logging_client.logger().info('Ingest pipeline completed')
-        return
     except FileNameContainsInvalidCharError as exp:
       cloud_logging_client.logger().error(
           (

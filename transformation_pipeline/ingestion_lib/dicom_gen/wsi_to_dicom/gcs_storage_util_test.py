@@ -19,7 +19,6 @@ from absl.testing import absltest
 from absl.testing import parameterized
 
 from transformation_pipeline.ingestion_lib import cloud_storage_client
-from transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import gcs_storage_util
 from transformation_pipeline.ingestion_lib.pubsub_msgs import ingestion_complete_pubsub
 
@@ -34,11 +33,11 @@ class GcsStorageUtilTest(parameterized.TestCase):
   ):
     svs_path = ''
 
-    dicom_gen = abstract_dicom_generation.GeneratedDicomFiles(svs_path, None)
     with self.assertRaises(gcs_storage_util.CloudStorageBlobMoveError):
       gcs_storage_util.move_ingested_dicom_and_publish_ingest_complete(
+          svs_path,
+          None,
           'gs://dest',
-          dicom_gen,
           {},
           ingestion_complete_pubsub.create_ingest_complete_pubsub_msg(
               '', '', [], [], {}
@@ -53,12 +52,11 @@ class GcsStorageUtilTest(parameterized.TestCase):
       self, unused_mock1, unused_mock2
   ):
     svs_path = ''
-
-    dicom_gen = abstract_dicom_generation.GeneratedDicomFiles(svs_path, None)
     with self.assertRaises(gcs_storage_util.CloudStorageBlobMoveError):
       gcs_storage_util.move_ingested_dicom_and_publish_ingest_complete(
+          svs_path,
+          None,
           'gs://dest',
-          dicom_gen,
           {},
           ingestion_complete_pubsub.create_ingest_complete_pubsub_msg(
               '', '', [], [], {}
@@ -73,12 +71,11 @@ class GcsStorageUtilTest(parameterized.TestCase):
       self, unused_mock1, unused_mock2
   ):
     svs_path = ''
-
-    dicom_gen = abstract_dicom_generation.GeneratedDicomFiles(svs_path, None)
     self.assertIsNone(
         gcs_storage_util.move_ingested_dicom_and_publish_ingest_complete(
+            svs_path,
+            None,
             'gs://dest',
-            dicom_gen,
             {},
             ingestion_complete_pubsub.create_ingest_complete_pubsub_msg(
                 '', '', [], [], {}
@@ -102,11 +99,11 @@ class GcsStorageUtilTest(parameterized.TestCase):
       self, files_copied_msg, mock_delete, mock_publish, mock_copy
   ):
     destination_uri = 'test_uri'
-    dicom_gen = abstract_dicom_generation.GeneratedDicomFiles('', None)
     dst_metadata = {}
     gcs_storage_util.move_ingested_dicom_and_publish_ingest_complete(
+        '',
+        None,
         destination_uri,
-        dicom_gen,
         dst_metadata,
         files_copied_msg,
         delete_file_in_ingestion_bucket_at_ingest_success_or_failure=True,
@@ -129,15 +126,15 @@ class GcsStorageUtilTest(parameterized.TestCase):
   )
   def test_del_blob_fail_throws(self, mock_delete, mock_publish, mock_copy):
     destination_uri = 'test_uri'
-    dicom_gen = abstract_dicom_generation.GeneratedDicomFiles('', None)
     files_copied_msg = ingestion_complete_pubsub.PubSubMsg(
         'topic', b'message', None
     )
     dst_metadata = {}
     with self.assertRaises(gcs_storage_util.CloudStorageBlobMoveError):
       gcs_storage_util.move_ingested_dicom_and_publish_ingest_complete(
+          '',
+          None,
           destination_uri,
-          dicom_gen,
           dst_metadata,
           files_copied_msg,
           delete_file_in_ingestion_bucket_at_ingest_success_or_failure=True,
@@ -160,15 +157,15 @@ class GcsStorageUtilTest(parameterized.TestCase):
   )
   def test_copy_fail_throws(self, mock_delete, mock_publish, mock_copy):
     destination_uri = 'test_uri'
-    dicom_gen = abstract_dicom_generation.GeneratedDicomFiles('', None)
     files_copied_msg = ingestion_complete_pubsub.PubSubMsg(
         'topic', b'message', None
     )
     dst_metadata = {}
     with self.assertRaises(gcs_storage_util.CloudStorageBlobMoveError):
       gcs_storage_util.move_ingested_dicom_and_publish_ingest_complete(
+          '',
+          None,
           destination_uri,
-          dicom_gen,
           dst_metadata,
           files_copied_msg,
           delete_file_in_ingestion_bucket_at_ingest_success_or_failure=True,
@@ -190,14 +187,14 @@ class GcsStorageUtilTest(parameterized.TestCase):
       self, mock_delete, mock_publish, mock_copy
   ):
     destination_uri = 'test_uri'
-    dicom_gen = abstract_dicom_generation.GeneratedDicomFiles('', None)
     files_copied_msg = ingestion_complete_pubsub.PubSubMsg(
         'topic', b'message', None
     )
     dst_metadata = {}
     gcs_storage_util.move_ingested_dicom_and_publish_ingest_complete(
+        '',
+        None,
         destination_uri,
-        dicom_gen,
         dst_metadata,
         files_copied_msg,
         delete_file_in_ingestion_bucket_at_ingest_success_or_failure=False,

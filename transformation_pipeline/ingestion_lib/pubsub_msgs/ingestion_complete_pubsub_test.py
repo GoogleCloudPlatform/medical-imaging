@@ -34,7 +34,7 @@ _DICOM_STORE_WEB_PATH = 'fake-dicom-web-path'
 _PUBSUB_TOPIC_NAME = 'fake-inference-pubsub-topic-name'
 _PIPELINE_PASSTHROUGH_PARAMS = {'custom-param': 'value', 'other-param': 42}
 
-_DICOM_FILE_REF_0 = dicom_test_util.create_mock_dicom_fref(
+_DICOM_FILE_REF_0 = dicom_test_util.create_mock_dpas_generated_dicom_fref(
     metadata_changes={
         ingest_const.DICOMTagKeywords.STUDY_INSTANCE_UID: _STUDY_UID,
         ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID: _SERIES_UID,
@@ -43,7 +43,7 @@ _DICOM_FILE_REF_0 = dicom_test_util.create_mock_dicom_fref(
         ingest_const.DICOMTagKeywords.TOTAL_PIXEL_MATRIX_COLUMNS: '100',
     }
 )
-_DICOM_FILE_REF_1 = dicom_test_util.create_mock_dicom_fref(
+_DICOM_FILE_REF_1 = dicom_test_util.create_mock_dpas_generated_dicom_fref(
     metadata_changes={
         ingest_const.DICOMTagKeywords.STUDY_INSTANCE_UID: _STUDY_UID,
         ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID: _SERIES_UID,
@@ -52,17 +52,19 @@ _DICOM_FILE_REF_1 = dicom_test_util.create_mock_dicom_fref(
         ingest_const.DICOMTagKeywords.TOTAL_PIXEL_MATRIX_COLUMNS: '100',
     }
 )
-_DICOM_FILE_REF_MODEL_PIXEL_SPACING = dicom_test_util.create_mock_dicom_fref(
-    metadata_changes={
-        ingest_const.DICOMTagKeywords.STUDY_INSTANCE_UID: _STUDY_UID,
-        ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID: _SERIES_UID,
-        ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG: _HASH,
-        ingest_const.DICOMTagKeywords.IMAGED_VOLUME_WIDTH: '51',
-        ingest_const.DICOMTagKeywords.TOTAL_PIXEL_MATRIX_COLUMNS: '100000',
-    }
+_DICOM_FILE_REF_MODEL_PIXEL_SPACING = (
+    dicom_test_util.create_mock_dpas_generated_dicom_fref(
+        metadata_changes={
+            ingest_const.DICOMTagKeywords.STUDY_INSTANCE_UID: _STUDY_UID,
+            ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID: _SERIES_UID,
+            ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG: _HASH,
+            ingest_const.DICOMTagKeywords.IMAGED_VOLUME_WIDTH: '51',
+            ingest_const.DICOMTagKeywords.TOTAL_PIXEL_MATRIX_COLUMNS: '100000',
+        }
+    )
 )
 _DICOM_FILE_REF_TISSUE_MASK_PIXEL_SPACING = (
-    dicom_test_util.create_mock_dicom_fref(
+    dicom_test_util.create_mock_dpas_generated_dicom_fref(
         metadata_changes={
             ingest_const.DICOMTagKeywords.STUDY_INSTANCE_UID: _STUDY_UID,
             ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID: _SERIES_UID,

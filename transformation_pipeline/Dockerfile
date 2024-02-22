@@ -89,8 +89,8 @@ RUN set -e && \
     # Clone wsi-to-dicom-converter
     git clone https://github.com/GoogleCloudPlatform/wsi-to-dicom-converter && \
     cd wsi-to-dicom-converter && \
-    # Sync to change submitted to head on 5/12/2023 : Add DICOM Validation.
-    git reset --hard ee532a3ad944c209585bffb534f426c17fa8abba && \
+    # Sync to change submitted to head on 1/30/2024 : Update to OpenSlide 4.0 Dicom decoder.
+    git reset --hard 314325ab25207bd062320e03403bc7e933a4fd52 && \
     cp /usr/lib/x86_64-linux-gnu/glib-2.0/include/glibconfig.h /usr/include/glib-2.0/glibconfig.h && \
     mkdir build && \
     cd build && \
@@ -152,10 +152,8 @@ RUN apt-get update && \
 # Setup python enviroment
 COPY ./transformation_pipeline/requirements.txt /requirements.txt
 COPY ./shared_libs/docker_setup/setuptools_requirements.txt /setuptools_requirements.txt
-RUN python3 -m pip install googleapis-common-protos && \
-    python3 -m pip install -r setuptools_requirements.txt --require-hashes && \
+RUN python3 -m pip install -r setuptools_requirements.txt --require-hashes && \
     python3 -m pip install -r /requirements.txt --require-hashes && \
-    python3 -m pip install --no-deps git+https://github.com/GoogleCloudPlatform/healthcare.git#subdirectory=imaging/ml/toolkit && \
     pip uninstall -y pip && \
     apt-get purge -y \
       libldap-common \

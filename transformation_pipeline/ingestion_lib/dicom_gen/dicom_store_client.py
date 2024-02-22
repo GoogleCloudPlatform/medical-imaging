@@ -13,11 +13,13 @@
 # limitations under the License.
 # ==============================================================================
 """HCLS DICOM Store Client to make DICOM web requests."""
+
 import copy
 import dataclasses
 import enum
 import http
 import json
+import math
 import os
 import tempfile
 from typing import Any, Dict, FrozenSet, List, Mapping, Optional, Set, Union
@@ -138,8 +140,45 @@ class UploadSlideToDicomStoreResults:
     return None
 
 
-def _imagetype_match(img1: str, img2: str) -> bool:
-  """Tests if two DICOM image types describe the same image.
+def _is_resampled_image_type(image_type: str) -> bool:
+  return image_type.endswith(ingest_const.RESAMPLED)
+
+
+def _is_original_or_derived(image_type: str) -> bool:
+  """Tests if image defines either original or derived image type."""
+  return image_type.startswith(
+      ingest_const.ORIGINAL_PRIMARY_VOLUME
+  ) or image_type.startswith(ingest_const.DERIVED_PRIMARY_VOLUME)
+
+
+def _is_wsi_ancillary_image_type(
+    img1: wsi_dicom_file_ref.WSIDicomFileRef,
+    img2: wsi_dicom_file_ref.WSIDicomFileRef,
+) -> bool:
+  """Returns True if both refs describe ancillary images for WSI DICOM."""
+  image_1_type = img1.image_type.upper()
+  image_2_type = img2.image_type.upper()
+  if img1.sop_class_uid != ingest_const.DicomSopClasses.WHOLE_SLIDE_IMAGE.uid:
+    return False
+  if img2.sop_class_uid != ingest_const.DicomSopClasses.WHOLE_SLIDE_IMAGE.uid:
+    return False
+  for ancillary_type in (
+      ingest_const.THUMBNAIL,
+      ingest_const.OVERVIEW,
+      ingest_const.LABEL,
+  ):
+    if ancillary_type in image_1_type and ancillary_type in image_2_type:
+      return True
+  return False
+
+
+def _do_image_types_match(
+    img1: wsi_dicom_file_ref.WSIDicomFileRef,
+    img2: wsi_dicom_file_ref.WSIDicomFileRef,
+) -> bool:
+  """Tests if two DICOM image types describe the same image type.
+
+  Both images expected to have same sop_class_uid.
 
   Args:
     img1: Image type tag value for first DICOM instance.
@@ -148,18 +187,127 @@ def _imagetype_match(img1: str, img2: str) -> bool:
   Returns:
     True if image types match.
   """
-  if img1 == img2:
-    return True  # perfect match
-  img1 = img1.split('\\')
-  img2 = img2.split('\\')
-  img1_len = len(img1)
-  img2_len = len(img2)
+  image_1_type = img1.image_type.upper()
+  image_2_type = img2.image_type.upper()
+  if image_1_type == image_2_type:
+    return True  # perfect match, simple.
+  if img1.sop_class_uid == ingest_const.DicomSopClasses.WHOLE_SLIDE_IMAGE.uid:
+    # Tests specifically for DICOM VL_WHOLE_SLIDE_MICROSCOPY IOD images.
+    # These image could be made by transform pipleine or others.
+
+    # Test if both images describes the same ancillary image.
+    # if they do then the images are considered to have same image type.
+    if _is_wsi_ancillary_image_type(img1, img2):
+      return True
+
+    # Tests that pyramid image types have the same resampled indicator.
+    if _is_resampled_image_type(image_1_type) != _is_resampled_image_type(
+        image_2_type
+    ):
+      return False
+
+    # If the images are not ancillary then they are expected to be:
+    # ORIGINAL\\PRIMARY\\VOLUME or DERIVED\\PRIMARY\\VOLUME
+    #
+    # ORIGINAL and DERIVED are used in the DICOM community inconsistently.
+    # Here we are treating ORIGINAL and DERIVED as being the same. Doing this
+    # enables the pipeline to de-duplicate between customer provided and
+    # generated pyramid levels. However this also means that the pipeline
+    # may have issues if multiple representation of single pyramid are provided
+    # within a DICOM ingestion payload or if the pipeline  was used to ingest
+    # imaging into a series that had imaging in it prior to pipeline execution.
+    # The validation step that is performed at the start of DICOM WSI
+    # transformation protects against multiple pyramids being provided by the
+    # customer by limiting the number of non-resampled volumes to one.
+    return _is_original_or_derived(image_1_type) and _is_original_or_derived(
+        image_2_type
+    )
+
+  # Generic image type equality test
+  image_1_type = image_1_type.split('\\')
+  image_2_type = image_2_type.split('\\')
+  img1_len = len(image_1_type)
+  img2_len = len(image_2_type)
   for index in range(max(img1_len, img2_len)):
-    im1_type = img1[index] if index < img1_len else 'NONE'
-    im2_type = img2[index] if index < img2_len else 'NONE'
-    if im1_type.upper() != im2_type.upper():
+    im1_type = image_1_type[index] if index < img1_len else 'NONE'
+    im2_type = image_2_type[index] if index < img2_len else 'NONE'
+    if im1_type != im2_type:
       return False
   return True
+
+
+def _similar_dimension(
+    dcm_file_physical_dim: str,
+    existing_file_physical_dim: str,
+) -> bool:
+  """Tests if physical dimension metadata is the "same" for two DICOM instances.
+
+    See: _do_images_have_similar_dimensions for full comment.
+
+  Args:
+    dcm_file_physical_dim: Physical dimension in mm along one axis.
+    existing_file_physical_dim: Physical dimension in mm of the corresponding
+      axis in another DICOM.
+
+  Returns:
+    True if the metadata for the physical dimensions of the two images are
+    identical or nearly identical.
+  """
+  if dcm_file_physical_dim == existing_file_physical_dim:
+    return True
+  try:
+    dcm_file_physical_dim = float(dcm_file_physical_dim)
+    existing_file_physical_dim = float(existing_file_physical_dim)
+    return math.floor(dcm_file_physical_dim * 10.0) == math.floor(
+        existing_file_physical_dim * 10.0
+    )
+  except ValueError as _:
+    return False
+
+
+def _do_images_have_similar_dimensions(
+    dcm_file: wsi_dicom_file_ref.WSIDicomFileRef,
+    existing_dicom: wsi_dicom_file_ref.WSIDicomFileRef,
+) -> bool:
+  """Test if the physical dimensions in two DICOM instances are similar.
+
+  There is variability in how the physical dimensions are reported in
+  downsampled DICOM instances. Some implementations report actual physical
+  dimensions reported by the scanner (Most Corrrect), using this approach all
+  downsampled images from the same pyramid have the same dimensions. This is the
+  approach used internally by the DPAS transformation pipeline.
+
+  Other (less correct) approaches infer the physical dimensions of downsampled
+  imaging by deriving the downsampled image dimensions from the image
+  downsampling factor and the pixel spacing. This approach results in the
+  physical dimensions of the imaged area being reported differently across
+  the pyramid imaging despite all levels of the pyramid being derived from a
+  common optical acquisition.
+
+  The comparision conducted here tests first if the two dimensions are exactly
+  the same. This allows both numerical and missing value string equality.
+  If this is not the case then the pipeline tests if the image dimensions are
+  within 1/10th of a mm of each.
+
+  Args:
+    dcm_file: DICOM instance being tested.
+    existing_dicom: DICOM from a broader list dcm_file is being tested against.
+
+  Returns:
+    True if DICOMs have similar similar physical dimensions (Width and Height).
+  """
+  # The use of physical image dimensions ancillary imaging, thumbnail, overview
+  # and label imaging is not well defined. Ignoring physical dimension test fo
+  # these image types.
+  if _is_wsi_ancillary_image_type(dcm_file, existing_dicom):
+    return True
+  return _similar_dimension(
+      dcm_file.imaged_volume_height,
+      existing_dicom.imaged_volume_height,
+  ) and _similar_dimension(
+      dcm_file.imaged_volume_width,
+      existing_dicom.imaged_volume_width,
+  )
 
 
 def _is_dpas_generated_dicom(
@@ -225,8 +373,6 @@ def is_dpas_dicom_wsidcmref_in_list(
       ingest_const.DICOMTagKeywords.STUDY_INSTANCE_UID,
       ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID,
       ingest_const.DICOMTagKeywords.SOP_CLASS_UID,
-      ingest_const.DICOMTagKeywords.IMAGED_VOLUME_WIDTH,
-      ingest_const.DICOMTagKeywords.IMAGED_VOLUME_HEIGHT,
       ingest_const.DICOMTagKeywords.TOTAL_PIXEL_MATRIX_COLUMNS,
       ingest_const.DICOMTagKeywords.TOTAL_PIXEL_MATRIX_ROWS,
       ingest_const.DICOMTagKeywords.MODALITY,
@@ -244,27 +390,30 @@ def is_dpas_dicom_wsidcmref_in_list(
         existing_dicom, ignore_tags=None, test_tags=test_tags
     ):
       continue
-    if not _imagetype_match(dcm_file.image_type, existing_dicom.image_type):
+    if not _do_images_have_similar_dimensions(dcm_file, existing_dicom):
       continue
+    if not _do_image_types_match(dcm_file, existing_dicom):
+      continue
+    log_msg = 'Removed duplicate DICOM instance.'
+    struct_log = {
+        ingest_const.LogKeywords.TESTED_DICOM_INSTANCE: str(dcm_file.dict()),
+        ingest_const.LogKeywords.EXISTING_DICOM_INSTANCE: str(
+            existing_dicom.dict()
+        ),
+    }
     if (
         ignore_source_image_hash_tag
         or not dcm_file.hash
         or not existing_dicom.hash
         or not _is_dpas_generated_dicom(existing_dicom)
     ):
-      cloud_logging_client.logger().info(
-          'DICOM files match.',
-          {'file1': str(dcm_file.dict()), 'file2': str(existing_dicom.dict())},
-      )
+      cloud_logging_client.logger().info(log_msg, struct_log)
       return True
     elif dcm_file.hash == existing_dicom.hash:
       # If testing against internally generated DICOM and hash test not disabled
       # require that hash values match indicating the images were generated from
       # the same source.
-      cloud_logging_client.logger().info(
-          'DICOM files match.',
-          {'file1': str(dcm_file.dict()), 'file2': str(existing_dicom.dict())},
-      )
+      cloud_logging_client.logger().info(log_msg, struct_log)
       return True
   return False
 
@@ -318,8 +467,15 @@ def is_wsidcmref_in_list(
       continue
     if dcm_file.equals(existing_dicom, ignore_tags=None, test_tags=test_tags):
       cloud_logging_client.logger().info(
-          'DICOM files match.',
-          {'file1': str(dcm_file.dict()), 'file2': str(existing_dicom.dict())},
+          'Removed duplicate DICOM instance.',
+          {
+              ingest_const.LogKeywords.TESTED_DICOM_INSTANCE: str(
+                  dcm_file.dict()
+              ),
+              ingest_const.LogKeywords.EXISTING_DICOM_INSTANCE: str(
+                  existing_dicom.dict()
+              ),
+          },
       )
       return True
   return is_dpas_dicom_wsidcmref_in_list(
@@ -375,10 +531,10 @@ def set_dicom_series_uid(
               f'{oldseries_uid} new:{series_uid}'
           ),
           {
-              ingest_const.LogKeywords.sop_instance_uid: dcm.SOPInstanceUID,
-              ingest_const.LogKeywords.study_instance_uid: dcm.StudyInstanceUID,
-              ingest_const.LogKeywords.old_series_instance_uid: oldseries_uid,
-              ingest_const.LogKeywords.new_series_instance_uid: series_uid,
+              ingest_const.LogKeywords.SOP_INSTANCE_UID: dcm.SOPInstanceUID,
+              ingest_const.LogKeywords.STUDY_INSTANCE_UID: dcm.StudyInstanceUID,
+              ingest_const.LogKeywords.OLD_SERIES_INSTANCE_UID: oldseries_uid,
+              ingest_const.LogKeywords.NEW_SERIES_INSTANCE_UID: series_uid,
           },
       )
       dcm.SeriesInstanceUID = series_uid
@@ -427,7 +583,7 @@ class DicomStoreClient:
       self,
       accession_number: str = '',
       patient_id: str = '',
-      find_only_studies_with_undefined_patient_id: bool = False,
+      find_studies_with_undefined_patient_id: bool = False,
       limit: Optional[int] = None,
   ) -> List[str]:
     """Find StudyInstanceUID associated with accession # and/or patient id.
@@ -437,8 +593,8 @@ class DicomStoreClient:
         standard).
       patient_id: DICOM patient id; 64 characters max (DICOM standard); Search
         parameter ignored if ''.
-      find_only_studies_with_undefined_patient_id: If True returns studies uids
-        that do not have patient uid values associated with them.
+      find_studies_with_undefined_patient_id: If True returns studies uids that
+        do not have patient uid values associated with them.
       limit: Limit number of returned results if undefined returns all results
         found.
 
@@ -451,14 +607,15 @@ class DicomStoreClient:
     search_params = []
     if accession_number:
       search_params.append(f'AccessionNumber={accession_number}')
-    if patient_id and not find_only_studies_with_undefined_patient_id:
+    if patient_id:
       search_params.append(f'PatientID={patient_id}')
     if not search_params:
       return []
-    if limit is not None and not find_only_studies_with_undefined_patient_id:
+    if limit is not None:
       if limit <= 0:
-        raise ValueError('If defined limit must be greater than 0.')
-      search_params.append(f'limit={limit}')
+        raise ValueError('Defined limit must be greater than 0.')
+      if patient_id or not find_studies_with_undefined_patient_id:
+        search_params.append(f'limit={limit}')
     search_params = '&'.join(search_params)
     try:
       search_path = f'{self.dicomweb_path}/studies?{search_params}'
@@ -474,7 +631,7 @@ class DicomStoreClient:
         found_study_instance_uid = dicom_json_util.get_study_instance_uid(
             file_json
         )
-        if not find_only_studies_with_undefined_patient_id:
+        if patient_id or not find_studies_with_undefined_patient_id:
           results.add(found_study_instance_uid)
         elif dicom_json_util.missing_patient_id(file_json):
           results.add(found_study_instance_uid)
@@ -553,7 +710,7 @@ class DicomStoreClient:
       cloud_logging_client.logger().error(
           'Exception decoding DICOM instance metadata.',
           log,
-          {ingest_const.LogKeywords.dicomweb_path: search_path},
+          {ingest_const.LogKeywords.DICOMWEB_PATH: search_path},
           exp,
       )
       raise
@@ -562,7 +719,7 @@ class DicomStoreClient:
       cloud_logging_client.logger().error(
           f'Exception searching for DICOM instance metadata{opt_quota_str}.',
           log,
-          {ingest_const.LogKeywords.dicomweb_path: search_path},
+          {ingest_const.LogKeywords.DICOMWEB_PATH: search_path},
           exp,
       )
       raise
@@ -587,7 +744,7 @@ class DicomStoreClient:
         study_uid,
         series_uid if series_uid is not None else '',
         '',
-        list(wsi_dicom_file_ref.WSIDicomFileRef().tags),
+        wsi_dicom_file_ref.get_wsi_dicom_file_ref_tag_address_list(),
     )
     return [
         wsi_dicom_file_ref.init_wsi_dicom_file_ref_from_json(file_json)
@@ -760,7 +917,7 @@ class DicomStoreClient:
           {
               ingest_const.DICOMTagKeywords.STUDY_INSTANCE_UID: study_uid,
               ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID: series_uid,
-              ingest_const.LogKeywords.hash: hash_val,
+              ingest_const.LogKeywords.HASH: hash_val,
           },
       )
     else:
@@ -768,7 +925,7 @@ class DicomStoreClient:
           'DICOM study has no prexisting images matching hash',
           {
               ingest_const.DICOMTagKeywords.STUDY_INSTANCE_UID: study_uid,
-              ingest_const.LogKeywords.hash: hash_val,
+              ingest_const.LogKeywords.HASH: hash_val,
           },
       )
     return list_of_prexisting_dicoms
@@ -909,7 +1066,7 @@ class DicomStoreClient:
       cloud_logging_client.logger().warning(
           'Images exists in DICOM Store, skipping ingest.',
           {
-              ingest_const.LogKeywords.filename: fname,
+              ingest_const.LogKeywords.FILENAME: fname,
               'dicom_store_web': self.dicomweb_path,
           },
           dcm_file.dict(),
@@ -935,7 +1092,7 @@ class DicomStoreClient:
       cloud_logging_client.logger().error(
           f'Error uploading DICOM to DICOM store{opt_quota_str}',
           {
-              ingest_const.LogKeywords.filename: fname,
+              ingest_const.LogKeywords.FILENAME: fname,
               'dicom_store_web': self.dicomweb_path,
           },
           exp,
@@ -1080,7 +1237,7 @@ class DicomStoreClient:
     log_struct = {
         ingest_const.DICOMTagKeywords.STUDY_INSTANCE_UID: study_uid,
         ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID: series_uid,
-        ingest_const.LogKeywords.dicomweb_path: self.dicomweb_path,
+        ingest_const.LogKeywords.DICOMWEB_PATH: self.dicomweb_path,
     }
     return self.delete_resource_from_dicom_store(
         series_path,

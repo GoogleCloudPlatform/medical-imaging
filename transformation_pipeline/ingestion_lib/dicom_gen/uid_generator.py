@@ -13,56 +13,40 @@
 # limitations under the License.
 # ==============================================================================
 """Standardized UID generator used to generate all DICOM uids."""
+import os
 import random
 import re
 import threading
 import time
 from typing import Optional
+
 from shared_libs.logging_lib import cloud_logging_client
 from transformation_pipeline import ingest_flags
 from transformation_pipeline.ingestion_lib import ingest_const
 
 TEST_UID_PREFIX = f'{ingest_const.DPAS_UID_PREFIX}.0.0'
-
 MAX_LENGTH_OF_DICOM_UID = 64  # DICOM Specification
+_MIN_UID_COUNTER_VALUE = 0
 _MAX_UID_COUNTER_VALUE = 999
-_MAX_UID_COUNTER_CHAR_LENGTH = len(str(_MAX_UID_COUNTER_VALUE))
 _TEST_TEXT_FOR_NON_NUMBER_CHAR_REGEX = '.*[^0-9].*'
-_MINIMUM_POD_HOST_COMPONENT_LENGTH = 20
+_MAX_HOSTNAME_COMPONENT_LENGTH = 12
 
 
 class InvalidUIDPrefixError(Exception):
   pass
 
 
-class _UIDGenerator(object):
-  """Static state for UID generator."""
-
-  counter = None  # Internal counter for UID Allocation
-  rand_fraction = None  # Random component of POD UID. Initialized once per pod.
-  lock = threading.Lock()  # It it is not safe to generate multiple UID
-  # simultaneously.
-  prefix = ''  # Holds validated UID prefix used for pod.
-  pod = ''  # Representation of embedding of POD Name in UID.
-  clip_pod = 0  # number of characters to clip pod str.
-  last_time_str_len = None  # Length last reported time string. Used to check if
-  # the time string length changes.
-
-
-def _log_and_raise(msg: str, exp: Optional[Exception] = None):
+def _log_and_raise(msg: str):
   """_getprefix helper function logs and raises InvalidUIDPrefixError.
 
   Args:
     msg: message to log and raise.
-    exp: Optional exception to reference raised exception from.
 
   Raises:
     InvalidUIDPrefixError: Error in uid prefix definition.
   """
   cloud_logging_client.logger().critical(msg)
-  if exp is None:
-    raise InvalidUIDPrefixError(msg)
-  raise InvalidUIDPrefixError(msg) from exp
+  raise InvalidUIDPrefixError(msg)
 
 
 def is_uid_block_correctly_formatted(block: str) -> bool:
@@ -79,150 +63,150 @@ def is_uid_block_correctly_formatted(block: str) -> bool:
     return False
   if re.fullmatch(_TEST_TEXT_FOR_NON_NUMBER_CHAR_REGEX, block):
     return False
-  # check that UID starts with correct character
-  # DICOM Standard requirement
-  first_char_value = ord(block[0])
-  if len(block) == 1 and first_char_value < ord('0'):
-    return False
-  elif len(block) > 1 and first_char_value < ord('1'):
+  # check that UID starts with number 1 or greater if the length of the block
+  # is greater than 1
+  if len(block) > 1 and ord(block[0]) < ord('1'):
     return False
   return True
 
 
-def _get_prefix() -> str:
-  """Conduct one time test on first use that customer defined uid prefix valid.
+def _get_uid(uid_parts: list[str]) -> str:
+  return '.'.join([part for part in uid_parts if part])
 
-  Returns:
-    UID prefix as string.
-  Raises:
-    InvalidUIDPrefixError: Error in uid prefix definition.
-  """
-  if not _UIDGenerator.prefix:
-    prefix = ingest_flags.DICOM_GUID_PREFIX_FLG.value
-    if prefix is None or not prefix:
-      msg = 'DICOM UID prefix is undefined.'
-      cloud_logging_client.logger().critical(msg)
-      raise InvalidUIDPrefixError(msg)
 
-    # clean up customer defined uid (set by flag or env variable)
-    # Removes starting and ending white space around uid and trailing periods.
-    _UIDGenerator.prefix = prefix.strip().rstrip('.')
+def validate_uid_format(uid: str) -> bool:
+  if not uid:  # Empty uid are valid
+    return True
+  if len(uid) > MAX_LENGTH_OF_DICOM_UID:
+    return False
+  for block in uid.split('.'):
+    if not is_uid_block_correctly_formatted(block):
+      return False
+  return True
 
+
+class _UIDGeneratorState:
+  """Module level state for UID generator."""
+
+  def __init__(self, seed: Optional[int] = None):
+    random.seed(seed)  # Seed with system time or os methods
+
+    # Internal counter for UID Allocation
+    self._counter = random.randint(
+        _MIN_UID_COUNTER_VALUE, _MAX_UID_COUNTER_VALUE
+    )
+
+    # Random component of UID. Initialized once.
+    self._rand_fraction = ''
+
+    # Length of last reported time string. Used to check if the time string
+    # length changes. If string length changes we recompute the random
+    # component of the UID to avoid exceeding the UID length limits.
+    self._last_time_str_len: int = -1
+
+    prefix = ingest_flags.DICOM_GUID_PREFIX_FLG.value.strip().rstrip('.')
+    if not prefix:
+      _log_and_raise('DICOM UID prefix flag is undefined.')
     # Validates UID prefix starts with DPAS UID
     if not prefix.startswith(ingest_const.DPAS_UID_PREFIX):
       _log_and_raise(
-          f'DICOM uid prefix must start with "{ingest_const.DPAS_UID_PREFIX}". '
-          f'The prefix is defined as "{prefix}"'
+          'DICOM uid prefix flag must start with'
+          f' "{ingest_const.DPAS_UID_PREFIX}". The prefix is defined as'
+          f' "{prefix}"'
       )
-
-    # Verify that UID defines one additional uid block after the DPAS UID.
-    # e.g., if DPAS UID was 1.2.3,   we are makeing sure that uid is defined as
-    #                       1.2.3.4
-    uid_parts = _UIDGenerator.prefix.split('.')
+    # Verify that UID defines no more than 7 characters after DPAS UID and that
+    # the UID matchs DICOM UID formatting requirements.
+    # https://dicom.nema.org/dicom/2013/output/chtml/part05/chapter_9.html
+    uid_parts = prefix.split('.')
     base_dpas_uid_block_length = len(ingest_const.DPAS_UID_PREFIX.split('.'))
     customer_uid_len = len(uid_parts)
-    if (
-        base_dpas_uid_block_length + 1 != customer_uid_len
-        and base_dpas_uid_block_length + 2 != customer_uid_len
-    ):
-      _log_and_raise(
-          (
-              'DICOM uid suffix must be defined with 1 or 2 sub-domains '
-              f'of {ingest_const.DPAS_UID_PREFIX}'
-          )
-      )
     for uid_block_index in range(base_dpas_uid_block_length, customer_uid_len):
-      # Check that last block conforms to DICOM spec requirements
-      test_block = uid_parts[uid_block_index]
-      if not is_uid_block_correctly_formatted(test_block):
+      # Check that blocks conforms to DICOM spec requirements
+      if not is_uid_block_correctly_formatted(uid_parts[uid_block_index]):
         _log_and_raise('DICOM UID suffix is incorrectly formatted.')
-      # Not DICOM requirement, but one for DPAS, make sure block is small,
-      # 3 digits or less, required to retain space for other UID components.
-      if not test_block or len(test_block) > 3:
-        _log_and_raise(
-            'DICOM uid suffix must end with a suffix of 3 or less digits.'
-        )
+    # Not DICOM requirement, but one for DPAS, make sure total size of customer
+    # block is small, no less than 7 characters to retain space for other
+    # components of the UID.
+    customer_ext = '.'.join(uid_parts[base_dpas_uid_block_length:])
+    if len(customer_ext) > 7:
+      _log_and_raise(
+          'DICOM UID customer prefix following the DPAS UID must be <= 7 chars'
+          f' in length. DPAS UID Prefix: {prefix}; '
+          f'Customer prefix: {customer_ext} exceeds 7 chars.'
+      )
+    self._prefix = prefix
 
-  return _UIDGenerator.prefix
-
-
-def _get_pod() -> str:
-  """Returns GKE POD ID component of UID.
-
-  Returns:
-    POD ID component of UID as str
-  """
-  if not _UIDGenerator.pod:
+    # Representation of embedding of hostname in UID.
     hostname = cloud_logging_client.POD_HOSTNAME_FLG.value
-    if not hostname:
-      cloud_logging_client.logger().critical('HOSTNAME env not set.')
-      raise ValueError('HOSTNAME env is not set')
-    parts = hostname.split('-')
-    pod_name = parts[-1]
-    pod_name_hex = pod_name.encode('utf-8').hex()
-    pod_name_uid = str(int(pod_name_hex, 16))
-    if _UIDGenerator.clip_pod == 0:
-      _UIDGenerator.pod = pod_name_uid
+    if hostname is None or not hostname:
+      self._hostname_uid = ''
     else:
-      _UIDGenerator.pod = pod_name_uid[: -_UIDGenerator.clip_pod]
-  return _UIDGenerator.pod
+      parts = hostname.strip().split('-')
+      hostname = parts[-1]
+      hostname_hex = hostname.encode('utf-8').hex()
+      self._hostname_uid = str(int(hostname_hex, 16))[
+          :_MAX_HOSTNAME_COMPONENT_LENGTH
+      ]
+    self._init_random_fraction()
 
-
-def _get_time() -> str:
-  """Returns unix time in milliseconds.
-
-  Example: '1626105674575' # 13 characters
-  """
-  time_str = str(int(time.time() * 1000))  # time to nearest millisecond
-  if _UIDGenerator.last_time_str_len is None:
-    _UIDGenerator.last_time_str_len = len(time_str)
-  return time_str
-
-
-def _get_counter() -> str:
-  if _UIDGenerator.counter is None:
-    _UIDGenerator.counter = random.randint(0, _MAX_UID_COUNTER_VALUE - 1)
-  _UIDGenerator.counter += 1
-  if _UIDGenerator.counter > _MAX_UID_COUNTER_VALUE:
-    _UIDGenerator.counter = 1
-  counter = str(_UIDGenerator.counter)
-  zero_padding = (_MAX_UID_COUNTER_CHAR_LENGTH - len(counter)) * '0'
-  return f'{zero_padding}{counter}'
-
-
-def _init_random_fraction():
-  """Initializes random fraction of guid and clips host name fraction.
-
-  Random fraction is dermined by generating POD
-  """
-  random.seed(None)  # Seed with system time or os methods
-  prefix = _get_prefix()
-  pod = _get_pod()
-  tme = _get_time()
-  counter = _get_counter()
-  # Minial components of uid.  1 = place holder for smallest random part
-  uid_parts = [prefix, pod, '1', f'{tme}{counter}']
-  # test if UID is overlength
-  over_length = len('.'.join(uid_parts)) - MAX_LENGTH_OF_DICOM_UID
-  if over_length == 0:
-    # valid for single diget parts to start with 0
-    _UIDGenerator.rand_fraction = str(random.randint(0, 9))
-  elif over_length > 0:
-    # Generated UID is to long.
-    # attempt to shortern UID by clipping the pod host name component.
-    # require that pod host name be a minimum of 20 digets, unclipped.
-    if len(pod) - over_length <= _MINIMUM_POD_HOST_COMPONENT_LENGTH:
-      raise ValueError('dicom_guid_prefix is excessively long')
-    _UIDGenerator.clip_pod = over_length
-    _UIDGenerator.rand_fraction = str(random.randint(1, 9))
-  else:
+  def _init_random_fraction(self):
+    """Initializes random fraction of UID."""
+    hostname = self._hostname_uid
+    counter_str = self.get_counter_str()
+    time_str = self.get_time_str()
+    prefix_str = self.get_prefix_str()
+    self._last_time_str_len = len(time_str)
+    # Minial components of uid.  1 = place holder for smallest random part
+    uid = _get_uid([prefix_str, hostname, '1', f'{time_str}{counter_str}'])
+    # test if UID is overlength
+    over_length = len(uid) - MAX_LENGTH_OF_DICOM_UID
+    if over_length > 0:
+      # This should never happen due to max len constraints on each of the UID
+      # components.
+      raise ValueError('UID length exceeds max length for DICOM UID')
     # common path, uid is shorter than max.
     # add random digits until uid == MAX_LENGTH_OF_DICOM_UID
     # random component cannot start with 0
     rand_fraction = [str(random.randint(1, 9))]
     for _ in range(-over_length):
       rand_fraction.append(str(random.randint(0, 9)))
-    _UIDGenerator.rand_fraction = ''.join(rand_fraction)
+    self._rand_fraction = ''.join(rand_fraction)
+
+  def get_prefix_str(self) -> str:
+    return self._prefix
+
+  def get_hostname_str(self) -> str:
+    return self._hostname_uid
+
+  def get_time_str(self) -> str:
+    """Returns unix time in milliseconds.
+
+    Example: '1626105674575' # 13 characters
+    """
+    time_str = str(int(time.time() * 1000))  # time to nearest millisecond
+    return time_str
+
+  def get_counter_str(self) -> str:
+    self._counter += 1
+    if self._counter > _MAX_UID_COUNTER_VALUE:
+      self._counter = _MIN_UID_COUNTER_VALUE
+    counter = str(self._counter)
+    max_uid_counter_length = len(str(_MAX_UID_COUNTER_VALUE))
+    zero_padding = (max_uid_counter_length - len(counter)) * '0'
+    return f'{zero_padding}{counter}'
+
+  def init_random_state_if_time_str_length_changed(self, time_str: str):
+    if len(time_str) != self._last_time_str_len:
+      # Time component of UID changed length.
+      # Regenerate random fraction to account for this.
+      self._init_random_fraction()
+
+  def get_random_fraction_str(self) -> str:
+    return self._rand_fraction
+
+
+_uid_generator_lock = threading.Lock()
+_uid_generator_state: Optional[_UIDGeneratorState] = None
 
 
 def generate_uid() -> str:
@@ -233,33 +217,28 @@ def generate_uid() -> str:
     blocks of numbers, cannot lead with 0.
 
     Overall format:
-    <CUSTOMER_PREFIX>.<GKEHOSTNAME>.<RANDOM>.<TIME_COUNTER>
+    <DPAS_UID_PREFIX>.<GKEHOSTNAME>.<RANDOM>.<TIME_COUNTER>
     RANDOM block initialized once.
 
     Purpose for <TIME_COUNTER>: Enables multiple calls to generate uid to
     return concecutively unique uids for a given host. A counter is appended to
-    the back of time to enable calls to genreate_uid within a millisecond to
-    return unique uids.
+    the time to enable sub millisecond calls to generate_uid to return
+    unique uids.
 
   Returns:
       DICOM GUID as a string
   """
-  with _UIDGenerator.lock:
-    if _UIDGenerator.rand_fraction is None:
-      _init_random_fraction()
-
-    tme = _get_time()
-    if len(tme) != _UIDGenerator.last_time_str_len:
-      # Time component of UID changed length.
-      # Regenerate random fraction to account for this.
-      _UIDGenerator.last_time_str_len = len(tme)
-      _init_random_fraction()
-
-    prefix = _get_prefix()
-    pod = _get_pod()
-    rand_fraction = _UIDGenerator.rand_fraction
-    counter = _get_counter()
-    uid = '.'.join([prefix, pod, rand_fraction, f'{tme}{counter}'])
+  global _uid_generator_state
+  with _uid_generator_lock:
+    if _uid_generator_state is None:
+      _uid_generator_state = _UIDGeneratorState()
+    time_str = _uid_generator_state.get_time_str()
+    _uid_generator_state.init_random_state_if_time_str_length_changed(time_str)
+    prefix = _uid_generator_state.get_prefix_str()
+    hostname = _uid_generator_state.get_hostname_str()
+    rand_fraction = _uid_generator_state.get_random_fraction_str()
+    counter = _uid_generator_state.get_counter_str()
+    uid = _get_uid([prefix, hostname, rand_fraction, f'{time_str}{counter}'])
     if len(uid) > MAX_LENGTH_OF_DICOM_UID:
       raise ValueError('UID length exceeds max length for DICOM UID')
     cloud_logging_client.logger().debug('Generated GUID', {'uid': str(uid)})
@@ -275,5 +254,15 @@ def validate_uid_prefix() -> bool:
   Raises:
      InvalidUIDPrefixError: UID prefix is invalid.
   """
-  with _UIDGenerator.lock:
-    return bool(_get_prefix())
+  generate_uid()
+  return True
+
+
+def _init_fork_module_state() -> None:
+  global _uid_generator_lock, _uid_generator_state
+  _uid_generator_lock = threading.Lock()
+  _uid_generator_state = None
+
+
+# Init module state if module forked, after fork.
+os.register_at_fork(after_in_child=_init_fork_module_state)

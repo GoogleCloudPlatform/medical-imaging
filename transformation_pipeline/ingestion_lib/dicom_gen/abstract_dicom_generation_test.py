@@ -23,6 +23,7 @@ from absl.testing import parameterized
 import pydicom
 
 from shared_libs.logging_lib import cloud_logging_client
+from transformation_pipeline.ingestion_lib import abstract_polling_client
 from transformation_pipeline.ingestion_lib import cloud_storage_client
 from transformation_pipeline.ingestion_lib import gen_test_util
 from transformation_pipeline.ingestion_lib import ingest_const
@@ -36,6 +37,13 @@ class AbstractDicomGenerationForTest(
     abstract_dicom_generation.AbstractDicomGeneration
 ):
   """AbstractDicomGeneration with abstract methods implemented."""
+
+  def get_slide_transform_lock(
+      self,
+      unused_ingest_file: abstract_dicom_generation.GeneratedDicomFiles,
+      unused_polling_client: abstract_polling_client.AbstractPollingClient,
+  ) -> abstract_dicom_generation.TransformationLock:
+    return abstract_dicom_generation.TransformationLock('mock_lock')
 
   def generate_dicom_and_push_to_store(self, ingest_file_list, polling_client):
     pass
@@ -54,7 +62,26 @@ class AbstractDicomGenerationTest(parameterized.TestCase):
     super().setUp()
     self._dcm_path = gen_test_util.test_file_path('test_jpeg_dicom.dcm')
 
-  def test_get_private_tags_for_gen_dicoms(self):
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='empty_uri',
+          file_uri='',
+          expected_filepath_tag='local.svs',
+      ),
+      dict(
+          testcase_name='no_folder_within_bucket_uri',
+          file_uri='gs://bucket/local.svs',
+          expected_filepath_tag='local.svs',
+      ),
+      dict(
+          testcase_name='folder_within_bucket_uri',
+          file_uri='gs://bucket/foo/local.svs',
+          expected_filepath_tag='foo/local.svs',
+      ),
+  ])
+  def test_get_private_tags_for_gen_dicoms(
+      self, file_uri, expected_filepath_tag
+  ):
     out_dir = self.create_tempdir()
     dcm = typing.cast(
         pydicom.FileDataset,
@@ -66,7 +93,9 @@ class AbstractDicomGenerationTest(parameterized.TestCase):
     dcm.save_as(dcm_file_path, write_like_original=False)
     hash_value = 'abcdef12345689'
     pubsub_msgid = 'TestPubSubMsgID_1234'
-    gen_dicom = abstract_dicom_generation.GeneratedDicomFiles('local.svs', '')
+    gen_dicom = abstract_dicom_generation.GeneratedDicomFiles(
+        'local.svs', file_uri
+    )
     gen_dicom.generated_dicom_files = [dcm_file_path]
     gen_dicom.hash = hash_value
     private_tag_list = (
@@ -93,7 +122,11 @@ class AbstractDicomGenerationTest(parameterized.TestCase):
             private_tag_list[1].vr,
             private_tag_list[1].value,
         ),
-        (ingest_const.DICOMTagKeywords.INGEST_FILENAME_TAG, 'LT', 'local.svs'),
+        (
+            ingest_const.DICOMTagKeywords.INGEST_FILENAME_TAG,
+            'LT',
+            expected_filepath_tag,
+        ),
     )
 
     self.assertEqual(
@@ -103,6 +136,122 @@ class AbstractDicomGenerationTest(parameterized.TestCase):
             private_tag_list[2].value,
         ),
         (ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG, 'LT', gen_dicom.hash),
+    )
+
+  @parameterized.named_parameters([
+      dict(testcase_name='none_uri', uri=None),
+      dict(testcase_name='empty_uri', uri=''),
+      dict(testcase_name='not_gs_style_path_uri', uri='http://foo.svs'),
+      dict(testcase_name='not_gs_style_case_path_uri', uri='GS://foo.svs'),
+  ])
+  def test_get_bucket_file_path_for_gen_dicoms_raises(self, uri):
+    with self.assertRaises(ValueError):
+      abstract_dicom_generation.GeneratedDicomFiles(
+          'foo.svs', uri
+      ).within_bucket_file_path()
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='no_path_in_bucket',
+          uri='gs://bucket/foo.svs',
+          expected='',
+      ),
+      dict(
+          testcase_name='single_path_in_bucket',
+          uri='gs://bucket/bar/foo.svs',
+          expected='bar',
+      ),
+      dict(
+          testcase_name='multi_path_in_bucket',
+          uri='gs://bucket/bar/fig/foo.svs',
+          expected='bar/fig',
+      ),
+  ])
+  def test_get_bucket_file_path_for_gen_dicoms(self, uri, expected):
+    self.assertEqual(
+        abstract_dicom_generation.GeneratedDicomFiles(
+            'foo.svs', uri
+        ).within_bucket_file_path(),
+        expected,
+    )
+
+  @parameterized.named_parameters([
+      dict(testcase_name='uri_none_include_file', gs_uri=None),
+      dict(testcase_name='uri_empty', gs_uri=''),
+      dict(testcase_name='not_gs_style_uri', gs_uri='http://test.svs'),
+      dict(
+          testcase_name='gs_style_uri_no_within_bucket_path',
+          gs_uri='gs://bucket/test.svs',
+      ),
+  ])
+  def test_get_ingest_triggering_file_path_no_within_bucket_path(self, gs_uri):
+    gen_dicom = abstract_dicom_generation.GeneratedDicomFiles(
+        'test.svs', gs_uri
+    )
+    expected = 'test.svs'
+    self.assertEqual(
+        abstract_dicom_generation.get_ingest_triggering_file_path(
+            gen_dicom, False
+        ),
+        expected,
+    )
+    self.assertEqual(
+        abstract_dicom_generation.get_ingest_triggering_file_path(
+            gen_dicom, True
+        ),
+        expected,
+    )
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='do_not_include_within_bucket_path',
+          include_within_bucket_path=False,
+          expected='test.svs',
+      ),
+      dict(
+          testcase_name='include_within_bucket_path',
+          include_within_bucket_path=True,
+          expected='foo/test.svs',
+      ),
+  ])
+  def test_get_ingest_triggering_file_path_within_bucket_path(
+      self, include_within_bucket_path, expected
+  ):
+    gen_dicom = abstract_dicom_generation.GeneratedDicomFiles(
+        'test.svs', 'gs://bucket/foo/test.svs'
+    )
+    self.assertEqual(
+        abstract_dicom_generation.get_ingest_triggering_file_path(
+            gen_dicom, include_within_bucket_path
+        ),
+        expected,
+    )
+
+  def test_get_private_tags_for_gen_dicoms_no_file_path(self):
+    out_dir = self.create_tempdir()
+    dcm = typing.cast(
+        pydicom.FileDataset,
+        dicom_test_util.create_test_dicom_instance(
+            dcm_json=dicom_test_util.create_metadata_dict()
+        ),
+    )
+    dcm_file_path = os.path.join(out_dir, 'test.dcm')
+    dcm.save_as(dcm_file_path, write_like_original=False)
+    hash_value = '123'
+    pubsub_msgid = 'TestPubSubMsgID_1234'
+    gen_dicom = abstract_dicom_generation.GeneratedDicomFiles('local.svs', '')
+    gen_dicom.generated_dicom_files = [dcm_file_path]
+    gen_dicom.hash = hash_value
+    private_tag_list = (
+        abstract_dicom_generation.get_private_tags_for_gen_dicoms(
+            gen_dicom, pubsub_msgid, False
+        )
+    )
+    self.assertTrue(
+        all([
+            tag.address != ingest_const.DICOMTagKeywords.INGEST_FILENAME_TAG
+            for tag in private_tag_list
+        ])
     )
 
   def test_get_private_tags_for_gen_dicoms_no_hash(self):
@@ -125,26 +274,11 @@ class AbstractDicomGenerationTest(parameterized.TestCase):
             gen_dicom, pubsub_msgid
         )
     )
-    self.assertLen(private_tag_list, 2)
-    self.assertEqual(
-        (
-            private_tag_list[0].address,
-            private_tag_list[0].vr,
-            private_tag_list[0].value,
-        ),
-        (
-            ingest_const.DICOMTagKeywords.PUBSUB_MESSAGE_ID_TAG,
-            'LT',
-            pubsub_msgid,
-        ),
-    )
-    self.assertEqual(
-        (
-            private_tag_list[1].address,
-            private_tag_list[1].vr,
-            private_tag_list[1].value,
-        ),
-        (ingest_const.DICOMTagKeywords.INGEST_FILENAME_TAG, 'LT', 'local.svs'),
+    self.assertTrue(
+        all([
+            tag.address != ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG
+            for tag in private_tag_list
+        ])
     )
 
   def test_check_filename_with_valid_chars_succeeds(self):

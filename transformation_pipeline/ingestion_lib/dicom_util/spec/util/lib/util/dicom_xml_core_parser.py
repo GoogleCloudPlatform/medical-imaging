@@ -177,10 +177,16 @@ class DicomXmlCoreParser:
   def clean_text(
       cls, text: Union[str, List[str]]
   ) -> Union[str, List[str], None]:
+    """Removes unicode characters from text."""
     if not text:
       return text
     if isinstance(text, str):
-      text = text.strip().replace('\u200b', '').replace('µ', 'u')
+      text = (
+          text.strip()
+          .replace('\u200b', '')
+          .replace('µ', 'u')
+          .replace('\u2019', "'")
+      )
       return text
     elif isinstance(text, List):
       return [DicomXmlCoreParser.clean_text(item) for item in text]  # pytype: disable=bad-return-type  # always-use-return-annotations

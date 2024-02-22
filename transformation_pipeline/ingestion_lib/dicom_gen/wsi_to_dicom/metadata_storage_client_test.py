@@ -13,19 +13,19 @@
 # limitations under the License.
 # ==============================================================================
 """Tests metadata storage client."""
-import json
-import os
 
-from absl import flags
+import json
+import math
+
 from absl.testing import absltest
 from absl.testing import flagsaver
 from absl.testing import parameterized
 
 from transformation_pipeline.ingestion_lib import csv_util
+from transformation_pipeline.ingestion_lib import gen_test_util
 from transformation_pipeline.ingestion_lib.dicom_gen import dicom_schema_util
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
 
-FLAGS = flags.FLAGS
 
 TESTDATA_DIR = (
     'transformation_pipeline/testdata'
@@ -38,12 +38,8 @@ class MetadataStorageClientTest(parameterized.TestCase):
   @flagsaver.flagsaver(metadata_bucket='test')
   def test_wsi_dicom_schema_loader(self):
     """Tests loading WSI Schema."""
-    wsi_json_filename = os.path.join(
-        FLAGS.test_srcdir, TESTDATA_DIR, 'example_schema_wsi.json'
-    )
-    metadata_filename = os.path.join(
-        FLAGS.test_srcdir, TESTDATA_DIR, 'metadata.csv'
-    )
+    wsi_json_filename = gen_test_util.test_file_path('example_schema_wsi.json')
+    metadata_filename = gen_test_util.test_file_path('metadata.csv')
     meta_client = metadata_storage_client.MetadataStorageClient()
     meta_client.set_debug_metadata([metadata_filename, wsi_json_filename])
     schema_filter = {
@@ -63,12 +59,8 @@ class MetadataStorageClientTest(parameterized.TestCase):
   def test_invalid_named_schema_loader(self):
     """Tests MetadataStorageClient raises exception if schema not found."""
 
-    wsi_json_filename = os.path.join(
-        FLAGS.test_srcdir, TESTDATA_DIR, 'example_schema_wsi.json'
-    )
-    metadata_filename = os.path.join(
-        FLAGS.test_srcdir, TESTDATA_DIR, 'metadata.csv'
-    )
+    wsi_json_filename = gen_test_util.test_file_path('example_schema_wsi.json')
+    metadata_filename = gen_test_util.test_file_path('metadata.csv')
     meta_client = metadata_storage_client.MetadataStorageClient()
     meta_client.set_debug_metadata([metadata_filename, wsi_json_filename])
 
@@ -100,12 +92,8 @@ class MetadataStorageClientTest(parameterized.TestCase):
       self, primary_key, metadata_column_name, expected_column_values
   ):
     """Test CSV Metadata reader/row data extractor for valid barcode value."""
-    wsi_json_filename = os.path.join(
-        FLAGS.test_srcdir, TESTDATA_DIR, 'example_schema_wsi.json'
-    )
-    metadata_filename = os.path.join(
-        FLAGS.test_srcdir, TESTDATA_DIR, 'metadata.csv'
-    )
+    wsi_json_filename = gen_test_util.test_file_path('example_schema_wsi.json')
+    metadata_filename = gen_test_util.test_file_path('metadata.csv')
     meta_client = metadata_storage_client.MetadataStorageClient()
     meta_client.set_debug_metadata([metadata_filename, wsi_json_filename])
     with flagsaver.flagsaver(
@@ -114,16 +102,12 @@ class MetadataStorageClientTest(parameterized.TestCase):
       meta_data = meta_client.get_slide_metadata_from_csv(primary_key)
 
     # test returned metadata has expected shape
-    self.assertEqual(meta_data.shape, (1, 43))
+    self.assertEqual(meta_data.shape, (1, 44))
 
     # test returned metadata has expected column names
     column_names = json.dumps(list(meta_data.columns))
     with open(
-        os.path.join(
-            FLAGS.test_srcdir,
-            TESTDATA_DIR,
-            'expected_metadata_column_names.json',
-        ),
+        gen_test_util.test_file_path('expected_metadata_column_names.json'),
         'rt',
     ) as infile:
       expected_column_names = infile.read()
@@ -131,27 +115,22 @@ class MetadataStorageClientTest(parameterized.TestCase):
 
     # test returned metadata has expected column values
     with open(
-        os.path.join(
-            FLAGS.test_srcdir,
-            TESTDATA_DIR,
-            expected_column_values,
-        ),
+        gen_test_util.test_file_path(expected_column_values),
         'rt',
     ) as infile:
-      expected_row_values = infile.read()
-    row_values = json.dumps(meta_data.values[0].tolist())
-    self.assertEqual(row_values.strip(), expected_row_values.strip())
+      expected_row_values = json.load(infile)
+    row_values = meta_data.values[0].tolist()
+    for index, val in enumerate(row_values):
+      if not isinstance(val, str) and math.isnan(val):
+        row_values[index] = 'NaN'
+    self.assertEqual(row_values, expected_row_values)
 
   @flagsaver.flagsaver(metadata_bucket='test')
   def test_get_slide_metadata_from_csv_for_invalid_barcode(self):
     """invalid barcode raises execption ."""
     barcode = 'Invalid_barcode'
-    wsi_json_filename = os.path.join(
-        FLAGS.test_srcdir, TESTDATA_DIR, 'example_schema_wsi.json'
-    )
-    metadata_filename = os.path.join(
-        FLAGS.test_srcdir, TESTDATA_DIR, 'metadata.csv'
-    )
+    wsi_json_filename = gen_test_util.test_file_path('example_schema_wsi.json')
+    metadata_filename = gen_test_util.test_file_path('metadata.csv')
     meta_client = metadata_storage_client.MetadataStorageClient()
     meta_client.set_debug_metadata([metadata_filename, wsi_json_filename])
 
@@ -164,12 +143,8 @@ class MetadataStorageClientTest(parameterized.TestCase):
   def test_get_slide_metadata_from_csv_for_duplicate_barcode(self):
     """invalid barcode raises execption ."""
     barcode = 'MD-03-3-A1-2'
-    wsi_json_filename = os.path.join(
-        FLAGS.test_srcdir, TESTDATA_DIR, 'example_schema_wsi.json'
-    )
-    metadata_filename = os.path.join(
-        FLAGS.test_srcdir, TESTDATA_DIR, 'metadata_duplicate.csv'
-    )
+    wsi_json_filename = gen_test_util.test_file_path('example_schema_wsi.json')
+    metadata_filename = gen_test_util.test_file_path('metadata_duplicate.csv')
     meta_client = metadata_storage_client.MetadataStorageClient()
     meta_client.set_debug_metadata([metadata_filename, wsi_json_filename])
 
@@ -188,9 +163,7 @@ class MetadataStorageClientTest(parameterized.TestCase):
   @flagsaver.flagsaver(metadata_bucket='test')
   def test_find_data_frame_column_name(self):
     """Test finds column name in pandas data frame."""
-    metadata_filename = os.path.join(
-        FLAGS.test_srcdir, TESTDATA_DIR, 'metadata.csv'
-    )
+    metadata_filename = gen_test_util.test_file_path('metadata.csv')
     meta_data = csv_util.read_csv(metadata_filename)
     name = dicom_schema_util.find_data_frame_column_name(
         meta_data, '\n\n Bar C o d e Value \n\n'
@@ -204,9 +177,7 @@ class MetadataStorageClientTest(parameterized.TestCase):
   @flagsaver.flagsaver(metadata_bucket='test')
   def test_find_invalid_data_frame_column_name(self):
     """Test find non existent column name in pandas data frame."""
-    metadata_filename = os.path.join(
-        FLAGS.test_srcdir, TESTDATA_DIR, 'metadata.csv'
-    )
+    metadata_filename = gen_test_util.test_file_path('metadata.csv')
     meta_data = csv_util.read_csv(metadata_filename)
     name = dicom_schema_util.find_data_frame_column_name(
         meta_data, 'Invalid column name'

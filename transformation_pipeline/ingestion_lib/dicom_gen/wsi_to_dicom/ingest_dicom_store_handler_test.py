@@ -16,6 +16,8 @@
 
 import http
 import itertools
+import os
+import shutil
 from typing import Any, Mapping, MutableMapping, Optional
 from unittest import mock
 
@@ -23,12 +25,17 @@ from absl.testing import absltest
 from absl.testing import flagsaver
 from absl.testing import parameterized
 from google.cloud import pubsub_v1
+import google.cloud.storage
+import pydicom
 import requests
 
 from shared_libs.test_utils.dicom_store_mock import dicom_store_mock
+from shared_libs.test_utils.gcs_mock import gcs_mock
 from transformation_pipeline.ingestion_lib import cloud_storage_client
+from transformation_pipeline.ingestion_lib import gen_test_util
 from transformation_pipeline.ingestion_lib import ingest_const
 from transformation_pipeline.ingestion_lib import polling_client
+from transformation_pipeline.ingestion_lib import redis_client
 from transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
 from transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
 from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
@@ -42,6 +49,7 @@ from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadat
 _RECOVERY_GCS_URI = 'gs://dcm-recover-bucket/'
 _VIEWER_DEBUG_URL = 'https://debug_url'
 _DCM_UPLOAD_WEBPATH = 'https://healthcare.googleapis.com/v1/projects/proj/locations/loc/datasets/dat/dicomStores/store/dicomWeb'
+_SLIDE_ID_1 = 'MD-03-2-A1-1'
 
 
 @flagsaver.flagsaver(dicom_guid_prefix=uid_generator.TEST_UID_PREFIX)
@@ -49,7 +57,9 @@ _DCM_UPLOAD_WEBPATH = 'https://healthcare.googleapis.com/v1/projects/proj/locati
 def _create_ingestion_handler() -> (
     ingest_dicom_store_handler.IngestDicomStorePubSubHandler
 ):
-  return ingest_dicom_store_handler.IngestDicomStorePubSubHandler()
+  return ingest_dicom_store_handler.IngestDicomStorePubSubHandler(
+      metadata_storage_client.MetadataStorageClient()
+  )
 
 
 def _create_gen_dicom_result(dicom_files=None) -> ingest_base.GenDicomResult:
@@ -93,10 +103,17 @@ def _create_test_dicom_instance_metadata(
 
 class IngestDicomStorePubSubHandlerTest(parameterized.TestCase):
 
+  def setUp(self):
+    super().setUp()
+    cloud_storage_client.reset_storage_client('')
+    self.enter_context(flagsaver.flagsaver(metadata_bucket='test_bucket'))
+
   @flagsaver.flagsaver(dicom_guid_prefix=uid_generator.TEST_UID_PREFIX)
   def test_create_ingestion_handler_gcs_flag_missing(self):
     with self.assertRaises(ValueError):
-      _ = ingest_dicom_store_handler.IngestDicomStorePubSubHandler()
+      _ = ingest_dicom_store_handler.IngestDicomStorePubSubHandler(
+          metadata_storage_client.MetadataStorageClient()
+      )
 
   def test_decode_pubsub_msg_no_data(self):
     ingest = _create_ingestion_handler()
@@ -599,37 +616,87 @@ class IngestDicomStorePubSubHandlerTest(parameterized.TestCase):
         mock.Mock(), ingest_file, RuntimeError('unexpected error')
     )
 
+  def _test_dicom_instance(self, barcode: str = _SLIDE_ID_1) -> str:
+    path = os.path.join(self.create_tempdir().full_path, 'test_jpeg_dicom.dcm')
+    with pydicom.dcmread(
+        gen_test_util.test_file_path('test_jpeg_dicom.dcm')
+    ) as dcm:
+      dcm.BarcodeValue = barcode
+      dcm.save_as(path)
+    return path
+
+  def _setup_handler(
+      self,
+      ingest_file: abstract_dicom_generation.GeneratedDicomFiles,
+      ingest: ingest_dicom_store_handler.IngestDicomStorePubSubHandler,
+      has_dicom_store_client: bool = True,
+      has_gcs_recovery_uri: bool = True,
+  ) -> str:
+    ingest.root_working_dir = self.create_tempdir().full_path
+    if has_dicom_store_client:
+      ds_client = dicom_store_client.DicomStoreClient(_DCM_UPLOAD_WEBPATH)
+    else:
+      ds_client = None
+    test_bucket_path = self.create_tempdir().full_path
+    if has_gcs_recovery_uri:
+      _, filename = os.path.split(ingest_file.localfile)
+      gcs_recovery_uri = f'gs://test_bucket/{filename}'
+      shutil.copyfile(
+          ingest_file.localfile, os.path.join(test_bucket_path, filename)
+      )
+    else:
+      gcs_recovery_uri = ''
+    ingest._current_instance = ingest_dicom_store_handler._IngestionInstance(
+        gcs_recovery_uri=gcs_recovery_uri,
+        viewer_debug_url=_VIEWER_DEBUG_URL,
+        dicom_store_client=ds_client,
+    )
+    shutil.copyfile(
+        gen_test_util.test_file_path('metadata_duplicate.csv'),
+        os.path.join(test_bucket_path, 'test.csv'),
+    )
+    return test_bucket_path
+
   @mock.patch.object(polling_client, 'PollingClient', autospec=True)
-  @mock.patch.object(ingest_dicom.IngestDicom, 'update_metadata', autospec=True)
   def test_generate_dicom_and_push_to_store_no_dicom_store_client(
-      self, mk_update, mk_polling
+      self, mk_polling
   ):
     ingest_file = abstract_dicom_generation.GeneratedDicomFiles(
-        localfile='path/to/original.dcm', source_uri='dicom_store_uri'
+        localfile=self._test_dicom_instance(),
+        source_uri='dicom_store_uri',
     )
     ingest = _create_ingestion_handler()
-    ingest.generate_dicom_and_push_to_store(ingest_file, mk_polling)
-    mk_update.assert_not_called()
+    with gcs_mock.GcsMock({
+        'test_bucket': self._setup_handler(
+            ingest_file, ingest, has_dicom_store_client=False
+        )
+    }):
+      transform_lock = ingest.get_slide_transform_lock(ingest_file, mk_polling)
+      self.assertFalse(
+          google.cloud.storage.Blob.from_string(
+              ingest._current_instance.gcs_recovery_uri,
+              client=google.cloud.storage.Client(),
+          ).exists()
+      )
+    self.assertEmpty(transform_lock.name)
     mk_polling.ack.assert_called_once()
 
   @mock.patch.object(polling_client, 'PollingClient', autospec=True)
-  @mock.patch.object(ingest_dicom.IngestDicom, 'update_metadata', autospec=True)
   def test_generate_dicom_and_push_to_store_no_gcs_recovery_uri(
-      self, mk_update, mk_polling
+      self, mk_polling
   ):
     ingest_file = abstract_dicom_generation.GeneratedDicomFiles(
-        localfile='path/to/original.dcm', source_uri='dicom_store_uri'
+        localfile=self._test_dicom_instance(),
+        source_uri='dicom_store_uri',
     )
     ingest = _create_ingestion_handler()
-    ingest._current_instance = ingest_dicom_store_handler._IngestionInstance(
-        gcs_recovery_uri='',
-        viewer_debug_url=_VIEWER_DEBUG_URL,
-        dicom_store_client=dicom_store_client.DicomStoreClient(
-            _DCM_UPLOAD_WEBPATH
-        ),
-    )
-    ingest.generate_dicom_and_push_to_store(ingest_file, mk_polling)
-    mk_update.assert_not_called()
+    with gcs_mock.GcsMock({
+        'test_bucket': self._setup_handler(
+            ingest_file, ingest, has_gcs_recovery_uri=False
+        )
+    }):
+      transform_lock = ingest.get_slide_transform_lock(ingest_file, mk_polling)
+    self.assertEmpty(transform_lock.name)
     mk_polling.ack.assert_called_once()
 
   @mock.patch.object(polling_client, 'PollingClient', autospec=True)
@@ -639,32 +706,25 @@ class IngestDicomStorePubSubHandlerTest(parameterized.TestCase):
       return_value=True,
       autospec=True,
   )
-  @mock.patch.object(cloud_storage_client, 'del_blob', autospec=True)
-  @mock.patch.object(
-      ingest_dicom.IngestDicom,
-      'update_metadata',
-      side_effect=metadata_storage_client.MetadataDownloadExceptionError(),
-      autospec=True,
-  )
   def test_generate_dicom_and_push_to_store_already_ingested_succeeds(
-      self, mk_update, mk_delete, mk_ingested, mk_polling
+      self, mk_ingested, mk_polling
   ):
     ingest_file = abstract_dicom_generation.GeneratedDicomFiles(
-        localfile='path/to/original.dcm', source_uri='dicom_store_uri'
+        localfile=self._test_dicom_instance(), source_uri='dicom_store_uri'
     )
     ingest = _create_ingestion_handler()
-    ingest.root_working_dir = self.create_tempdir()
-    ingest._current_instance = ingest_dicom_store_handler._IngestionInstance(
-        gcs_recovery_uri=_RECOVERY_GCS_URI,
-        viewer_debug_url=_VIEWER_DEBUG_URL,
-        dicom_store_client=dicom_store_client.DicomStoreClient(
-            _DCM_UPLOAD_WEBPATH
-        ),
-    )
-    ingest.generate_dicom_and_push_to_store(ingest_file, mk_polling)
+    with gcs_mock.GcsMock(
+        {'test_bucket': self._setup_handler(ingest_file, ingest)}
+    ):
+      transform_lock = ingest.get_slide_transform_lock(ingest_file, mk_polling)
+      self.assertFalse(
+          google.cloud.storage.Blob.from_string(
+              ingest._current_instance.gcs_recovery_uri,
+              client=google.cloud.storage.Client(),
+          ).exists()
+      )
+    self.assertEmpty(transform_lock.name)
     mk_ingested.assert_called_once()
-    mk_delete.assert_called_once()
-    mk_update.assert_not_called()
     mk_polling.ack.assert_called_once()
 
   @mock.patch.object(polling_client, 'PollingClient', autospec=True)
@@ -680,30 +740,36 @@ class IngestDicomStorePubSubHandlerTest(parameterized.TestCase):
       side_effect=metadata_storage_client.MetadataDownloadExceptionError(),
       autospec=True,
   )
-  @mock.patch.object(cloud_storage_client, 'del_blob', autospec=True)
   @mock.patch.object(ingest_dicom.IngestDicom, 'generate_dicom', autospec=True)
   def test_generate_dicom_and_push_to_store_metadata_update_fails(
-      self, mk_generate, mk_delete, mk_update, mk_ingested, mk_polling
+      self, mk_generate, mk_update, mk_ingested, mk_polling
   ):
     ingest_file = abstract_dicom_generation.GeneratedDicomFiles(
-        localfile='path/to/original.dcm', source_uri='dicom_store_uri'
+        localfile=self._test_dicom_instance(), source_uri='dicom_store_uri'
     )
     ingest = _create_ingestion_handler()
-    ingest.root_working_dir = self.create_tempdir()
-    ingest._current_instance = ingest_dicom_store_handler._IngestionInstance(
-        gcs_recovery_uri=_RECOVERY_GCS_URI,
-        viewer_debug_url=_VIEWER_DEBUG_URL,
-        dicom_store_client=dicom_store_client.DicomStoreClient(
-            _DCM_UPLOAD_WEBPATH
-        ),
-    )
-    ingest.generate_dicom_and_push_to_store(ingest_file, mk_polling)
+    with gcs_mock.GcsMock(
+        {'test_bucket': self._setup_handler(ingest_file, ingest)}
+    ):
+      transform_lock = ingest.get_slide_transform_lock(ingest_file, mk_polling)
+      self.assertFalse(
+          google.cloud.storage.Blob.from_string(
+              ingest._current_instance.gcs_recovery_uri,
+              client=google.cloud.storage.Client(),
+          ).exists()
+      )
+    self.assertEmpty(transform_lock.name)
     mk_ingested.assert_called_once()
     mk_update.assert_called_once()
-    mk_delete.assert_called_once()
     mk_generate.assert_not_called()
     mk_polling.ack.assert_called_once()
 
+  @mock.patch.object(
+      redis_client.RedisClient,
+      'has_redis_client',
+      autospec=True,
+      return_value=True,
+  )
   @mock.patch.object(polling_client, 'PollingClient', autospec=True)
   @mock.patch.object(
       ingest_dicom.IngestDicom,
@@ -711,7 +777,6 @@ class IngestDicomStorePubSubHandlerTest(parameterized.TestCase):
       return_value=False,
       autospec=True,
   )
-  @mock.patch.object(ingest_dicom.IngestDicom, 'update_metadata', autospec=True)
   @mock.patch.object(
       ingest_dicom.IngestDicom,
       'generate_dicom',
@@ -719,25 +784,111 @@ class IngestDicomStorePubSubHandlerTest(parameterized.TestCase):
       autospec=True,
   )
   def test_generate_dicom_and_push_to_store_succeeds(
-      self, mk_generate, mk_update, mk_ingested, mk_polling
+      self, mk_generate, mk_ingested, mk_polling, unused_has_redis_client
   ):
+    is_owned = True
     ingest_file = abstract_dicom_generation.GeneratedDicomFiles(
-        localfile='path/to/original.dcm', source_uri='dicom_store_uri'
+        localfile=self._test_dicom_instance(), source_uri='dicom_store_uri'
     )
     ingest = _create_ingestion_handler()
-    ingest.root_working_dir = self.create_tempdir()
-    ingest._current_instance = ingest_dicom_store_handler._IngestionInstance(
-        gcs_recovery_uri=_RECOVERY_GCS_URI,
-        viewer_debug_url=_VIEWER_DEBUG_URL,
-        dicom_store_client=dicom_store_client.DicomStoreClient(
-            _DCM_UPLOAD_WEBPATH
-        ),
-    )
-    ingest.generate_dicom_and_push_to_store(ingest_file, mk_polling)
+    with gcs_mock.GcsMock(
+        {'test_bucket': self._setup_handler(ingest_file, ingest)}
+    ):
+      transform_lock = ingest.get_slide_transform_lock(ingest_file, mk_polling)
+      with mock.patch.object(
+          redis_client.RedisClient,
+          'is_lock_owned',
+          autospec=True,
+          return_value=is_owned,
+      ):
+        ingest.generate_dicom_and_push_to_store(
+            transform_lock, ingest_file, mk_polling
+        )
     mk_ingested.assert_called_once()
-    mk_update.assert_called_once()
     mk_generate.assert_called_once()
     mk_polling.ack.assert_called_once()
+
+  @mock.patch.object(
+      redis_client.RedisClient,
+      'has_redis_client',
+      autospec=True,
+      return_value=True,
+  )
+  @mock.patch.object(polling_client, 'PollingClient', autospec=True)
+  @mock.patch.object(
+      ingest_dicom.IngestDicom,
+      'is_dicom_file_already_ingested',
+      return_value=False,
+      autospec=True,
+  )
+  @mock.patch.object(
+      ingest_dicom.IngestDicom,
+      'generate_dicom',
+      return_value=_create_gen_dicom_result(dicom_files=[]),
+      autospec=True,
+  )
+  def test_generate_dicom_and_push_to_store_lock_not_held_nacks_pubsub(
+      self, mk_generate, mk_ingested, mk_polling, unused_has_redis_client
+  ):
+    is_owned = False
+    ingest_file = abstract_dicom_generation.GeneratedDicomFiles(
+        localfile=self._test_dicom_instance(), source_uri='dicom_store_uri'
+    )
+    ingest = _create_ingestion_handler()
+    with gcs_mock.GcsMock(
+        {'test_bucket': self._setup_handler(ingest_file, ingest)}
+    ):
+      transform_lock = ingest.get_slide_transform_lock(ingest_file, mk_polling)
+      with mock.patch.object(
+          redis_client.RedisClient,
+          'is_lock_owned',
+          autospec=True,
+          return_value=is_owned,
+      ):
+        ingest.generate_dicom_and_push_to_store(
+            transform_lock, ingest_file, mk_polling
+        )
+    mk_ingested.assert_called_once()
+    mk_generate.assert_called_once()
+    mk_polling.ack.assert_not_called()
+    mk_polling.nack.assert_called_once()
+
+  @mock.patch.object(
+      redis_client.RedisClient,
+      'has_redis_client',
+      autospec=True,
+      return_value=True,
+  )
+  @mock.patch.object(polling_client, 'PollingClient', autospec=True)
+  @mock.patch.object(
+      ingest_dicom.IngestDicom,
+      'is_dicom_file_already_ingested',
+      return_value=False,
+      autospec=True,
+  )
+  @mock.patch.object(
+      ingest_dicom.IngestDicom,
+      'generate_dicom',
+      return_value=_create_gen_dicom_result(dicom_files=[]),
+      autospec=True,
+  )
+  def test_get_slide_transform_cannot_find_metadata_does_not_return_lock(
+      self, mk_generate, mk_ingested, mk_polling, unused_has_redis_client
+  ):
+    ingest_file = abstract_dicom_generation.GeneratedDicomFiles(
+        localfile=self._test_dicom_instance(barcode='not_found'),
+        source_uri='dicom_store_uri',
+    )
+    ingest = _create_ingestion_handler()
+    with gcs_mock.GcsMock(
+        {'test_bucket': self._setup_handler(ingest_file, ingest)}
+    ):
+      transform_lock = ingest.get_slide_transform_lock(ingest_file, mk_polling)
+    self.assertFalse(transform_lock.is_defined())
+    mk_ingested.assert_called_once()
+    mk_generate.assert_not_called()
+    mk_polling.ack.assert_called_once()
+    mk_polling.nack.assert_not_called()
 
 
 if __name__ == '__main__':

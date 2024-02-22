@@ -13,6 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 """Represents files known to exist which are sitting on GCS."""
+
+import json
 from typing import Optional
 
 import google.api_core
@@ -41,8 +43,17 @@ class GCSFileMsg(abstract_pubsub_msg.AbstractPubSubMsg):
       raise ValueError(f'Blob does not exist {gcs_file_path}')
 
   @property
-  def received_msg(self) -> Optional[pubsub_v1.types.ReceivedMessage]:
-    return None
+  def received_msg(self) -> pubsub_v1.types.ReceivedMessage:
+    data = json.dumps({'name': self._filename, 'bucket': self._bucket_name})
+    message = pubsub_v1.types.PubsubMessage(
+        attributes={'eventType': 'OBJECT_FINALIZE'},
+        data=data.encode('utf-8'),
+        message_id=self._messageid,
+        publish_time=google.api_core.datetime_helpers.DatetimeWithNanoseconds.now(),
+    )
+    return pubsub_v1.types.ReceivedMessage(
+        ack_id=self._ack_id, message=message, delivery_attempt=1
+    )
 
   @property
   def ack_id(self) -> str:

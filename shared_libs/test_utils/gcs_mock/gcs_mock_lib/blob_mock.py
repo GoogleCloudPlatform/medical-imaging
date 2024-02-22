@@ -294,6 +294,7 @@ class BlobMock:
       if_metageneration_not_match: Optional[int] = None,
       timeout: Optional[gcs_mock_types.TimeoutType] = 60,
       retry: Optional[gcs_mock_types.RetryType] = None,
+      override_unlocked_retention: bool = False,
   ) -> None:
     """Sends metadata set on blob to GCS.
 
@@ -311,6 +312,7 @@ class BlobMock:
         response.
       retry:    google.api_core.retry.Retry or
         google.cloud.storage.retry.ConditionalRetryPolicy
+      override_unlocked_retention: Not supported by mock.
 
     Returns:
       None
@@ -327,7 +329,7 @@ class BlobMock:
           if_etag_not_match, if_generation_not_match, or
           if_metageneration_not_match) failed.
     """
-    del timeout, retry
+    del timeout, retry, override_unlocked_retention
     self._update_state(
         self._get_client(client).mock_state.blob_update(
             typing.cast(google.cloud.storage.Blob, self),

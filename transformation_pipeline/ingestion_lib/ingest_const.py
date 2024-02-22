@@ -58,6 +58,14 @@ PRIMARY = 'PRIMARY'
 VOLUME = 'VOLUME'
 NONE = 'NONE'
 RESAMPLED = 'RESAMPLED'
+ORIGINAL_PRIMARY_VOLUME = f'{ORIGINAL}\\{PRIMARY}\\{VOLUME}'
+ORIGINAL_PRIMARY_VOLUME_RESAMPLED = (
+    f'{ORIGINAL}\\{PRIMARY}\\{VOLUME}\\{RESAMPLED}'
+)
+DERIVED_PRIMARY_VOLUME = f'{DERIVED}\\{PRIMARY}\\{VOLUME}'
+DERIVED_PRIMARY_VOLUME_RESAMPLED = (
+    f'{DERIVED}\\{PRIMARY}\\{VOLUME}\\{RESAMPLED}'
+)
 
 TILED_FULL = 'TILED_FULL'
 MISSING_INGESTION_TRACE_ID = 'MISSING_INGESTION_TRACE_ID'
@@ -78,6 +86,7 @@ class DICOMVRCodes:
 
 class DICOMTagAddress:
   """HEX address of DICOM tags."""
+
   ACCESSION_NUMBER = '00080050'
   DICOM_GOOGLE_PRIVATE_CREATOR_BLOCK_TAG = '30210010'
   HASH_PRIVATE_TAG = '30211001'
@@ -86,6 +95,9 @@ class DICOMTagAddress:
   PATIENT_ID = '00100020'
   PATIENT_NAME = '00100010'
   PUBSUB_MESSAGE_ID_TAG = '30211003'
+  PYRAMID_LABEL = '00200027'
+  PYRAMID_DESCRIPTION = '00081088'
+  PYRAMID_UID = '00080019'
   SERIES_DESCRIPTION = '0008103E'
   SERIES_INSTANCE_UID = '0020000E'
   SOP_CLASS_UID = '00080016'
@@ -96,61 +108,59 @@ class DICOMTagAddress:
 class DICOMTagKeywords:
   """DICOM Keywords used in ingest project."""
 
-  # Used in dicom_file_ref
-  STUDY_INSTANCE_UID = 'StudyInstanceUID'
-  SERIES_INSTANCE_UID = 'SeriesInstanceUID'
-  SOP_CLASS_UID = 'SOPClassUID'
-  SOP_INSTANCE_UID = 'SOPInstanceUID'
-
-  # Used in dicom_store_client
-  IMAGE_TYPE = 'ImageType'
-  FRAME_TYPE = 'FrameType'
+  ACCESSION_NUMBER = 'AccessionNumber'
+  BARCODE_VALUE = 'BarcodeValue'
   BITS_ALLOCATED = 'BitsAllocated'
   BITS_STORED = 'BitsStored'
-  HIGH_BIT = 'HighBit'
-  PIXEL_REPRESENTATION = 'PixelRepresentation'
-  SAMPLES_PER_PIXEL = 'SamplesPerPixel'
-  PLANAR_CONFIGURATION = 'PlanarConfiguration'
-  ACCESSION_NUMBER = 'AccessionNumber'
-  SERIES_NUMBER = 'SeriesNumber'
-  BARCODE_VALUE = 'BarcodeValue'
-  INSTANCE_NUMBER = 'InstanceNumber'
-  PHOTOMETRIC_INTERPRETATION = 'PhotometricInterpretation'
-  IMAGED_VOLUME_WIDTH = 'ImagedVolumeWidth'
-  IMAGED_VOLUME_HEIGHT = 'ImagedVolumeHeight'
-  TOTAL_PIXEL_MATRIX_COLUMNS = 'TotalPixelMatrixColumns'
-  TOTAL_PIXEL_MATRIX_ROWS = 'TotalPixelMatrixRows'
-  MANUFACTURER = 'Manufacturer'
-  MANUFACTURER_MODEL_NAME = 'ManufacturerModelName'
-  NUMBER_OF_FRAMES = 'NumberOfFrames'
-  COLUMNS = 'Columns'
-  ROWS = 'Rows'
-  DIMENSION_ORGANIZATION_TYPE = 'DimensionOrganizationType'
-  MODALITY = 'Modality'
-  SPECIMEN_LABEL_IN_IMAGE = 'SpecimenLabelInImage'
   BURNED_IN_ANNOTATION = 'BurnedInAnnotation'
-  CONCATENATION_UID = 'ConcatenationUID'
+  COLOR_SPACE = 'ColorSpace'
+  COLUMNS = 'Columns'
   CONCATENATION_FRAME_OFFSET_NUMBER = 'ConcatenationFrameOffsetNumber'
-  IN_CONCATENATION_NUMBER = 'InConcatenationNumber'
-  FRAME_OF_REFERENCE_UID = 'FrameOfReferenceUID'
-  POSITION_REFERENCE_INDICATOR = 'PositionReferenceIndicator'
-  SHARED_FUNCTIONAL_GROUPS_SEQUENCE = 'SharedFunctionalGroupsSequence'
-  SOFTWARE_VERSIONS = 'SoftwareVersions'
-
-  GROUP_ADDRESS = '3021'
-  # Extends DicomFileRef to add a private tag representing the MD5 of source.
+  CONCATENATION_UID = 'ConcatenationUID'
   DICOM_GOOGLE_PRIVATE_CREATOR_BLOCK_TAG = (
       DICOMTagAddress.DICOM_GOOGLE_PRIVATE_CREATOR_BLOCK_TAG
   )
+  DIMENSION_ORGANIZATION_TYPE = 'DimensionOrganizationType'
+  FRAME_OF_REFERENCE_UID = 'FrameOfReferenceUID'
+  FRAME_TYPE = 'FrameType'
+  GROUP_ADDRESS = '3021'
   HASH_PRIVATE_TAG = DICOMTagAddress.HASH_PRIVATE_TAG
-  OOF_SCORE_PRIVATE_TAG = DICOMTagAddress.OOF_SCORE_PRIVATE_TAG
-  PUBSUB_MESSAGE_ID_TAG = DICOMTagAddress.PUBSUB_MESSAGE_ID_TAG
-  INGEST_FILENAME_TAG = DICOMTagAddress.INGEST_FILENAME_TAG
-
+  HIGH_BIT = 'HighBit'
   ICC_PROFILE = 'ICCProfile'
+  IMAGE_TYPE = 'ImageType'
+  IMAGED_VOLUME_HEIGHT = 'ImagedVolumeHeight'
+  IMAGED_VOLUME_WIDTH = 'ImagedVolumeWidth'
+  IN_CONCATENATION_NUMBER = 'InConcatenationNumber'
+  INGEST_FILENAME_TAG = DICOMTagAddress.INGEST_FILENAME_TAG
+  INSTANCE_NUMBER = 'InstanceNumber'
+  MANUFACTURER = 'Manufacturer'
+  MANUFACTURER_MODEL_NAME = 'ManufacturerModelName'
+  MODALITY = 'Modality'
+  NUMBER_OF_FRAMES = 'NumberOfFrames'
+  OOF_SCORE_PRIVATE_TAG = DICOMTagAddress.OOF_SCORE_PRIVATE_TAG
   OPTICAL_PATH_SEQUENCE = 'OpticalPathSequence'
-  COLOR_SPACE = 'ColorSpace'
-
+  PATIENT_ID = 'PatientID'
+  PATIENT_NAME = 'PatientName'
+  PHOTOMETRIC_INTERPRETATION = 'PhotometricInterpretation'
+  PIXEL_REPRESENTATION = 'PixelRepresentation'
+  PLANAR_CONFIGURATION = 'PlanarConfiguration'
+  POSITION_REFERENCE_INDICATOR = 'PositionReferenceIndicator'
+  PUBSUB_MESSAGE_ID_TAG = DICOMTagAddress.PUBSUB_MESSAGE_ID_TAG
+  PYRAMID_DESCRIPTION = 'PyramidDescription'
+  PYRAMID_LABEL = 'PyramidLabel'
+  PYRAMID_UID = 'PyramidUID'
+  ROWS = 'Rows'
+  SAMPLES_PER_PIXEL = 'SamplesPerPixel'
+  SERIES_INSTANCE_UID = 'SeriesInstanceUID'
+  SERIES_NUMBER = 'SeriesNumber'
+  SHARED_FUNCTIONAL_GROUPS_SEQUENCE = 'SharedFunctionalGroupsSequence'
+  SOFTWARE_VERSIONS = 'SoftwareVersions'
+  SOP_CLASS_UID = 'SOPClassUID'
+  SOP_INSTANCE_UID = 'SOPInstanceUID'
+  SPECIMEN_LABEL_IN_IMAGE = 'SpecimenLabelInImage'
+  STUDY_INSTANCE_UID = 'StudyInstanceUID'
+  TOTAL_PIXEL_MATRIX_COLUMNS = 'TotalPixelMatrixColumns'
+  TOTAL_PIXEL_MATRIX_ROWS = 'TotalPixelMatrixRows'
   TRANSFER_SYNTAX_UID = 'TransferSyntaxUID'
 
 
@@ -167,9 +177,17 @@ class DicomSopClass:
 class DicomSopClasses:
   """DICOM SOP Class values used in ingest project."""
 
+  MICROSCOPY_ANNOTATION = DicomSopClass(
+      SOPClassName('Microscopy Bulk Simple Annotations Storage'),
+      SOPClassUID('1.2.840.10008.5.1.4.1.1.91.1'),
+  )
   MICROSCOPIC_IMAGE = DicomSopClass(
       SOPClassName('VL Microscopic Image Storage'),
       SOPClassUID('1.2.840.10008.5.1.4.1.1.77.1.2'),
+  )
+  SECONDARY_CAPTURE_IMAGE = DicomSopClass(
+      SOPClassName('Secondary Capture Image Storage'),
+      SOPClassUID('1.2.840.10008.5.1.4.1.1.7'),
   )
   SLIDE_COORDINATES_IMAGE = DicomSopClass(
       SOPClassName('VL Slide-Coordinates Microscopic Image Storage'),
@@ -178,10 +196,6 @@ class DicomSopClasses:
   WHOLE_SLIDE_IMAGE = DicomSopClass(
       SOPClassName('VL Whole Slide Microscopy Image Storage'),
       SOPClassUID('1.2.840.10008.5.1.4.1.1.77.1.6'),
-  )
-  MICROSCOPY_ANNOTATION = DicomSopClass(
-      SOPClassName('Microscopy Bulk Simple Annotations Storage'),
-      SOPClassUID('1.2.840.10008.5.1.4.1.1.91.1'),
   )
 
 
@@ -206,64 +220,76 @@ class LogKeywords:
   match global style.
   """
 
-  ack_deadline_sec = 'ack_deadline_sec'
   ACCESSION_NUMBER = 'accession_number'
+  ACK_DEADLINE_SEC = 'ack_deadline_sec'
   BARCODE = 'barcode'
   BIGQUERY_TABLE = 'bigquery_table'
   BIGQUERY_TABLE_COLUMN_NAMES = 'bigquery_table_column_names'
-  bucket_name = 'bucket_name'
-  dest_file = 'dest_file'
-  dest_uri = 'dest_URI'
-  dicomweb_path = 'dicomweb_path'
-  dpas_ingestion_trace_id = 'dpas_ingestion_trace_id'
+  BUCKET_NAME = 'bucket_name'
+  DEST_FILE = 'dest_file'
+  DEST_URI = 'dest_URI'
+  DICOM_INSTANCES_TRIGGERING_TRANSFORM_PIPELINE = (
+      'dicom_instances_triggering_transform_pipeline'
+  )
   DICOM_TAGS = 'dicom_tags'
-  elapsed_time_beyond_extension_sec = 'elapsed_time_beyond_extension_sec'
-  exception = 'exception'
-  extending_ack_deadline_sec = 'extending_ack_deadline_sec'
-  file_extension = 'file_extension'
-  FILE_NAME_PART_SPLIT_STRING = 'file_name_slide_id_part_split_string'
+  DICOMWEB_PATH = 'dicomweb_path'
+  DPAS_INGESTION_TRACE_ID = 'dpas_ingestion_trace_id'
+  ELAPSED_TIME_BEYOND_EXTENSION_SEC = 'elapsed_time_beyond_extension_sec'
+  EXCEPTION = 'exception'
+  EXISTING_DICOM_INSTANCE = 'existing_dicom_instance'
+  EXTENDING_ACK_DEADLINE_SEC = 'extending_ack_deadline_sec'
+  FILE_EXTENSION = 'file_extension'
   FILE_NAME_PART_REGEX = 'file_name_slide_id_part_regex'
-  file_size = 'file_size(bytes)'
-  filename = 'filename'
-  hash = 'hash'
-  METADATA_SOURCE = 'metadata_source'
-  main_dicom_store = 'main_dicom_store'
-  message_count = 'message_count'
+  FILE_NAME_PART_SPLIT_STRING = 'file_name_slide_id_part_split_string'
+  FILE_SIZE = 'file_size(bytes)'
+  FILENAME = 'filename'
+  HASH = 'hash'
+  MAIN_DICOM_STORE = 'main_dicom_store'
+  MESSAGE_COUNT = 'message_count'
   METADATA = 'metadata'
   METADATA_PRIMARY_KEY = 'metadata_primary_key'
   METADATA_PRIMARY_KEY_COLUMN_NAME = 'metadata_primary_key_column_name'
-  new_series_instance_uid = 'new_series_instance_uid'
-  old_series_instance_uid = 'old_series_instance_uid'
-  oof_dicom_store = 'oof_dicom_store'
-  pubsub_message_id = 'pubsub_message_id'
-  pubsub_subscription = 'pubsub_subscription'
-  pubsub_topic_name = 'pubsub_topic_name'
-  received_event_type = 'received_event_type'
-  return_code = 'return-code'
+  METADATA_SOURCE = 'metadata_source'
+  NEW_SERIES_INSTANCE_UID = 'new_series_instance_uid'
+  OLD_SERIES_INSTANCE_UID = 'old_series_instance_uid'
+  OOF_DICOM_STORE = 'oof_dicom_store'
+  PATIENT_ID = 'patient_id'
+  PIPELINE_GENERATED_DOWNSAMPLE_DICOM_INSTANCE = (
+      'pipeline_generated_downsample_dicom_instance'
+  )
+  PREVIOUS_SERIES_INSTANCE_UID = 'previous_series_instance_uid'
+  PREVIOUS_STUDY_INSTANCE_UID = 'previous_study_instance_uid'
+  PUBSUB_MESSAGE_ID = 'pubsub_message_id'
+  PUBSUB_SUBSCRIPTION = 'pubsub_subscription'
+  PUBSUB_TOPIC_NAME = 'pubsub_topic_name'
+  RECEIVED_EVENT_TYPE = 'received_event_type'
+  RETURN_CODE = 'return-code'
   SERIES_INSTANCE_UID = 'series_instance_uid'
   SLIDE_ID = 'slide_id'
-  sop_instance_uid = 'sop_instance_uid'
-  source_uri = 'source_URI'
-  stderr = 'stderr'
-  stdout = 'stdout'
-  study_instance_uid = 'study_instance_uid'
+  SOP_CLASS_UID = 'sop_class_uid'
+  SOP_INSTANCE_UID = 'sop_instance_uid'
+  SOURCE_URI = 'source_URI'
+  STDERR = 'stderr'
+  STDOUT = 'stdout'
+  STUDY_INSTANCE_UID = 'study_instance_uid'
   STUDY_INSTANCE_UIDS_FOUND = 'study_instance_uids_found'
-  PATIENT_ID = 'patient_id'
-  PREVIOUS_STUDY_INSTANCE_UID = 'previous_study_instance_uid`'
-  tag_number = 'private_tag_number'
-  total_time_sec = 'total_time_sec'
-  uri = 'URI'
+  TAG_NUMBER = 'private_tag_number'
+  TESTED_DICOM_INSTANCE = 'tested_dicom_instance'
+  TOTAL_TIME_SEC = 'total_time_sec'
+  TYPE2_AND_2C_TAGS_ADDED = 'type2_and_2c_tags_added'
+  TYPE2_TAGS_ADDED = 'type2_tags_added'
+  URI = 'URI'
 
 
 class EnvVarNames:
+  DICOM_STORE_TO_CLEAN = 'DICOM_STORE_TO_CLEAN'
+  DICOMWEB_URL = 'DICOMWEB_URL'
+  GCS_UPLOAD_IGNORE_FILE_EXT = 'GCS_UPLOAD_IGNORE_FILE_EXT'
   INGEST_COMPLETE_OOF_TRIGGER_PUBSUB_TOPIC = (
       'INGEST_COMPLETE_OOF_TRIGGER_PUBSUB_TOPIC'
   )
-  DICOMWEB_URL = 'DICOMWEB_URL'
-  DICOM_STORE_TO_CLEAN = 'DICOM_STORE_TO_CLEAN'
   OOF_DICOMWEB_BASE_URL = 'OOF_DICOMWEB_BASE_URL'
   OOF_INFERENCE_CONFIG_PATH = 'OOF_INFERENCE_CONFIG_PATH'
-  GCS_UPLOAD_IGNORE_FILE_EXT = 'GCS_UPLOAD_IGNORE_FILE_EXT'
 
 
 class OofPassThroughKeywords:
@@ -290,9 +316,12 @@ class ErrorMsgs:
   INVALID_ICC_PROFILE = 'invalid_icc_profile'
   INVALID_METADATA_SCHEMA = 'invalid_metadata_schema'
   MISSING_PIXEL_SPACING = 'missing_pixel_spacing'
-  MISSING_SERIES_UID = 'missing_series_uid_in_metadata'
-  MISSING_STUDY_UID = 'missing_study_uid_in_metadata'
+  MISSING_SERIES_UID = 'missing_series_instance_uid_in_metadata'
+  MISSING_STUDY_UID = 'missing_study_instance_uid_in_metadata'
   MISSING_ACCESSION_NUMBER = 'missing_accession_number_metadata'
+  MISSING_ACCESSION_NUMBER_UNABLE_TO_CREATE_STUDY_INSTANCE_UID = (
+      'metadata_is_missing_accession_number_unable_to_create_study_instance_uid'
+  )
   MISSING_PATIENT_ID = 'missing_patient_id_metadata'
   MISSING_TIFF_SERIES = 'missing_tiff_series'
   UNEXPECTED_EXCEPTION = 'unexpected_exception'
@@ -311,9 +340,6 @@ class ErrorMsgs:
   SLIDE_ID_DEFINED_ON_MULTIPLE_ROWS = (
       'slide_id_error__slide_id_defined_on_multiple_rows'
   )
-  FILE_NAME_MISSING_SLIDE_ID_CANDIDATES = (
-      'slide_id_error__file_name_does_not_contain_slide_id_candidates'
-  )
   FILE_NAME_CONTAINS_MULTIPLE_SLIDE_ID_CANDIDATES = (
       'slide_id_error__file_name_contains_multiple_slide_id_candidates'
   )
@@ -322,16 +348,16 @@ class ErrorMsgs:
   )
   SLIDE_ID_MISSING = 'slide_id_error__slide_id_missing'
   SLIDE_ID_MISSING_FROM_CSV_METADATA = (
-      'slide_id_error__slide_id_missing_from_csv_metadata'
+      'slide_id_error__slide_metadata_primary_key_missing_from_csv_metadata'
   )
-  SLIDE_ID_MISSING_FROM_BQ_METADATA = (
-      'slide_id_error__slide_id_missing_from_big_query_metadata'
-  )
-  SLIDE_ID_MISSING_FROM_FILE_NAME = (
-      'slide_id_error__slide_id_missing_from_filename'
+  SLIDE_ID_MISSING_FROM_BQ_METADATA = 'slide_id_error__slide_metadata_primary_key_missing_from_big_query_metadata'
+  FILENAME_MISSING_SLIDE_METADATA_PRIMARY_KEY = (
+      'slide_id_error__filename_missing_slide_metadata_primary_key'
   )
   INVALID_SLIDE_ID_LENGTH = 'slide_id_error__invalid_slide_id_length'
-
+  UNSUPPORTED_DICOM_SECONDARY_CAPTURE_IMAGE = (
+      'unsupported_dicom_secondary_capture_image'
+  )
   # Flat image error messages
   FLAT_IMAGE_FAILED_TO_CONVERT_TIF_TO_JPG = (
       'flat_image_failed_to_convert_tif_to_jpg'
@@ -350,3 +376,96 @@ class ErrorMsgs:
   ERROR_DECODING_DICOM_STORE_STUDY_INSTANCE_UID_SEARCH_RESPONSE = (
       'error_decoding_dicom_store_study_instance_uid_search_response'
   )
+
+  # DICOM Validation Errors
+  DICOM_UID_INCORRECTLY_FORMATTED = 'dicom_uid_incorrectly_formatted'
+  DICOM_INSTANCE_ENCODED_WITH_UNSUPPORTED_TRANSFER_SYNTAX = (
+      'dicom_instance_encoded_with_unsupported_transfer_syntax'
+  )
+  WSI_DICOM_INSTANCE_PIXEL_NOT_ALLOCATED_WITH_8_BITS_PER_PIXEL = (
+      'wsi_dicom_instance_pixel_not_allocated_with_8_bits_per_pixel'
+  )
+  WSI_DICOM_INSTANCE_PIXEL_NOT_STORED_WITH_8_BITS_PER_PIXEL = (
+      'wsi_dicom_instance_pixel_not_stored_with_8_bits_per_pixel'
+  )
+  WSI_DICOM_INSTANCE_ENCODED_WITH_INVALID_HIGH_PIXEL_BIT = (
+      'wsi_dicom_instance_encoded_with_invalid_high_pixel_bit'
+  )
+  WSI_DICOM_INSTANCE_ENCODED_WITH_INVALID_SAMPLES_PER_PIXEL = (
+      'wsi_dicom_instance_encoded_with_invalid_samples_per_pixel'
+  )
+  WSI_DICOM_INSTANCE_HAS_0_FRAMES = 'wsi_dicom_instance_has_0_frames'
+  WSI_DICOM_INSTANCE_HAS_0_ROWS = 'wsi_dicom_instance_has_0_rows'
+  WSI_DICOM_INSTANCE_HAS_0_COLUMNS = 'wsi_dicom_instance_has_0_columns'
+  WSI_DICOM_INSTANCE_HAS_0_TOTAL_PIXEL_MATRIX_ROWS = (
+      'wsi_dicom_instance_has_0_total_pixel_matrix_rows'
+  )
+  WSI_DICOM_SPECIMEN_LABEL_IN_IMAGE_NOT_YES_OR_NO = (
+      'wsi_dicom_specimen_label_in_image_not_yes_or_no'
+  )
+  WSI_DICOM_BURNED_IN_ANNOTATION_IN_IMAGE_NOT_YES_OR_NO = (
+      'wsi_dicom_burned_in_annotation_in_image_not_yes_or_no'
+  )
+  WSI_DICOM_INSTANCE_DOES_NOT_HAVE_EXPECTED_FRAME_COUNT = (
+      'wsi_dicom_instance_does_not_have_expected_frame_count'
+  )
+  WSI_DICOM_INSTANCE_HAS_INVALID_DIMENSIONAL_ORGANIZATION_TYPE = (
+      'wsi_dicom_instance_has_invalid_dimensional_organization_type'
+  )
+  WSI_DICOM_ANCILLARY_INSTANCE_TYPE_INDETERMINATE = (
+      'wsi_dicom_ancillary_instance_type_indeterminate'
+  )
+  WSI_DICOM_ANCILLARY_INSTANCE_HAS_MORE_THAN_ONE_FRAME = (
+      'wsi_dicom_ancillary_instance_has_more_than_one_frame'
+  )
+  DICOM_INSTANCE_NOT_FOUND = 'dicom_instance_not_found'
+  DICOM_INSTANCE_MISSING_STUDY_INSTANCE_UID = (
+      'dicom_instance_missing_study_instance_uid'
+  )
+  DICOM_INSTANCE_MISSING_SERIES_INSTANCE_UID = (
+      'dicom_instance_missing_series_instance_uid'
+  )
+  DICOM_INSTANCE_MISSING_SOP_INSTANCE_UID = (
+      'dicom_instance_missing_sop_instance_uid'
+  )
+  DICOM_INSTANCE_MISSING_SOP_CLASS_UID = 'dicom_instance_missing_sop_class_uid'
+  DICOM_INSTANCES_STUDY_INSTANCE_UID_DO_NOT_MATCH = (
+      'dicom_instances_study_instance_uid_do_not_match'
+  )
+  DICOM_INSTANCES_SERIES_INSTANCE_UID_DO_NOT_MATCH = (
+      'dicom_instances_series_instance_uid_do_not_match'
+  )
+  DICOM_INSTANCES_HAVE_DUPLICATE_SOP_INSTANCE_UID = (
+      'dicom_instances_have_duplicate_sop_instance_uid'
+  )
+  DICOM_INSTANCES_BARCODES_DO_NOT_MATCH = (
+      'dicom_instances_barcodes_do_not_match'
+  )
+  DICOM_INSTANCES_HAVE_MULTIPLE_PRIMARY_VOLUME_IMAGES = (
+      'dicom_instances_have_multiple_primary_volume_images'
+  )
+  DICOM_INSTANCES_HAVE_MULTIPLE_LABEL_IMAGES = (
+      'dicom_instances_have_multiple_label_images'
+  )
+  DICOM_INSTANCES_HAVE_MULTIPLE_OVERVIEW_IMAGES = (
+      'dicom_instances_have_multiple_overview_images'
+  )
+  DICOM_INSTANCES_HAVE_MULTIPLE_THUMBNAIL_IMAGES = (
+      'dicom_instances_have_multiple_thumbnail_images'
+  )
+  DICOM_INSTANCES_HAVE_MULTIPLE_ACCESSION_NUMBERS = (
+      'dicom_instances_have_multiple_accession_numbers'
+  )
+  DICOM_INSTANCES_HAVE_MULTIPLE_PATIENT_NAMES = (
+      'dicom_instances_have_multiple_patient_names'
+  )
+  DICOM_INSTANCES_HAVE_MULTIPLE_PATIENT_IDS = (
+      'dicom_instances_have_multiple_patient_ids'
+  )
+  DICOM_INSTANCES_DESCRIBE_MULTIPLE_MODALITIES = (
+      'dicom_instances_describe_multiple_modalities'
+  )
+  ERROR_OCCURRED_QUERYING_DICOM_STORE_UNABLE_TO_CREATE_STUDY_INSTANCE_UID = (
+      'error_occurred_querying_dicom_store_unable_to_create_study_instance_uid'
+  )
+  UNABLE_TO_CREATE_STUDY_INSTANCE_UID_ACCESSION_NUMBER_IS_ASSOCIATED_WITH_MULTIPLE_STUDY_INSTANCE_UID = 'unable_to_create_study_instance_uid_accession_number_is_associated_with_multiple_study_instance_uid'

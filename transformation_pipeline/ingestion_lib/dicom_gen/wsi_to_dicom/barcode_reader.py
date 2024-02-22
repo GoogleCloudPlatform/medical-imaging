@@ -65,20 +65,16 @@ def _segment_barcode(image_path: str, segmented_image_path: str):
     response = request.execute()
   except google_api_errors.HttpError as exp:
     raise CloudVisionHttpError(
-        (
-            'Exception occurred calling cloud vision\n'
-            f'exception: {traceback.format_exc()}'
-        )
+        'Exception occurred calling cloud vision\n'
+        f'exception: {traceback.format_exc()}'
     ) from exp
 
   try:
     annotations = response['responses'][0]['localizedObjectAnnotations']
   except KeyError as exp:
     raise ValueError(
-        (
-            'Unexpected cloud vision API response\n'
-            f'exception: {traceback.format_exc()}'
-        )
+        'Unexpected cloud vision API response\n'
+        f'exception: {traceback.format_exc()}'
     ) from exp
 
   if not annotations:
@@ -104,7 +100,7 @@ def _segment_barcode(image_path: str, segmented_image_path: str):
         for v in barcode_annotation['boundingPoly']['normalizedVertices']
     ]
   except KeyError as exp:
-    cloud_logging_client.logger().warning(
+    cloud_logging_client.warning(
         'Segmentation results missing expected key.', exp
     )
     raise ValueError(f'No barcodes detected in image {image_path}') from exp
@@ -124,7 +120,7 @@ def _segment_barcode(image_path: str, segmented_image_path: str):
   x_max = min(x + width, original_image.shape[1])
   cropped = original_image[y:y_max, x:x_max]
   if cropped.size == 0:
-    cloud_logging_client.logger().warning(
+    cloud_logging_client.warning(
         'Segmentation dimensions are zero.',
         dict(x=x, width=width, y=y, height=height),
     )
@@ -185,10 +181,9 @@ def _barcode_read_effort_escalation(barcode_image_path: str) -> str:
   """
   try:
     return _zxing_read_barcode(barcode_image_path, try_harder=False)
-  except ValueError as exp:
-    cloud_logging_client.logger().info(
-        f'Could not segment barcode in {barcode_image_path} now trying harder.',
-        exp,
+  except ValueError:
+    cloud_logging_client.info(
+        f'Could not segment barcode in {barcode_image_path} now trying harder.'
     )
     return _zxing_read_barcode(barcode_image_path, try_harder=True)
 
@@ -208,7 +203,7 @@ def _segment_and_read_bc(image_file_path: str) -> str:
   with tempfile.TemporaryDirectory('segmented_barcode') as segment_barcode_dir:
     _, image_filename = os.path.split(image_file_path)
     if ingest_flags.DISABLE_CLOUD_VISION_BARCODE_SEG_FLG.value:
-      cloud_logging_client.logger().warning(
+      cloud_logging_client.warning(
           'Barcode segmentation disabled; DISABLE_CLOUD_VISION_BARCODE_SEG '
           '= True'
       )
@@ -220,12 +215,10 @@ def _segment_and_read_bc(image_file_path: str) -> str:
         _segment_barcode(image_file_path, segmented_barcode_image_path)
         return _barcode_read_effort_escalation(segmented_barcode_image_path)
       except CloudVisionHttpError as exp:
-        cloud_logging_client.logger().error(
-            'Error calling Cloud Vision API', exp
-        )
-      except ValueError as exp:
-        cloud_logging_client.logger().info(
-            f'Could not segment barcode in {image_file_path}.', exp
+        cloud_logging_client.error('Error calling Cloud Vision API', exp)
+      except ValueError:
+        cloud_logging_client.info(
+            f'Could not segment barcode in {image_file_path}.'
         )
 
     # Could not read segmented segment bar code.
@@ -246,7 +239,7 @@ def read_barcode_in_files(
   """
   barcode_values_found = collections.OrderedDict()
   if ingest_flags.DISABLE_BARCODE_DECODER_FLG.value:
-    cloud_logging_client.logger().warning(
+    cloud_logging_client.warning(
         'Files not tested for barcodes; DISABLE_BARCODE_DECODER = True.'
     )
     return barcode_values_found
@@ -261,7 +254,7 @@ def read_barcode_in_files(
       if barcode_set is None:
         barcode_set = set()
         barcode_values_found[barcode] = barcode_set
-      cloud_logging_client.logger().info(
+      cloud_logging_client.info(
           'Found segmented barcode',
           {'barcode': barcode, 'filename': image_file_path},
       )
@@ -270,16 +263,16 @@ def read_barcode_in_files(
       files_with_no_barcodes.add(image_file_path)
   files_with_no_barcodes = ', '.join(files_with_no_barcodes)
   if not barcode_values_found:
-    cloud_logging_client.logger().error(
+    cloud_logging_client.error(
         f'Could not decode barcode in file: {files_with_no_barcodes}'
     )
     return barcode_values_found
   barcode_count = len(barcode_values_found)
   if barcode_count > 1:
-    cloud_logging_client.logger().warning(
+    cloud_logging_client.warning(
         f'Multiple barcodes (N={barcode_count}) found.', barcode_values_found
     )
-    cloud_logging_client.logger().warning(
+    cloud_logging_client.warning(
         f'Could not decode barcode in: {files_with_no_barcodes}'
     )
   return barcode_values_found

@@ -488,7 +488,7 @@ class CloudLoggingClientInstance:
     return log_signature
 
   @log_signature.setter
-  def log_signature(self, sig: Mapping[str, Any]):
+  def log_signature(self, sig: Mapping[str, Any]) -> None:
     """Sets log signature.
 
     Log signature of thread may not be altered if thread is set to log using
@@ -513,7 +513,7 @@ class CloudLoggingClientInstance:
           log_sig_obj.signature[str(key)] = str(sig[key])
       log_sig_obj.signature.update(self._signature_defaults(thread_id))
 
-  def clear_log_signature(self):
+  def clear_log_signature(self) -> None:
     """Clears thread log signature.
 
     Log signature of thread may not be altered if thread is set to log using

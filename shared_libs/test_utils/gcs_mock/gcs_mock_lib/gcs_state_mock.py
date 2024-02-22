@@ -215,23 +215,21 @@ class GcsStateMock(contextlib.ExitStack):
     """
     del user_project
     with self._lock:
-      succeed = False
       if bucket.name not in self._buckets:
         try:
           bucket_path = os.path.join(self._get_temp_dir_path(), bucket.name)
           os.mkdir(bucket_path)
-          succeed = True
+          self._buckets[bucket.name] = bucket_path
+          return
         except FileExistsError:
           pass
-      if not succeed:
-        raise google.cloud.exceptions.Conflict(
-            f'{gcs_mock_types.HttpMethod.GET.value} '
-            f'{gcs_mock_constants.GCS_BASE_HTTPS_URL}/{bucket.path} The'
-            ' requested bucketname is not available. The bucket namespace is'
-            ' shared by all users of the system. Please select a different'
-            ' name and try again'
-        )
-      self._buckets[bucket.name] = bucket_path
+      raise google.cloud.exceptions.Conflict(
+          f'{gcs_mock_types.HttpMethod.GET.value} '
+          f'{gcs_mock_constants.GCS_BASE_HTTPS_URL}/{bucket.path} The'
+          ' requested bucketname is not available. The bucket namespace is'
+          ' shared by all users of the system. Please select a different'
+          ' name and try again'
+      )
 
   @called_inside_context_manager
   def _validate_bucket(

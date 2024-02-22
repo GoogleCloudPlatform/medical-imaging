@@ -54,7 +54,9 @@ class IngestDicomStorePubSubHandler(
 ):
   """Handler to update metadata and replace DICOM instances in DICOM store."""
 
-  def __init__(self):
+  def __init__(
+      self, metadata_client: metadata_storage_client.MetadataStorageClient
+  ):
     super().__init__(dicom_store_web_path='')
     # Current ingestion instance (i.e. corresponding to last decoded pub/sub
     # message).
@@ -62,6 +64,7 @@ class IngestDicomStorePubSubHandler(
     self._ingest_dicom_handler = ingest_dicom.IngestDicom(
         dicom_store_triggered_ingest=True,
         override_study_uid_with_metadata=False,
+        metadata_client=metadata_client,
     )
     if not ingest_flags.DICOM_STORE_INGEST_GCS_URI_FLG.value:
       err_msg = (
@@ -110,7 +113,7 @@ class IngestDicomStorePubSubHandler(
         sop_instance_uid,
     ) = m.groups(default='')
     if sop_instance_uid.startswith(ingest_const.DPAS_UID_PREFIX):
-      cloud_logging_client.logger().debug('DICOM instance already ingested.')
+      # DICOM instance already ingested
       dicom_msg.ignore = True
       return dicom_msg
     msg_viewer_debug_url = _DICOMWEB_RESOURCE_PATTERN.sub(
@@ -125,7 +128,7 @@ class IngestDicomStorePubSubHandler(
           series_instance_uid,
           sop_instance_uid,
       ):
-        cloud_logging_client.logger().debug('DICOM instance already ingested.')
+        # DICOM instance already ingested
         dicom_msg.ignore = True
         return dicom_msg
     except ingest_dicom.UnexpectedDicomMetadataError:
@@ -135,7 +138,7 @@ class IngestDicomStorePubSubHandler(
     )
     cloud_logging_client.logger().debug(
         'Decoded DICOM store pub/sub msg.',
-        {ingest_const.LogKeywords.uri: dicom_msg.uri},
+        {ingest_const.LogKeywords.URI: dicom_msg.uri},
     )
     return dicom_msg
 
@@ -277,35 +280,42 @@ class IngestDicomStorePubSubHandler(
             f' {self._current_instance.gcs_recovery_uri}'
         ),
         {
-            ingest_const.LogKeywords.uri: msg.uri,
-            ingest_const.LogKeywords.pubsub_message_id: msg.message_id,
+            ingest_const.LogKeywords.URI: msg.uri,
+            ingest_const.LogKeywords.PUBSUB_MESSAGE_ID: msg.message_id,
         },
         exp,
     )
 
-  def generate_dicom_and_push_to_store(
+  def get_slide_transform_lock(
       self,
       ingest_file: abstract_dicom_generation.GeneratedDicomFiles,
       polling_client: abstract_polling_client.AbstractPollingClient,
-  ):
-    """Updates DICOM instance with metadata and re-uploads to DICOM store.
+  ) -> abstract_dicom_generation.TransformationLock:
+    """Returns slide transform lock for direct dicom transformation.
+
+       Handles pub/sub messages for store. Ensure that an instance cannot be
+       processed on the same thread twice.
 
     Args:
       ingest_file: File payload to generate into DICOM.
       polling_client: Polling client receiving triggering pub/sub msg.
+
+    Returns:
+      TransformationLock
     """
     if not self._current_instance.gcs_recovery_uri:
       cloud_logging_client.logger().error(
           'Unable to ingest instance: missing DICOM instance GCS recovery URI.'
       )
       polling_client.ack()
-      return
+      return abstract_dicom_generation.TransformationLock()
     if not self._current_instance.dicom_store_client:
       cloud_logging_client.logger().error(
           'Unable to ingest instance: DICOM store client undefined.'
       )
+      self._delete_recovery_instance()
       polling_client.ack()
-      return
+      return abstract_dicom_generation.TransformationLock()
 
     if self._ingest_dicom_handler.is_dicom_file_already_ingested(
         ingest_file.localfile
@@ -313,7 +323,7 @@ class IngestDicomStorePubSubHandler(
       cloud_logging_client.logger().debug('DICOM instance already ingested.')
       self._delete_recovery_instance()
       polling_client.ack()
-      return
+      return abstract_dicom_generation.TransformationLock()
 
     cloud_logging_client.logger().info('Processing DICOM store ingestion.')
     try:
@@ -325,13 +335,49 @@ class IngestDicomStorePubSubHandler(
       )
       self._delete_recovery_instance()
       polling_client.ack()
-      return
+      return abstract_dicom_generation.TransformationLock()
 
+    self._ingest_dicom_handler.init_handler_for_ingestion()
+    try:
+      slide_id = self._ingest_dicom_handler.get_slide_id(ingest_file, self)
+    except ingest_base.DetermineSlideIDError as exp:
+      cloud_logging_client.logger().error(
+          'Cannot find metadata for DICOM instance. Ignoring DICOM store'
+          ' pub/sub message.',
+          exp,
+      )
+      self._delete_recovery_instance()
+      polling_client.ack()
+      return abstract_dicom_generation.TransformationLock()
+    slide_lock_str = (
+        f'slide_id: {slide_id}; direct_dicom: {ingest_file.source_uri}'
+    )
+    return abstract_dicom_generation.TransformationLock(slide_lock_str)
+
+  def generate_dicom_and_push_to_store(
+      self,
+      transform_lock: abstract_dicom_generation.TransformationLock,
+      ingest_file: abstract_dicom_generation.GeneratedDicomFiles,
+      polling_client: abstract_polling_client.AbstractPollingClient,
+  ):
+    """Updates DICOM instance with metadata and re-uploads to DICOM store.
+
+    Args:
+      transform_lock: Transformation pipeline lock.
+      ingest_file: File payload to generate into DICOM.
+      polling_client: Polling client receiving triggering pub/sub msg.
+    """
     dicom_gen_dir = os.path.join(self.root_working_dir, 'gen_dicom')
     os.mkdir(dicom_gen_dir)
     dcm = self._ingest_dicom_handler.generate_dicom(
         dicom_gen_dir, ingest_file, polling_client.current_msg.message_id, self
     )
+    if not self.validate_redis_lock_held(transform_lock):
+      polling_client.nack(
+          retry_ttl=ingest_flags.TRANSFORMATION_LOCK_RETRY_FLG.value
+      )
+      self._delete_recovery_instance()
+      return
     self._update_dicom_instance_in_dicom_store(
         dcm,
         gcs_metadata={

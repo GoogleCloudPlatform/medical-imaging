@@ -16,11 +16,10 @@
 
 import datetime
 import os
-from typing import Any, List, Mapping, Optional
+from typing import List, Optional
 
-from hcls_imaging_ml_toolkit import dicom_json
-from hcls_imaging_ml_toolkit import tags
 from google.cloud import pubsub_v1
+import pydicom
 
 from shared_libs.logging_lib import cloud_logging_client
 from transformation_pipeline import ingest_flags
@@ -104,7 +103,7 @@ class AiPngtoDicomSecondaryCapture(
     )
     cloud_logging_client.logger().info(
         'Decoded OOF pub/sub msg.',
-        {ingest_const.LogKeywords.uri: self._current_msg.uri},
+        {ingest_const.LogKeywords.URI: self._current_msg.uri},
     )
     return self._current_msg
 
@@ -114,7 +113,7 @@ class AiPngtoDicomSecondaryCapture(
       output_path: str,
       study_uid: str,
       series_uid: str,
-      dcm_json: Optional[Mapping[str, Any]] = None,
+      dcm_metadata: Optional[pydicom.Dataset] = None,
       instances: Optional[
           List[dicom_secondary_capture.DicomReferencedInstance]
       ] = None,
@@ -129,7 +128,7 @@ class AiPngtoDicomSecondaryCapture(
       output_path: Path to save generated DICOM in.
       study_uid: UID of study to create the DICOM instance.
       series_uid: UID of the series to create the DICOM instance.
-      dcm_json: Optional DICOM metadata to embed in image.
+      dcm_metadata: Optional DICOM metadata to embed with image.
       instances: Optional List of referenced WSI instances.
       private_tags: Optional DICOM private tags to be created and added to file
         Stored as {tag_name : dicom_private_tag_generator.DicomPrivateTag}
@@ -147,8 +146,8 @@ class AiPngtoDicomSecondaryCapture(
             study_uid,
             series_uid,
             sc_instance_uid,
-            dcm_json=dcm_json,
-            instances=instances,
+            dcm_metadata=dcm_metadata,
+            reference_instances=instances,
             private_tags=private_tags,
         )
     )
@@ -160,7 +159,7 @@ class AiPngtoDicomSecondaryCapture(
       filename = os.path.join(output_path, filename)
     dataset.save_as(filename, False)
     cloud_logging_client.logger().info(
-        'Saving Dicom.', {ingest_const.LogKeywords.filename: filename}
+        'Saving Dicom.', {ingest_const.LogKeywords.FILENAME: filename}
     )
 
     generated_dicom_files = []
@@ -181,20 +180,41 @@ class AiPngtoDicomSecondaryCapture(
     cloud_logging_client.logger().critical(
         'An unexpected exception occurred during OOF ingestion.',
         {
-            ingest_const.LogKeywords.uri: msg.uri,
-            ingest_const.LogKeywords.pubsub_message_id: msg.message_id,
+            ingest_const.LogKeywords.URI: msg.uri,
+            ingest_const.LogKeywords.PUBSUB_MESSAGE_ID: msg.message_id,
         },
         exp,
     )
 
+  def get_slide_transform_lock(
+      self,
+      unused_ingest_file: abstract_dicom_generation.GeneratedDicomFiles,
+      unused_polling_client: abstract_polling_client.AbstractPollingClient,
+  ) -> abstract_dicom_generation.TransformationLock:
+    """Returns lock to ensure transform processes only one instance of a slide at a time.
+
+    Args:
+      unused_ingest_file: File payload to generate into DICOM.
+      unused_polling_client: Polling client receiving triggering pub/sub msg.
+
+    Returns:
+      Transformation pipeline lock.
+    """
+    study_uid = self._current_msg.study_uid
+    series_uid = self._current_msg.series_uid
+    slide_id_lock = f'oof_result_study:{study_uid}_series:{series_uid}'
+    return abstract_dicom_generation.TransformationLock(slide_id_lock)
+
   def generate_dicom_and_push_to_store(
       self,
+      transform_lock: abstract_dicom_generation.TransformationLock,
       ingest_file: abstract_dicom_generation.GeneratedDicomFiles,
       polling_client: abstract_polling_client.AbstractPollingClient,
   ):
     """Converts downloaded wsi image to DICOM.
 
     Args:
+      transform_lock: Transformation pipeline lock.
       ingest_file: File payload to generate into DICOM.
       polling_client: Polling client receiving triggering pub/sub msg.
     """
@@ -208,32 +228,14 @@ class AiPngtoDicomSecondaryCapture(
     publish_time = publish_datetime.timetz()
 
     # Set DICOM metadata
-    dcm_metadata = {}
-    dicom_json.Insert(
-        dcm_metadata,
-        tags.SECONDARY_CAPTURE_DEVICE_MANUFACTURER,
-        ingest_const.SC_MANUFACTURER_NAME,
+    ds = pydicom.Dataset()
+    ds.SecondaryCaptureDeviceManufacturer = ingest_const.SC_MANUFACTURER_NAME
+    ds.DateOfSecondaryCapture = publish_date.isoformat().replace('-', '')
+    ds.TimeOfSecondaryCapture = publish_time.isoformat('microseconds').replace(
+        ':', ''
     )
-    dicom_json.Insert(
-        dcm_metadata,
-        tags.DATE_OF_SECONDARY_CAPTURE,
-        publish_date.isoformat().replace('-', ''),
-    )
-    dicom_json.Insert(
-        dcm_metadata,
-        tags.TIME_OF_SECONDARY_CAPTURE,
-        publish_time.isoformat('microseconds').replace(':', ''),
-    )
-    dicom_json.Insert(
-        dcm_metadata,
-        tags.SECONDARY_CAPTURE_DEVICE_MANUFACTURERS_MODEL_NAME,
-        current_msg.model_name,
-    )
-    dicom_json.Insert(
-        dcm_metadata,
-        tags.SECONDARY_CAPTURE_DEVICE_SOFTWARE_VERSIONS,
-        current_msg.model_version,
-    )
+    ds.SecondaryCaptureDeviceManufacturersModelName = current_msg.model_name
+    ds.SecondaryCaptureDeviceSoftwareVersions = current_msg.model_version
 
     # Pass oof score to be created as private tag with value stored as
     # Decimal String (DS) Clip oof store to keep in DS VR type length limts
@@ -272,7 +274,7 @@ class AiPngtoDicomSecondaryCapture(
         dicom_gen_dir,
         current_msg.study_uid,
         current_msg.series_uid,
-        dcm_json=dcm_metadata,
+        dcm_metadata=ds,
         instances=current_msg.instances,
         private_tags=private_tags,
     )
@@ -285,6 +287,11 @@ class AiPngtoDicomSecondaryCapture(
           'An error occurred converting to DICOM.'
       )
       polling_client.nack()
+      return
+    if not self.validate_redis_lock_held(transform_lock):
+      polling_client.nack(
+          retry_ttl=ingest_flags.TRANSFORMATION_LOCK_RETRY_FLG.value
+      )
       return
     dst_metadata = {
         'pubsub_message_id': str(polling_client.current_msg.message_id)
@@ -308,15 +315,13 @@ class AiPngtoDicomSecondaryCapture(
           ingest_const.OofPassThroughKeywords.SOURCE_DICOM_IN_MAIN_STORE, True
       )
       if source_dcm_in_main_store:
-        cloud_logging_client.logger().warning(
-            (
-                'ML ingestion appears to be incorrectly configured to delete'
-                ' DICOM from the main store. OOF DICOM will not be deleted. To'
-                ' fix: set env'
-                f' {ingest_const.EnvVarNames.DICOM_STORE_TO_CLEAN} to the OOF'
-                ' DICOM store.'
-            )
-        )
+        cloud_logging_client.logger().warning((
+            'ML ingestion appears to be incorrectly configured to delete'
+            ' DICOM from the main store. OOF DICOM will not be deleted. To'
+            ' fix: set env'
+            f' {ingest_const.EnvVarNames.DICOM_STORE_TO_CLEAN} to the OOF'
+            ' DICOM store.'
+        ))
       else:
         self._delete_instance_from_dicom_store(
             oof_source_dicom_store,

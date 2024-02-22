@@ -13,17 +13,21 @@
 # limitations under the License.
 # ==============================================================================
 """Utility functions supporting DICOM construction from SVS and DICOM files."""
+from __future__ import annotations
+
 import copy
-import dataclasses
 import datetime
 import io
 import itertools
-from typing import Any, Dict, List, Mapping, MutableMapping, Optional, Sequence, Union
+from typing import Any, List, Mapping, MutableMapping, Optional, Sequence, Union
 
+import openslide
 from PIL import ImageCms
+import PIL.Image
 import pydicom
 
 from shared_libs.logging_lib import cloud_logging_client
+from transformation_pipeline import ingest_flags
 from transformation_pipeline.ingestion_lib import ingest_const
 from transformation_pipeline.ingestion_lib.dicom_gen import dicom_general_equipment
 from transformation_pipeline.ingestion_lib.dicom_gen import dicom_json_util
@@ -31,14 +35,7 @@ from transformation_pipeline.ingestion_lib.dicom_gen import dicom_private_tag_ge
 from transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
 from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
 from transformation_pipeline.ingestion_lib.dicom_gen import wsi_dicom_file_ref
-
-# The following try/except block allows for two separate executions of the code:
-# A docker container deployed in GKE and within unit testing framework.
-# pylint: disable=g-import-not-at-top
-try:
-  import openslide  # pytype: disable=import-error  # Deployed GKE container
-except ImportError:
-  import openslide_python as openslide  # Google3
+from transformation_pipeline.ingestion_lib.dicom_util import pydicom_util
 
 
 class InvalidICCProfileError(Exception):
@@ -90,6 +87,171 @@ def _aperio_scan_time(
     return None
 
 
+def _add_objective_power(
+    metadata: pydicom.Dataset, o_slide: openslide.OpenSlide
+) -> None:
+  """Adds imaging objective power to DICOM metadata.
+
+  Args:
+    metadata: Pydicom dataset to add tag data to.
+    o_slide: Openslide object.
+
+  Raises:
+    ValueError: Imaging misssing optical path sequence.
+  """
+  try:
+    objective_power = o_slide.properties.get(
+        openslide.PROPERTY_NAME_OBJECTIVE_POWER
+    )
+  except AttributeError:
+    return
+  if 'OpticalPathSequence' not in metadata:
+    raise ValueError('DICOM metadata missing optical path sequence.')
+  if objective_power is not None and len(metadata.OpticalPathSequence) == 1:
+    metadata.OpticalPathSequence[0].ObjectiveLensPower = objective_power
+
+
+def _add_background_color(
+    metadata: pydicom.Dataset, o_slide: openslide.OpenSlide
+) -> None:
+  """Adds background color to DICOM metadata.
+
+  Args:
+    metadata: Pydicom dataset to add tag data to.
+    o_slide: Openslide object.
+
+  Returns:
+    None
+  """
+  if not ingest_flags.ADD_OPENSLIDE_BACKGROUND_COLOR_METADATA_FLG.value:
+    return
+  try:
+    background_color = o_slide.properties.get(
+        openslide.PROPERTY_NAME_BACKGROUND_COLOR
+    )
+    color_profile = o_slide.color_profile  # pytype: disable=attribute-error
+  except AttributeError:
+    return
+  if background_color is None:
+    return
+  if color_profile is None:
+    cloud_logging_client.logger().error(
+        'WSI image defines a background color but does not contain a ICC Color'
+        ' profile. Cannot generate LAB colorvalue for'
+        ' RecommendedAbsentPixelCIELabValue tag.'
+    )
+    return
+  if len(background_color) != 6:
+    cloud_logging_client.logger().error(
+        'Openslide returned background color that does not match expected'
+        ' RRGGBB hex encoding. Cannot generate'
+        ' RecommendedAbsentPixelCIELabValue tag'
+    )
+    return
+  lab_p = ImageCms.createProfile('LAB')
+  rgb2lab = ImageCms.buildTransformFromOpenProfiles(
+      color_profile, lab_p, 'RGB', 'LAB'
+  )
+  im = PIL.Image.new('RGB', (1, 1), f'#{background_color}')
+  lab_image = ImageCms.applyTransform(im, rgb2lab)
+  l, a, b = lab_image.split()
+  l = int(0xFFFF * l[0, 0] / 100.0)
+  a = int(0xFFFF * (a[0, 0] + 128.0) / 0xFF)
+  b = int(0xFFFF * (b[0, 0] + 128.0) / 0xFF)
+  metadata.RecommendedAbsentPixelCIELabValue = [l, a, b]
+
+
+def _add_total_pixel_matrix_origin_sequence(
+    metadata: pydicom.Dataset, o_slide: openslide.OpenSlide
+) -> None:
+  """Adds total pixel matrix origin sequence to DICOM metadata.
+
+  Args:
+    metadata: Pydicom dataset to add tag data to.
+    o_slide: Openslide Object or None. If none adds a default zero offset
+      origin.
+
+  Returns:
+    None
+  Raises:
+    ValueError: DICOM metadata missing total pixel matrix origin sequence or it
+      is already initalized.
+  """
+  if not ingest_flags.ADD_OPENSLIDE_TOTAL_PIXEL_MATRIX_ORIGIN_SEQ_FLG.value:
+    return
+  if (
+      'TotalPixelMatrixOriginSequence' not in metadata
+      or len(metadata.TotalPixelMatrixOriginSequence) != 1
+      or metadata.TotalPixelMatrixOriginSequence[
+          0
+      ].XOffsetInSlideCoordinateSystem
+      != 0
+      or metadata.TotalPixelMatrixOriginSequence[
+          0
+      ].YOffsetInSlideCoordinateSystem
+      != 0
+  ):
+    raise ValueError(
+        'DICOM metadata missing total pixel matrix origin sq or already'
+        ' initalized.'
+    )
+  # Openslide defines PROPERTY_NAME_BOUNDS_X and PROPERTY_NAME_BOUNDS_Y
+  # However imaging codecs do not appear to provide metadata.
+  # Offset should be relative to slide as pictured.
+  #
+  # https://dicom.nema.org/medical/dicom/current/output/chtml/part03/sect_C.8.12.2.html#figure_C.8-16
+  bounds_x = o_slide.properties.get(openslide.PROPERTY_NAME_BOUNDS_X)
+  if bounds_x is None:
+    return
+  bounds_y = o_slide.properties.get(openslide.PROPERTY_NAME_BOUNDS_Y)
+  if bounds_y is None:
+    return
+  mpp_x = o_slide.properties.get(openslide.PROPERTY_NAME_MPP_X)
+  if mpp_x is None:
+    return
+  mpp_y = o_slide.properties.get(openslide.PROPERTY_NAME_MPP_Y)
+  if mpp_y is None:
+    return
+  sq = metadata.TotalPixelMatrixOriginSequence[0]
+  # Converts pixel offset to offset in mm.
+  # Openslide Coordinates in pixels (bounds_x  & bounds_y)
+  # https://openslide.org/api/python/
+  # mpp_x and mpp_y encode number of microns per pixel, 1 micron is 1000 mm.
+  # DICOM coordinates XOffsetInSlideCoordinateSystem and
+  # YOffsetInSlideCoordinateSystem are defined in mm from the slide origin.
+  # https://dicom.nema.org/medical/dicom/current/output/chtml/part03/sect_C.8.12.2.html#figure_C.8-16
+  sq.XOffsetInSlideCoordinateSystem = bounds_x * mpp_x / 1000.0
+  sq.YOffsetInSlideCoordinateSystem = bounds_y * mpp_y / 1000.0
+
+
+def add_openslide_dicom_properties(
+    metadata: pydicom.Dataset,
+    source_imaging: str,
+) -> None:
+  """Adds openslide derived image acquisition params to generated DICOM.
+
+    Total Pixel Matrix Origin SQ, Background Color, and Objective power.
+
+  Args:
+    metadata: Pydicom dataset to add tag data to.
+    source_imaging: Path to openslide imaging.
+
+  Returns:
+    None
+  """
+  try:
+    o_slide = openslide.OpenSlide(source_imaging)
+  except openslide.lowlevel.OpenSlideUnsupportedFormatError:
+    cloud_logging_client.logger().warning(
+        'OpenSlide cannot read file.',
+        {ingest_const.LogKeywords.FILENAME: source_imaging},
+    )
+    return
+  _add_total_pixel_matrix_origin_sequence(metadata, o_slide)
+  _add_background_color(metadata, o_slide)
+  _add_objective_power(metadata, o_slide)
+
+
 def get_svs_metadata(dicom_path: str) -> Mapping[str, pydicom.DataElement]:
   """Returns DICOM formatted metadata parsed from aperio SVS file.
 
@@ -111,72 +273,103 @@ def get_svs_metadata(dicom_path: str) -> Mapping[str, pydicom.DataElement]:
   return {e.keyword: e for e in metadata}
 
 
-@dataclasses.dataclass(frozen=True)
-class DicomFrameOfReferenceModuleMetadata:
-  uid: str
-  position_reference_indicator: str
-
-
-def create_dicom_frame_of_ref_module_metadata(
-    study_instance_uid: str,
-    series_instance_uid: str,
-    dicom_store: dicom_store_client.DicomStoreClient,
-    dicom_file_ref: Optional[wsi_dicom_file_ref.WSIDicomFileRef] = None,
-    preexisting_dicom_refs: Optional[
-        List[wsi_dicom_file_ref.WSIDicomFileRef]
-    ] = None,
-) -> DicomFrameOfReferenceModuleMetadata:
-  """Creates/gets DICOM frame of reference uid for series instance.
-
-  All instances in series share frame of reference. Possible DICOM are in store
-  defining frame of reference (result of incomplete ingestion). If necessary
-  this method will test for uid in these DICOM's.
+def add_missing_type2_dicom_metadata(ds: pydicom.Dataset) -> None:
+  """Sets missing type 2 tags to None.
 
   Args:
-    study_instance_uid: DICOM StudyInstanceUID for instance.
-    series_instance_uid: DICOM SeriesInstanceUID for instance.
-    dicom_store: Instance to DicomStoreClient.
-    dicom_file_ref: DICOM file reference to existing series metadata. may not be
-      in DICOM store.
-    preexisting_dicom_refs: List of all dicom refs in DICOM store study, series.
-      Pass to avoid DICOM store metadata query.
+    ds: Pydicom.Dataset, must be initalized with SOPClassUID.
 
   Returns:
-    DicomFrameOfReferenceModuleMetadata
+    None
   """
-  if dicom_file_ref is None:
-    position_reference_indicator = ''
-  else:
-    position_reference_indicator = dicom_file_ref.position_reference_indicator
+  init_type2c_tags = (
+      ingest_flags.CREATE_NULL_TYPE2C_DICOM_TAG_IF_METADATA_IS_UNDEFINED_FLG.value
+  )
+  tags_added = []
+  try:
+    undefined_tags = pydicom_util.get_undefined_dicom_tags_by_type(
+        ds, {'2', '2C'} if init_type2c_tags else {'2'}
+    )
+  except pydicom_util.UndefinedIODError:
+    return
+  for tag_path in undefined_tags:
+    try:
+      data_element = pydicom.DataElement(
+          tag_path.tag.address, list(tag_path.tag.vr)[0], None
+      )
+    except IndexError as _:
+      cloud_logging_client.logger().warning(
+          'DICOM standard metadata error tag is missing vr code.',
+          {'tag': tag_path.tag},
+      )
+      continue
+    tag_path.get_dicom_dataset(ds).add(data_element)
+    tags_added.append(str(tag_path))
+  if tags_added:
+    if init_type2c_tags:
+      msg = 'Added undefined type 2 and 2c tags.'
+      log_key = ingest_const.LogKeywords.TYPE2_AND_2C_TAGS_ADDED
+    else:
+      msg = 'Added undefined type 2 tags.'
+      log_key = ingest_const.LogKeywords.TYPE2_TAGS_ADDED
+    cloud_logging_client.logger().info(
+        msg,
+        {log_key: tags_added},
+        wsi_dicom_file_ref.init_from_pydicom_dataset('', ds).dict(),
+    )
 
-  # if metadata is known from prior ref use it.
-  if dicom_file_ref is not None and dicom_file_ref.frame_of_reference_uid:
-    frame_of_reference_uid = dicom_file_ref.frame_of_reference_uid
-    cloud_logging_client.logger().info(
-        'DICOM FrameOfReferenceUID set loaded instance.', dicom_file_ref.dict()
+
+def _add_dicom_pyramid_module_to_dataset_metadata(
+    dcm: pydicom.Dataset,
+    dicom_store_refs: List[wsi_dicom_file_ref.WSIDicomFileRef],
+    ingest_dicom_files: List[wsi_dicom_file_ref.WSIDicomFileRef],
+) -> None:
+  """Adds DICOM pyramid module metadata to pydicom dataset."""
+  pyramid_uid = ''
+  pyramid_label = ''
+  pyramid_description = ''
+  for dicom_file_ref in itertools.chain(ingest_dicom_files, dicom_store_refs):
+    if not dicom_file_ref.pyramid_uid:
+      continue
+    pyramid_uid = dicom_file_ref.pyramid_uid
+    pyramid_label = dicom_file_ref.pyramid_label
+    pyramid_description = dicom_file_ref.pyramid_description
+    break
+  if not pyramid_uid:
+    pyramid_uid = uid_generator.generate_uid()
+  # dcm.PyramidUID = pyramid_uid
+  dcm.add(
+      pydicom.DataElement(
+          ingest_const.DICOMTagAddress.PYRAMID_UID, 'UI', pyramid_uid
+      )
+  )
+  if pyramid_label:
+    # dcm.PyramidLabel = pyramid_label
+    dcm.add(
+        pydicom.DataElement(
+            ingest_const.DICOMTagAddress.PYRAMID_LABEL, 'LO', pyramid_label
+        )
     )
-    cloud_logging_client.logger().info(
-        'DICOM FrameOfReference',
-        {
-            'FrameOfReferenceUID': frame_of_reference_uid,
-            'PositionReferenceIndicator': position_reference_indicator,
-        },
+  if pyramid_description:
+    # dcm.PyramidDescription = pyramid_description
+    dcm.add(
+        pydicom.DataElement(
+            ingest_const.DICOMTagAddress.PYRAMID_DESCRIPTION,
+            'LO',
+            pyramid_description,
+        )
     )
-    return DicomFrameOfReferenceModuleMetadata(
-        frame_of_reference_uid, position_reference_indicator
-    )
-  # query store for pre-existing metadata to see if store already has
-  # metadata for series
-  if preexisting_dicom_refs is None or not preexisting_dicom_refs:
-    preexisting_dicom_refs = dicom_store.get_study_dicom_file_ref(
-        study_instance_uid, series_instance_uid
-    )
-  else:
-    cloud_logging_client.logger().info(
-        'Searching for FrameOfReferenceUID using prefetched DicomRefs.',
-        {'dicom_ref_list': str(preexisting_dicom_refs)},
-    )
-  for dicom_file_ref in preexisting_dicom_refs:
+
+
+def _add_dicom_frame_of_ref_module_to_dataset_metadata(
+    dcm: pydicom.Dataset,
+    dicom_store_refs: List[wsi_dicom_file_ref.WSIDicomFileRef],
+    ingest_dicom_files: List[wsi_dicom_file_ref.WSIDicomFileRef],
+) -> None:
+  """Adds DICOM frame of reference metadata to pydicom dataset."""
+  frame_of_reference_uid = ''
+  position_reference_indicator = ''
+  for dicom_file_ref in itertools.chain(ingest_dicom_files, dicom_store_refs):
     if not dicom_file_ref.frame_of_reference_uid:
       continue
     frame_of_reference_uid = dicom_file_ref.frame_of_reference_uid
@@ -192,21 +385,56 @@ def create_dicom_frame_of_ref_module_metadata(
             'PositionReferenceIndicator': position_reference_indicator,
         },
     )
-    return DicomFrameOfReferenceModuleMetadata(
-        frame_of_reference_uid, position_reference_indicator
+    break
+  if not frame_of_reference_uid:
+    frame_of_reference_uid = uid_generator.generate_uid()
+    cloud_logging_client.logger().info(
+        'DICOM FrameOfReferenceUID initialized to new UID.',
+        {
+            'FrameOfReferenceUID': frame_of_reference_uid,
+            'PositionReferenceIndicator': position_reference_indicator,
+        },
     )
-  # no metadata found allocate new uid
-  frame_of_reference_uid = uid_generator.generate_uid()
-  cloud_logging_client.logger().info(
-      'DICOM FrameOfReferenceUID initialized to new UID.',
-      {
-          'FrameOfReferenceUID': frame_of_reference_uid,
-          'PositionReferenceIndicator': position_reference_indicator,
-      },
+  dcm.FrameOfReferenceUID = frame_of_reference_uid
+  if position_reference_indicator:
+    dcm.PositionReferenceIndicator = position_reference_indicator
+
+
+def get_additional_wsi_specific_dicom_metadata(
+    dcm_store_client: dicom_store_client.DicomStoreClient,
+    dicom_json: Mapping[str, Any],
+    ingest_dicom_files: Optional[
+        List[wsi_dicom_file_ref.WSIDicomFileRef]
+    ] = None,
+) -> pydicom.Dataset:
+  """Returns additional DICOM tags to addd to WSI DICOM.
+
+  Args:
+    dcm_store_client: DICOM store client.
+    dicom_json: Dicom JSON that encodes imaging study uid & series instance uid.
+    ingest_dicom_files: List of references to instances of DICOMs ingested.
+
+  Returns:
+    Pydicom dataset containing the additional tag metadata.
+  """
+  if ingest_dicom_files is None:
+    ingest_dicom_files = []
+  refs_to_dicom_instances_in_store = dcm_store_client.get_study_dicom_file_ref(
+      dicom_json_util.get_study_instance_uid(dicom_json),
+      dicom_json_util.get_series_instance_uid(dicom_json),
   )
-  return DicomFrameOfReferenceModuleMetadata(
-      frame_of_reference_uid, position_reference_indicator
+  additional_wsi_specific_metadata = pydicom.Dataset()
+  _add_dicom_frame_of_ref_module_to_dataset_metadata(
+      additional_wsi_specific_metadata,
+      refs_to_dicom_instances_in_store,
+      ingest_dicom_files,
   )
+  _add_dicom_pyramid_module_to_dataset_metadata(
+      additional_wsi_specific_metadata,
+      refs_to_dicom_instances_in_store,
+      ingest_dicom_files,
+  )
+  return additional_wsi_specific_metadata
 
 
 def pad_bytes_to_even_length(data: bytes) -> bytes:
@@ -295,11 +523,21 @@ def set_frametype_to_imagetype(dcm_file: pydicom.Dataset):
   Args:
     dcm_file: Pydicom dataset.
   """
-  frame_type_sq = pydicom.Dataset()
+  if 'ImageType' not in dcm_file:
+    return
+  if 'SharedFunctionalGroupsSequence' not in dcm_file:
+    dcm_file.SharedFunctionalGroupsSequence = [pydicom.Dataset()]
+  if (
+      'WholeSlideMicroscopyImageFrameTypeSequence'
+      not in dcm_file.SharedFunctionalGroupsSequence[0]
+  ):
+    dcm_file.SharedFunctionalGroupsSequence[
+        0
+    ].WholeSlideMicroscopyImageFrameTypeSequence = [pydicom.Dataset()]
+  frame_type_sq = dcm_file.SharedFunctionalGroupsSequence[
+      0
+  ].WholeSlideMicroscopyImageFrameTypeSequence[0]
   frame_type_sq.FrameType = copy.copy(dcm_file.ImageType)
-  dcm_file.WholeSlideMicroscopyImageFrameTypeSequence = pydicom.Sequence(
-      [frame_type_sq]
-  )
 
 
 def set_acquisition_date_time(
@@ -345,21 +583,6 @@ def set_sop_instance_uid(
   ds.SOPInstanceUID = sop_instance_uid
 
 
-def set_wsi_frame_of_ref_metadata(
-    dcm_file: pydicom.Dataset, frame_of_ref: DicomFrameOfReferenceModuleMetadata
-):
-  """Sets frame of reference module metadata.
-
-  Args:
-    dcm_file: Py_dicom_dataset.
-    frame_of_ref: DICOM frame of reference module metadata.
-  """
-  dcm_file.FrameOfReferenceUID = frame_of_ref.uid
-  dcm_file.PositionReferenceIndicator = (
-      frame_of_ref.position_reference_indicator
-  )
-
-
 def set_wsi_dimensional_org(dcm_file: pydicom.Dataset):
   """Sets WSI DICOM dimensional organization metadata.
 
@@ -394,16 +617,16 @@ def add_general_metadata_to_dicom(dcm_file: pydicom.Dataset) -> None:
 
 
 def add_metadata_to_dicom(
-    frame_of_ref_md: DicomFrameOfReferenceModuleMetadata,
-    dcm_json: Optional[Dict[str, Any]],
+    additional_wsi_metadata: pydicom.Dataset,
+    dcm_json: Optional[Mapping[str, Any]],
     private_tags: List[dicom_private_tag_generator.DicomPrivateTag],
     dcm_file: pydicom.Dataset,
 ) -> None:
   """Adds metadata to resampled WSI DICOM instance.
 
   Args:
-    frame_of_ref_md: DICOM frame of ref module metadata.
-    dcm_json: JSON metadata to add to DICOM.
+    additional_wsi_metadata: Additional metadata to merge with gen DICOM.
+    dcm_json: DICOM formated json metadata to add to DICOM instances.
     private_tags: List of private tags to add to DICOM.
     dcm_file: DICOM instance to add metadata to.
   """
@@ -417,7 +640,7 @@ def add_metadata_to_dicom(
   )
   set_sop_instance_uid(dcm_file)
   set_wsi_dimensional_org(dcm_file)
-  set_wsi_frame_of_ref_metadata(dcm_file, frame_of_ref_md)
+  copy_pydicom_dataset(additional_wsi_metadata, dcm_file)
   add_general_metadata_to_dicom(dcm_file)
 
 
@@ -490,7 +713,7 @@ def _single_code_val_sq(
 
 
 def add_default_optical_path_sequence(
-    dcm: pydicom.FileDataset, icc_profile: Optional[bytes]
+    dcm: pydicom.Dataset, icc_profile: Optional[bytes]
 ) -> bool:
   """Adds default optical sequence.
 
@@ -518,6 +741,11 @@ def add_default_optical_path_sequence(
       '11744', 'DCM', 'Brightfield illumination'
   )
   dcm.OpticalPathSequence = pydicom.Sequence([ds])
+  dcm.NumberOfOpticalPaths = 1
+  offset = pydicom.Dataset()
+  offset.XOffsetInSlideCoordinateSystem = 0
+  offset.YOffsetInSlideCoordinateSystem = 0
+  dcm.TotalPixelMatrixOriginSequence = [offset]
   return True
 
 
@@ -525,6 +753,7 @@ def set_defined_pydicom_tags(
     dcm: pydicom.Dataset,
     tag_value_map: Mapping[str, Optional[pydicom.DataElement]],
     tag_keywords: Sequence[str],
+    overwrite_existing_values: bool,
 ) -> None:
   """Sets select tags on pydicom dataset if value != None.
 
@@ -532,14 +761,26 @@ def set_defined_pydicom_tags(
     dcm: Pydicom dataset.
     tag_value_map: Pydicom tag keyword value map.
     tag_keywords: Tag keywords to copy to dataset.
+    overwrite_existing_values: If False do not overwrite tags with pre-existing
+      values.
 
   Returns:
     None
   """
   for tag_keyword in tag_keywords:
     tag_value = tag_value_map.get(tag_keyword)
-    if tag_value is not None:
+    if tag_value is not None and (
+        overwrite_existing_values or dcm.get(tag_keyword) is None
+    ):
       dcm[tag_keyword] = tag_value
+
+
+def copy_pydicom_dataset(
+    source: pydicom.Dataset, dest: pydicom.Dataset
+) -> None:
+  """Copies all tags in source pydicom dataset to dest dataset."""
+  for key, value in source.items():
+    dest[key] = copy.deepcopy(value)
 
 
 def set_all_defined_pydicom_tags(
@@ -555,4 +796,6 @@ def set_all_defined_pydicom_tags(
   Returns:
     None
   """
-  set_defined_pydicom_tags(dcm, tag_value_map, tag_value_map)  # pytype: disable=wrong-arg-types  # mapping-is-not-sequence
+  set_defined_pydicom_tags(
+      dcm, tag_value_map, tag_value_map, overwrite_existing_values=True
+  )  # pytype: disable=wrong-arg-types  # mapping-is-not-sequence

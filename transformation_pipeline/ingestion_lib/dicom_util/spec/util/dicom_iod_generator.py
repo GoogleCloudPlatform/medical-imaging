@@ -233,6 +233,11 @@ if __name__ == '__main__':
   JsonWriter.write_iod_json(
       'dicom_modules', iod_parser.header_txt, iod_def.modules
   )
+  JsonWriter.write_iod_json(
+      'dicom_iod_func_groups',
+      iod_parser.header_txt,
+      iod_def.iod_functional_groups,
+  )
 
   split_tables = split_tables(iod_def.tables, 3)
   for f_index, table_part in enumerate(split_tables):

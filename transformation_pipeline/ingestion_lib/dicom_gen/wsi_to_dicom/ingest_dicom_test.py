@@ -52,7 +52,6 @@ _MESSAGE_ID = 'message_id'
 class IngestDicomTest(parameterized.TestCase):
   """Tests for DICOM files ingestion."""
 
-  @flagsaver.flagsaver(metadata_bucket='test')
   def _create_metadata_client(self):
     schema_path = gen_test_util.test_file_path(_SCHEMA_PATH)
     metadata_path = gen_test_util.test_file_path(_METADATA_PATH)
@@ -62,6 +61,7 @@ class IngestDicomTest(parameterized.TestCase):
 
   def setUp(self):
     super().setUp()
+    self.enter_context(flagsaver.flagsaver(metadata_bucket='test'))
     self.metadata_client = self._create_metadata_client()
 
   def _get_mock_dicom_handler(
@@ -84,81 +84,141 @@ class IngestDicomTest(parameterized.TestCase):
     )
     return mock_dicom_handler
 
-  @flagsaver.flagsaver(metadata_bucket='test')
   def test_metadata_client_initialized(self):
     ingest = ingest_dicom.IngestDicom(
         dicom_store_triggered_ingest=False,
         override_study_uid_with_metadata=True,
+        metadata_client=metadata_storage_client.MetadataStorageClient(),
     )
     self.assertIsNotNone(ingest.metadata_storage_client)
 
-  def test_determine_dicom_slideid_read_barcode_from_dcm(self):
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='_filename_preceeds_barcode',
+          barcode=_SLIDE_ID_2,
+          filename=_SLIDE_ID_1,
+          slideid=_SLIDE_ID_1,
+      ),
+      dict(
+          testcase_name='filename_not_found_determine_in_barcode',
+          barcode=_SLIDE_ID_2,
+          filename='not_found',
+          slideid=_SLIDE_ID_2,
+      ),
+  ])
+  def test_get_slide_id_succeeds(self, barcode, filename, slideid):
     dcm = pydicom.Dataset()
-    dcm.BarcodeValue = _SLIDE_ID_2
+    dcm.BarcodeValue = barcode
+    path = os.path.join(self.create_tempdir(), f'{filename}.dcm')
+    gen_test_util.write_test_dicom(path, dcm)
     ingest = ingest_dicom.IngestDicom(
         dicom_store_triggered_ingest=False,
         override_study_uid_with_metadata=True,
+        metadata_client=self.metadata_client,
     )
-    ingest._metadata_storage_client = self.metadata_client
     self.assertEqual(
-        ingest._determine_dicom_slideid(dcm, f'path/{_SLIDE_ID_1}.dcm'),
+        ingest._determine_dicom_slideid(
+            dcm,
+            abstract_dicom_generation.GeneratedDicomFiles(
+                f'path/{filename}.dcm', f'gs://foo/{filename}.dcm'
+            ),
+        ),
+        slideid,
+    )
+
+  def test_get_slide_id_no_barcode_read_from_filename(self):
+    path = os.path.join(self.create_tempdir(), f'{_SLIDE_ID_2}.dcm')
+    gen_test_util.write_test_dicom(path, pydicom.Dataset())
+    ingest = ingest_dicom.IngestDicom(
+        dicom_store_triggered_ingest=False,
+        override_study_uid_with_metadata=True,
+        metadata_client=self.metadata_client,
+    )
+    self.assertEqual(
+        ingest.get_slide_id(
+            abstract_dicom_generation.GeneratedDicomFiles(
+                path, f'gs://foo/{_SLIDE_ID_2}.dcm'
+            ),
+            mock.Mock(),
+        ),
         _SLIDE_ID_2,
     )
 
-  def test_determine_dicom_slideid_tag_barcode_not_found_determine_from_filename(
+  @flagsaver.flagsaver(enable_metadata_free_ingestion=True)
+  def test_get_slide_id_metadata_free_returns_filename_based_slideid(
       self,
   ):
-    dcm = pydicom.Dataset()
-    dcm.BarcodeValue = 'not_Found'
+    filename = 'foo'
+    path = os.path.join(self.create_tempdir(), f'{filename}.dcm')
+    gen_test_util.write_test_dicom(path, pydicom.Dataset())
     ingest = ingest_dicom.IngestDicom(
         dicom_store_triggered_ingest=False,
         override_study_uid_with_metadata=True,
+        metadata_client=self.metadata_client,
     )
-    ingest._metadata_storage_client = self.metadata_client
-    self.assertEqual(
-        ingest._determine_dicom_slideid(dcm, f'path/{_SLIDE_ID_2}.dcm'),
-        _SLIDE_ID_2,
+    slide_id = ingest.get_slide_id(
+        abstract_dicom_generation.GeneratedDicomFiles(
+            path, f'gs://foo/{filename}.dcm'
+        ),
+        mock.Mock(),
     )
+    self.assertEqual(slide_id, filename)
 
-  def test_determine_dicom_slideid_read_barcode_from_filename(self):
-    dcm = pydicom.Dataset()
+  @flagsaver.flagsaver(enable_metadata_free_ingestion=True)
+  def test_get_slide_id_metadata_free_called_from_store_trigger_raises(
+      self,
+  ):
+    filename = 'foo'
+    path = os.path.join(self.create_tempdir(), f'{filename}.dcm')
+    gen_test_util.write_test_dicom(path, pydicom.Dataset())
     ingest = ingest_dicom.IngestDicom(
-        dicom_store_triggered_ingest=False,
+        dicom_store_triggered_ingest=True,
         override_study_uid_with_metadata=True,
+        metadata_client=self.metadata_client,
     )
-    ingest._metadata_storage_client = self.metadata_client
-    self.assertEqual(
-        ingest._determine_dicom_slideid(dcm, f'path/{_SLIDE_ID_2}.dcm'),
-        _SLIDE_ID_2,
-    )
+    with self.assertRaises(ingest_base.DetermineSlideIDError):
+      ingest.get_slide_id(
+          abstract_dicom_generation.GeneratedDicomFiles(
+              path, f'gs://foo/{filename}.dcm'
+          ),
+          mock.Mock(),
+      )
 
-  def test_determine_dicom_slideid_do_not_read_barcode_from_filename(self):
-    dcm = pydicom.Dataset()
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='do_not_read_barcode_from_filename',
+          dicom_store_triggered_ingest=True,
+          filename=_SLIDE_ID_2,
+      ),
+      dict(
+          testcase_name='can_not_determine_from_filename',
+          dicom_store_triggered_ingest=False,
+          filename='path',
+      ),
+  ])
+  def test_determine_dicom_slideid_raises(
+      self, dicom_store_triggered_ingest, filename
+  ):
+    path = os.path.join(self.create_tempdir(), f'{filename}.dcm')
+    gen_test_util.write_test_dicom(path, pydicom.Dataset())
     ingest = ingest_dicom.IngestDicom(
-        dicom_store_triggered_ingest=True, override_study_uid_with_metadata=True
-    )
-    ingest._metadata_storage_client = self.metadata_client
-    with self.assertRaisesRegex(
-        ingest_base.GenDicomFailedError, 'Failed to determine slide id'
-    ):
-      _ = ingest._determine_dicom_slideid(dcm, f'path/{_SLIDE_ID_2}.dcm')
-
-  def test_determine_dicom_slideid_fails(self):
-    dcm = pydicom.Dataset()
-    ingest = ingest_dicom.IngestDicom(
-        dicom_store_triggered_ingest=False,
+        dicom_store_triggered_ingest=dicom_store_triggered_ingest,
         override_study_uid_with_metadata=True,
+        metadata_client=self.metadata_client,
     )
-    ingest._metadata_storage_client = self.metadata_client
-    with self.assertRaisesRegex(
-        ingest_base.GenDicomFailedError, 'Failed to determine slide id'
-    ):
-      _ = ingest._determine_dicom_slideid(dcm, 'some/path')
+    with self.assertRaises(ingest_base.DetermineSlideIDError):
+      ingest.get_slide_id(
+          abstract_dicom_generation.GeneratedDicomFiles(
+              path, f'gs://foo/{filename}.dcm'
+          ),
+          mock.Mock(),
+      )
 
   def test_is_dicom_file_already_ingested_invalid_path(self):
     ingest = ingest_dicom.IngestDicom(
         dicom_store_triggered_ingest=False,
         override_study_uid_with_metadata=True,
+        metadata_client=metadata_storage_client.MetadataStorageClient(),
     )
     self.assertFalse(ingest.is_dicom_file_already_ingested('invalid/path'))
 
@@ -180,6 +240,7 @@ class IngestDicomTest(parameterized.TestCase):
     ingest = ingest_dicom.IngestDicom(
         dicom_store_triggered_ingest=False,
         override_study_uid_with_metadata=True,
+        metadata_client=metadata_storage_client.MetadataStorageClient(),
     )
     self.assertFalse(ingest.is_dicom_file_already_ingested(dcm_path))
 
@@ -232,6 +293,7 @@ class IngestDicomTest(parameterized.TestCase):
     ingest = ingest_dicom.IngestDicom(
         dicom_store_triggered_ingest=False,
         override_study_uid_with_metadata=True,
+        metadata_client=metadata_storage_client.MetadataStorageClient(),
     )
     self.assertTrue(ingest.is_dicom_file_already_ingested(dcm_path))
 
@@ -245,14 +307,17 @@ class IngestDicomTest(parameterized.TestCase):
     ingest = ingest_dicom.IngestDicom(
         dicom_store_triggered_ingest=False,
         override_study_uid_with_metadata=True,
+        metadata_client=self.metadata_client,
     )
-    ingest._metadata_storage_client = self.metadata_client
     dcm_path = gen_test_util.test_file_path(_TEST_PATH_DCM)
+    dicom_gen = abstract_dicom_generation.GeneratedDicomFiles(dcm_path, None)
+    handler = self._get_mock_dicom_handler()
+    ingest.get_slide_id(dicom_gen, handler)
     gen_dicom_result = ingest.generate_dicom(
         dicom_gen_dir=FLAGS.test_tmpdir,
-        dicom_gen=abstract_dicom_generation.GeneratedDicomFiles(dcm_path, None),
+        dicom_gen=dicom_gen,
         message_id=_MESSAGE_ID,
-        abstract_dicom_handler=self._get_mock_dicom_handler(),
+        abstract_dicom_handler=handler,
     )
     dcm_path = gen_dicom_result.dicom_gen.generated_dicom_files[0]
     self.assertTrue(ingest.is_dicom_file_already_ingested(dcm_path))
@@ -261,19 +326,19 @@ class IngestDicomTest(parameterized.TestCase):
     ingest = ingest_dicom.IngestDicom(
         dicom_store_triggered_ingest=False,
         override_study_uid_with_metadata=True,
+        metadata_client=self.metadata_client,
         ingest_buckets=ingest_base.GcsIngestionBuckets(
             success_uri='gs://foo', failure_uri='gs://bar'
         ),
     )
-    ingest._metadata_storage_client = self.metadata_client
     dcm_path = os.path.join(self.create_tempdir(), 'non-existent-path.dcm')
-    dcm_result = ingest.generate_dicom(
-        dicom_gen_dir=FLAGS.test_tmpdir,
-        dicom_gen=abstract_dicom_generation.GeneratedDicomFiles(dcm_path, None),
-        message_id=_MESSAGE_ID,
-        abstract_dicom_handler=mock.Mock(),
-    )
-    self.assertEqual(dcm_result.dest_uri, 'gs://bar/invalid_dicom')
+    dicom_gen = abstract_dicom_generation.GeneratedDicomFiles(dcm_path, None)
+    dest_uri = ''
+    try:
+      ingest.get_slide_id(dicom_gen, mock.Mock())
+    except ingest_base.DetermineSlideIDError as exp:
+      dest_uri = exp.dest_uri
+    self.assertEqual(dest_uri, 'gs://bar/invalid_dicom')
 
   @mock.patch.object(
       decode_slideid,
@@ -281,18 +346,23 @@ class IngestDicomTest(parameterized.TestCase):
       return_value=_SLIDE_ID_1,
       autospec=True,
   )
-  def test_generate_dicom_succeeds_overrides_study_uid(self, _):
+  def test_generate_dicom_succeeds_overrides_study_uid_ingest_from_gcs(self, _):
     ingest = ingest_dicom.IngestDicom(
         dicom_store_triggered_ingest=False,
         override_study_uid_with_metadata=True,
+        metadata_client=self.metadata_client,
     )
-    ingest._metadata_storage_client = self.metadata_client
-    dcm_path = gen_test_util.test_file_path(_TEST_PATH_DCM)
+    dcm_path = gen_test_util.test_file_path(
+        gen_test_util.test_file_path(_TEST_PATH_DCM)
+    )
+    dicom_gen = abstract_dicom_generation.GeneratedDicomFiles(dcm_path, None)
+    handler = self._get_mock_dicom_handler()
+    ingest.get_slide_id(dicom_gen, handler)
     gen_dicom_result = ingest.generate_dicom(
         dicom_gen_dir=FLAGS.test_tmpdir,
-        dicom_gen=abstract_dicom_generation.GeneratedDicomFiles(dcm_path, None),
+        dicom_gen=dicom_gen,
         message_id=_MESSAGE_ID,
-        abstract_dicom_handler=self._get_mock_dicom_handler(),
+        abstract_dicom_handler=handler,
     )
 
     self.assertLen(gen_dicom_result.files_to_upload.main_store_instances, 1)
@@ -305,6 +375,55 @@ class IngestDicomTest(parameterized.TestCase):
     self.assertEqual(dcm.SOPInstanceUID, _INSTANCE_UID)
     self.assertEqual(dcm.BarcodeValue, _SLIDE_ID_1)
     self.assertEqual(dcm.PatientName, 'Curie^Marie')
+    self.assertIn(ingest_const.DICOMTagKeywords.INGEST_FILENAME_TAG, dcm)
+    self.assertIsNotNone(dcm.PixelData)
+
+  @parameterized.parameters([True, False])
+  @mock.patch.object(
+      decode_slideid,
+      'get_slide_id_from_filename',
+      return_value=_SLIDE_ID_1,
+      autospec=True,
+  )
+  def test_generate_dicom_succeeds_overrides_study_uid_ingest_from_dicom_store(
+      self, dicom_store_triggered_ingest, _
+  ):
+    ingest = ingest_dicom.IngestDicom(
+        dicom_store_triggered_ingest=dicom_store_triggered_ingest,
+        override_study_uid_with_metadata=True,
+        metadata_client=self.metadata_client,
+    )
+    temp_dicom_path = os.path.join(self.create_tempdir(), 'tmp_dcm.dcm')
+    with pydicom.dcmread(gen_test_util.test_file_path(_TEST_PATH_DCM)) as dcm:
+      dcm.BarcodeValue = _SLIDE_ID_1
+      dcm.save_as(temp_dicom_path)
+    dcm_path = gen_test_util.test_file_path(temp_dicom_path)
+    dicom_gen = abstract_dicom_generation.GeneratedDicomFiles(dcm_path, None)
+    handler = self._get_mock_dicom_handler()
+    ingest.get_slide_id(dicom_gen, handler)
+    gen_dicom_result = ingest.generate_dicom(
+        dicom_gen_dir=FLAGS.test_tmpdir,
+        dicom_gen=dicom_gen,
+        message_id=_MESSAGE_ID,
+        abstract_dicom_handler=handler,
+    )
+
+    self.assertLen(gen_dicom_result.files_to_upload.main_store_instances, 1)
+    self.assertFalse(gen_dicom_result.generated_series_instance_uid)
+    dcm = pydicom.dcmread(
+        list(gen_dicom_result.files_to_upload.main_store_instances)[0]
+    )
+    self.assertEqual(
+        dcm.StudyInstanceUID == _STUDY_UID, not dicom_store_triggered_ingest
+    )
+    self.assertEqual(dcm.SeriesInstanceUID, _SERIES_UID)
+    self.assertEqual(dcm.SOPInstanceUID, _INSTANCE_UID)
+    self.assertEqual(dcm.BarcodeValue, _SLIDE_ID_1)
+    self.assertEqual(dcm.PatientName, 'Curie^Marie')
+    self.assertEqual(
+        ingest_const.DICOMTagKeywords.INGEST_FILENAME_TAG in dcm,
+        not dicom_store_triggered_ingest,
+    )
     self.assertIsNotNone(dcm.PixelData)
 
   @mock.patch.object(
@@ -317,14 +436,17 @@ class IngestDicomTest(parameterized.TestCase):
     ingest = ingest_dicom.IngestDicom(
         dicom_store_triggered_ingest=False,
         override_study_uid_with_metadata=False,
+        metadata_client=self.metadata_client,
     )
-    ingest._metadata_storage_client = self.metadata_client
     dcm_path = gen_test_util.test_file_path(_TEST_PATH_DCM)
+    dicom_gen = abstract_dicom_generation.GeneratedDicomFiles(dcm_path, None)
+    handler = self._get_mock_dicom_handler()
+    ingest.get_slide_id(dicom_gen, handler)
     gen_dicom_result = ingest.generate_dicom(
         dicom_gen_dir=FLAGS.test_tmpdir,
         dicom_gen=abstract_dicom_generation.GeneratedDicomFiles(dcm_path, None),
         message_id=_MESSAGE_ID,
-        abstract_dicom_handler=self._get_mock_dicom_handler(),
+        abstract_dicom_handler=handler,
     )
 
     self.assertLen(gen_dicom_result.files_to_upload.main_store_instances, 1)
@@ -408,6 +530,7 @@ class IngestDicomTest(parameterized.TestCase):
       ingest = ingest_dicom.IngestDicom(
           dicom_store_triggered_ingest=False,
           override_study_uid_with_metadata=True,
+          metadata_client=metadata_storage_client.MetadataStorageClient(),
       )
       self.assertEqual(
           ingest.is_dicom_instance_already_ingested(
@@ -428,6 +551,7 @@ class IngestDicomTest(parameterized.TestCase):
     ingest = ingest_dicom.IngestDicom(
         dicom_store_triggered_ingest=False,
         override_study_uid_with_metadata=True,
+        metadata_client=metadata_storage_client.MetadataStorageClient(),
     )
     with self.assertRaises(ingest_dicom.UnexpectedDicomMetadataError):
       ingest.is_dicom_instance_already_ingested(
@@ -438,6 +562,160 @@ class IngestDicomTest(parameterized.TestCase):
           '1',
           '1.2',
           '1.2.3',
+      )
+
+  def test_uninitialized_slide_id_raises_value_error(self):
+    ingest = ingest_dicom.IngestDicom(
+        dicom_store_triggered_ingest=False,
+        override_study_uid_with_metadata=True,
+        metadata_client=metadata_storage_client.MetadataStorageClient(),
+    )
+    ingest.init_handler_for_ingestion()
+    handler = self._get_mock_dicom_handler()
+    with self.assertRaises(ValueError):
+      ingest.generate_dicom(
+          '',
+          abstract_dicom_generation.GeneratedDicomFiles('filename', 'uri'),
+          '',
+          handler,
+      )
+
+  def test_generate_metadata_free_slide_metadata(self):
+    ingest = ingest_dicom.IngestDicom(
+        dicom_store_triggered_ingest=False,
+        override_study_uid_with_metadata=True,
+        metadata_client=metadata_storage_client.MetadataStorageClient(),
+    )
+    ingest.init_handler_for_ingestion()
+    mock_dicomweb_url = 'https://mock.dicomstore.com/dicomWeb'
+    with dicom_store_mock.MockDicomStoreClient(mock_dicomweb_url):
+      dicom_client = dicom_store_client.DicomStoreClient(mock_dicomweb_url)
+      result = ingest._generate_metadata_free_slide_metadata(
+          'mock_slide_id', dicom_client
+      )
+    self.assertEmpty(result.dicom_json)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='All_factors_true',
+          override_study_uid_with_metadata=True,
+          dicom_store_triggered_ingest=True,
+          is_metadata_free=True,
+          expected=False,
+      ),
+      dict(
+          testcase_name='metadata_free',
+          override_study_uid_with_metadata=False,
+          is_metadata_free=True,
+          dicom_store_triggered_ingest=False,
+          expected=False,
+      ),
+      dict(
+          testcase_name='dicom_store_triggered_ingest',
+          override_study_uid_with_metadata=False,
+          is_metadata_free=False,
+          dicom_store_triggered_ingest=True,
+          expected=False,
+      ),
+      dict(
+          testcase_name='dicom_store_triggered_ingest_and_metadata_free',
+          override_study_uid_with_metadata=False,
+          is_metadata_free=True,
+          dicom_store_triggered_ingest=True,
+          expected=False,
+      ),
+      dict(
+          testcase_name='init_series_from_metadata',
+          override_study_uid_with_metadata=True,
+          is_metadata_free=False,
+          dicom_store_triggered_ingest=False,
+          expected=True,
+      ),
+      dict(
+          testcase_name='all_factors_false',
+          override_study_uid_with_metadata=False,
+          is_metadata_free=False,
+          dicom_store_triggered_ingest=False,
+          expected=False,
+      ),
+  ])
+  def test_set_study_instance_uid_from_metadata(
+      self,
+      override_study_uid_with_metadata,
+      is_metadata_free,
+      dicom_store_triggered_ingest,
+      expected,
+  ) -> bool:
+    ingest = ingest_dicom.IngestDicom(
+        dicom_store_triggered_ingest=dicom_store_triggered_ingest,
+        override_study_uid_with_metadata=override_study_uid_with_metadata,
+        metadata_client=metadata_storage_client.MetadataStorageClient(),
+    )
+    ingest.set_slide_id('mock_slide_id', is_metadata_free)
+    self.assertEqual(ingest._set_study_instance_uid_from_metadata(), expected)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='All_factors_true',
+          init_series_from_metadata=True,
+          dicom_store_triggered_ingest=True,
+          is_metadata_free=True,
+          expected=False,
+      ),
+      dict(
+          testcase_name='metadata_free',
+          init_series_from_metadata=False,
+          is_metadata_free=True,
+          dicom_store_triggered_ingest=False,
+          expected=False,
+      ),
+      dict(
+          testcase_name='dicom_store_triggered_ingest',
+          init_series_from_metadata=False,
+          is_metadata_free=False,
+          dicom_store_triggered_ingest=True,
+          expected=False,
+      ),
+      dict(
+          testcase_name='dicom_store_triggered_ingest_and_metadata_free',
+          init_series_from_metadata=False,
+          is_metadata_free=True,
+          dicom_store_triggered_ingest=True,
+          expected=False,
+      ),
+      dict(
+          testcase_name='init_series_from_metadata',
+          init_series_from_metadata=True,
+          is_metadata_free=False,
+          dicom_store_triggered_ingest=False,
+          expected=True,
+      ),
+      dict(
+          testcase_name='all_factors_false',
+          init_series_from_metadata=False,
+          is_metadata_free=False,
+          dicom_store_triggered_ingest=False,
+          expected=False,
+      ),
+  ])
+  def test_set_series_instance_uid_from_metadata(
+      self,
+      init_series_from_metadata,
+      is_metadata_free,
+      dicom_store_triggered_ingest,
+      expected,
+  ) -> bool:
+    ingest = ingest_dicom.IngestDicom(
+        dicom_store_triggered_ingest=dicom_store_triggered_ingest,
+        override_study_uid_with_metadata=False,
+        metadata_client=metadata_storage_client.MetadataStorageClient(),
+    )
+    ingest.set_slide_id('mock_slide_id', is_metadata_free)
+    with flagsaver.flagsaver(
+        init_series_instance_uid_from_metadata=init_series_from_metadata
+    ):
+      self.assertEqual(
+          ingest._set_series_instance_uid_from_metadata(), expected
       )
 
 

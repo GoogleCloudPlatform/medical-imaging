@@ -88,13 +88,11 @@ def _get_blob(
   Raises:
     ValueError if invalid GCS URI.
   """
-  gcs_blob = cloud_storage.Blob.from_string(
+  if filename is not None and filename:
+    gs_uri = os.path.join(gs_uri, filename)
+  return cloud_storage.Blob.from_string(
       gs_uri, client=_CloudStorageClientProjectState.storage_client()
   )
-  blob_path = gcs_blob.name
-  if filename:
-    blob_path = os.path.join(blob_path, filename)
-  return gcs_blob.bucket.blob(blob_path)
 
 
 class _CloudStorageClientProjectState:
@@ -160,7 +158,7 @@ def download_to_container(uri: str, local_file: str) -> bool:
   except google.api_core.exceptions.NotFound as exp:
     cloud_logging_client.logger().warning(
         'Blob download failed. Source blob not found',
-        {ingest_const.LogKeywords.uri: uri},
+        {ingest_const.LogKeywords.URI: uri},
         exp,
     )
     return False
@@ -173,8 +171,8 @@ def download_to_container(uri: str, local_file: str) -> bool:
   cloud_logging_client.logger().info(
       'Downloaded blob',
       {
-          ingest_const.LogKeywords.source_uri: uri,
-          ingest_const.LogKeywords.dest_file: local_file,
+          ingest_const.LogKeywords.SOURCE_URI: uri,
+          ingest_const.LogKeywords.DEST_FILE: local_file,
           'filesize_bytes': str(os.path.getsize(local_file)),
       },
   )
@@ -254,7 +252,7 @@ def upload_blob_to_uri(
   if not dst_bucket.exists():
     cloud_logging_client.logger().error(
         'Dest storage bucket does not exist. Upload to GCS bucket failed.',
-        {ingest_const.LogKeywords.bucket_name: dst_bucket.name},
+        {ingest_const.LogKeywords.BUCKET_NAME: dst_bucket.name},
         additional_log,
     )
     return False
@@ -274,7 +272,7 @@ def upload_blob_to_uri(
           ),
           {
               'local_file': local_source,
-              ingest_const.LogKeywords.dest_uri: _get_blob_path_gsuri(dst_blob),
+              ingest_const.LogKeywords.DEST_URI: _get_blob_path_gsuri(dst_blob),
           },
           additional_log,
       )
@@ -287,7 +285,7 @@ def upload_blob_to_uri(
         'Uploaded local file to GCS bucket.',
         {
             'local_file': local_source,
-            ingest_const.LogKeywords.dest_uri: _get_blob_path_gsuri(dst_blob),
+            ingest_const.LogKeywords.DEST_URI: _get_blob_path_gsuri(dst_blob),
         },
         additional_log,
     )
@@ -298,7 +296,7 @@ def upload_blob_to_uri(
         'Exception occurred uploading local file to GCS bucket.',
         {
             'local_file': local_source,
-            ingest_const.LogKeywords.dest_uri: _get_blob_path_gsuri(dst_blob),
+            ingest_const.LogKeywords.DEST_URI: _get_blob_path_gsuri(dst_blob),
         },
         additional_log,
         second_exp,
@@ -340,14 +338,7 @@ def copy_blob_to_uri(
     )
     return True
 
-  if (
-      source_uri_gcp_project is None
-      or not source_uri_gcp_project
-      or source_uri_gcp_project == _CloudStorageClientProjectState.gcp_project()
-  ):
-    source_client = cloud_storage.Client(project=source_uri_gcp_project)
-  else:
-    source_client = cloud_storage.Client(project=source_uri_gcp_project)
+  source_client = cloud_storage.Client(project=source_uri_gcp_project)
   source_blob = cloud_storage.Blob.from_string(source_uri, client=source_client)
   if destination_blob_filename is None or not destination_blob_filename:
     destination_blob_filename = source_blob.name
@@ -360,7 +351,7 @@ def copy_blob_to_uri(
   if not dst_bucket.exists():
     cloud_logging_client.logger().error(
         'Dest storage bucket does not exist',
-        {ingest_const.LogKeywords.bucket_name: dst_bucket.name},
+        {ingest_const.LogKeywords.BUCKET_NAME: dst_bucket.name},
     )
     return False
 
@@ -370,7 +361,7 @@ def copy_blob_to_uri(
   else:
     source_blob_exists = False
     cloud_logging_client.logger().warning(
-        'Source blob does not exist', {ingest_const.LogKeywords.uri: source_uri}
+        'Source blob does not exist', {ingest_const.LogKeywords.URI: source_uri}
     )
 
   # Tests if source blob has already been copied. Possible message is being
@@ -381,8 +372,8 @@ def copy_blob_to_uri(
       cloud_logging_client.logger().info(
           'File exists in dest; file copy skipped',
           {
-              ingest_const.LogKeywords.source_uri: source_uri,
-              ingest_const.LogKeywords.dest_uri: _get_blob_path_gsuri(dst_blob),
+              ingest_const.LogKeywords.SOURCE_URI: source_uri,
+              ingest_const.LogKeywords.DEST_URI: _get_blob_path_gsuri(dst_blob),
           },
       )
       _add_metadata_to_blob(dst_blob, dst_metadata)
@@ -391,7 +382,7 @@ def copy_blob_to_uri(
     try:
       # start source_bucket.copy_blob alternative
       # improved reliability for large files
-      rewrite_token = False
+      rewrite_token = None
       while True:
         rewrite_token, _, _ = dst_blob.rewrite(
             source=source_blob, timeout=600, token=rewrite_token
@@ -402,8 +393,8 @@ def copy_blob_to_uri(
       cloud_logging_client.logger().info(
           'Copied blob from GCS bucket to GCS bucket',
           {
-              ingest_const.LogKeywords.source_uri: source_uri,
-              ingest_const.LogKeywords.dest_uri: _get_blob_path_gsuri(dst_blob),
+              ingest_const.LogKeywords.SOURCE_URI: source_uri,
+              ingest_const.LogKeywords.DEST_URI: _get_blob_path_gsuri(dst_blob),
           },
       )
       _add_metadata_to_blob(dst_blob, dst_metadata)
@@ -413,8 +404,8 @@ def copy_blob_to_uri(
       cloud_logging_client.logger().warning(
           'Exception occurred copying blob',
           {
-              ingest_const.LogKeywords.source_uri: source_uri,
-              ingest_const.LogKeywords.dest_uri: _get_blob_path_gsuri(dst_blob),
+              ingest_const.LogKeywords.SOURCE_URI: source_uri,
+              ingest_const.LogKeywords.DEST_URI: _get_blob_path_gsuri(dst_blob),
           },
           exp,
       )
@@ -450,7 +441,7 @@ def del_blob(uri: str, ignore_file_not_found: bool = False) -> bool:
       cloud_logging_client.logger().warning(
           'File already deleted.',
           {
-              ingest_const.LogKeywords.uri: uri,
+              ingest_const.LogKeywords.URI: uri,
           },
           exp,
       )
@@ -459,7 +450,7 @@ def del_blob(uri: str, ignore_file_not_found: bool = False) -> bool:
       cloud_logging_client.logger().error(
           'Exception occurred deleting file',
           {
-              ingest_const.LogKeywords.uri: uri,
+              ingest_const.LogKeywords.URI: uri,
           },
           exp,
       )

@@ -51,12 +51,13 @@ class PollingClient(abstract_polling_client.AbstractPollingClient):
           str, abstract_pubsub_message_handler.AbstractPubSubMsgHandler
       ],
   ):
-    cloud_logging_client.logger().per_thread_log_signatures = False
-    cloud_logging_client.logger().info('DPAS ingest pipeline starting')
+    cloud_logging_client.set_per_thread_log_signatures(False)
+    cloud_logging_client.info('DPAS ingest pipeline starting')
     if not project_id:
       raise ValueError('Missing project id.')
     if not pubsub_subscription_to_handler:
       raise ValueError('Missing ingestion subscriptions.')
+    self._polling_client_running = True
     self._no_pubsub_msg_log_timeout = time.time()
     self._last_pubsub_msg_time = None
     self._current_msg = None
@@ -64,14 +65,13 @@ class PollingClient(abstract_polling_client.AbstractPollingClient):
     self._project_id = project_id
     self._current_msg_start_time = 0.0
     self._gcs_file_to_ingest_list = ingest_flags.GCS_FILE_INGEST_LIST_FLG.value
-
     try:
-      if self._has_files_in_ingestion_list():
+      if self._is_ingesting_from_gcs_file_list():
         self._initialize_polling_client_for_ingestion_list(
             pubsub_subscription_to_handler
         )
         self._ack_monitor = ack_timeout_monitor.PubSubAckTimeoutMonitor(
-            subscription_path=None
+            subscription_path=''
         )
         self._current_subscription = self._subscriptions[0]
       else:
@@ -85,12 +85,10 @@ class PollingClient(abstract_polling_client.AbstractPollingClient):
       self._clear_current_msg()
       self._ack_monitor.start()
     except ValueError as exp:
-      cloud_logging_client.logger().critical(
-          'Failed to initialize polling client', exp
-      )
+      cloud_logging_client.critical('Failed to initialize polling client', exp)
       raise
     except Exception as exp:
-      cloud_logging_client.logger().critical(
+      cloud_logging_client.critical(
           'An unexpected exception occurred in the GKE container', exp
       )
       raise
@@ -126,7 +124,7 @@ class PollingClient(abstract_polling_client.AbstractPollingClient):
         ack_deadline_seconds=ingest_const.MESSAGE_TTL_S,
     )
     self._subscriptions = [subscription]
-    cloud_logging_client.logger().info(
+    cloud_logging_client.info(
         'Ingesting list of files stored on GCS.',
         {'list_of_files_to_ingest': self._gcs_file_to_ingest_list},
     )
@@ -160,7 +158,7 @@ class PollingClient(abstract_polling_client.AbstractPollingClient):
 
       ack_deadline_seconds = subscription_def.ack_deadline_seconds
       if ack_deadline_seconds < ingest_const.MESSAGE_TTL_S:
-        cloud_logging_client.logger().error(
+        cloud_logging_client.error(
             'DPAS ingest pub/sub subscription ack deadline for '
             f'{pubsub_subscription} is set to: {ack_deadline_seconds} seconds. '
             'The subscription should have an ack deadline of at least '
@@ -169,13 +167,13 @@ class PollingClient(abstract_polling_client.AbstractPollingClient):
 
       subscription_exp = subscription_def.expiration_policy.ttl.seconds
       if subscription_exp != 0:
-        cloud_logging_client.logger().error(
+        cloud_logging_client.error(
             'DPAS ingest pub/sub subscription is set to '
             f'expire after {subscription_exp} seconds. The subscription '
             'should be set to NEVER expire.'
         )
 
-      cloud_logging_client.logger().info(
+      cloud_logging_client.info(
           f'Running {handler.name} DICOM generator for {pubsub_subscription}',
           {'DICOM_gen': handler.name},
       )
@@ -185,14 +183,22 @@ class PollingClient(abstract_polling_client.AbstractPollingClient):
       )
       self._subscriptions.append(subscription)
 
+  def _is_ingesting_from_gcs_file_list(self) -> bool:
+    return self._gcs_file_to_ingest_list is not None
+
   def _has_files_in_ingestion_list(self) -> bool:
     return bool(self._gcs_file_to_ingest_list)
 
   def _is_polling_pubsub(self) -> bool:
     return self._pubsub_subscriber is not None
 
+  def stop_polling_client(self):
+    self._polling_client_running = False
+
   def _running(self) -> bool:
     """Returns True if polling client is running."""
+    if not self._polling_client_running:
+      return False
     if self._is_polling_pubsub():
       return True
     return self._has_files_in_ingestion_list()
@@ -202,7 +208,7 @@ class PollingClient(abstract_polling_client.AbstractPollingClient):
     if self._current_msg is not None and not self._message_ack_nack:
       # Message was not acknowledged (acked or nacked);
       # nack to redeliver the message and log.
-      cloud_logging_client.logger().error('Message was not nack or acked')
+      cloud_logging_client.error('Message was not nack or acked')
       self.nack()
 
   @property
@@ -216,14 +222,13 @@ class PollingClient(abstract_polling_client.AbstractPollingClient):
     self._current_msg_start_time = time.time()
     if msg is None:
       self._ack_monitor.clear_pubsub_msg()
-      cloud_logging_client.logger().clear_log_signature()
+      cloud_logging_client.clear_log_signature()
     else:
-      cloud_logging_client.logger().log_signature = {
-          ingest_const.LogKeywords.pubsub_message_id: msg.message_id,
-          ingest_const.LogKeywords.dpas_ingestion_trace_id: (
-              msg.ingestion_trace_id
-          ),
-      }
+      trace_id = msg.ingestion_trace_id
+      cloud_logging_client.set_log_signature({
+          ingest_const.LogKeywords.PUBSUB_MESSAGE_ID: msg.message_id,
+          ingest_const.LogKeywords.DPAS_INGESTION_TRACE_ID: trace_id,
+      })
       self._ack_monitor.set_pubsub_msg(msg, self._current_msg_start_time)
 
   def _clear_current_msg(self):
@@ -238,43 +243,43 @@ class PollingClient(abstract_polling_client.AbstractPollingClient):
     total_time_sec = time.time() - self._current_msg_start_time
     elapsed_time_sec = total_time_sec - ack_time_extension
     if not self._is_polling_pubsub():
-      cloud_logging_client.logger().info(
+      cloud_logging_client.info(
           'Ingest pipeline processing completed',
-          {ingest_const.LogKeywords.total_time_sec: str(total_time_sec)},
+          {ingest_const.LogKeywords.TOTAL_TIME_SEC: str(total_time_sec)},
       )
     elif elapsed_time_sec >= self._current_subscription.ack_deadline_seconds:
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           'Ingest pipeline processing exceed subscription ack timeout',
           {
-              ingest_const.LogKeywords.elapsed_time_beyond_extension_sec: (
+              ingest_const.LogKeywords.ELAPSED_TIME_BEYOND_EXTENSION_SEC: (
                   elapsed_time_sec
               ),
-              ingest_const.LogKeywords.ack_deadline_sec: (
+              ingest_const.LogKeywords.ACK_DEADLINE_SEC: (
                   self._current_subscription.ack_deadline_seconds
               ),
-              ingest_const.LogKeywords.total_time_sec: total_time_sec,
+              ingest_const.LogKeywords.TOTAL_TIME_SEC: total_time_sec,
           },
       )
     elif (
         elapsed_time_sec
         >= 0.8 * self._current_subscription.ack_deadline_seconds
     ):
-      cloud_logging_client.logger().warning(
+      cloud_logging_client.warning(
           'Ingest pipeline processing is approaching subscription ack timeout',
           {
-              ingest_const.LogKeywords.elapsed_time_beyond_extension_sec: (
+              ingest_const.LogKeywords.ELAPSED_TIME_BEYOND_EXTENSION_SEC: (
                   elapsed_time_sec
               ),
-              ingest_const.LogKeywords.ack_deadline_sec: (
+              ingest_const.LogKeywords.ACK_DEADLINE_SEC: (
                   self._current_subscription.ack_deadline_seconds
               ),
-              ingest_const.LogKeywords.total_time_sec: total_time_sec,
+              ingest_const.LogKeywords.TOTAL_TIME_SEC: total_time_sec,
           },
       )
     else:
-      cloud_logging_client.logger().info(
+      cloud_logging_client.info(
           'Ingest pipeline processing completed within ack timeout',
-          {ingest_const.LogKeywords.total_time_sec: str(total_time_sec)},
+          {ingest_const.LogKeywords.TOTAL_TIME_SEC: str(total_time_sec)},
       )
 
   def __enter__(self):
@@ -292,7 +297,7 @@ class PollingClient(abstract_polling_client.AbstractPollingClient):
 
     Automatically closes subscribers' gRPC channels when block is done.
     """
-    cloud_logging_client.logger().info('DPAS ingest pipeline shutting down')
+    cloud_logging_client.info('DPAS ingest pipeline shutting down')
     if self._pubsub_subscriber:
       self._pubsub_subscriber.__exit__(
           unused_type, unused_value, unused_traceback
@@ -308,13 +313,16 @@ class PollingClient(abstract_polling_client.AbstractPollingClient):
     """Returns true if message was not acked."""
     return self._message_ack_nack == 'nack'
 
-  def ack(self):
+  def ack(self, log_ack: bool = True):
     """Call to indicate Acks message, indicates message was processed.
 
     https://googleapis.dev/python/pubsub/latest/subscriber/index.html#pulling-a-subscription-synchronously
+
+    Args:
+      log_ack: Set to False to disable ack logging.
     """
     if self._message_ack_nack:
-      cloud_logging_client.logger().warning(
+      cloud_logging_client.warning(
           f'Ack ignored. Message previously  {self._message_ack_nack}'
       )
     else:
@@ -327,8 +335,10 @@ class PollingClient(abstract_polling_client.AbstractPollingClient):
                 'ack_ids': [self.current_msg.ack_id],
             }
         )
-        cloud_logging_client.logger().info('Acknowledged msg')
-      self._test_log_message_timeout(ack_time_extension)
+        if log_ack:
+          cloud_logging_client.info('Acknowledged msg')
+      if log_ack:
+        self._test_log_message_timeout(ack_time_extension)
 
   def nack(self, retry_ttl: int = 0):
     """Call to indicate message was not handled and should be redelivered.
@@ -340,11 +350,11 @@ class PollingClient(abstract_polling_client.AbstractPollingClient):
           reposting.
     """
     if self._message_ack_nack:
-      cloud_logging_client.logger().warning(
+      cloud_logging_client.warning(
           f'Nack ignored. Message previously {self._message_ack_nack}'
       )
     else:
-      ack_time_extension = self._ack_monitor.clear_pubsub_msg()
+      self._ack_monitor.clear_pubsub_msg()
       self._message_ack_nack = 'nack'
       if self._pubsub_subscriber:
         self._pubsub_subscriber.modify_ack_deadline(
@@ -354,8 +364,7 @@ class PollingClient(abstract_polling_client.AbstractPollingClient):
                 'ack_deadline_seconds': retry_ttl,  # ack_deadline_seconds
             }
         )
-      cloud_logging_client.logger().warning('Retrying msg')
-      self._test_log_message_timeout(ack_time_extension)
+      cloud_logging_client.warning('Retrying msg')
 
   def _decode_pubsub_msg(
       self, msg: pubsub_v1.types.ReceivedMessage
@@ -403,7 +412,7 @@ class PollingClient(abstract_polling_client.AbstractPollingClient):
         last_msg_time_str = 'never'
       else:
         last_msg_time_str = str(current_time - self._last_pubsub_msg_time)
-      cloud_logging_client.logger().debug(
+      cloud_logging_client.debug(
           'Polling for pub/sub msgs.',
           {'Received_Last_PubMsg(sec)': last_msg_time_str},
       )
@@ -417,7 +426,10 @@ class PollingClient(abstract_polling_client.AbstractPollingClient):
       subscription: Subscription assets to update current subscription to.
     """
     self._current_subscription = subscription
-    self._ack_monitor.set_subscription(subscription.subscription_path)
+    if self._is_ingesting_from_gcs_file_list():
+      self._ack_monitor.set_subscription('')
+    else:
+      self._ack_monitor.set_subscription(subscription.subscription_path)
 
   def _sync_pull_one_msg(self) -> bool:
     """Sync pulls one pubsub message from subscription.
@@ -450,37 +462,38 @@ class PollingClient(abstract_polling_client.AbstractPollingClient):
 
       mlen = len(response.received_messages)
       if mlen > 1:
-        cloud_logging_client.logger().error(
+        cloud_logging_client.error(
             'Received multiple messages from pub/sub subscription expected 1.',
-            {ingest_const.LogKeywords.message_count: str(mlen)},
+            {ingest_const.LogKeywords.MESSAGE_COUNT: str(mlen)},
         )
       msg = self._decode_pubsub_msg(response.received_messages[0])
     else:
       if (
-          self._gcs_file_to_ingest_list is None
+          not self._is_ingesting_from_gcs_file_list()
           or not self._gcs_file_to_ingest_list
       ):
         self._clear_current_msg()
         return False
       gcs_file_path = self._gcs_file_to_ingest_list.pop()
-      msg = gcs_file_msg.GCSFileMsg(gcs_file_path)
-      if not msg.gcs_file_exists():
-        cloud_logging_client.logger().info(
+      gcs_msg = gcs_file_msg.GCSFileMsg(gcs_file_path)
+      if not gcs_msg.gcs_file_exists():
+        cloud_logging_client.info(
             'Specified file does not exist', {'uri': gcs_file_path}
         )
         self.ack()
         self._clear_current_msg()
         return False
-      cloud_logging_client.logger().info(
+      cloud_logging_client.info(
           'Ingesting file specified in file list', {'uri': gcs_file_path}
       )
+      msg = self._decode_pubsub_msg(gcs_msg.received_msg)
     self.current_msg = msg
     if msg.ignore:
-      cloud_logging_client.logger().debug(
+      cloud_logging_client.debug(
           'Pub/sub msg acked and ignored.',
-          {ingest_const.LogKeywords.uri: self.current_msg.uri},
+          {ingest_const.LogKeywords.URI: self.current_msg.uri},
       )
-      self.ack()
+      self.ack(log_ack=False)
       self._clear_current_msg()
       return False
     return True
@@ -503,11 +516,11 @@ class PollingClient(abstract_polling_client.AbstractPollingClient):
           if self._sync_pull_one_msg():
             self._process_msg_through_ingest_pipeline()
     except Exception as exp:
-      cloud_logging_client.logger().critical(
+      cloud_logging_client.critical(
           'An unexpected exception occurred in the GKE container',
           exp,
           {
-              ingest_const.LogKeywords.pubsub_subscription: (
+              ingest_const.LogKeywords.PUBSUB_SUBSCRIPTION: (
                   self._current_subscription.subscription_path
               )
           },

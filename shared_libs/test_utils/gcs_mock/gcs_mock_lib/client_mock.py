@@ -388,6 +388,7 @@ class ClientMock:
       data_locations: Optional[List[str]] = None,
       predefined_acl: Optional[str] = None,
       predefined_default_object_acl: Optional[str] = None,
+      enable_object_retention: bool = False,
       timeout: Optional[gcs_mock_types.TimeoutType] = 60,
       retry: Optional[gcs_mock_types.RetryType] = None,
   ) -> None:
@@ -408,6 +409,8 @@ class ClientMock:
         implemented in mock.
       predefined_default_object_acl: (Optional) Name of predefined ACL to apply
         to bucket's objects.  Not implemented in mock.
+      enable_object_retention: (Optional) Whether object retention should be
+        enabled on this bucket. Not supported by Mock.
       timeout: The amount of time, in seconds, to wait for the server response.
         Not implemented in mock.
       retry:    google.api_core.retry.Retry or
@@ -425,6 +428,7 @@ class ClientMock:
         predefined_default_object_acl,
         timeout,
         retry,
+        enable_object_retention,
     )
     if requester_pays is not None:
       raise gcs_mock_types.GcsMockError(

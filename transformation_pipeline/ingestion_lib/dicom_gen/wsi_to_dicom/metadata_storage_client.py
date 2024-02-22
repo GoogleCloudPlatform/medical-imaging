@@ -16,11 +16,14 @@
 
 from __future__ import annotations
 
+from concurrent import futures
 import copy
 import dataclasses
+import functools
 import json
 import os
 import tempfile
+import time
 from typing import Any, Dict, List, Optional, Union
 
 import cachetools
@@ -36,6 +39,8 @@ from transformation_pipeline.ingestion_lib import csv_util
 from transformation_pipeline.ingestion_lib import hash_util
 from transformation_pipeline.ingestion_lib import ingest_const
 from transformation_pipeline.ingestion_lib.dicom_gen import dicom_schema_util
+
+_METADATA_DOWNLOAD_THREAD_COUNT = 2
 
 
 class MetadataNotFoundExceptionError(Exception):
@@ -64,6 +69,10 @@ class MetadataSchemaExceptionError(Exception):
 
 
 class MetadataDownloadExceptionError(Exception):
+  pass
+
+
+class MetadataStorageBucketNotConfiguredError(Exception):
   pass
 
 
@@ -221,6 +230,34 @@ class _BigQueryMetadataTableUtil:
     return self._column_names
 
 
+def _download_blob(
+    storage_client,
+    metadata_dir: str,
+    metadata_ingest_storage_bucket: str,
+    blob: MetadataBlob,
+) -> str:
+  """Downloads metadata blob to file."""
+  _, fname = os.path.split(blob.name)
+  metadata_path = os.path.join(metadata_dir, fname)
+  uri = f'gs://{metadata_ingest_storage_bucket}/{blob.name}'
+  try:
+    with open(metadata_path, 'wb') as file_obj:
+      storage_client.download_blob_to_file(uri, file_obj, raw_download=True)
+  except google.api_core.exceptions.NotFound as exp:
+    msg = f'Error downloading metadata {uri} to bucket {metadata_path}'
+    cloud_logging_client.error(
+        msg,
+        {
+            'source': uri,
+            'dest': metadata_path,
+        },
+        exp,
+    )
+    raise MetadataDownloadExceptionError(msg) from exp
+  blob.filename = metadata_path
+  return str(dict(source=uri, dest=metadata_path))
+
+
 class MetadataStorageClient:
   """Interface for accessing non-imaging metadata and CSV -> DICOM schema."""
 
@@ -234,8 +271,8 @@ class MetadataStorageClient:
           'Metadata storage bucket env variable or commandline param not'
           ' specified.'
       )
-      cloud_logging_client.logger().critical(msg)
-      raise MetadataDownloadExceptionError(msg)
+      cloud_logging_client.critical(msg)
+      raise MetadataStorageBucketNotConfiguredError(msg)
 
     if metadata_upload_bucket.startswith('gs://'):
       metadata_upload_bucket = metadata_upload_bucket[len('gs://') :]
@@ -339,39 +376,28 @@ class MetadataStorageClient:
           'Metadata changed.',
           {'metadata_files_found': str(metadata_files_found)},
       )
+      if self._working_root_metadata_dir is not None:
+        self._working_root_metadata_dir.cleanup()
       self._working_root_metadata_dir = tempfile.TemporaryDirectory('metadata')
-      downloaded_metadata_list = []
-      for blob in metadata_blobs:
-        _, fname = os.path.split(blob.name)
-        metadata_path = os.path.join(
-            self._working_root_metadata_dir.name, fname
-        )
-        uri = f'gs://{self._metadata_ingest_storage_bucket}/{blob.name}'
-        try:
-          with open(metadata_path, 'wb') as file_obj:
-            storage_client.download_blob_to_file(
-                uri, file_obj, raw_download=True
-            )
-          downloaded_metadata_list.append(
-              str(dict(source=uri, dest=metadata_path))
-          )
-        except google.api_core.exceptions.NotFound as exp:
-          msg = f'Error downloading metadata {uri} to bucket {metadata_path}'
-          cloud_logging_client.logger().error(
-              msg,
-              {
-                  'source': uri,
-                  'dest': metadata_path,
-                  'successfully_downloaded_metadata': str(
-                      downloaded_metadata_list
-                  ),
-              },
-              exp,
-          )
-          raise MetadataDownloadExceptionError(msg) from exp
-        blob.filename = metadata_path
+      start_time = time.time()
+      download_blob_partial = functools.partial(
+          _download_blob,
+          storage_client,
+          self._working_root_metadata_dir.name,
+          self._metadata_ingest_storage_bucket,
+      )
+      with futures.ThreadPoolExecutor(
+          max_workers=_METADATA_DOWNLOAD_THREAD_COUNT
+      ) as th_pool:
+        downloaded_metadata_list = [
+            log for log in th_pool.map(download_blob_partial, metadata_blobs)
+        ]
       cloud_logging_client.logger().info(
-          'Downloaded metadata', {'file_list': str(downloaded_metadata_list)}
+          'Downloaded metadata',
+          {
+              'metadata_file_list': str(downloaded_metadata_list),
+              'download_time_sec': time.time() - start_time,
+          },
       )
       self._csv_metadata_cache = metadata_blobs
 
@@ -408,7 +434,7 @@ class MetadataStorageClient:
                 'CSV file does not contain metadata primary key column name;'
                 ' CSV file ignored.',
                 {
-                    ingest_const.LogKeywords.filename: metadata.filename,
+                    ingest_const.LogKeywords.FILENAME: metadata.filename,
                     ingest_const.LogKeywords.METADATA_PRIMARY_KEY_COLUMN_NAME: (
                         ingest_flags.METADATA_PRIMARY_KEY_COLUMN_NAME_FLG.value
                     ),

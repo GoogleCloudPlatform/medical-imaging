@@ -15,7 +15,7 @@
 """Parses DICOM IOD from XML spec."""
 import dataclasses
 import json
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from absl import logging
 
@@ -47,57 +47,9 @@ class LinkedObject(object):
         '}'
     )
 
-  def gen_str(
-      self,
-      tabledict: Optional[Dict[str, Any]] = None,
-      prefix: Optional[str] = None,
-      print_set: Optional[Set[str]] = None,
-  ) -> str:
-    """Prints representation of linked object to stdio.
-
-    Args:
-      tabledict: optional dictionary of tables to expand linked tables.
-      prefix: optional to append before resource
-      print_set: set of tables printed (used to avoid self referencing tabl inf
-        recursion.
-
-    Returns:
-      table string
-    """
-    if prefix is None:
-      prefix = ''
-    if tabledict is None:
-      return (
-          f'{prefix}  Link ({self.prefix}, {self.linked_resource},'
-          f' {self.comment})'
-      )
-    else:
-      line_list = []
-      if self.linked_resource.startswith('table_'):
-        tablename = self.linked_resource[len('table_') :]
-      if print_set is not None and tablename in print_set:
-        return (
-            f'{prefix}  Link ({self.prefix}, {self.linked_resource},'
-            f' {self.comment})'
-        )
-      prefix += ''.join([ch for ch in self.prefix if ch == '>'])
-      ref_table = tabledict[tablename]
-      if print_set is None:
-        print_set = set()
-      print_set.add(tablename)
-      for table_line in ref_table['table_lines']:
-        if isinstance(table_line, LinkedObject):
-          line_list += table_line.gen_str(
-              tabledict=tabledict, prefix=prefix, print_set=print_set
-          )
-        else:
-          line_list.append(f'{prefix}{table_line}')
-      print_set.remove(tablename)
-      return '\n'.join(line_list)
-
   def __str__(self):
     """Returns string rep of LinkedObject."""
-    return self.gen_str()
+    return f'  Link ({self.prefix}, {self.linked_resource}, {self.comment})'
 
   def is_init(self) -> bool:
     """Returns True if the number of parameters initialized = expected."""
@@ -266,6 +218,7 @@ class ParsedSpec(object):
   iod: IodDefType
   modules: ModuleDefType
   tables: TableDefType
+  iod_functional_groups: IodDefType
 
 
 class DicomIodXmlParser(dicom_abstract_xml_parser.DicomAbstractXmlParser):
@@ -282,7 +235,57 @@ class DicomIodXmlParser(dicom_abstract_xml_parser.DicomAbstractXmlParser):
         self.namespace, xmlpart.xml_root
     )
 
-  def _get_iod_def(self, chapter_dict: Dict[str, Any]) -> IodDefType:
+  def _parse_iod_functional_groups(
+      self, chapter_a: Any, tbl: dicom_xml_core_parser.ParsedTableRef
+  ) -> List[IodSectionRef]:
+    table_parent = chapter_a.find(f'.//{{*}}table[@label="{tbl.name}"]/..')
+    if table_parent is None:
+      return []
+    table_label = table_parent.attrib.get('label')
+    if table_label is None:
+      return []
+    section_name = '.'.join(table_label.split('.')[:-1])
+    table_parent = chapter_a.find(f'.//{{*}}section[@label="{section_name}"]')
+    if table_parent is None:
+      return []
+    func_tables = list(
+        self._iod_parser.get_tables(
+            table_parent,
+            [
+                ('Functional Group Macro', 'Section', 'Usage'),
+                ('Function Group Macro', 'Section', 'Usage'),
+            ],
+        )
+    )
+    if not func_tables:
+      return []
+    if len(func_tables) > 1:
+      raise ValueError('More than one table found.')
+    func_requirements = []
+    for func_table in func_tables:
+      # Cet table caption
+      # table_parent_title = table_parent.find(
+      #     f'.//{{*}}table[@label="{func_table.name}"]/..'
+      # )
+      # if table_parent_title is not None:
+      #   table_parent_title = table_parent_title.find('{*}title')
+      for row_lines in func_table.rows:
+        tbl_row = self._iod_parser.parse_table_row(row_lines)
+        parsed_row = tbl_row.parsed_row
+        if not parsed_row or len(parsed_row) != 3:
+          continue
+        func_requirements.append(
+            IodSectionRef(
+                self.unicode_check(parsed_row[0]),
+                self.unicode_check(parsed_row[1][0]),
+                self.unicode_check(parsed_row[2][0]),
+            )
+        )
+    return func_requirements
+
+  def _get_iod_def(
+      self, chapter_dict: Dict[str, Any]
+  ) -> Tuple[IodDefType, IodDefType]:
     """Returns select dictionary of IOD from xml in chapter a.
 
     Args:
@@ -293,6 +296,7 @@ class DicomIodXmlParser(dicom_abstract_xml_parser.DicomAbstractXmlParser):
     """
     chapter_a = chapter_dict['A']
     dicom_iod_def = {}
+    dicom_iod_functional_groups = {}
     valid_headers = [('IE', 'Module', 'Reference', 'Usage')]
     for section in chapter_a.iter(f'{self.namespace}section'):
       module_list = []
@@ -322,7 +326,12 @@ class DicomIodXmlParser(dicom_abstract_xml_parser.DicomAbstractXmlParser):
           )
         if module_list:
           dicom_iod_def[caption] = module_list
-    return dicom_iod_def
+          iod_functional_groups = self._parse_iod_functional_groups(
+              chapter_a, tbl
+          )
+          if iod_functional_groups:
+            dicom_iod_functional_groups[caption] = iod_functional_groups
+    return dicom_iod_def, dicom_iod_functional_groups
 
   def _get_module_def(self, chapter_dict: Dict[str, Any]) -> ModuleDefType:
     """Parses the DICOM modules from XML in chapter C.
@@ -350,6 +359,8 @@ class DicomIodXmlParser(dicom_abstract_xml_parser.DicomAbstractXmlParser):
       ):
         table_list.append(ModuleTableRef(tbl.name, tbl.caption))
       if table_list:
+        if len(table_list) > 1:
+          table_list = [sorted(table_list, key=lambda x: x.name)[0]]
         modules[sec.attrib['label']] = table_list
     return modules
 
@@ -387,6 +398,20 @@ class DicomIodXmlParser(dicom_abstract_xml_parser.DicomAbstractXmlParser):
             obj.set_val(val)
           if obj.is_init():
             line_block.append(obj)
+        elif len(parsed_row) == 2:
+          if isinstance(parsed_row, str):
+            first_line = parsed_row
+          else:
+            first_line = parsed_row[0]
+          # Functional groups are referenced in text and not linked by section.
+          # Test for text reference and add custom linked resource.
+          if 'Include one or more Functional Group Macros' in first_line:  # pytype: disable=attribute-error
+            prefix_offset = first_line.index('Include') + len('Include')
+            obj = LinkedObject(
+                prefix=first_line[:prefix_offset],
+                linked_resource='table_IODFunctionalGroupMacros',
+            )
+            line_block.append(obj)
       if line_block:
         t_ref = TableRef(tbl.name, tbl.caption, line_block)
         defined_tables[t_ref.name] = t_ref
@@ -405,7 +430,7 @@ class DicomIodXmlParser(dicom_abstract_xml_parser.DicomAbstractXmlParser):
     chapter_dict = self._iod_parser.get_chapters(['A', 'C'])
     # Extract Composit Information Object Definitions
     logging.info('Parsing DICOM IOD XML')
-    iod = self._get_iod_def(chapter_dict)
+    iod, iod_functional_groups = self._get_iod_def(chapter_dict)
     logging.info('Parsing DICOM IOD XML Modules')
     modules = self._get_module_def(chapter_dict)
-    return ParsedSpec(iod, modules, table_dict)
+    return ParsedSpec(iod, modules, table_dict, iod_functional_groups)

@@ -13,15 +13,16 @@
 # limitations under the License.
 # ==============================================================================
 """Decodes identifies (filename, image, string) and validates slide id."""
-import copy
-import dataclasses
+
 import enum
 import os
 import re
 from typing import List, Mapping, Optional, Tuple
+
 from shared_libs.logging_lib import cloud_logging_client
 from transformation_pipeline import ingest_flags
 from transformation_pipeline.ingestion_lib import ingest_const
+from transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ancillary_image_extractor
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import barcode_reader
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
@@ -37,7 +38,7 @@ class _SlideIdErrorLevel(enum.Enum):
 
 # Slide id not found at all errors.
 _CANDIDATE_SLIDE_ID_MISSING_ERROR_LEVEL = _SlideIdErrorLevel.BASE_ERROR_LEVEL
-_SLIDE_ID_MISSING_FROM_FILE_NAME_ERROR_LEVEL = (
+_FILENAME_MISSING_SLIDE_METADATA_PRIMARY_KEY_ERROR_LEVEL = (
     _SlideIdErrorLevel.BASE_ERROR_LEVEL
 )
 _BARCODE_IMAGE_MISSING_ERROR_LEVEL = _SlideIdErrorLevel.BASE_ERROR_LEVEL
@@ -45,20 +46,9 @@ _BARCODE_MISSING_FROM_IMAGES_ERROR_LEVEL = _SlideIdErrorLevel.BASE_ERROR_LEVEL
 _SLIDE_ID_MISSING_FROM_BQ_METADATA_ERROR_LEVEL = (
     _SlideIdErrorLevel.BASE_ERROR_LEVEL
 )
-_FILE_NAME_CONTAINS_MULTIPLE_SLIDE_ID_CANDIDATES_ERROR_LEVEL = (
-    _SlideIdErrorLevel.BASE_ERROR_LEVEL
-)
-_SLIDE_CONTAINS_MULTIPLE_BARCODES_WITH_SLIDE_ID_CANDIDATES_ERROR_LEVEL = (
-    _SlideIdErrorLevel.BASE_ERROR_LEVEL
-)
-
-# No slide Slide Id dedetected in filename.
-_FILE_NAME_MISSING_SLIDE_ID_CANDIDATES_ERROR_LEVEL = (
-    _SlideIdErrorLevel.LOW_ERROR_LEVEL
-)
 
 # Slide id found but not in metadata.
-_SLIDE_ID_MISSING_FROM_CSV_METADATA_ERROR_LEVEL = (
+_PRIMARY_KEY_MISSING_FROM_METADATA_ERROR_LEVEL = (
     _SlideIdErrorLevel.MIDDLE_ERROR_LEVEL
 )
 
@@ -89,28 +79,7 @@ class SlideIdIdentificationError(Exception):
     return self._error_level
 
 
-@dataclasses.dataclass
-class FilenameSlideId:
-  """Describes candidate slide id components identified from filename."""
-
-  filename: str
-  candidate_filename_slide_id_parts: List[str]
-  test_filename_as_slide_id: bool
-  ignored_text: List[str]
-  candidate_slide_ids: List[str] = dataclasses.field(init=False)
-
-  def __post_init__(self) -> None:
-    filename_parts = copy.copy(self.candidate_filename_slide_id_parts)
-    if (
-        self.test_filename_as_slide_id
-        and self.filename
-        and self.filename not in filename_parts
-    ):
-      filename_parts.append(self.filename)
-    self.candidate_slide_ids = filename_parts
-
-
-def _highest_error_level_exception(
+def highest_error_level_exception(
     current_exception: Optional[SlideIdIdentificationError],
     exception: SlideIdIdentificationError,
 ) -> SlideIdIdentificationError:
@@ -122,18 +91,59 @@ def _highest_error_level_exception(
   return current_exception
 
 
-def get_candidate_slide_ids_from_filename(filename: str) -> FilenameSlideId:
+def _get_whole_filename_to_test(
+    dicom_gen: abstract_dicom_generation.GeneratedDicomFiles,
+) -> str:
+  """Returns string to test as whole filename slideid.
+
+  Args:
+    dicom_gen: File payload to convert into DICOM.
+
+  Returns:
+    Whole file name slide id (string).
+  """
+  path = abstract_dicom_generation.get_ingest_triggering_file_path(
+      dicom_gen,
+      ingest_flags.INCLUDE_UPLOAD_BUCKET_PATH_IN_WHOLE_FILENAME_SLIDEID_FLG.value,
+  )
+  return os.path.splitext(path)[0]
+
+
+def _get_candidate_slide_ids_from_filename(
+    dicom_gen: abstract_dicom_generation.GeneratedDicomFiles,
+) -> List[str]:
   """Breaks filename into candidate slide id and ignored slide id parts.
 
   Args:
-    filename: filename to split.
+    dicom_gen: File payload to convert into DICOM.
 
   Returns:
     FilenameSlideId
+
+  Raises:
+    SlideIdIdentificationError: Failed to identify metadata primary key
+      candidate in filename.
   """
-  ignored_filename_parts = []
-  candidate_slide_ids = []
+  _, filename = os.path.split(dicom_gen.localfile)
+  log = {
+      ingest_const.LogKeywords.FILENAME: filename,
+      ingest_const.LogKeywords.FILE_NAME_PART_SPLIT_STRING: (
+          ingest_flags.FILENAME_SLIDEID_SPLIT_STR_FLG.value
+      ),
+      ingest_const.LogKeywords.FILE_NAME_PART_REGEX: (
+          ingest_flags.FILENAME_SLIDEID_REGEX_FLG.value
+      ),
+  }
   filename, _ = os.path.splitext(filename)  # remove file extension
+  if not filename:
+    cloud_logging_client.logger().warning(
+        f'Could not find a candidate slide metadata primary key in {filename}.',
+        log,
+    )
+    raise SlideIdIdentificationError(
+        ingest_const.ErrorMsgs.FILENAME_MISSING_SLIDE_METADATA_PRIMARY_KEY,
+        _FILENAME_MISSING_SLIDE_METADATA_PRIMARY_KEY_ERROR_LEVEL,
+    )
   if ingest_flags.FILENAME_SLIDEID_SPLIT_STR_FLG.value:
     candidate_lst = filename.split(
         ingest_flags.FILENAME_SLIDEID_SPLIT_STR_FLG.value
@@ -143,20 +153,30 @@ def get_candidate_slide_ids_from_filename(filename: str) -> FilenameSlideId:
   slide_id_regex = re.compile(
       ingest_flags.FILENAME_SLIDEID_REGEX_FLG.value.strip()
   )
-  for candidate_slide_id in candidate_lst:
-    if (
-        not slide_id_regex.fullmatch(candidate_slide_id)
-        or not candidate_slide_id
-    ):
-      ignored_filename_parts.append(candidate_slide_id)
-    else:
-      candidate_slide_ids.append(candidate_slide_id)
-  return FilenameSlideId(
-      filename,
-      candidate_slide_ids,
-      ingest_flags.TEST_WHOLE_FILENAME_AS_SLIDEID_FLG.value and filename,
-      ignored_filename_parts,
+  candidate_slide_ids = (
+      [_get_whole_filename_to_test(dicom_gen)]
+      if ingest_flags.TEST_WHOLE_FILENAME_AS_SLIDEID_FLG.value
+      else []
   )
+  for candidate_slide_id in candidate_lst:
+    if not candidate_slide_id or candidate_slide_id in candidate_slide_ids:
+      continue
+    if slide_id_regex.fullmatch(candidate_slide_id):
+      candidate_slide_ids.append(candidate_slide_id)
+  if not candidate_slide_ids:
+    cloud_logging_client.logger().warning(
+        f'Could not find a candidate slide metadata primary key in {filename}.',
+        log,
+    )
+    raise SlideIdIdentificationError(
+        ingest_const.ErrorMsgs.FILENAME_MISSING_SLIDE_METADATA_PRIMARY_KEY,
+        _FILENAME_MISSING_SLIDE_METADATA_PRIMARY_KEY_ERROR_LEVEL,
+    )
+  log['candidate_slide_metadata_primary_keys'] = candidate_slide_ids
+  cloud_logging_client.logger().info(
+      f'Identified candidate slide metadata primary key(s) in {filename}.', log
+  )
+  return candidate_slide_ids
 
 
 def decode_bq_metadata_table_env() -> Tuple[str, str, str]:
@@ -220,7 +240,7 @@ def find_slide_id_in_metadata(
     else:
       metadata.get_slide_metadata_from_csv(candidate_slide_id)
     cloud_logging_client.logger().info(
-        'Candidate slide id found in metadata.',
+        'Candidate slide primary key found in metadata.',
         {ingest_const.LogKeywords.SLIDE_ID: candidate_slide_id},
         log,
     )
@@ -232,21 +252,21 @@ def find_slide_id_in_metadata(
     ) from exp
   except metadata_storage_client.MetadataNotFoundExceptionError as exp:
     cloud_logging_client.logger().warning(
-        'Candidate slide id not found in metadata.',
+        'Candidate slide primary key not found in metadata.',
         {ingest_const.LogKeywords.SLIDE_ID: candidate_slide_id},
         log,
         exp,
     )
-    if bq_metadata_source:
-      msg = ingest_const.ErrorMsgs.SLIDE_ID_MISSING_FROM_BQ_METADATA
-      error_level = _SLIDE_ID_MISSING_FROM_BQ_METADATA_ERROR_LEVEL
-    else:
-      msg = ingest_const.ErrorMsgs.SLIDE_ID_MISSING_FROM_CSV_METADATA
-      error_level = _SLIDE_ID_MISSING_FROM_CSV_METADATA_ERROR_LEVEL
+    msg = (
+        ingest_const.ErrorMsgs.SLIDE_ID_MISSING_FROM_BQ_METADATA
+        if bq_metadata_source
+        else ingest_const.ErrorMsgs.SLIDE_ID_MISSING_FROM_CSV_METADATA
+    )
+    error_level = _PRIMARY_KEY_MISSING_FROM_METADATA_ERROR_LEVEL
     raise SlideIdIdentificationError(msg, error_level) from exp
   except metadata_storage_client.MetadataDefinedOnMultipleRowError as exp:
     cloud_logging_client.logger().warning(
-        'Candidate slide id ignored; defined on multiple rows.',
+        'Candidate slide primary key ignored; defined on multiple rows.',
         {
             ingest_const.LogKeywords.SLIDE_ID: candidate_slide_id,
             ingest_const.LogKeywords.METADATA_SOURCE: exp.source,
@@ -261,17 +281,14 @@ def find_slide_id_in_metadata(
 
 
 def get_slide_id_from_filename(
-    local_file_path: str,
+    dicom_gen: abstract_dicom_generation.GeneratedDicomFiles,
     metadata: metadata_storage_client.MetadataStorageClient,
-    current_exception: Optional[SlideIdIdentificationError] = None,
 ) -> str:
   """Searches filename for valid Slide Id.
 
   Args:
-    local_file_path:  To search for barcode.
+    dicom_gen: File payload to convert into DICOM.
     metadata: To validate barcode in.
-    current_exception: Exception with the highest error level encountered
-      determining the slide id.
 
   Returns:
     Slide Id
@@ -279,54 +296,19 @@ def get_slide_id_from_filename(
   Raises:
     SlideIdIdentificationError: Unable to determine slide id from filename.
   """
-  if not local_file_path:
-    cloud_logging_client.logger().warning('File name is empty.')
-    raise _highest_error_level_exception(
-        current_exception,
-        SlideIdIdentificationError(
-            ingest_const.ErrorMsgs.SLIDE_ID_MISSING_FROM_FILE_NAME,
-            _SLIDE_ID_MISSING_FROM_FILE_NAME_ERROR_LEVEL,
-        ),
-    )
-  _, filename = os.path.split(local_file_path)
-  cloud_logging_client.logger().info(
-      f'Testing {filename} for barcode value prefix.'
-  )
-  file_slide_id_parts = get_candidate_slide_ids_from_filename(filename)
-  log = {
-      ingest_const.LogKeywords.filename: filename,
-      ingest_const.LogKeywords.FILE_NAME_PART_SPLIT_STRING: (
-          ingest_flags.FILENAME_SLIDEID_SPLIT_STR_FLG.value
-      ),
-      ingest_const.LogKeywords.FILE_NAME_PART_REGEX: (
-          ingest_flags.FILENAME_SLIDEID_REGEX_FLG.value
-      ),
-  }
-  if not file_slide_id_parts.candidate_slide_ids:
-    cloud_logging_client.logger().warning(
-        'File name does not contain slide id candidates.', log
-    )
-    raise _highest_error_level_exception(
-        current_exception,
-        SlideIdIdentificationError(
-            ingest_const.ErrorMsgs.FILE_NAME_MISSING_SLIDE_ID_CANDIDATES,
-            _FILE_NAME_MISSING_SLIDE_ID_CANDIDATES_ERROR_LEVEL,
-        ),
-    )
-  for candidate_slide_id in file_slide_id_parts.candidate_slide_ids:
+  candidate_slide_ids = _get_candidate_slide_ids_from_filename(dicom_gen)
+  current_exception = None
+  for candidate_slide_id in candidate_slide_ids:
     try:
-      return find_slide_id_in_metadata(candidate_slide_id, metadata, log)
+      return find_slide_id_in_metadata(candidate_slide_id, metadata)
     except SlideIdIdentificationError as exp:
-      current_exception = _highest_error_level_exception(current_exception, exp)
+      current_exception = highest_error_level_exception(current_exception, exp)
 
-  if file_slide_id_parts.ignored_text:
-    cloud_logging_client.logger().info(
-        (
-            'Parts of filename not tested for slide id because they do not '
-            'match the slide id regx.'
-        ),
-        log,
-    )
+  cloud_logging_client.logger().info(
+      'None of the filename generated slide id candidates were found in'
+      ' metadata primary key.',
+      {'tested_slide_id_candidates': candidate_slide_ids},
+  )
   raise current_exception
 
 
@@ -351,7 +333,7 @@ def get_slide_id_from_ancillary_images(
   """
   if not ancillary_images:
     cloud_logging_client.logger().warning('No barcode containing images found.')
-    raise _highest_error_level_exception(
+    raise highest_error_level_exception(
         current_exception,
         SlideIdIdentificationError(
             ingest_const.ErrorMsgs.BARCODE_IMAGE_MISSING,
@@ -367,7 +349,7 @@ def get_slide_id_from_ancillary_images(
     cloud_logging_client.logger().warning(
         'Could not find and decode barcodes in any images.'
     )
-    raise _highest_error_level_exception(
+    raise highest_error_level_exception(
         current_exception,
         SlideIdIdentificationError(
             ingest_const.ErrorMsgs.BARCODE_MISSING_FROM_IMAGES,
@@ -385,140 +367,17 @@ def get_slide_id_from_ancillary_images(
       slide_id = find_slide_id_in_metadata(barcodevalue, metadata, log)
       return slide_id
     except SlideIdIdentificationError as exp:
-      current_exception = _highest_error_level_exception(current_exception, exp)
-
-  cloud_logging_client.logger().error('Missing metadata')
+      current_exception = highest_error_level_exception(current_exception, exp)
   raise current_exception
 
 
-def _get_metadata_free_slide_id(
-    filename: str,
-    ancillary_images: List[ancillary_image_extractor.AncillaryImage],
-    dicom_barcode_tag_value: str = '',
-) -> str:
-  """Returns slide id when metadata validation is not provided.
-
-  Tests DICOM Tag first, then filename, then barcode value.
-  Requires single candidate values if either filename parts are used or
-  segmented barcode. If either define multiple candidates, e.g. file name
-  is broken into multiple fragments which match the slide id regular
-  expresion or multiple barcode values are identified on the ingested imaging
-  then these methods of identfication are indeterminate and will result in
-  an exception being raised.
-
-  Args:
-   filename: File name to decode slide id from.
-   ancillary_images: List of ancillary images to decode barcodes in.
-   dicom_barcode_tag_value: Barcode value DICOM tag value.
-
-  Returns:
-   Found slide id or empty string.
-
-  Raises:
-    SlideIdIdentificationError: Errors encountered identifying slide id.
-  """
-  if dicom_barcode_tag_value:
-    cloud_logging_client.logger().info(
-        'Metadata free transform; identified slide id in DICOM barcode tag.',
-        {ingest_const.LogKeywords.SLIDE_ID: dicom_barcode_tag_value},
-    )
-    return dicom_barcode_tag_value
-  candidate_filename_slide_ids = get_candidate_slide_ids_from_filename(filename)
-  log = {
-      ingest_const.LogKeywords.filename: candidate_filename_slide_ids.filename,
-      ingest_const.LogKeywords.FILE_NAME_PART_SPLIT_STRING: (
-          ingest_flags.FILENAME_SLIDEID_SPLIT_STR_FLG.value
-      ),
-      ingest_const.LogKeywords.FILE_NAME_PART_REGEX: (
-          ingest_flags.FILENAME_SLIDEID_REGEX_FLG.value
-      ),
-  }
-  if len(candidate_filename_slide_ids.candidate_filename_slide_id_parts) == 1:
-    slide_id = candidate_filename_slide_ids.candidate_filename_slide_id_parts[0]
-    log[ingest_const.LogKeywords.SLIDE_ID] = slide_id
-    cloud_logging_client.logger().info(
-        'Metadata free transform; identified slide id in file name part.', log
-    )
-    return slide_id
-  if candidate_filename_slide_ids.candidate_filename_slide_id_parts:
-    log[ingest_const.LogKeywords.SLIDE_ID] = (
-        candidate_filename_slide_ids.candidate_filename_slide_id_parts
-    )
-    cloud_logging_client.logger().error(
-        'Metadata free transform; Can not determine slide id, file name '
-        'contains multiple candidate slide ids.',
-        log,
-    )
-    raise SlideIdIdentificationError(
-        ingest_const.ErrorMsgs.FILE_NAME_CONTAINS_MULTIPLE_SLIDE_ID_CANDIDATES,
-        _FILE_NAME_CONTAINS_MULTIPLE_SLIDE_ID_CANDIDATES_ERROR_LEVEL,
-    )
-  if (
-      candidate_filename_slide_ids.test_filename_as_slide_id
-      and candidate_filename_slide_ids.filename
-  ):
-    log[ingest_const.LogKeywords.SLIDE_ID] = (
-        candidate_filename_slide_ids.filename
-    )
-    cloud_logging_client.logger().info(
-        'Metadata free transform; using filename as slide id.',
-        log,
-    )
-    return candidate_filename_slide_ids.filename
-  cloud_logging_client.logger().warning(
-      'Metadata free transform; file name does not contain candidate slide id.',
-      log,
-  )
-  barcodevalue_dict = barcode_reader.read_barcode_in_files(
-      [image.path for image in ancillary_images]
-  )
-  if '' in barcodevalue_dict:
-    del barcodevalue_dict['']
-  candidate_barcode_value_slide_ids = list(barcodevalue_dict)
-  if len(candidate_barcode_value_slide_ids) == 1:
-    log[ingest_const.LogKeywords.SLIDE_ID] = candidate_barcode_value_slide_ids[
-        0
-    ]
-    cloud_logging_client.logger().info(
-        'Metadata free transform; identified slide id in barcode.',
-        log,
-    )
-    return candidate_barcode_value_slide_ids[0]
-  if len(candidate_barcode_value_slide_ids) > 1:
-    cloud_logging_client.logger().error(
-        'Metadata free transform; Can not determine slide id, multiple barcode '
-        'values decoded.',
-        log,
-        {ingest_const.LogKeywords.BARCODE: candidate_barcode_value_slide_ids},
-    )
-    raise SlideIdIdentificationError(
-        ingest_const.ErrorMsgs.MULTIPLE_BARCODES_SLIDE_ID_CANDIDATES,
-        _SLIDE_CONTAINS_MULTIPLE_BARCODES_WITH_SLIDE_ID_CANDIDATES_ERROR_LEVEL,
-    )
-  cloud_logging_client.logger().error(
-      'Metadata free transform; Could not identify slide id.',
-      log,
-  )
-  raise SlideIdIdentificationError(
-      ingest_const.ErrorMsgs.SLIDE_ID_MISSING,
-      _CANDIDATE_SLIDE_ID_MISSING_ERROR_LEVEL,
-  )
-
-
 def get_metadata_free_slide_id(
-    filename: str,
-    ancillary_images: List[ancillary_image_extractor.AncillaryImage],
-    dicom_barcode_tag_value: str = '',
-    maximum_id_length: int = 64,
+    dicom_gen: abstract_dicom_generation.GeneratedDicomFiles,
 ) -> str:
   """Returns slide id when metadata validation is not provided.
 
   Args:
-   filename: File name to decode slide id from.
-   ancillary_images: List of ancillary images to decode barcodes in.
-   dicom_barcode_tag_value: Barcode value DICOM tag value.
-   maximum_id_length: Maximum length of Slide ID use to enforce constraints on
-     slide_id value conforming to DICOM VR code size limits.
+   dicom_gen: File payload to convert into DICOM.
 
   Returns:
    Slide id.
@@ -526,15 +385,45 @@ def get_metadata_free_slide_id(
   Raises:
     SlideIdIdentificationError: Errors encountered identifying slide id.
   """
-  slide_id = _get_metadata_free_slide_id(
-      filename, ancillary_images, dicom_barcode_tag_value
+  slide_id = _get_whole_filename_to_test(dicom_gen)
+  cloud_logging_client.logger().info(
+      'Metadata free transform.',
+      {ingest_const.LogKeywords.SLIDE_ID: slide_id},
   )
+  maximum_id_length = 64
   if slide_id and len(slide_id) <= maximum_id_length:
     return slide_id
+  if not slide_id:
+    error_msg = 'slide id is empty.'
+    cloud_logging_client.logger().error(
+        f'Metadata free transform; {error_msg}',
+        {ingest_const.LogKeywords.SLIDE_ID: slide_id},
+    )
+    raise SlideIdIdentificationError(
+        ingest_const.ErrorMsgs.INVALID_SLIDE_ID_LENGTH,
+        _INVALID_SLIDE_ID_LENGTH_ERROR_LEVEL,
+    )
+  length_validation = ingest_flags.METADATA_TAG_LENGTH_VALIDATION_FLG.value
+  if length_validation == ingest_flags.MetadataTagLengthValidation.NONE:
+    return slide_id
+  if length_validation in (
+      ingest_flags.MetadataTagLengthValidation.LOG_WARNING,
+      ingest_flags.MetadataTagLengthValidation.LOG_WARNING_AND_CLIP,
+  ):
+    error_msg = (
+        f'Filename exceeds {maximum_id_length} characters; the length limit for'
+        ' LO VR tags. PatentID and Container ID will contain values which'
+        ' exceed the DICOM Standard length limits. Tag cropping is not'
+        ' supported for metadata free ingestion.'
+    )
+    cloud_logging_client.logger().warning(
+        f'Metadata free transform; {error_msg}',
+        {ingest_const.LogKeywords.SLIDE_ID: slide_id},
+    )
+    return slide_id
   error_msg = (
-      'slide id is empty.'
-      if not slide_id
-      else f'length exceeds {maximum_id_length} characters.'
+      f'Filename exceeds {maximum_id_length} characters; the length limit for'
+      ' LO VR tags.'
   )
   cloud_logging_client.logger().error(
       f'Metadata free transform; {error_msg}',

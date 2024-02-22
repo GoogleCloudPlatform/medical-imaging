@@ -196,7 +196,7 @@ class DicomFileRef(
 
 T = TypeVar('T')
 DCMJson = Mapping[str, Any]
-DCMFile = pydicom.dataset.FileDataset
+DCMFile = pydicom.dataset.Dataset
 DCMData = Union[DCMJson, DCMFile]
 
 
@@ -243,11 +243,15 @@ def _norm_tag_value_str(tag_vr_type: str, value: Union[str, int, float]) -> str:
   Returns:
     Normalized tag string value.
   """
-  if not tag_vr_type or isinstance(value, str) and not value:
+  if not tag_vr_type or (isinstance(value, str) and not value):
     return str(value)
-  return dicom_standard.dicom_standard_util().get_normalized_tag_str(
-      {tag_vr_type}, value
-  )
+  try:
+    return dicom_standard.dicom_standard_util().get_normalized_tag_str(
+        {tag_vr_type}, value
+    )
+  except ValueError:
+    # if normalization of the value fails return the value as is.
+    return str(value)
 
 
 def _get_dicom_keyword_value(
@@ -277,14 +281,15 @@ def _get_dicom_keyword_value(
     if tag_val is None:
       return ''
     return _norm_tag_value_str(tag_val.VR, tag_val.value)
-  value = dcm.get(keyword, '')
-  if not value:
-    tag_vr = ''
-  else:
-    hex_address = dicom_standard.dicom_standard_util().get_keyword_address(
-        keyword, striphex=True
-    )
+  hex_address = dicom_standard.dicom_standard_util().get_keyword_address(
+      keyword, striphex=True
+  )
+  try:
+    value = dcm[hex_address].value
     tag_vr = dcm[hex_address].VR
+  except KeyError:
+    value = ''
+    tag_vr = ''
   if isinstance(value, pydicom.multival.MultiValue):
     return '\\'.join([_norm_tag_value_str(tag_vr, val) for val in value])
   return _norm_tag_value_str(tag_vr, value)

@@ -17,7 +17,8 @@
 import copy
 import json
 import os
-from typing import Any, Dict, Mapping, Optional, Sequence, Set, Union
+import shutil
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Set, Union
 from unittest import mock
 
 from absl import flags
@@ -25,6 +26,7 @@ from absl.testing import absltest
 from absl.testing import flagsaver
 from absl.testing import parameterized
 import pydicom
+import requests
 
 from shared_libs.logging_lib import cloud_logging_client
 from shared_libs.test_utils.dicom_store_mock import dicom_store_mock
@@ -35,18 +37,11 @@ from transformation_pipeline.ingestion_lib import gen_test_util
 from transformation_pipeline.ingestion_lib import ingest_const
 from transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
 from transformation_pipeline.ingestion_lib.dicom_gen import dicom_json_util
+from transformation_pipeline.ingestion_lib.dicom_gen import dicom_private_tag_generator
 from transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
 from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ancillary_image_extractor
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import barcode_reader
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_base
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
-
-
-_METADATA_PATH = 'metadata.csv'
-_SCHEMA_PATH = 'example_schema_slide_coordinates.json'
-_SLIDE_ID_1 = 'MD-03-2-A1-1'
-_SLIDE_ID_2 = 'MD-03-2-A1-2'
 
 _SCHEMA = {
     '0x00100010': {'Keyword': 'PatientName', 'Meta': 'Patient Name'},
@@ -67,6 +62,23 @@ _EXPECTED_DEFAULT_WSI2DCM_PARAMS = {
     '--floorCorrectOpenslideLevelDownsamples': None,
     '--SVSImportPreferScannerTileingForLargestLevel': None,
 }
+
+
+def _schema_paths() -> List[str]:
+  return [
+      gen_test_util.test_file_path('example_schema_wsi.json'),
+      gen_test_util.test_file_path('example_schema_microscopic_image.json'),
+      gen_test_util.test_file_path('example_schema_slide_coordinates.json'),
+  ]
+
+
+def _get_test_metadata_bucket(path: absltest._TempDir) -> absltest._TempDir:
+  metadata_path = os.path.join(flags.FLAGS.test_srcdir, _TEST_BUCKET_PATH)
+  for fname in os.listdir(metadata_path):
+    shutil.copyfile(
+        os.path.join(metadata_path, fname), os.path.join(path, fname)
+    )
+  return path
 
 
 def _test_dicomfile_set(val: Union[Sequence[int], Set[int]]) -> Set[str]:
@@ -280,6 +292,33 @@ class DicomInstanceIngestionSetsTest(parameterized.TestCase):
 
 class _IngestBaseTestDriver(ingest_base.IngestBase):
 
+  def __init__(
+      self,
+      slide_id: str = 'undefined',
+      ingest_buckets: Optional[ingest_base.GcsIngestionBuckets] = None,
+  ):
+    super().__init__(
+        ingest_buckets, metadata_storage_client.MetadataStorageClient()
+    )
+    self._slide_id = slide_id
+
+  def init_handler_for_ingestion(self) -> None:
+    return
+
+  def _generate_metadata_free_slide_metadata(
+      self,
+      slide_id: str,
+      client: dicom_store_client.DicomStoreClient,
+  ) -> ingest_base.DicomMetadata:
+    return ingest_base.generate_metadata_free_slide_metadata(slide_id, client)
+
+  def get_slide_id(
+      self,
+      dicom_gen: abstract_dicom_generation.GeneratedDicomFiles,
+      abstract_dicom_handler: abstract_dicom_generation.AbstractDicomGeneration,
+  ) -> str:
+    return self._slide_id
+
   def generate_dicom(
       self,
       dicom_gen_dir: str,
@@ -299,9 +338,6 @@ class IngestBaseTest(parameterized.TestCase):
     super().setUp()
     self._layer_config_path = gen_test_util.test_file_path(
         'layer_config_valid.yaml'
-    )
-    self._wsi_schema_path = gen_test_util.test_file_path(
-        'example_schema_wsi.json'
     )
 
   @parameterized.named_parameters([
@@ -431,6 +467,7 @@ class IngestBaseTest(parameterized.TestCase):
 
     self.assertEqual(_parse_wsi2dcm_params(wsi2dcm_params), expected_param_set)
 
+  @flagsaver.flagsaver(metadata_bucket='test_bucket')
   @mock.patch.object(cloud_logging_client.CloudLoggingClient, 'error')
   def test_log_and_get_failure_bucket_path_empty(self, mock_logger):
     ingest = _IngestBaseTestDriver()
@@ -439,10 +476,11 @@ class IngestBaseTest(parameterized.TestCase):
     )
     mock_logger.assert_called_once()
 
+  @flagsaver.flagsaver(metadata_bucket='test_bucket')
   @mock.patch.object(cloud_logging_client.CloudLoggingClient, 'error')
   def test_log_and_get_failure_bucket_path(self, mock_logger):
     ingest = _IngestBaseTestDriver(
-        ingest_base.GcsIngestionBuckets(
+        ingest_buckets=ingest_base.GcsIngestionBuckets(
             success_uri='gs://success-bucket', failure_uri='gs://failure-bucket'
         )
     )
@@ -452,10 +490,11 @@ class IngestBaseTest(parameterized.TestCase):
     )
     mock_logger.assert_called_once()
 
+  @flagsaver.flagsaver(metadata_bucket='test_bucket')
   @mock.patch.object(cloud_logging_client.CloudLoggingClient, 'error')
   def test_log_and_get_failure_bucket_path_additional_arg(self, mock_logger):
     ingest = _IngestBaseTestDriver(
-        ingest_base.GcsIngestionBuckets(
+        ingest_buckets=ingest_base.GcsIngestionBuckets(
             success_uri='gs://success-bucket', failure_uri='gs://failure-bucket'
         )
     )
@@ -487,7 +526,7 @@ class IngestBaseTest(parameterized.TestCase):
   )
   def test_get_dicom_metadata_schema(self, mock_metadata, sop_class_name):
     ingest = _IngestBaseTestDriver()
-    self.assertEqual(ingest._get_dicom_metadata_schema(sop_class_name), _SCHEMA)
+    self.assertEqual(ingest.get_dicom_metadata_schema(sop_class_name), _SCHEMA)
     mock_metadata.assert_called_once_with(
         ingest._metadata_storage_client, {'SOPClassUID_Name': sop_class_name}
     )
@@ -502,14 +541,18 @@ class IngestBaseTest(parameterized.TestCase):
           sop_class_name='VL Slide-Coordinates Microscopic Image Storage',
       ),
   )
-  @flagsaver.flagsaver(metadata_bucket='test_bucket')
+  @flagsaver.flagsaver(
+      metadata_bucket='test_bucket',
+      metadata_tag_length_validation=ingest_flags.MetadataTagLengthValidation.LOG_WARNING_AND_CLIP,
+  )
   @mock.patch.multiple(ingest_base.IngestBase, __abstractmethods__=set())
   def test_get_slide_dicom_json_formatted_metadata(self, sop_class_name):
     ingest = _IngestBaseTestDriver()
-    test_bucket_path = os.path.join(flags.FLAGS.test_srcdir, _TEST_BUCKET_PATH)
-    with open(self._wsi_schema_path, 'rt') as infile:
-      schema_json = json.load(infile)
-    del schema_json['DICOMSchemaDef']
+    test_bucket_path = _get_test_metadata_bucket(self.create_tempdir())
+    for path in _schema_paths():
+      shutil.copyfile(
+          path, os.path.join(test_bucket_path, os.path.basename(path))
+      )
     filename = sop_class_name.replace(' ', '_').lower()
     filename = os.path.join(test_bucket_path, f'expected_{filename}')
     with open(f'{filename}.json', 'rt') as infile:
@@ -517,23 +560,52 @@ class IngestBaseTest(parameterized.TestCase):
     with open(f'{filename}.csv', 'rt') as infile:
       expected_metadata = infile.read()
     slide_id = 'GO-1675974754377-1-A-0'
-
     with gcs_mock.GcsMock({'test_bucket': test_bucket_path}):
       ingest.metadata_storage_client.update_metadata()
-      dcm_json, csv_metadata = ingest._get_slide_dicom_json_formatted_metadata(
+      ingest.set_slide_id(slide_id, False)
+      dcm_metadata = ingest.get_slide_dicom_json_formatted_metadata(
           sop_class_name,
           slide_id,
-          dicom_schema=schema_json,
           dicom_client=dicom_store_client.DicomStoreClient(
               'mock_dicom_store_client'
           ),
-          test_metadata_for_missing_study_instance_uid=False,
       )
-    self.assertEqual(dcm_json, expected_json)
+    self.assertEqual(dcm_metadata.dicom_json, expected_json)
     self.assertEqual(
-        csv_metadata.slide_metadata.to_csv(index=False),
+        dcm_metadata.metadata_table_row.slide_metadata.to_csv(index=False),
         expected_metadata,
     )
+
+  @flagsaver.flagsaver(metadata_bucket='test_bucket')
+  def test_get_slide_dicom_json_formatted_metadata_removes_sopinstance_uid(
+      self,
+  ):
+    sop_class_name = 'VL Whole Slide Microscopy Image Storage'
+    ingest = _IngestBaseTestDriver()
+    test_bucket_path = _get_test_metadata_bucket(self.create_tempdir())
+    for path in _schema_paths():
+      with open(path, 'rt') as infile:
+        schema = json.load(infile)
+      schema['0x00080018'] = {
+          'Keyword': 'SOPInstanceUID',
+          'Static_Value': '1.2.3',
+      }
+      with open(
+          os.path.join(test_bucket_path, os.path.basename(path)), 'wt'
+      ) as outfile:
+        json.dump(schema, outfile)
+    slide_id = 'GO-1675974754377-1-A-0'
+    with gcs_mock.GcsMock({'test_bucket': test_bucket_path}):
+      ingest.metadata_storage_client.update_metadata()
+      ingest.set_slide_id(slide_id, False)
+      dcm_metadata = ingest.get_slide_dicom_json_formatted_metadata(
+          sop_class_name,
+          slide_id,
+          dicom_client=dicom_store_client.DicomStoreClient(
+              'mock_dicom_store_client'
+          ),
+      )
+      self.assertNotIn('00080018', dcm_metadata.dicom_json)
 
   @parameterized.named_parameters(
       dict(
@@ -555,56 +627,110 @@ class IngestBaseTest(parameterized.TestCase):
       sop_class_name,
   ):
     ingest = _IngestBaseTestDriver()
-    test_bucket_path = os.path.join(flags.FLAGS.test_srcdir, _TEST_BUCKET_PATH)
-    with open(self._wsi_schema_path, 'rt') as infile:
-      schema_json = json.load(infile)
-    del schema_json['DICOMSchemaDef']
+    test_bucket_path = _get_test_metadata_bucket(self.create_tempdir())
+    for path in _schema_paths():
+      shutil.copyfile(
+          path, os.path.join(test_bucket_path, os.path.basename(path))
+      )
     slide_id = 'GO-1675974754377-1-A-1'
     with gcs_mock.GcsMock({'test_bucket': test_bucket_path}):
       with self.assertRaises(ingest_base.GenDicomFailedError):
         ingest.metadata_storage_client.update_metadata()
-        ingest._get_slide_dicom_json_formatted_metadata(
+        ingest.set_slide_id(slide_id, False)
+        ingest.get_slide_dicom_json_formatted_metadata(
             sop_class_name,
             slide_id,
-            dicom_schema=schema_json,
             dicom_client=dicom_store_client.DicomStoreClient(
                 'mock_dicom_store_client'
             ),
-            test_metadata_for_missing_study_instance_uid=False,
         )
 
   @flagsaver.flagsaver(
       metadata_bucket='test_bucket',
-      require_type1_dicom_tag_metadata_is_defined=False,
+      require_type1_dicom_tag_metadata_is_defined=True,
+      enable_metadata_free_ingestion=True,
   )
   @mock.patch.multiple(ingest_base.IngestBase, __abstractmethods__=set())
-  def test_get_slide_dicom_json_formatted_metadata_missing_study_instance_uid_raises(
+  def test_get_slide_dicom_json_formatted_metadata_missing_returns_metadata_free(
       self,
   ):
-    sop_class_name = 'VL Slide-Coordinates Microscopic Image Storage'
+    expected = {
+        '00100020': {'vr': 'LO', 'Value': ['GO-1675974754377-1-A-1-5']},
+        '0020000D': {'vr': 'UI', 'Value': ['1.2.3']},
+        '00400512': {'vr': 'LO', 'Value': ['GO-1675974754377-1-A-1-5']},
+    }
     ingest = _IngestBaseTestDriver()
-    test_bucket_path = os.path.join(flags.FLAGS.test_srcdir, _TEST_BUCKET_PATH)
-    with open(self._wsi_schema_path, 'rt') as infile:
-      schema_json = json.load(infile)
-    del schema_json['DICOMSchemaDef']
-    del schema_json['0x0020000D']
-    slide_id = 'GO-1675974754377-1-A-1'
+    test_bucket_path = _get_test_metadata_bucket(self.create_tempdir())
+    for path in _schema_paths():
+      shutil.copyfile(
+          path, os.path.join(test_bucket_path, os.path.basename(path))
+      )
+    slide_id = 'GO-1675974754377-1-A-1-5'
     with gcs_mock.GcsMock({'test_bucket': test_bucket_path}):
-      with self.assertRaises(ingest_base.GenDicomFailedError):
-        ingest.metadata_storage_client.update_metadata()
-        ingest._get_slide_dicom_json_formatted_metadata(
-            sop_class_name,
-            slide_id,
-            dicom_schema=schema_json,
-            dicom_client=dicom_store_client.DicomStoreClient(
-                'mock_dicom_store_client'
-            ),
-            test_metadata_for_missing_study_instance_uid=True,
-        )
+      ingest.metadata_storage_client.update_metadata()
+      ingest.set_slide_id(slide_id, True)
+      mock_dicomweb_url = 'https://mock.dicomstore.com/dicomWeb'
+      with dicom_store_mock.MockDicomStores(mock_dicomweb_url):
+        dicom_client = dicom_store_client.DicomStoreClient(mock_dicomweb_url)
+        with mock.patch.object(
+            uid_generator, 'generate_uid', autospec=True, return_value='1.2.3'
+        ):
+          dcm_metadata = ingest.get_slide_dicom_json_formatted_metadata(
+              'VL Whole Slide Microscopy Image Storage',
+              slide_id,
+              dicom_client=dicom_client,
+          )
+    self.assertEqual(dcm_metadata.dicom_json, expected)
+    self.assertIsNotNone(dcm_metadata.metadata_table_row)
+
+  @parameterized.named_parameters(
+      dict(
+          testcase_name='whole_slide_image',
+          sop_class_name='VL Whole Slide Microscopy Image Storage',
+      ),
+      dict(
+          testcase_name='slide_coordinates_image',
+          sop_class_name='VL Slide-Coordinates Microscopic Image Storage',
+      ),
+  )
+  @flagsaver.flagsaver(
+      metadata_bucket='test_bucket',
+      require_type1_dicom_tag_metadata_is_defined=True,
+      enable_metadata_free_ingestion=False,
+  )
+  @mock.patch.multiple(ingest_base.IngestBase, __abstractmethods__=set())
+  def test_get_slide_dicom_json_formatted_metadata_missing_raises_if_metadata_free_is_false(
+      self,
+      sop_class_name,
+  ):
+    ingest = _IngestBaseTestDriver()
+    test_bucket_path = _get_test_metadata_bucket(self.create_tempdir())
+    for path in _schema_paths():
+      shutil.copyfile(
+          path, os.path.join(test_bucket_path, os.path.basename(path))
+      )
+    slide_id = 'GO-1675974754377-1-A-1-5'
+    with gcs_mock.GcsMock({'test_bucket': test_bucket_path}):
+      ingest.metadata_storage_client.update_metadata()
+      mock_dicomweb_url = 'https://mock.dicomstore.com/dicomWeb'
+      with dicom_store_mock.MockDicomStores(mock_dicomweb_url):
+        dicom_client = dicom_store_client.DicomStoreClient(mock_dicomweb_url)
+        with mock.patch.object(
+            uid_generator, 'generate_uid', autospec=True, return_value='1.2.3'
+        ):
+          with self.assertRaises(
+              metadata_storage_client.MetadataNotFoundExceptionError
+          ):
+            ingest.get_slide_dicom_json_formatted_metadata(
+                sop_class_name,
+                slide_id,
+                dicom_client=dicom_client,
+            )
 
   @parameterized.named_parameters(
       [('oof_enabled', True, {2, 32}), ('oof_disabled', False, set())]
   )
+  @flagsaver.flagsaver(metadata_bucket='test_bucket')
   def test_get_downsamples_generate_from_yaml_oof_enabled(
       self, oof_enabled, expected_oof
   ):
@@ -621,6 +747,7 @@ class IngestBaseTest(parameterized.TestCase):
   @parameterized.named_parameters(
       [('oof_enabled', True, {2, 32}), ('oof_disabled', False, set())]
   )
+  @flagsaver.flagsaver(metadata_bucket='test_bucket')
   def test_get_downsamples_to_generate_no_yaml(self, oof_enabled, expected_oof):
     with flagsaver.flagsaver(ingestion_pyramid_layer_generation_config_path=''):
       result = _IngestBaseTestDriver().get_downsamples_to_generate(
@@ -830,9 +957,7 @@ class IngestBaseTest(parameterized.TestCase):
         )
 
       dicom_client = dicom_store_client.DicomStoreClient(mock_dicomweb_url)
-      with self.assertRaises(
-          ingest_base._AccessionNumberAssociatedWithMultipleStudyInstanceUIDError
-      ):
+      with self.assertRaises(ingest_base.GenDicomFailedError):
         ingest_base._correct_missing_study_instance_uid_in_metadata(
             test_metadata, dicom_client
         )
@@ -843,6 +968,7 @@ class IngestBaseTest(parameterized.TestCase):
           store_metadata=[_dcm_json('1.2', '1.2.1', '1.2.1.1', 'A1')],
           test_metadata=_dcm_json(accession='A1'),
           enable_create_missing_study_instance_uid=False,
+          error_msg=ingest_const.ErrorMsgs.MISSING_STUDY_UID,
       ),
       dict(
           testcase_name='missing_acccession_number',
@@ -851,6 +977,7 @@ class IngestBaseTest(parameterized.TestCase):
           ],
           test_metadata=_dcm_json(patient_id='p1'),
           enable_create_missing_study_instance_uid=True,
+          error_msg=ingest_const.ErrorMsgs.MISSING_ACCESSION_NUMBER_UNABLE_TO_CREATE_STUDY_INSTANCE_UID,
       ),
   ])
   def test_correct_missing_study_instance_uid_raises_if_cannot_create(
@@ -858,6 +985,7 @@ class IngestBaseTest(parameterized.TestCase):
       store_metadata,
       test_metadata,
       enable_create_missing_study_instance_uid,
+      error_msg,
   ):
     mock_dicomweb_url = 'https://mock.dicomstore.com/dicomWeb'
     with dicom_store_mock.MockDicomStores(mock_dicomweb_url) as mk_store:
@@ -870,74 +998,418 @@ class IngestBaseTest(parameterized.TestCase):
       with flagsaver.flagsaver(
           enable_create_missing_study_instance_uid=enable_create_missing_study_instance_uid
       ):
-        with self.assertRaisesRegex(
-            dicom_json_util.MissingStudyUIDInMetadataError,
-            ingest_const.ErrorMsgs.MISSING_STUDY_UID,
-        ):
+        with self.assertRaisesRegex(ingest_base.GenDicomFailedError, error_msg):
           ingest_base._correct_missing_study_instance_uid_in_metadata(
               test_metadata, dicom_client
           )
 
-  @parameterized.named_parameters([
-      dict(
-          testcase_name='filename_ingestion',
-          filename=f'{_SLIDE_ID_2}.svs',
-          candidate_barcode_values=[],
-          expected=_SLIDE_ID_2,
-      ),
-      dict(
-          testcase_name='barcode_ingestion',
-          filename='foo.svs',
-          candidate_barcode_values=[_SLIDE_ID_1],
-          expected=_SLIDE_ID_1,
-      ),
-  ])
-  @flagsaver.flagsaver(metadata_bucket='test')
-  def test_determine_slideid_success(
-      self, filename, candidate_barcode_values, expected
+  @parameterized.parameters(
+      [requests.HTTPError, dicom_store_client.StudyInstanceUIDSearchError]
+  )
+  @mock.patch.object(
+      dicom_store_client.DicomStoreClient,
+      'study_instance_uid_search',
+      autospec=True,
+  )
+  @flagsaver.flagsaver(enable_create_missing_study_instance_uid=True)
+  def test_correct_missing_study_instance_uid_in_metadata_search_dicom_store_failure_raises(
+      self, exp, mock_study_instance_uid_search
   ):
-    ingest_base_test_driver = _IngestBaseTestDriver()
-    metadata_client = metadata_storage_client.MetadataStorageClient()
-    metadata_client.set_debug_metadata([
-        gen_test_util.test_file_path(_METADATA_PATH),
-        gen_test_util.test_file_path(_SCHEMA_PATH),
-    ])
-    ingest_base_test_driver._metadata_storage_client = metadata_client
-    with mock.patch.object(
-        barcode_reader,
-        'read_barcode_in_files',
-        autospec=True,
-        return_value={
-            bar_code: {'unused'} for bar_code in candidate_barcode_values
-        },
-    ):
-      self.assertEqual(
-          ingest_base_test_driver._determine_slideid(
-              filename,
-              [ancillary_image_extractor.AncillaryImage('foo.png', 'RGB', True)]
-              * len(candidate_barcode_values),
+    mock_study_instance_uid_search.side_effect = exp
+    with self.assertRaises(ingest_base.GenDicomFailedError):
+      ingest_base._correct_missing_study_instance_uid_in_metadata(
+          _dcm_json(accession='A1'),
+          dicom_store_client.DicomStoreClient(
+              'https://mock.dicomstore.com/dicomWeb'
           ),
-          expected,
       )
 
-  @flagsaver.flagsaver(metadata_bucket='test')
-  def test_determine_slideid_fails_to_find_slide_id_raises(self):
-    ingest_base_test_driver = _IngestBaseTestDriver()
-    metadata_client = metadata_storage_client.MetadataStorageClient()
-    metadata_client.set_debug_metadata([
-        gen_test_util.test_file_path(_METADATA_PATH),
-        gen_test_util.test_file_path(_SCHEMA_PATH),
-    ])
-    ingest_base_test_driver._metadata_storage_client = metadata_client
-    with mock.patch.object(
-        barcode_reader, 'read_barcode_in_files', autospec=True, return_value={}
-    ):
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='no_prior_dicom',
+          dicom_patient_id='other',
+          expected_dicom_json={
+              '00100020': {'vr': 'LO', 'Value': ['foo']},
+              '00400512': {'vr': 'LO', 'Value': ['foo']},
+              '0020000D': {'vr': 'UI', 'Value': ['1.2.3']},
+          },
+          expected_csv={
+              'ContainerIdentifier': 'foo',
+              'PatientID': 'foo',
+              'StudyInstanceUID': '1.2.3',
+          },
+      ),
+      dict(
+          testcase_name='store_has_prior_patient_id',
+          dicom_patient_id='foo',
+          expected_dicom_json={
+              '00100020': {'vr': 'LO', 'Value': ['foo']},
+              '00400512': {'vr': 'LO', 'Value': ['foo']},
+              '0020000D': {'vr': 'UI', 'Value': ['1.2']},
+          },
+          expected_csv={
+              'ContainerIdentifier': 'foo',
+              'PatientID': 'foo',
+              'StudyInstanceUID': '1.2',
+          },
+      ),
+  ])
+  @mock.patch.object(
+      uid_generator, 'generate_uid', autospec=True, return_value='1.2.3'
+  )
+  @flagsaver.flagsaver(
+      enable_metadata_free_ingestion=True,
+  )
+  def test_generate_metadata_free_slide_metadata(
+      self,
+      unused_mock,
+      dicom_patient_id,
+      expected_dicom_json,
+      expected_csv,
+  ):
+    slide_id = 'foo'
+    mock_dicomweb_url = 'https://mock.dicomstore.com/dicomWeb'
+    with dicom_store_mock.MockDicomStores(mock_dicomweb_url) as mk_store:
+      mk_store[mock_dicomweb_url].add_instance(
+          _create_pydicom_file_dataset_from_json(
+              _dcm_json('1.2', '1.2.1', '1.2.1.1', 'A1', dicom_patient_id)
+          )
+      )
+      dicom_client = dicom_store_client.DicomStoreClient(mock_dicomweb_url)
+      dcm_metadata = ingest_base.generate_metadata_free_slide_metadata(
+          slide_id, dicom_client
+      )
+    metadata_row = dcm_metadata.metadata_table_row
+    csv_style_metadata = {
+        name: metadata_row.lookup_metadata_value(name)
+        for name in metadata_row.column_names
+    }
+    self.assertEqual(dcm_metadata.dicom_json, expected_dicom_json)
+    self.assertEqual(csv_style_metadata, expected_csv)
+
+  def test_generate_empty_slide_metadata(self):
+    dcm_metadata = ingest_base.generate_empty_slide_metadata()
+    metadata_row = dcm_metadata.metadata_table_row
+    csv_style_metadata = {
+        name: metadata_row.lookup_metadata_value(name)
+        for name in metadata_row.column_names
+    }
+    self.assertEqual(dcm_metadata.dicom_json, {})
+    self.assertEqual(csv_style_metadata, {})
+
+  def test_initialize_metadata_study_and_series_uids_for_dicom_triggered_ingestion(
+      self,
+  ):
+    input_study_instance_uid = '1.2.3'
+    input_series_instance_uid = '1.2.3.4'
+    ds = pydicom.Dataset()
+    ds.SOPClassUID = '4.5.6'
+    ds.AccessionNumber = 'mock_accession'
+    metadata = ds.to_json_dict()
+    ingest_base.initialize_metadata_study_and_series_uids_for_dicom_triggered_ingestion(
+        input_study_instance_uid,
+        input_series_instance_uid,
+        metadata,
+        mock.create_autospec(
+            dicom_store_client.DicomStoreClient, instance=True
+        ),
+        set_study_instance_uid_from_metadata=False,
+        set_series_instance_uid_from_metadata=False,
+    )
+    self.assertEqual(
+        dicom_json_util.get_study_instance_uid(metadata),
+        input_study_instance_uid,
+    )
+    self.assertEqual(
+        dicom_json_util.get_series_instance_uid(metadata),
+        input_series_instance_uid,
+    )
+    self.assertNotIn('00080016', metadata)
+
+  def test_initialize_metadata_study_and_series_uids_for_dicom_triggered_ingestion_from_def_metadata(
+      self,
+  ):
+    ds = pydicom.Dataset()
+    ds.SOPClassUID = '4.5.6'
+    ds.StudyInstanceUID = '1.2.5'
+    ds.SeriesInstanceUID = '1.2.3.5'
+    metadata = ds.to_json_dict()
+    ingest_base.initialize_metadata_study_and_series_uids_for_dicom_triggered_ingestion(
+        '1.2.3',
+        '1.2.3.4',
+        metadata,
+        mock.create_autospec(
+            dicom_store_client.DicomStoreClient, instance=True
+        ),
+        set_study_instance_uid_from_metadata=True,
+        set_series_instance_uid_from_metadata=True,
+    )
+    self.assertEqual(
+        dicom_json_util.get_study_instance_uid(metadata),
+        ds.StudyInstanceUID,
+    )
+    self.assertEqual(
+        dicom_json_util.get_series_instance_uid(metadata),
+        ds.SeriesInstanceUID,
+    )
+    self.assertNotIn('00080016', metadata)
+
+  @parameterized.named_parameters([
+      dict(testcase_name='series', init_series=True, init_study=False),
+      dict(testcase_name='study', init_series=False, init_study=True),
+  ])
+  def test_initialize_metadata_study_and_series_uids_for_dicom_triggered_ingestion_missing_uid_raises(
+      self, init_series, init_study
+  ):
+    ds = pydicom.Dataset()
+    ds.SOPClassUID = '4.5.6'
+    metadata = ds.to_json_dict()
+    with self.assertRaises(ingest_base.GenDicomFailedError):
+      ingest_base.initialize_metadata_study_and_series_uids_for_dicom_triggered_ingestion(
+          '1.2.3',
+          '1.2.3.4',
+          metadata,
+          mock.create_autospec(
+              dicom_store_client.DicomStoreClient, instance=True
+          ),
+          set_study_instance_uid_from_metadata=init_study,
+          set_series_instance_uid_from_metadata=init_series,
+      )
+
+  @mock.patch.object(
+      uid_generator, 'generate_uid', autospec=True, return_value='9.9.9'
+  )
+  @flagsaver.flagsaver(enable_create_missing_study_instance_uid=True)
+  def test_initialize_metadata_study_and_series_dicom_triggered_ingestion_from_metadata_study_uid_generated(
+      self, *unused_mock
+  ):
+    ds = pydicom.Dataset()
+    ds.SOPClassUID = '4.5.6'
+    ds.AccessionNumber = 'mock_accession'
+    metadata = ds.to_json_dict()
+    mock_dicomweb_url = 'https://mock.dicomstore.com/dicomWeb'
+    dicom_client = dicom_store_client.DicomStoreClient(mock_dicomweb_url)
+    with dicom_store_mock.MockDicomStores(mock_dicomweb_url):
+      ingest_base.initialize_metadata_study_and_series_uids_for_dicom_triggered_ingestion(
+          '1.2.3',
+          '1.2.3.4',
+          metadata,
+          dicom_client,
+          set_study_instance_uid_from_metadata=True,
+          set_series_instance_uid_from_metadata=False,
+      )
+    self.assertEqual(
+        dicom_json_util.get_study_instance_uid(metadata),
+        '9.9.9',
+    )
+    self.assertEqual(
+        dicom_json_util.get_series_instance_uid(metadata),
+        '1.2.3.4',
+    )
+    self.assertNotIn('00080016', metadata)
+
+  @mock.patch.object(
+      uid_generator, 'generate_uid', autospec=True, return_value='9.9.9'
+  )
+  @flagsaver.flagsaver(enable_create_missing_study_instance_uid=True)
+  def test_initialize_metadata_study_and_series_dicom_triggered_ingestion_missing_accesison_raises(
+      self, *unused_mock
+  ):
+    ds = pydicom.Dataset()
+    ds.SOPClassUID = '4.5.6'
+    metadata = ds.to_json_dict()
+    mock_dicomweb_url = 'https://mock.dicomstore.com/dicomWeb'
+    dicom_client = dicom_store_client.DicomStoreClient(mock_dicomweb_url)
+    with dicom_store_mock.MockDicomStores(mock_dicomweb_url):
       with self.assertRaisesRegex(
           ingest_base.GenDicomFailedError,
-          r"\('Failed to determine slide id.',"
-          r" 'slide_id_error__file_name_does_not_contain_slide_id_candidates'\)",
+          ingest_const.ErrorMsgs.MISSING_ACCESSION_NUMBER_UNABLE_TO_CREATE_STUDY_INSTANCE_UID,
       ):
-        ingest_base_test_driver._determine_slideid('foo.svs', [])
+        ingest_base.initialize_metadata_study_and_series_uids_for_dicom_triggered_ingestion(
+            '1.2.3',
+            '1.2.3.4',
+            metadata,
+            dicom_client,
+            set_study_instance_uid_from_metadata=True,
+            set_series_instance_uid_from_metadata=False,
+        )
+
+  @mock.patch.object(
+      uid_generator, 'generate_uid', autospec=True, return_value='5.6.7'
+  )
+  def test_initialize_metadata_study_and_series_uids_for_non_dicom_image_triggered_ingestion(
+      self, unused_mock
+  ):
+    study_uid = '1.2.3.4.5.6.7'
+    ds = pydicom.Dataset()
+    ds.StudyInstanceUID = study_uid
+    metadata = ds.to_json_dict()
+    mock_dicomweb_url = 'https://mock.dicomstore.com/dicomWeb'
+    dicom_gen = abstract_dicom_generation.GeneratedDicomFiles(
+        '/tmp.dcm', 'gs://tmp.dcm'
+    )
+    dicom_gen.hash = 'mock_hash'
+    dicom_client = dicom_store_client.DicomStoreClient(mock_dicomweb_url)
+    with dicom_store_mock.MockDicomStores(mock_dicomweb_url):
+      rs = ingest_base.initialize_metadata_study_and_series_uids_for_non_dicom_image_triggered_ingestion(
+          dicom_client,
+          dicom_gen,
+          metadata,
+          initialize_series_uid_from_metadata=False,
+      )
+    self.assertEqual(
+        dicom_json_util.get_study_instance_uid(metadata), study_uid
+    )
+    self.assertEqual(dicom_json_util.get_series_instance_uid(metadata), '5.6.7')
+    self.assertTrue(rs)
+
+  def test_initialize_metadata_study_and_series_uids_for_non_dicom_image_triggered_ingestion_missing_study_uid_raises(
+      self,
+  ):
+    ds = pydicom.Dataset()
+    ds.AccessionNumber = 'A1'
+    metadata = ds.to_json_dict()
+    mock_dicomweb_url = 'https://mock.dicomstore.com/dicomWeb'
+    dicom_gen = abstract_dicom_generation.GeneratedDicomFiles(
+        '/tmp.dcm', 'gs://tmp.dcm'
+    )
+    dicom_gen.hash = 'mock_hash'
+    dicom_client = dicom_store_client.DicomStoreClient(mock_dicomweb_url)
+    with dicom_store_mock.MockDicomStores(mock_dicomweb_url):
+      with self.assertRaises(ingest_base.GenDicomFailedError):
+        ingest_base.initialize_metadata_study_and_series_uids_for_non_dicom_image_triggered_ingestion(
+            dicom_client,
+            dicom_gen,
+            metadata,
+            initialize_series_uid_from_metadata=False,
+        )
+
+  @mock.patch.object(
+      uid_generator, 'generate_uid', autospec=True, return_value='5.6.7'
+  )
+  @flagsaver.flagsaver(enable_create_missing_study_instance_uid=True)
+  def test_initialize_metadata_study_and_series_uids_for_non_dicom_image_triggered_ingestion_generated_study_uid(
+      self, unused_mock
+  ):
+    ds = pydicom.Dataset()
+    ds.AccessionNumber = '123'
+    metadata = ds.to_json_dict()
+    mock_dicomweb_url = 'https://mock.dicomstore.com/dicomWeb'
+    dicom_gen = abstract_dicom_generation.GeneratedDicomFiles(
+        '/tmp.dcm', 'gs://tmp.dcm'
+    )
+    dicom_gen.hash = 'mock_hash'
+    dicom_client = dicom_store_client.DicomStoreClient(mock_dicomweb_url)
+    with dicom_store_mock.MockDicomStores(mock_dicomweb_url):
+      rs = ingest_base.initialize_metadata_study_and_series_uids_for_non_dicom_image_triggered_ingestion(
+          dicom_client,
+          dicom_gen,
+          metadata,
+          initialize_series_uid_from_metadata=False,
+      )
+    self.assertEqual(dicom_json_util.get_study_instance_uid(metadata), '5.6.7')
+    self.assertEqual(dicom_json_util.get_series_instance_uid(metadata), '5.6.7')
+    self.assertTrue(rs)
+
+  @mock.patch.object(
+      uid_generator, 'generate_uid', autospec=True, return_value='5.6.7'
+  )
+  @flagsaver.flagsaver(enable_create_missing_study_instance_uid=True)
+  def test_initialize_metadata_study_and_series_uids_for_non_dicom_image_triggered_ingestion_gen_series_from_metadata(
+      self, unused_mock
+  ):
+    ds = pydicom.Dataset()
+    ds.AccessionNumber = '123'
+    ds.SeriesInstanceUID = '1.2.3'
+    metadata = ds.to_json_dict()
+    mock_dicomweb_url = 'https://mock.dicomstore.com/dicomWeb'
+    dicom_gen = abstract_dicom_generation.GeneratedDicomFiles(
+        '/tmp.dcm', 'gs://tmp.dcm'
+    )
+    dicom_gen.hash = 'mock_hash'
+    dicom_client = dicom_store_client.DicomStoreClient(mock_dicomweb_url)
+    with dicom_store_mock.MockDicomStores(mock_dicomweb_url):
+      rs = ingest_base.initialize_metadata_study_and_series_uids_for_non_dicom_image_triggered_ingestion(
+          dicom_client,
+          dicom_gen,
+          metadata,
+          initialize_series_uid_from_metadata=True,
+      )
+    self.assertEqual(dicom_json_util.get_study_instance_uid(metadata), '5.6.7')
+    self.assertEqual(dicom_json_util.get_series_instance_uid(metadata), '1.2.3')
+    self.assertFalse(rs)
+
+  @mock.patch.object(
+      uid_generator, 'generate_uid', autospec=True, return_value='5.6.7'
+  )
+  @flagsaver.flagsaver(enable_create_missing_study_instance_uid=True)
+  def test_initialize_metadata_study_and_series_uids_for_non_dicom_image_triggered_ingestion_gen_series_from_metadata_missing_raises(
+      self, unused_mock
+  ):
+    ds = pydicom.Dataset()
+    ds.AccessionNumber = '123'
+    metadata = ds.to_json_dict()
+    mock_dicomweb_url = 'https://mock.dicomstore.com/dicomWeb'
+    dicom_gen = abstract_dicom_generation.GeneratedDicomFiles(
+        '/tmp.dcm', 'gs://tmp.dcm'
+    )
+    dicom_gen.hash = 'mock_hash'
+    dicom_client = dicom_store_client.DicomStoreClient(mock_dicomweb_url)
+    with dicom_store_mock.MockDicomStores(mock_dicomweb_url):
+      with self.assertRaises(ingest_base.GenDicomFailedError):
+        ingest_base.initialize_metadata_study_and_series_uids_for_non_dicom_image_triggered_ingestion(
+            dicom_client,
+            dicom_gen,
+            metadata,
+            initialize_series_uid_from_metadata=True,
+        )
+
+  @mock.patch.object(
+      uid_generator, 'generate_uid', autospec=True, return_value='5.6.7'
+  )
+  def test_initialize_metadata_study_and_series_uids_for_non_dicom_image_triggered_ingestion_init_series_from_hash(
+      self, unused_mock
+  ):
+    study_instance_uid = '2.3.4'
+    series_instance_uid = '1.2.3'
+    hash_value = 'mock_hash'
+    path = os.path.join(self.create_tempdir(), 'mk.dcm')
+    ds = pydicom.Dataset()
+    ds.StudyInstanceUID = study_instance_uid
+    ds.SeriesInstanceUID = series_instance_uid
+    ds.SOPInstanceUID = '5.6.7'
+    tag = dicom_private_tag_generator.DicomPrivateTag(
+        ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG, 'LT', hash_value
+    )
+    dicom_private_tag_generator.DicomPrivateTagGenerator.add_dicom_private_tags(
+        [tag], ds
+    )
+    gen_test_util.write_test_dicom(path, ds)
+
+    ds = pydicom.Dataset()
+    ds.StudyInstanceUID = study_instance_uid
+    metadata = ds.to_json_dict()
+    mock_dicomweb_url = 'https://mock.dicomstore.com/dicomWeb'
+    dicom_gen = abstract_dicom_generation.GeneratedDicomFiles(
+        '/tmp.dcm', 'gs://tmp.dcm'
+    )
+    dicom_gen.hash = hash_value
+    dicom_client = dicom_store_client.DicomStoreClient(mock_dicomweb_url)
+    with dicom_store_mock.MockDicomStores(mock_dicomweb_url) as mk_store:
+      mk_store[mock_dicomweb_url].add_instance(path)
+      rs = ingest_base.initialize_metadata_study_and_series_uids_for_non_dicom_image_triggered_ingestion(
+          dicom_client,
+          dicom_gen,
+          metadata,
+          initialize_series_uid_from_metadata=True,
+      )
+      self.assertEqual(
+          dicom_json_util.get_study_instance_uid(metadata), study_instance_uid
+      )
+      self.assertEqual(
+          dicom_json_util.get_series_instance_uid(metadata), series_instance_uid
+      )
+      self.assertFalse(rs)
 
 
 if __name__ == '__main__':

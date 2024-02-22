@@ -22,6 +22,7 @@ import pydicom
 import requests
 
 from shared_libs.logging_lib import cloud_logging_client
+from transformation_pipeline import ingest_flags
 from transformation_pipeline.ingestion_lib import ingest_const
 from transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
 from transformation_pipeline.ingestion_lib.dicom_gen import dicom_json_util
@@ -30,6 +31,7 @@ from transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import decode_slideid
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_base
+from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
 
 
 _OUTPUT_DICOM_FILENAME = 'output.dcm'
@@ -40,12 +42,9 @@ DICOM_ALREADY_INGESTED_TAG_ADDRESSES = frozenset([
     ingest_const.DICOMTagKeywords.PUBSUB_MESSAGE_ID_TAG,
     ingest_const.DICOMTagKeywords.INGEST_FILENAME_TAG,
 ])
-_DICOM_ALREADY_INGESTED_TAGS = frozenset(
-    [
-        pydicom.tag.Tag(address)
-        for address in DICOM_ALREADY_INGESTED_TAG_ADDRESSES
-    ]
-)
+_DICOM_ALREADY_INGESTED_TAGS = frozenset([
+    pydicom.tag.Tag(address) for address in DICOM_ALREADY_INGESTED_TAG_ADDRESSES
+])
 
 
 class UnexpectedDicomMetadataError(Exception):
@@ -83,11 +82,13 @@ class IngestDicom(ingest_base.IngestBase):
       self,
       dicom_store_triggered_ingest: bool,
       override_study_uid_with_metadata: bool,
+      metadata_client: metadata_storage_client.MetadataStorageClient,
       ingest_buckets: Optional[ingest_base.GcsIngestionBuckets] = None,
   ):
-    super().__init__(ingest_buckets)
+    super().__init__(ingest_buckets, metadata_client)
     self._dicom_store_triggered_ingest = dicom_store_triggered_ingest
     self._override_study_uid_with_metadata = override_study_uid_with_metadata
+    self._dcm = None
 
   def _read_dicom(self, path: str) -> pydicom.FileDataset:
     """Reads DICOM file.
@@ -115,13 +116,15 @@ class IngestDicom(ingest_base.IngestBase):
       ) from exp
 
   def _determine_dicom_slideid(
-      self, dcm: pydicom.Dataset, dicom_path: str
+      self,
+      dcm: pydicom.Dataset,
+      dicom_gen: abstract_dicom_generation.GeneratedDicomFiles,
   ) -> str:
     """Determines slide id for DICOM instance.
 
     Args:
       dcm: Pydicom dataset.
-      dicom_path: Filename to test for slide id.
+      dicom_gen: File payload to convert into DICOM.
 
     Returns:
       SlideID as string.
@@ -132,6 +135,23 @@ class IngestDicom(ingest_base.IngestBase):
     """
     # Attempt to get slide id from barcode tag in DICOM file.
     current_exception = None
+    if not self._dicom_store_triggered_ingest:
+      try:
+        # Attempt to get slide id from ingested file filename.
+        slide_id = decode_slideid.get_slide_id_from_filename(
+            dicom_gen, self.metadata_storage_client
+        )
+        cloud_logging_client.logger().info(
+            'Slide ID identified in ingested filename.',
+            {
+                ingest_const.LogKeywords.FILENAME: dicom_gen.localfile,
+                ingest_const.LogKeywords.SOURCE_URI: dicom_gen.source_uri,
+                ingest_const.LogKeywords.SLIDE_ID: slide_id,
+            },
+        )
+        return slide_id
+      except decode_slideid.SlideIdIdentificationError as exp:
+        current_exception = exp
     if ingest_const.DICOMTagKeywords.BARCODE_VALUE in dcm:
       try:
         slide_id = decode_slideid.find_slide_id_in_metadata(
@@ -143,25 +163,9 @@ class IngestDicom(ingest_base.IngestBase):
         )
         return slide_id
       except decode_slideid.SlideIdIdentificationError as exp:
-        current_exception = exp
-    if not self._dicom_store_triggered_ingest:
-      try:
-        # Attempt to get slide id from ingested file filename.
-        slide_id = decode_slideid.get_slide_id_from_filename(
-            dicom_path,
-            self.metadata_storage_client,
-            current_exception,
+        current_exception = decode_slideid.highest_error_level_exception(
+            current_exception, exp
         )
-        cloud_logging_client.logger().info(
-            'Slide ID identified in ingested filename.',
-            {
-                ingest_const.LogKeywords.filename: dicom_path,
-                ingest_const.LogKeywords.SLIDE_ID: slide_id,
-            },
-        )
-        return slide_id
-      except decode_slideid.SlideIdIdentificationError as exp:
-        current_exception = exp
     if current_exception is not None:
       raise ingest_base.GenDicomFailedError(
           'Failed to determine slide id.',
@@ -170,6 +174,37 @@ class IngestDicom(ingest_base.IngestBase):
     raise ingest_base.GenDicomFailedError(
         'Failed to determine slide id.', ingest_const.ErrorMsgs.SLIDE_ID_MISSING
     )
+
+  def _generate_metadata_free_slide_metadata(
+      self,
+      unused_slide_id: str,
+      unused_dicom_client: dicom_store_client.DicomStoreClient,
+  ) -> ingest_base.DicomMetadata:
+    return ingest_base.generate_empty_slide_metadata()
+
+  def _set_study_instance_uid_from_metadata(self) -> bool:
+    """Returns True if Study instance UID should be generated from metadata.
+
+    If slide is ingested using metadata free transformation or as a result of
+    dicom store metadata update then the study uid should always come from the
+    value embedded in the DICOM. Otherwise return the value in metadata
+    study initalization flag.
+    """
+    if self.is_metadata_free_slide_id or self._dicom_store_triggered_ingest:
+      return False
+    return self._override_study_uid_with_metadata
+
+  def _set_series_instance_uid_from_metadata(self) -> bool:
+    """Returns True if Series instance UID should be generated from metadata.
+
+    If slide is ingested using metadata free transformation or as a result of
+    dicom store metadata update then the series uid should always come from the
+    value embedded in the DICOM. Otherwise return value in metadata
+    series initalization flag.
+    """
+    if self.is_metadata_free_slide_id or self._dicom_store_triggered_ingest:
+      return False
+    return ingest_flags.INIT_SERIES_INSTANCE_UID_FROM_METADATA_FLG.value
 
   def _update_metadata(
       self,
@@ -189,33 +224,31 @@ class IngestDicom(ingest_base.IngestBase):
       dcm_store_client: DICOM store client.
     """
     sop_class_name = dcm[ingest_const.DICOMTagKeywords.SOP_CLASS_UID].repval
-    dcm_schema = self._get_dicom_metadata_schema(sop_class_name)
-    dcm_json, _ = self._get_slide_dicom_json_formatted_metadata(
+    dcm_json = self.get_slide_dicom_json_formatted_metadata(
         sop_class_name,
         slide_id,
-        dcm_schema,
         dcm_store_client,
-        test_metadata_for_missing_study_instance_uid=True,
+    ).dicom_json
+    ingest_base.initialize_metadata_study_and_series_uids_for_dicom_triggered_ingestion(
+        dcm.StudyInstanceUID,
+        dcm.SeriesInstanceUID,
+        dcm_json,
+        dcm_store_client,
+        self._set_study_instance_uid_from_metadata(),
+        self._set_series_instance_uid_from_metadata(),
     )
-    if self._override_study_uid_with_metadata:
-      # Ignore (i.e. do not override) SeriesInstanceUID and SOPInstanceUID only.
-      tags_to_ignore = set([
-          pydicom.tag.Tag(ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID),
-          pydicom.tag.Tag(ingest_const.DICOMTagKeywords.SOP_INSTANCE_UID),
-      ])
-    else:
-      tags_to_ignore = dicom_json_util.UID_TRIPLE_TAGS
-    dicom_json_util.merge_json_metadata_with_pydicom_ds(
-        dcm, dcm_json, tags_to_ignore
-    )
+    dicom_json_util.merge_json_metadata_with_pydicom_ds(dcm, dcm_json)
 
     private_tags = abstract_dicom_generation.get_private_tags_for_gen_dicoms(
-        dicom_gen, message_id
+        dicom_gen,
+        message_id,
+        include_integest_filename_tag=not self._dicom_store_triggered_ingest,
     )
     dicom_private_tag_generator.DicomPrivateTagGenerator.add_dicom_private_tags(
         private_tags, dcm
     )
     dicom_util.add_general_metadata_to_dicom(dcm)
+    dicom_util.add_missing_type2_dicom_metadata(dcm)
 
   def is_dicom_instance_already_ingested(
       self,
@@ -244,9 +277,9 @@ class IngestDicom(ingest_base.IngestBase):
       UnexpectedDicomMetadataError: DICOM metadata contains more than 1 dataset.
     """
     log = {
-        ingest_const.LogKeywords.study_instance_uid: study_instance_uid,
+        ingest_const.LogKeywords.STUDY_INSTANCE_UID: study_instance_uid,
         ingest_const.LogKeywords.SERIES_INSTANCE_UID: series_instance_uid,
-        ingest_const.LogKeywords.sop_instance_uid: sop_instance_uid,
+        ingest_const.LogKeywords.SOP_INSTANCE_UID: sop_instance_uid,
     }
     try:
       dicom_json_metadata = ds_client.get_instance_tags_json(
@@ -309,6 +342,41 @@ class IngestDicom(ingest_base.IngestBase):
     except (pydicom.errors.InvalidDicomError, TypeError, FileNotFoundError):
       return False
 
+  def init_handler_for_ingestion(self) -> None:
+    super().init_handler_for_ingestion()
+    self._dcm = None
+
+  def get_slide_id(
+      self,
+      dicom_gen: abstract_dicom_generation.GeneratedDicomFiles,
+      unused_abstract_dicom_handler: abstract_dicom_generation.AbstractDicomGeneration,
+  ) -> str:
+    """Returns lock to ensure transform processes only one instance of a slide at a time.
+
+    Args:
+      dicom_gen: File payload to generate into DICOM.
+      unused_abstract_dicom_handler: Polling client receiving triggering pub/sub
+        msg.
+
+    Returns:
+      Name of lock
+    """
+    try:
+      self._dcm = self._read_dicom(dicom_gen.localfile)
+      return self.set_slide_id(
+          self._determine_dicom_slideid(self._dcm, dicom_gen), False
+      )
+    except ingest_base.GenDicomFailedError as exp:
+      if (
+          not self._dicom_store_triggered_ingest
+          and ingest_flags.ENABLE_METADATA_FREE_INGESTION_FLG.value
+      ):
+        return self.set_slide_id(
+            decode_slideid.get_metadata_free_slide_id(dicom_gen), True
+        )
+      dest_uri = self.log_and_get_failure_bucket_path(exp)
+      raise ingest_base.DetermineSlideIDError(dicom_gen, dest_uri) from exp
+
   def generate_dicom(
       self,
       dicom_gen_dir: str,
@@ -330,15 +398,18 @@ class IngestDicom(ingest_base.IngestBase):
 
     Returns:
       GenDicomResult describing generated DICOM
+
+    Raises:
+      ValueError: Slide ID is undefined.
     """
-    upload_file_list = []
+    dcm = self._dcm
+    if self.slide_id is None:
+      raise ValueError('Slide id is not set.')
     try:
-      dcm = self._read_dicom(dicom_gen.localfile)
-      slide_id = self._determine_dicom_slideid(dcm, dicom_gen.localfile)
       self._update_metadata(
           dicom_gen,
           dcm,
-          slide_id,
+          self.slide_id,
           message_id,
           abstract_dicom_handler.dcm_store_client,
       )
@@ -349,6 +420,7 @@ class IngestDicom(ingest_base.IngestBase):
       upload_file_list = dicom_gen.generated_dicom_files
       dest_uri = self.ingest_succeeded_uri
     except ingest_base.GenDicomFailedError as exp:
+      upload_file_list = []
       dest_uri = self.log_and_get_failure_bucket_path(exp)
 
     return ingest_base.GenDicomResult(

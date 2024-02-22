@@ -1,5 +1,5 @@
 {
-  "header" : {"dicom_standard_version": {"Version": "2022a"}},
+  "header" : {"dicom_standard_version": {"Version": "2023e"}},
 
   "dicom_modules": {
      "C.2.1": [
@@ -93,8 +93,12 @@
         {"name": "C.7-10", "caption": "Image Plane Module Attributes"}
      ],
      "C.7.6.3": [
-        {"name": "C.7-11a", "caption": "Image Pixel Module Attributes"},
-        {"name": "C.7-11b", "caption": "Image Pixel Macro Attributes"},
+        {"name": "C.7-11a", "caption": "Image Pixel Module Attributes"}
+     ],
+     "C.7.6.3.2": [
+        {"name": "C.7-11b", "caption": "Image Pixel Macro Attributes"}
+     ],
+     "C.7.6.3.3": [
         {"name": "C.7-11c", "caption": "Image Pixel Description Macro Attributes"}
      ],
      "C.7.6.4": [
@@ -116,8 +120,7 @@
         {"name": "C.7-16", "caption": "Mask Module Attributes"}
      ],
      "C.7.6.11": [
-        {"name": "C.7-17", "caption": "Display Shutter Module Attributes"},
-        {"name": "C.7-17a", "caption": "Display Shutter Macro Attributes"}
+        {"name": "C.7-17", "caption": "Display Shutter Module Attributes"}
      ],
      "C.7.6.12": [
         {"name": "C.7-18", "caption": "Device Module Attributes"}
@@ -171,8 +174,7 @@
         {"name": "C.7.6.16-11b", "caption": "Frame VOI LUT with LUT Macro Attributes"}
      ],
      "C.7.6.16.2.11": [
-        {"name": "C.7.6.16-12", "caption": "Real World Value Mapping Macro Attributes"},
-        {"name": "C.7.6.16-12b", "caption": "Real World Value Mapping Item Macro Attributes"}
+        {"name": "C.7.6.16-12", "caption": "Real World Value Mapping Macro Attributes"}
      ],
      "C.7.6.16.2.12": [
         {"name": "C.7.16-13", "caption": "Contrast/Bolus Usage Macro Attributes"}
@@ -256,8 +258,7 @@
         {"name": "C.7.6.21-1", "caption": "Image - Equipment Coordinate Relationship Module Attributes"}
      ],
      "C.7.6.22": [
-        {"name": "C.7.6.22-1", "caption": "Specimen Module Attributes"},
-        {"name": "C.7.6.22-2", "caption": "Specimen Macro Attributes"}
+        {"name": "C.7.6.22-1", "caption": "Specimen Module Attributes"}
      ],
      "C.7.6.23": [
         {"name": "C.7.6.23-1", "caption": "Enhanced Palette Color Lookup Table Module Attributes"}
@@ -277,9 +278,17 @@
      "C.7.6.28": [
         {"name": "C.7.6.28-1", "caption": "Real-Time Acquisition Module Attributes"}
      ],
+     "C.7.6.29": [
+        {"name": "C.7.6.29-1", "caption": "Sparse Multi-frame Functional Groups Module Attributes"}
+     ],
      "C.7.9": [
-        {"name": "C.7-22", "caption": "Palette Color Lookup Table Module Attributes"},
-        {"name": "C.7-22a", "caption": "Palette Color Lookup Table Macro Attributes"}
+        {"name": "C.7-22", "caption": "Palette Color Lookup Table Module Attributes"}
+     ],
+     "C.7.10.1": [
+        {"name": "C.7.10.1-1", "caption": "General Acquisition Module Attributes"}
+     ],
+     "C.7.11.1": [
+        {"name": "C.7.11.1-1", "caption": "Multi-Resolution Pyramid Module Attributes"}
      ],
      "C.8.1.1": [
         {"name": "C.8-1", "caption": "CR Series Module Attributes"}
@@ -360,8 +369,7 @@
         {"name": "C.8-27", "caption": "X-Ray Acquisition Module Attributes"}
      ],
      "C.8.7.3": [
-        {"name": "C.8-28", "caption": "X-Ray Collimator Module Attributes"},
-        {"name": "C.8-28b", "caption": "X-Ray Collimator Dimensions Macro Attributes"}
+        {"name": "C.8-28", "caption": "X-Ray Collimator Module Attributes"}
      ],
      "C.8.7.4": [
         {"name": "C.8-29", "caption": "X-Ray Table Module Attributes"}
@@ -382,12 +390,10 @@
         {"name": "C.8-34", "caption": "X-Ray Generation Module Attributes"}
      ],
      "C.8.7.10": [
-        {"name": "C.8-35", "caption": "X-Ray Filtration Module Attributes"},
-        {"name": "C.8-35a", "caption": "X-Ray Filtration Macro Attributes"}
+        {"name": "C.8-35", "caption": "X-Ray Filtration Module Attributes"}
      ],
      "C.8.7.11": [
-        {"name": "C.8-36", "caption": "X-Ray Grid Module Attributes"},
-        {"name": "C.8-36b", "caption": "X-Ray Grid Description Macro Attributes"}
+        {"name": "C.8-36", "caption": "X-Ray Grid Module Attributes"}
      ],
      "C.8.8.1": [
         {"name": "C.8-37", "caption": "RT Series Module Attributes"}
@@ -406,9 +412,6 @@
      ],
      "C.8.8.6": [
         {"name": "C.8-42", "caption": "ROI Contour Module Attributes"}
-     ],
-     "C.8.8.7": [
-        {"name": "C.8-43", "caption": "RT Dose ROI Module Attributes"}
      ],
      "C.8.8.8": [
         {"name": "C.8-44", "caption": "RT ROI Observations Module Attributes"}
@@ -501,8 +504,7 @@
         {"name": "C.8-70", "caption": "DX Image Module Attributes"}
      ],
      "C.8.11.4": [
-        {"name": "C.8-71", "caption": "DX Detector Module Attributes"},
-        {"name": "C.8-71b", "caption": "Digital X-Ray Detector Macro Attributes"}
+        {"name": "C.8-71", "caption": "DX Detector Module Attributes"}
      ],
      "C.8.11.5": [
         {"name": "C.8-72", "caption": "DX Positioning Module Attributes"}
@@ -563,6 +565,9 @@
      ],
      "C.8.12.13": [
         {"name": "C.8.12.13-1", "caption": "Dermoscopic Image Module Attributes"}
+     ],
+     "C.8.12.14": [
+        {"name": "C.8.12.14-1", "caption": "Microscope Slide Layer Tile Organization Module Attributes"}
      ],
      "C.8.13.1": [
         {"name": "C.8-79", "caption": "Enhanced MR Image Module Attributes"}
@@ -691,7 +696,7 @@
         {"name": "C.8.15.4-1", "caption": "Enhanced Multi-energy CT Acquisition Module Attributes"}
      ],
      "C.8.16.2": [
-        {"name": "C.8-131", "caption": "Common CT/MR Image Description Macro Attributes"}
+        {"name": "C.8-131", "caption": "Common CT/MR and Photoacoustic Image Description Macro Attributes"}
      ],
      "C.8.17.1": [
         {"name": "C.8.17.1-1", "caption": "Ophthalmic Photography Series Module Attributes"}
@@ -715,8 +720,7 @@
         {"name": "C.8.17.7-1", "caption": "Ophthalmic Tomography Image Module Attributes"}
      ],
      "C.8.17.8": [
-        {"name": "C.8.17.8-1", "caption": "Ophthalmic Tomography Acquisition Parameters Module Attributes"},
-        {"name": "C.8.17.8-2", "caption": "Ophthalmic Acquisition Parameters Macro Attributes"}
+        {"name": "C.8.17.8-1", "caption": "Ophthalmic Tomography Acquisition Parameters Module Attributes"}
      ],
      "C.8.17.9": [
         {"name": "C.8.17.9-1", "caption": "Ophthalmic Tomography Parameters Module Attributes"}
@@ -950,23 +954,25 @@
         {"name": "C.8.25.7-1", "caption": "General Ophthalmic Refractive Measurements Module Attributes"}
      ],
      "C.8.25.8": [
-        {"name": "C.8.25.8-1", "caption": "Lensometry Measurements Module Attributes"},
+        {"name": "C.8.25.8-1", "caption": "Lensometry Measurements Module Attributes"}
+     ],
+     "C.8.25.8.1": [
         {"name": "C.8.25.8-2", "caption": "Lensometry Measurements Macro Attributes"}
      ],
      "C.8.25.9": [
         {"name": "C.8.25.9-1", "caption": "Autorefraction Measurements Module Attributes"}
      ],
      "C.8.25.10": [
-        {"name": "C.8.25.10-1", "caption": "Keratometry Measurements Module Attributes"},
+        {"name": "C.8.25.10-1", "caption": "Keratometry Measurements Module Attributes"}
+     ],
+     "C.8.25.10.1.1": [
         {"name": "C.8.25.10-2", "caption": "Keratometric Measurements Macro Attributes"}
      ],
      "C.8.25.11": [
-        {"name": "C.8.25.11-1", "caption": "Subjective Refraction Measurements Module Attributes"},
-        {"name": "C.8.25.11-2", "caption": "Subjective Refraction Measurements Macro Attributes"}
+        {"name": "C.8.25.11-1", "caption": "Subjective Refraction Measurements Module Attributes"}
      ],
      "C.8.25.12": [
-        {"name": "C.8.25.12-1", "caption": "Visual Acuity Measurements Module Attributes"},
-        {"name": "C.8.25.12-2", "caption": "Visual Acuity Measurements Macro Attributes"}
+        {"name": "C.8.25.12-1", "caption": "Visual Acuity Measurements Module Attributes"}
      ],
      "C.8.25.13": [
         {"name": "C.8.25.13-1", "caption": "Ophthalmic Axial Measurements Series Module Attributes"}
@@ -1130,6 +1136,42 @@
      "C.8.33.3": [
         {"name": "C.8.33-3", "caption": "Table Summary Statistics Macro Attributes"}
      ],
+     "C.8.34.1": [
+        {"name": "C.8.34.1-1", "caption": "Photoacoustic Image Module Attributes"}
+     ],
+     "C.8.34.2": [
+        {"name": "C.8.34.2-1", "caption": "Photoacoustic Acquisition Parameters Module Attributes"}
+     ],
+     "C.8.34.3": [
+        {"name": "C.8.34.3-1", "caption": "Photoacoustic Transducer Module Attributes"}
+     ],
+     "C.8.34.4": [
+        {"name": "C.8.34.4-1", "caption": "Photoacoustic Reconstruction Module Attributes"}
+     ],
+     "C.8.34.5.1": [
+        {"name": "C.8.34.5.1-1", "caption": "Photoacoustic Excitation Characteristics Macro Attributes"}
+     ],
+     "C.8.34.5.2": [
+        {"name": "C.8.34.5.2-1", "caption": "Photoacoustic Image Frame Type Macro Attributes"}
+     ],
+     "C.8.34.5.3": [
+        {"name": "C.8.34.5.3-1", "caption": "Photoacoustic Image Data Type Macro Attributes"}
+     ],
+     "C.8.34.5.4": [
+        {"name": "C.8.34.5.4-1", "caption": "Photoacoustic Reconstruction Algorithm Macro Attributes"}
+     ],
+     "C.8.35.1": [
+        {"name": "C.8.35.1-1", "caption": "Confocal Microscopy Image Module Attributes"}
+     ],
+     "C.8.35.2": [
+        {"name": "C.8.35.2-1", "caption": "Confocal Microscopy Tiled Pyramidal Image Module Attributes"}
+     ],
+     "C.8.35.3": [
+        {"name": "C.8.35.3-1", "caption": "Cutaneous Confocal Microscopy Image Acquisition Parameters Module Attributes"}
+     ],
+     "C.8.35.4.1": [
+        {"name": "C.8.35.4.1-1", "caption": "Confocal Microscopy Image Frame Type Macro Attributes"}
+     ],
      "C.9.2": [
         {"name": "C.9-2", "caption": "Overlay Plane Module Attributes"}
      ],
@@ -1142,7 +1184,7 @@
      "C.10.5": [
         {"name": "C.10-5", "caption": "Graphic Annotation Module Attributes"}
      ],
-     "C.10.5.1.3.12": [
+     "C.10.5.1.3.12.2": [
         {"name": "C.10-5a", "caption": "Text Style Sequence Macro Attributes"}
      ],
      "C.10.5.1.3.13": [
@@ -1169,13 +1211,17 @@
      "C.10.11": [
         {"name": "C.10-12", "caption": "Graphic Group Module Attributes"}
      ],
+     "C.10.12": [
+        {"name": "C.10.12-1", "caption": "Waveform Filter Characteristics Macro Attributes"}
+     ],
+     "C.10.13": [
+        {"name": "C.10.13-1", "caption": "Waveform Filter Lookup Table Macro Attributes"}
+     ],
      "C.11.1": [
-        {"name": "C.11-1", "caption": "Modality LUT Module Attributes"},
-        {"name": "C.11-1b", "caption": "Modality LUT Macro Attributes"}
+        {"name": "C.11-1", "caption": "Modality LUT Module Attributes"}
      ],
      "C.11.2": [
-        {"name": "C.11-2", "caption": "VOI LUT Module Attributes"},
-        {"name": "C.11-2b", "caption": "VOI LUT Macro Attributes"}
+        {"name": "C.11-2", "caption": "VOI LUT Module Attributes"}
      ],
      "C.11.6": [
         {"name": "C.11.6-1", "caption": "Softcopy Presentation LUT Module Attributes"}
@@ -1193,7 +1239,9 @@
         {"name": "C.11.10-1", "caption": "Presentation State Identification Module Attributes"}
      ],
      "C.11.11": [
-        {"name": "C.11.11-1", "caption": "Presentation State Relationship Module Attributes"},
+        {"name": "C.11.11-1", "caption": "Presentation State Relationship Module Attributes"}
+     ],
+     "C.11.11.1": [
         {"name": "C.11.11-1b", "caption": "Presentation State Relationship Macro Attributes"}
      ],
      "C.11.12": [
@@ -1259,7 +1307,7 @@
      "C.11.32": [
         {"name": "C.11.32-1", "caption": "Render Display Module Attributes"}
      ],
-     "C.11.33.1": [
+     "C.11.33": [
         {"name": "C.11.33-1", "caption": "Advanced Blending Presentation State Module Attributes"}
      ],
      "C.11.33.1.2": [
@@ -1267,6 +1315,9 @@
      ],
      "C.11.34": [
         {"name": "C.11.34.1-1", "caption": "Advanced Blending Presentation State Display Module Attributes"}
+     ],
+     "C.11.35": [
+        {"name": "C.11.35-1", "caption": "Variable Modality LUT Module Attributes"}
      ],
      "C.12.1": [
         {"name": "C.12-1", "caption": "SOP Common Module Attributes"}
@@ -1326,15 +1377,21 @@
         {"name": "C.17-2", "caption": "SR Document General Module Attributes"}
      ],
      "C.17.2.1": [
-        {"name": "C.17-3", "caption": "Hierarchical SOP Instance Reference Macro Attributes"},
-        {"name": "C.17-3a", "caption": "Hierarchical Series Reference Macro Attributes"}
+        {"name": "C.17-3", "caption": "Hierarchical SOP Instance Reference Macro Attributes"}
      ],
      "C.17.2.4": [
         {"name": "C.17-3b", "caption": "Identified Person or Device Macro Attributes"}
      ],
+     "C.17.2.8": [
+        {"name": "C.17-3c", "caption": "Referenced Request Macro Attributes"}
+     ],
      "C.17.3": [
-        {"name": "C.17-4", "caption": "SR Document Content Module Attributes"},
-        {"name": "C.17-5", "caption": "Document Content Macro Attributes"},
+        {"name": "C.17-4", "caption": "SR Document Content Module Attributes"}
+     ],
+     "C.17.3.3": [
+        {"name": "C.17-5", "caption": "Document Content Macro Attributes"}
+     ],
+     "C.17.3.4": [
         {"name": "C.17-6", "caption": "Document Relationship Macro Attributes"}
      ],
      "C.17.6.1": [
@@ -1395,8 +1452,7 @@
         {"name": "C.23.1-1", "caption": "Hanging Protocol Definition Module Attributes"}
      ],
      "C.23.2": [
-        {"name": "C.23.2-1", "caption": "Hanging Protocol Environment Module Attributes"},
-        {"name": "C.23.2-2", "caption": "Screen Specifications Macro Attributes"}
+        {"name": "C.23.2-1", "caption": "Hanging Protocol Environment Module Attributes"}
      ],
      "C.23.3": [
         {"name": "C.23.3-1", "caption": "Hanging Protocol Display Module Attributes"}
@@ -1468,9 +1524,7 @@
         {"name": "C.29.1.5-1", "caption": "Generic Implant Template Planning Landmarks Module Attributes"}
      ],
      "C.29.1.5.1": [
-        {"name": "C.29.1.5-2", "caption": "Planning Landmark Point Macro Attributes"},
-        {"name": "C.29.1.5-3", "caption": "Planning Landmark Line Macro Attributes"},
-        {"name": "C.29.1.5-4", "caption": "Planning Landmark Plane Macro Attributes"}
+        {"name": "C.29.1.5-2", "caption": "Planning Landmark Point Macro Attributes"}
      ],
      "C.29.2.1": [
         {"name": "C.29.2-1", "caption": "Implant Assembly Template Module Attributes"}
@@ -1652,11 +1706,59 @@
      "C.36.2.2.18": [
         {"name": "C.36.2.2.18-1", "caption": "Interlock Macro Attributes"}
      ],
+     "C.36.2.2.19": [
+        {"name": "C.36.2.2.19-1", "caption": "RT Beam Limiting Device Definition Macro Attributes"}
+     ],
+     "C.36.2.2.20": [
+        {"name": "C.36.2.2.20-1", "caption": "RT Beam Limiting Device Opening Definition Macro Attributes"}
+     ],
+     "C.36.2.2.21": [
+        {"name": "C.36.2.2.21-1", "caption": "RT Beam Limiting Device Opening Sequence Macro Attributes"}
+     ],
+     "C.36.2.2.22": [
+        {"name": "C.36.2.2.22-1", "caption": "Patient Position Acquisition Device Macro Attributes"}
+     ],
      "C.36.2.3.1": [
         {"name": "C.36.2.3.1-1", "caption": "RT Patient Position Scope Macro Attributes"}
      ],
      "C.36.2.3.2": [
         {"name": "C.36.2.3.2-1", "caption": "RT Patient Position Macro Attributes"}
+     ],
+     "C.36.2.3.3": [
+        {"name": "C.36.2.3.3-1", "caption": "RT Patient Position Scope With Legacy Support Macro Attributes"}
+     ],
+     "C.36.2.4.1": [
+        {"name": "C.36.2.4.1-1", "caption": "RT Projection Imaging Request Geometry Macro Attributes"}
+     ],
+     "C.36.2.4.2 ": [
+        {"name": "C.36.2.4.2-1", "caption": "Matrix-based RT Imaging Geometry Macro Attributes"}
+     ],
+     "C.36.2.4.3": [
+        {"name": "C.36.2.4.3-1", "caption": "Parameterized RT Imaging Geometry Macro Attributes"}
+     ],
+     "C.36.2.4.4": [
+        {"name": "C.36.2.4.4-1", "caption": "RT Imaging Aperture Macro Attributes"}
+     ],
+     "C.36.2.4.5": [
+        {"name": "C.36.2.4.5-1", "caption": "3D RT Cone-Beam Imaging Geometry Macro Attributes"}
+     ],
+     "C.36.2.4.6": [
+        {"name": "C.36.2.4.6-1", "caption": "KV Radiation Image Acquisition Parameters Macro Attributes"}
+     ],
+     "C.36.2.4.7": [
+        {"name": "C.36.2.4.7-1", "caption": "MV Radiation Image Acquisition Parameters Macro Attributes"}
+     ],
+     "C.36.2.4.8": [
+        {"name": "C.36.2.4.8-1", "caption": "RT Image Frame General Content Macro Attributes"}
+     ],
+     "C.36.2.4.9": [
+        {"name": "C.36.2.4.9-1", "caption": "RT Image Frame Imaging Device Position Macro Attributes"}
+     ],
+     "C.36.2.4.10": [
+        {"name": "C.36.2.4.10-1", "caption": "RT Image Frame Radiation Acquisition Parameters Macro Attributes"}
+     ],
+     "C.36.2.4.11": [
+        {"name": "C.36.2.4.11-1", "caption": "RT Image Frame Context Macro Attributes"}
      ],
      "C.36.3": [
         {"name": "C.36.3-1", "caption": "Enhanced RT Series Module Attributes"}
@@ -1727,11 +1829,41 @@
      "C.36.25": [
         {"name": "C.36.25-1", "caption": "RT Treatment Preparation Module Attributes"}
      ],
+     "C.36.26": [
+        {"name": "C.36.26-1", "caption": "Enhanced RT Image Device Module Attributes"}
+     ],
+     "C.36.27": [
+        {"name": "C.36.27-1", "caption": "Enhanced RT Image Module Attributes"}
+     ],
+     "C.36.28": [
+        {"name": "C.36.28-1", "caption": "RT Patient Position Acquisition Device Module Attributes"}
+     ],
+     "C.36.29": [
+        {"name": "C.36.29-1", "caption": "RT Patient Position Acquisition Instruction Module Attributes"}
+     ],
      "C.37.1.1": [
         {"name": "C.37.1-1", "caption": "Microscopy Bulk Simple Annotations Series Module Attributes"}
      ],
      "C.37.1.2": [
         {"name": "C.37.1-2", "caption": "Microscopy Bulk Simple Annotations Module Attributes"}
+     ],
+     "C.38.1": [
+        {"name": "C.38.1-1", "caption": "Inventory Module Attributes"}
+     ],
+     "C.38.2.1": [
+        {"name": "C.38.2-1", "caption": "Scope of Inventory Macro Attributes"}
+     ],
+     "C.38.2.2": [
+        {"name": "C.38.2-2", "caption": "Stored File Access Macro Attributes"}
+     ],
+     "C.38.2.3": [
+        {"name": "C.38.2-3", "caption": "Inventory Reference Macro Attributes"}
+     ],
+     "C.38.2.4": [
+        {"name": "C.38.2-4", "caption": "Access End Points Macro Attributes"}
+     ],
+     "C.38.3": [
+        {"name": "C.38.3-1", "caption": "Inventory Creation Module Attributes"}
      ]
   }
 }

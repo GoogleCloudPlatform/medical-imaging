@@ -65,11 +65,12 @@ class DicomPrivateTagGenerator(object):
     # creator of the private tag and extracts low byte of tag to define
     # address of private tag using pydicom API.
     #
-    if private_tags:
-      group_address = int(ingest_const.DICOMTagKeywords.GROUP_ADDRESS, 16)
-      block = dcm.private_block(
-          group_address, ingest_const.PRIVATE_TAG_CREATOR, create=True
-      )
+    if not private_tags:
+      return
+    group_address = int(ingest_const.DICOMTagKeywords.GROUP_ADDRESS, 16)
+    block = dcm.private_block(
+        group_address, ingest_const.PRIVATE_TAG_CREATOR, create=True
+    )
     for private_tag in private_tags:
       address = DicomPrivateTagGenerator._get_address(private_tag.address)
       block.add_new(address & 0x000000FF, private_tag.vr, private_tag.value)
@@ -100,7 +101,7 @@ class DicomPrivateTagGenerator(object):
       cloud_logging_client.logger().info(
           'Adding private tags to DICOM',
           {
-              ingest_const.LogKeywords.filename: file_name,
+              ingest_const.LogKeywords.FILENAME: file_name,
               'private_dicom_tags': str(private_tags),
           },
       )

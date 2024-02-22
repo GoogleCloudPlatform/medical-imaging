@@ -104,6 +104,21 @@ def _create_mock_dataset() -> list[pydicom.FileDataset]:
   return mock_dataset
 
 
+def _dicom_ref_dim_metadata(
+    physical_width: str = '',
+    physical_height: str = '',
+    image_type: str = ingest_const.ORIGINAL_PRIMARY_VOLUME,
+) -> wsi_dicom_file_ref.WSIDicomFileRef:
+  return dicom_test_util.create_mock_non_dpas_generated_wsi_fref({
+      ingest_const.DICOMTagKeywords.IMAGED_VOLUME_HEIGHT: physical_height,
+      ingest_const.DICOMTagKeywords.IMAGED_VOLUME_WIDTH: physical_width,
+      ingest_const.DICOMTagKeywords.IMAGE_TYPE: image_type,
+      ingest_const.DICOMTagKeywords.SOP_CLASS_UID: (
+          ingest_const.DicomSopClasses.WHOLE_SLIDE_IMAGE.uid
+      ),
+  })
+
+
 class DicomStoreClientTest(parameterized.TestCase):
 
   def setUp(self):
@@ -119,16 +134,16 @@ class DicomStoreClientTest(parameterized.TestCase):
       wsi_dicom_file_ref.WSIDicomFileRef,
       wsi_dicom_file_ref.WSIDicomFileRef,
   ]:
-    m1 = dicom_test_util.create_mock_dicom_fref(
+    m1 = dicom_test_util.create_mock_dpas_generated_dicom_fref(
         {ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID: '1'}
     )
-    m2 = dicom_test_util.create_mock_dicom_fref(
+    m2 = dicom_test_util.create_mock_dpas_generated_dicom_fref(
         {ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID: '2'}
     )
-    m3 = dicom_test_util.create_mock_dicom_fref(
+    m3 = dicom_test_util.create_mock_dpas_generated_dicom_fref(
         {ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID: '3'}
     )
-    m4 = dicom_test_util.create_mock_dicom_fref(
+    m4 = dicom_test_util.create_mock_dpas_generated_dicom_fref(
         {ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID: '4'}
     )
     results = dicom_store_client.UploadSlideToDicomStoreResults(
@@ -144,7 +159,7 @@ class DicomStoreClientTest(parameterized.TestCase):
   @parameterized.parameters([
       (
           [
-              dicom_test_util.create_mock_dicom_fref(
+              dicom_test_util.create_mock_dpas_generated_dicom_fref(
                   {ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID: '1'}
               )
           ],
@@ -153,19 +168,19 @@ class DicomStoreClientTest(parameterized.TestCase):
       (
           [],
           [
-              dicom_test_util.create_mock_dicom_fref(
+              dicom_test_util.create_mock_dpas_generated_dicom_fref(
                   {ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID: '2'}
               )
           ],
       ),
       (
           [
-              dicom_test_util.create_mock_dicom_fref(
+              dicom_test_util.create_mock_dpas_generated_dicom_fref(
                   {ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID: '3'}
               )
           ],
           [
-              dicom_test_util.create_mock_dicom_fref(
+              dicom_test_util.create_mock_dpas_generated_dicom_fref(
                   {ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID: '4'}
               )
           ],
@@ -190,7 +205,7 @@ class DicomStoreClientTest(parameterized.TestCase):
   @parameterized.parameters([
       (
           [
-              dicom_test_util.create_mock_dicom_fref(
+              dicom_test_util.create_mock_dpas_generated_dicom_fref(
                   {ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID: '1'}
               )
           ],
@@ -200,7 +215,7 @@ class DicomStoreClientTest(parameterized.TestCase):
       (
           [],
           [
-              dicom_test_util.create_mock_dicom_fref(
+              dicom_test_util.create_mock_dpas_generated_dicom_fref(
                   {ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID: '2'}
               )
           ],
@@ -208,12 +223,12 @@ class DicomStoreClientTest(parameterized.TestCase):
       ),
       (
           [
-              dicom_test_util.create_mock_dicom_fref(
+              dicom_test_util.create_mock_dpas_generated_dicom_fref(
                   {ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID: '3'}
               )
           ],
           [
-              dicom_test_util.create_mock_dicom_fref(
+              dicom_test_util.create_mock_dpas_generated_dicom_fref(
                   {ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID: '4'}
               )
           ],
@@ -232,7 +247,7 @@ class DicomStoreClientTest(parameterized.TestCase):
     )
 
   def test_get_existing_dicom_seriesuid(self):
-    fref_list = [dicom_test_util.create_wsi_fref()]
+    fref_list = [dicom_test_util.create_mock_non_dpas_generated_wsi_fref()]
     self.assertEqual(
         dicom_store_client._get_existing_dicom_seriesuid(fref_list), '1.2.3.4'
     )
@@ -258,274 +273,528 @@ class DicomStoreClientTest(parameterized.TestCase):
     )
     self.assertGreater(os.path.getsize(tempfile), 0)
 
-  @parameterized.parameters([
-      (dicom_test_util.create_mock_dicom_fref(), True),
-      (
-          dicom_test_util.create_wsi_fref({
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='mock_dpas_gen_ref',
+          wsi_fref=dicom_test_util.create_mock_dpas_generated_dicom_fref(),
+          expected_result=True,
+      ),
+      dict(
+          testcase_name='adding_hash_and_uid_prefix_to_dicom_makes_it_dpas',
+          wsi_fref=dicom_test_util.create_mock_non_dpas_generated_wsi_fref({
               ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG: 'ZQRXL',
               ingest_const.DICOMTagKeywords.SOP_INSTANCE_UID: (
                   f'{ingest_const.DPAS_UID_PREFIX}.3'
               ),
           }),
-          True,
+          expected_result=True,
       ),
-      (
-          dicom_test_util.create_wsi_fref(
-              {
-                  ingest_const.DICOMTagKeywords.SOP_INSTANCE_UID: (
-                      f'{ingest_const.DPAS_UID_PREFIX}.3'
-                  )
-              }
-          ),
-          True,
+      dict(
+          testcase_name='adding_uid_prefix_to_dicom_makes_it_dpas',
+          wsi_fref=dicom_test_util.create_mock_non_dpas_generated_wsi_fref({
+              ingest_const.DICOMTagKeywords.SOP_INSTANCE_UID: (
+                  f'{ingest_const.DPAS_UID_PREFIX}.3'
+              )
+          }),
+          expected_result=True,
       ),
-      (
-          dicom_test_util.create_wsi_fref(
+      dict(
+          testcase_name='adding_hash_to_dicom_makes_it_dpas',
+          wsi_fref=dicom_test_util.create_mock_non_dpas_generated_wsi_fref(
               {ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG: 'ZQRXL'}
           ),
-          True,
+          expected_result=True,
       ),
-      (dicom_test_util.create_wsi_fref(), False),
+      dict(
+          testcase_name='non_dpas_dicom',
+          wsi_fref=dicom_test_util.create_mock_non_dpas_generated_wsi_fref(),
+          expected_result=False,
+      ),
   ])
   def test_is_dpas_generated_dicom(self, wsi_fref, expected_result):
     self.assertEqual(
         dicom_store_client._is_dpas_generated_dicom(wsi_fref), expected_result
     )
 
-  def _is_wsidcmref_in_list_test_wrapper(
-      self, wsi_ref1, wsi_ref2, ignore_source_image_hash=False
-  ) -> bool:
-    """Tests equality is by bidirectional and default and explicit are same."""
-    result_1 = dicom_store_client.is_wsidcmref_in_list(
-        wsi_ref1, [wsi_ref2], ignore_source_image_hash
-    )
-    result_2 = dicom_store_client.is_wsidcmref_in_list(
-        wsi_ref2, [wsi_ref1], ignore_source_image_hash
-    )
-    # test comparison direction does not matter.
-    self.assertEqual(result_1, result_2)
-    if not ignore_source_image_hash:
-      # test default parameter
-      result_3 = dicom_store_client.is_wsidcmref_in_list(wsi_ref2, [wsi_ref1])
-      self.assertEqual(result_1, result_3)
-    return result_1
-
-  def _is_dpas_dicom_wsidcmref_in_list_wrapper(
-      self,
-      wsi_ref1,
-      wsi_ref2,
-      ignore_source_image_hash=False,
-      ignore_tag_list=None,
-  ) -> bool:
-    """Tests equality is by bidirectional and default and explicit are same."""
-    result_1 = dicom_store_client.is_dpas_dicom_wsidcmref_in_list(
-        wsi_ref1, [wsi_ref2], ignore_source_image_hash, ignore_tag_list
-    )
-    result_2 = dicom_store_client.is_dpas_dicom_wsidcmref_in_list(
-        wsi_ref2, [wsi_ref1], ignore_source_image_hash, ignore_tag_list
-    )
-    # test comparison direction does not matter.
-    self.assertEqual(result_1, result_2)
-    if not ignore_source_image_hash:
-      # test default parameter
-      result_3 = dicom_store_client.is_dpas_dicom_wsidcmref_in_list(
-          wsi_ref2, [wsi_ref1], ignore_tags=ignore_tag_list
-      )
-      self.assertEqual(result_1, result_3)
-    return result_1
-
-  @parameterized.parameters([
-      (
-          dicom_test_util.create_mock_dicom_fref(
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='hash_tag_differs',
+          wsi_fref_1=dicom_test_util.create_mock_dpas_generated_dicom_fref(
               {ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG: 'ABC'}
           ),
-          dicom_test_util.create_mock_dicom_fref(
+          wsi_fref_2=dicom_test_util.create_mock_dpas_generated_dicom_fref(
               {ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG: 'ZQRXL'}
           ),
-          False,
-          False,
-          False,
-          None,
+          dpas_dicom_wsidcmref_in_list_result=False,
       ),
-      (
-          dicom_test_util.create_mock_dicom_fref(
-              {ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG: 'ABC'}
-          ),
-          dicom_test_util.create_mock_dicom_fref(
-              {ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG: 'ZQRXL'}
-          ),
-          True,
-          True,
-          True,
-          None,
+      dict(
+          testcase_name='test_mock_dpas_generated_dicom_are_same',
+          wsi_fref_1=dicom_test_util.create_mock_dpas_generated_dicom_fref(),
+          wsi_fref_2=dicom_test_util.create_mock_dpas_generated_dicom_fref(),
+          dpas_dicom_wsidcmref_in_list_result=True,
       ),
-      (
-          dicom_test_util.create_mock_dicom_fref(),
-          dicom_test_util.create_mock_dicom_fref(),
-          False,
-          True,
-          True,
-          None,
+      dict(
+          testcase_name='test_mock_non_dpas_generated_dicom_are_same',
+          wsi_fref_1=dicom_test_util.create_mock_non_dpas_generated_wsi_fref(),
+          wsi_fref_2=dicom_test_util.create_mock_non_dpas_generated_wsi_fref(),
+          dpas_dicom_wsidcmref_in_list_result=True,
       ),
-      (
-          dicom_test_util.create_wsi_fref(),
-          dicom_test_util.create_wsi_fref(),
-          False,
-          True,
-          True,
-          None,
-      ),
-      (
-          dicom_test_util.create_wsi_fref(),
-          dicom_test_util.create_wsi_fref(
+      dict(
+          testcase_name='study_instance_uid_ignored',
+          wsi_fref_1=dicom_test_util.create_mock_non_dpas_generated_wsi_fref(),
+          wsi_fref_2=dicom_test_util.create_mock_non_dpas_generated_wsi_fref(
               {ingest_const.DICOMTagKeywords.STUDY_INSTANCE_UID: '5.6.7'}
           ),
-          False,
-          False,
-          False,
-          None,
+          dpas_dicom_wsidcmref_in_list_result=False,
       ),
-      (
-          dicom_test_util.create_wsi_fref(),
-          dicom_test_util.create_mock_dicom_fref(),
-          False,
-          False,
-          False,
-          None,
+      dict(
+          testcase_name='dpas_dicom_and_non_dpas_dicom_differ',
+          wsi_fref_1=dicom_test_util.create_mock_non_dpas_generated_wsi_fref(),
+          wsi_fref_2=dicom_test_util.create_mock_dpas_generated_dicom_fref(),
+          dpas_dicom_wsidcmref_in_list_result=False,
       ),
-      (
-          dicom_test_util.create_mock_dicom_fref(
-              {
-                  ingest_const.DICOMTagKeywords.SOP_INSTANCE_UID: (
-                      f'{ingest_const.DPAS_UID_PREFIX}.1'
-                  )
-              }
-          ),
-          dicom_test_util.create_mock_dicom_fref(
-              {
-                  ingest_const.DICOMTagKeywords.SOP_INSTANCE_UID: (
-                      f'{ingest_const.DPAS_UID_PREFIX}.2'
-                  )
-              }
-          ),
-          False,
-          True,
-          True,
-          None,
+      dict(
+          testcase_name='ignore_sop_instance_uid',
+          wsi_fref_1=dicom_test_util.create_mock_dpas_generated_dicom_fref({
+              ingest_const.DICOMTagKeywords.SOP_INSTANCE_UID: (
+                  f'{ingest_const.DPAS_UID_PREFIX}.1'
+              )
+          }),
+          wsi_fref_2=dicom_test_util.create_mock_dpas_generated_dicom_fref({
+              ingest_const.DICOMTagKeywords.SOP_INSTANCE_UID: (
+                  f'{ingest_const.DPAS_UID_PREFIX}.2'
+              )
+          }),
+          dpas_dicom_wsidcmref_in_list_result=True,
       ),
-      (
-          dicom_test_util.create_mock_dicom_fref(),
-          dicom_test_util.create_mock_dicom_fref({
+      dict(
+          testcase_name='one_hash_missing',
+          wsi_fref_1=dicom_test_util.create_mock_dpas_generated_dicom_fref(),
+          wsi_fref_2=dicom_test_util.create_mock_dpas_generated_dicom_fref({
               ingest_const.DICOMTagKeywords.SOP_INSTANCE_UID: '1.2.3',
               ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG: '',
           }),
-          False,
-          True,
-          True,
-          None,
+          dpas_dicom_wsidcmref_in_list_result=True,
       ),
-      (
-          dicom_test_util.create_mock_dicom_fref({
+      dict(
+          testcase_name='both_hash_missing',
+          wsi_fref_1=dicom_test_util.create_mock_dpas_generated_dicom_fref({
               ingest_const.DICOMTagKeywords.SOP_INSTANCE_UID: '1.2.4',
               ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG: '',
           }),
-          dicom_test_util.create_mock_dicom_fref({
+          wsi_fref_2=dicom_test_util.create_mock_dpas_generated_dicom_fref({
               ingest_const.DICOMTagKeywords.SOP_INSTANCE_UID: '1.2.3',
               ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG: '',
           }),
-          False,
-          False,
-          True,
-          None,
+          dpas_dicom_wsidcmref_in_list_result=True,
       ),
-      (
-          dicom_test_util.create_mock_dicom_fref({
-              ingest_const.DICOMTagKeywords.STUDY_INSTANCE_UID: '1.2.3.4',
-              ingest_const.DICOMTagKeywords.SOP_INSTANCE_UID: (
-                  f'{ingest_const.DPAS_UID_PREFIX}.4'
+      dict(
+          testcase_name='different_image_types',
+          wsi_fref_1=dicom_test_util.create_mock_dpas_generated_dicom_fref({
+              ingest_const.DICOMTagKeywords.IMAGE_TYPE: (
+                  ingest_const.ORIGINAL_PRIMARY_VOLUME_RESAMPLED
               ),
-              ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG: '',
           }),
-          dicom_test_util.create_mock_dicom_fref({
-              ingest_const.DICOMTagKeywords.STUDY_INSTANCE_UID: '1.2.3.5',
-              ingest_const.DICOMTagKeywords.SOP_INSTANCE_UID: (
-                  f'{ingest_const.DPAS_UID_PREFIX}.3'
+          wsi_fref_2=dicom_test_util.create_mock_dpas_generated_dicom_fref({
+              ingest_const.DICOMTagKeywords.IMAGE_TYPE: (
+                  ingest_const.ORIGINAL_PRIMARY_VOLUME
               ),
-              ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG: '',
           }),
-          False,
-          False,
-          False,
-          None,
-      ),
-      (
-          dicom_test_util.create_mock_dicom_fref({
-              ingest_const.DICOMTagKeywords.STUDY_INSTANCE_UID: '1.2.3.4',
-              ingest_const.DICOMTagKeywords.SOP_INSTANCE_UID: (
-                  f'{ingest_const.DPAS_UID_PREFIX}.4'
-              ),
-              ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG: '',
-          }),
-          dicom_test_util.create_mock_dicom_fref({
-              ingest_const.DICOMTagKeywords.STUDY_INSTANCE_UID: '1.2.3.5',
-              ingest_const.DICOMTagKeywords.SOP_INSTANCE_UID: (
-                  f'{ingest_const.DPAS_UID_PREFIX}.3'
-              ),
-              ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG: '',
-          }),
-          False,
-          False,
-          True,
-          [ingest_const.DICOMTagKeywords.STUDY_INSTANCE_UID],
+          dpas_dicom_wsidcmref_in_list_result=False,
       ),
   ])
-  def test_is_dicomref_in_list(
+  def test_is_dpas_dicom_wsidcmref_in_list_base(
       self,
       wsi_fref_1,
       wsi_fref_2,
-      ignore_source_image_hash,
-      wsidcmref_in_list_result,
       dpas_dicom_wsidcmref_in_list_result,
-      ignore_tag_list,
   ):
     """Tests _is_wsidcmref_in_list and _is_dpas_dicom_wsidcmref_in_list."""
-    self.assertEqual(
-        (
-            self._is_wsidcmref_in_list_test_wrapper(
-                wsi_fref_1, wsi_fref_2, ignore_source_image_hash
-            ),
-            self._is_dpas_dicom_wsidcmref_in_list_wrapper(
-                wsi_fref_1,
-                wsi_fref_2,
-                ignore_source_image_hash,
-                ignore_tag_list,
-            ),
-        ),
-        (wsidcmref_in_list_result, dpas_dicom_wsidcmref_in_list_result),
+    result_1 = dicom_store_client.is_dpas_dicom_wsidcmref_in_list(
+        wsi_fref_1, [wsi_fref_2]
     )
+    result_2 = dicom_store_client.is_dpas_dicom_wsidcmref_in_list(
+        wsi_fref_2, [wsi_fref_1]
+    )
+    # test comparison direction does not matter.
+    self.assertEqual(result_1, result_2)
+    self.assertEqual(result_1, dpas_dicom_wsidcmref_in_list_result)
+
+  def test_is_dpas_dicom_wsidcmref_in_list_ignores_defined_tags(self):
+    """Tests _is_wsidcmref_in_list and _is_dpas_dicom_wsidcmref_in_list."""
+    wsi_fref_1 = dicom_test_util.create_mock_dpas_generated_dicom_fref({
+        ingest_const.DICOMTagKeywords.STUDY_INSTANCE_UID: '1.2.3.4',
+        ingest_const.DICOMTagKeywords.SOP_INSTANCE_UID: (
+            f'{ingest_const.DPAS_UID_PREFIX}.4'
+        ),
+        ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG: '',
+    })
+    wsi_fref_2 = dicom_test_util.create_mock_dpas_generated_dicom_fref({
+        ingest_const.DICOMTagKeywords.STUDY_INSTANCE_UID: '1.2.3.5',
+        ingest_const.DICOMTagKeywords.SOP_INSTANCE_UID: (
+            f'{ingest_const.DPAS_UID_PREFIX}.3'
+        ),
+        ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG: '',
+    })
+    ignore_tags = [ingest_const.DICOMTagKeywords.STUDY_INSTANCE_UID]
+    result_1 = dicom_store_client.is_dpas_dicom_wsidcmref_in_list(
+        wsi_fref_1, [wsi_fref_2], ignore_tags=ignore_tags
+    )
+    result_2 = dicom_store_client.is_dpas_dicom_wsidcmref_in_list(
+        wsi_fref_2, [wsi_fref_1], ignore_tags=ignore_tags
+    )
+    # test comparison direction does not matter.
+    self.assertEqual(result_1, result_2)
+    self.assertTrue(result_1)
+
+  def test_is_dpas_dicom_wsidcmref_in_list_ignore_hash(self):
+    """Tests _is_wsidcmref_in_list and _is_dpas_dicom_wsidcmref_in_list."""
+    wsi_fref_1 = dicom_test_util.create_mock_dpas_generated_dicom_fref(
+        {ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG: 'ABC'}
+    )
+    wsi_fref_2 = dicom_test_util.create_mock_dpas_generated_dicom_fref(
+        {ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG: 'ZQRXL'}
+    )
+
+    result_1 = dicom_store_client.is_dpas_dicom_wsidcmref_in_list(
+        wsi_fref_1, [wsi_fref_2], ignore_source_image_hash_tag=True
+    )
+    result_2 = dicom_store_client.is_dpas_dicom_wsidcmref_in_list(
+        wsi_fref_2, [wsi_fref_1], ignore_source_image_hash_tag=True
+    )
+    # test comparison direction does not matter.
+    self.assertEqual(result_1, result_2)
+    self.assertTrue(result_1)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='hash_tag_differs',
+          wsi_fref_1=dicom_test_util.create_mock_dpas_generated_dicom_fref(
+              {ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG: 'ABC'}
+          ),
+          wsi_fref_2=dicom_test_util.create_mock_dpas_generated_dicom_fref(
+              {ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG: 'ZQRXL'}
+          ),
+          wsidcmref_in_list_result=False,
+      ),
+      dict(
+          testcase_name='test_mock_dpas_generated_dicom_are_same',
+          wsi_fref_1=dicom_test_util.create_mock_dpas_generated_dicom_fref(),
+          wsi_fref_2=dicom_test_util.create_mock_dpas_generated_dicom_fref(),
+          wsidcmref_in_list_result=True,
+      ),
+      dict(
+          testcase_name='test_mock_non_dpas_generated_dicom_are_same',
+          wsi_fref_1=dicom_test_util.create_mock_non_dpas_generated_wsi_fref(),
+          wsi_fref_2=dicom_test_util.create_mock_non_dpas_generated_wsi_fref(),
+          wsidcmref_in_list_result=True,
+      ),
+      dict(
+          testcase_name='study_instance_uid_different',
+          wsi_fref_1=dicom_test_util.create_mock_non_dpas_generated_wsi_fref(),
+          wsi_fref_2=dicom_test_util.create_mock_non_dpas_generated_wsi_fref(
+              {ingest_const.DICOMTagKeywords.STUDY_INSTANCE_UID: '5.6.7'}
+          ),
+          wsidcmref_in_list_result=False,
+      ),
+      dict(
+          testcase_name='series_instance_uid_different',
+          wsi_fref_1=dicom_test_util.create_mock_non_dpas_generated_wsi_fref(),
+          wsi_fref_2=dicom_test_util.create_mock_non_dpas_generated_wsi_fref(
+              {ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID: '5.6.7'}
+          ),
+          wsidcmref_in_list_result=False,
+      ),
+      dict(
+          testcase_name='series_instance_uid_different_dpas_dicom_different',
+          wsi_fref_1=dicom_test_util.create_mock_dpas_generated_dicom_fref(),
+          wsi_fref_2=dicom_test_util.create_mock_dpas_generated_dicom_fref(
+              {ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID: '5.6.7'}
+          ),
+          wsidcmref_in_list_result=False,
+      ),
+      dict(
+          testcase_name='series_instance_uid_different_non_dpas_dicom_diff',
+          wsi_fref_1=dicom_test_util.create_mock_non_dpas_generated_wsi_fref(),
+          wsi_fref_2=dicom_test_util.create_mock_non_dpas_generated_wsi_fref(
+              {ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID: '5.6.7'}
+          ),
+          wsidcmref_in_list_result=False,
+      ),
+      dict(
+          testcase_name='dpas_dicom_and_non_dpas_dicom_differ',
+          wsi_fref_1=dicom_test_util.create_mock_non_dpas_generated_wsi_fref(),
+          wsi_fref_2=dicom_test_util.create_mock_dpas_generated_dicom_fref(),
+          wsidcmref_in_list_result=False,
+      ),
+      dict(
+          testcase_name='dpas_dicom_tests_ignore_sop_instance_uid',
+          wsi_fref_1=dicom_test_util.create_mock_dpas_generated_dicom_fref({
+              ingest_const.DICOMTagKeywords.SOP_INSTANCE_UID: (
+                  f'{ingest_const.DPAS_UID_PREFIX}.1'
+              )
+          }),
+          wsi_fref_2=dicom_test_util.create_mock_dpas_generated_dicom_fref({
+              ingest_const.DICOMTagKeywords.SOP_INSTANCE_UID: (
+                  f'{ingest_const.DPAS_UID_PREFIX}.2'
+              )
+          }),
+          wsidcmref_in_list_result=True,
+      ),
+      dict(
+          testcase_name='dpas_dicom_test_does_not_test_hash_if_one_missing',
+          wsi_fref_1=dicom_test_util.create_mock_dpas_generated_dicom_fref(),
+          wsi_fref_2=dicom_test_util.create_mock_dpas_generated_dicom_fref({
+              ingest_const.DICOMTagKeywords.SOP_INSTANCE_UID: '1.2.3',
+              ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG: '',
+          }),
+          wsidcmref_in_list_result=True,
+      ),
+  ])
+  def test_is_dicomref_in_is_wsidcmref(
+      self,
+      wsi_fref_1,
+      wsi_fref_2,
+      wsidcmref_in_list_result,
+  ):
+    """Tests _is_wsidcmref_in_list and _is_dpas_dicom_wsidcmref_in_list."""
+    result_1 = dicom_store_client.is_wsidcmref_in_list(wsi_fref_1, [wsi_fref_2])
+    result_2 = dicom_store_client.is_wsidcmref_in_list(wsi_fref_2, [wsi_fref_1])
+    # test comparison direction does not matter.
+    self.assertEqual(result_1, result_2)
+    self.assertEqual(result_1, wsidcmref_in_list_result)
 
   @parameterized.parameters([
       ('ORIGINAL\\PRIMARY\\LABEL\\None', 'ORIGINAL\\PRIMARY\\LABEL'),
       ('THUMBNAIL', 'THUMBNAIL'),
+      ('LABEL', 'LABEL\\RESAMPLED'),
+      ('ORIGINAL\\OVERVIEW', 'OVERVIEW\\RESAMPLED'),
       (
           'ORIGINAL\\PRIMARY\\VOLUME\\RESAMPLED',
           'ORIGINAL\\PRIMARY\\VOLUME\\RESAMPLED',
       ),
+      (
+          'ORIGINAL\\PRIMARY\\VOLUME\\RESAMPLED',
+          'DERIVED\\PRIMARY\\VOLUME\\RESAMPLED',
+      ),
+      (
+          'ORIGINAL\\PRIMARY\\VOLUME',
+          'DERIVED\\PRIMARY\\VOLUME',
+      ),
+      (
+          'DERIVED\\PRIMARY\\VOLUME\\NONE',
+          'ORIGINAL\\PRIMARY\\VOLUME',
+      ),
+      (
+          'DERIVED\\PRIMARY\\VOLUME',
+          'ORIGINAL\\PRIMARY\\VOLUME\\NONE',
+      ),
   ])
-  def test_imagetype_match(self, im_type1, im_type2):
-    self.assertTrue(dicom_store_client._imagetype_match(im_type1, im_type2))
+  def test_do_image_types_match_true(self, im_type1, im_type2):
+    sop_class_uid = ingest_const.DicomSopClasses.WHOLE_SLIDE_IMAGE.uid
+    self.assertTrue(
+        dicom_store_client._do_image_types_match(
+            dicom_test_util.create_mock_non_dpas_generated_wsi_fref({
+                ingest_const.DICOMTagKeywords.SOP_CLASS_UID: sop_class_uid,
+                ingest_const.DICOMTagKeywords.IMAGE_TYPE: im_type1,
+            }),
+            dicom_test_util.create_mock_dpas_generated_dicom_fref({
+                ingest_const.DICOMTagKeywords.SOP_CLASS_UID: sop_class_uid,
+                ingest_const.DICOMTagKeywords.IMAGE_TYPE: im_type2,
+            }),
+        )
+    )
 
   @parameterized.parameters([
       ('LABEL', 'THUMBNAIL'),
-      ('ORIGINAL\\PRIMARY\\LABEL\\NONE', 'DERIVED\\PRIMARY\\LABEL'),
+      ('ORIGINAL\\PRIMARY\\LABEL\\NONE', 'DERIVED\\PRIMARY\\OVERVIEW'),
       ('ORIGINAL\\PRIMARY\\THUMBNAIL\\NONE', 'ORIGINAL\\PRIMARY\\LABEL'),
       (
           'ORIGINAL\\PRIMARY\\VOLUME\\NONE',
           'ORIGINAL\\PRIMARY\\VOLUME\\RESAMPLED',
       ),
+      (
+          'DERIVED\\PRIMARY\\VOLUME\\NONE',
+          'ORIGINAL\\PRIMARY\\VOLUME\\RESAMPLED',
+      ),
   ])
-  def test_imagetype_do_not_match(self, im_type1, im_type2):
-    self.assertFalse(dicom_store_client._imagetype_match(im_type1, im_type2))
+  def test_do_image_types_match_false(self, im_type1, im_type2):
+    sop_class_uid = ingest_const.DicomSopClasses.WHOLE_SLIDE_IMAGE.uid
+    self.assertFalse(
+        dicom_store_client._do_image_types_match(
+            dicom_test_util.create_mock_non_dpas_generated_wsi_fref({
+                ingest_const.DICOMTagKeywords.SOP_CLASS_UID: sop_class_uid,
+                ingest_const.DICOMTagKeywords.IMAGE_TYPE: im_type1,
+            }),
+            dicom_test_util.create_mock_dpas_generated_dicom_fref({
+                ingest_const.DICOMTagKeywords.SOP_CLASS_UID: sop_class_uid,
+                ingest_const.DICOMTagKeywords.IMAGE_TYPE: im_type2,
+            }),
+        )
+    )
+
+  @parameterized.parameters([
+      ('ABC\\NONE', 'ABC', True),
+      ('ABC', 'ABC', True),
+      ('ABC\\EFG', 'ABC', False),
+      ('ABC', 'EFG', False),
+  ])
+  def test_imagetype_(self, im_type1, im_type2, expected):
+    sop_class_uid = '1.2.3'
+    self.assertEqual(
+        dicom_store_client._do_image_types_match(
+            dicom_test_util.create_mock_non_dpas_generated_wsi_fref({
+                ingest_const.DICOMTagKeywords.SOP_CLASS_UID: sop_class_uid,
+                ingest_const.DICOMTagKeywords.IMAGE_TYPE: im_type1,
+            }),
+            dicom_test_util.create_mock_non_dpas_generated_wsi_fref({
+                ingest_const.DICOMTagKeywords.SOP_CLASS_UID: sop_class_uid,
+                ingest_const.DICOMTagKeywords.IMAGE_TYPE: im_type2,
+            }),
+        ),
+        expected,
+    )
+
+  @parameterized.parameters([
+      (ingest_const.THUMBNAIL, ingest_const.THUMBNAIL, True),
+      (ingest_const.OVERVIEW, ingest_const.OVERVIEW, True),
+      (ingest_const.LABEL, ingest_const.LABEL, True),
+      (ingest_const.LABEL, ingest_const.OVERVIEW, False),
+      (ingest_const.THUMBNAIL, ingest_const.ORIGINAL_PRIMARY_VOLUME, False),
+  ])
+  def test_is_wsi_ancillary_image_type(self, img1, img2, expected):
+    img1 = dicom_test_util.create_mock_non_dpas_generated_wsi_fref({
+        ingest_const.DICOMTagKeywords.IMAGE_TYPE: img1,
+        ingest_const.DICOMTagKeywords.SOP_CLASS_UID: (
+            ingest_const.DicomSopClasses.WHOLE_SLIDE_IMAGE.uid
+        ),
+    })
+    img2 = dicom_test_util.create_mock_non_dpas_generated_wsi_fref({
+        ingest_const.DICOMTagKeywords.IMAGE_TYPE: img2,
+        ingest_const.DICOMTagKeywords.SOP_CLASS_UID: (
+            ingest_const.DicomSopClasses.WHOLE_SLIDE_IMAGE.uid
+        ),
+    })
+    self.assertEqual(
+        dicom_store_client._is_wsi_ancillary_image_type(img1, img2), expected
+    )
+
+  @parameterized.parameters([
+      (
+          ingest_const.DicomSopClasses.SECONDARY_CAPTURE_IMAGE.uid,
+          ingest_const.DicomSopClasses.WHOLE_SLIDE_IMAGE.uid,
+      ),
+      (
+          ingest_const.DicomSopClasses.WHOLE_SLIDE_IMAGE.uid,
+          ingest_const.DicomSopClasses.SECONDARY_CAPTURE_IMAGE.uid,
+      ),
+  ])
+  def test_is_wsi_ancillary_image_type_returns_false__wrong_iod(
+      self, iod1, iod2
+  ):
+    img1 = dicom_test_util.create_mock_non_dpas_generated_wsi_fref({
+        ingest_const.DICOMTagKeywords.IMAGE_TYPE: ingest_const.THUMBNAIL,
+        ingest_const.DICOMTagKeywords.SOP_CLASS_UID: iod1,
+    })
+    img2 = dicom_test_util.create_mock_non_dpas_generated_wsi_fref({
+        ingest_const.DICOMTagKeywords.IMAGE_TYPE: ingest_const.THUMBNAIL,
+        ingest_const.DICOMTagKeywords.SOP_CLASS_UID: iod2,
+    })
+    self.assertFalse(
+        dicom_store_client._is_wsi_ancillary_image_type(img1, img2)
+    )
+
+  @parameterized.parameters([
+      (ingest_const.THUMBNAIL, False),
+      (ingest_const.OVERVIEW, False),
+      (ingest_const.LABEL, False),
+      (ingest_const.ORIGINAL_PRIMARY_VOLUME, True),
+      (ingest_const.DERIVED_PRIMARY_VOLUME, True),
+      (f'{ingest_const.DERIVED_PRIMARY_VOLUME}\\{ingest_const.NONE}', True),
+      (
+          f'{ingest_const.DERIVED_PRIMARY_VOLUME}\\{ingest_const.RESAMPLED}',
+          True,
+      ),
+  ])
+  def test_is_original_or_derived(self, val, expected):
+    self.assertEqual(dicom_store_client._is_original_or_derived(val), expected)
+
+  @parameterized.parameters([
+      (ingest_const.THUMBNAIL, False),
+      (ingest_const.OVERVIEW, False),
+      (ingest_const.LABEL, False),
+      (ingest_const.ORIGINAL_PRIMARY_VOLUME, False),
+      (ingest_const.DERIVED_PRIMARY_VOLUME, False),
+      (f'{ingest_const.DERIVED_PRIMARY_VOLUME}\\{ingest_const.NONE}', False),
+      (
+          f'{ingest_const.DERIVED_PRIMARY_VOLUME}\\{ingest_const.RESAMPLED}',
+          True,
+      ),
+  ])
+  def test_is_resampled_image_type(self, val, expected):
+    self.assertEqual(dicom_store_client._is_resampled_image_type(val), expected)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='both_instances_lack_dim_metadata',
+          dcm_file=_dicom_ref_dim_metadata(),
+          existing_dcm=_dicom_ref_dim_metadata(),
+          expected=True,
+      ),
+      dict(
+          testcase_name='image_one_has_dim_second_image_does_not',
+          dcm_file=_dicom_ref_dim_metadata('10.5', '5.5'),
+          existing_dcm=_dicom_ref_dim_metadata(),
+          expected=False,
+      ),
+      dict(
+          testcase_name='images_have_same_characters_in_physical_dim',
+          dcm_file=_dicom_ref_dim_metadata('ABC', 'EFG'),
+          existing_dcm=_dicom_ref_dim_metadata('ABC', 'EFG'),
+          expected=True,
+      ),
+      dict(
+          testcase_name='images_have_same_physical_dim',
+          dcm_file=_dicom_ref_dim_metadata(
+              '36.01760482788086', '7.364952087402344'
+          ),
+          existing_dcm=_dicom_ref_dim_metadata(
+              '36.01760482798086', '7.3512492179870605'
+          ),
+          expected=True,
+      ),
+      dict(
+          testcase_name='images_have_different_physical_dim',
+          dcm_file=_dicom_ref_dim_metadata(
+              '36.01760482788086', '7.364952087402344'
+          ),
+          existing_dcm=_dicom_ref_dim_metadata('36.1', '7.3512492179870605'),
+          expected=False,
+      ),
+      dict(
+          testcase_name='images_have_same_ancillary_type_dimension_is_ignored',
+          dcm_file=_dicom_ref_dim_metadata('5', '7', ingest_const.THUMBNAIL),
+          existing_dcm=_dicom_ref_dim_metadata(
+              '1', '1', ingest_const.THUMBNAIL
+          ),
+          expected=True,
+      ),
+      dict(
+          testcase_name='images_do_not_have_matching_ancillary_type_dimension_is_not_ignored',
+          dcm_file=_dicom_ref_dim_metadata('5', '7', ingest_const.THUMBNAIL),
+          existing_dcm=_dicom_ref_dim_metadata('1', '1', ingest_const.OVERVIEW),
+          expected=False,
+      ),
+  ])
+  def test_do_images_have_similar_dimensions(
+      self, dcm_file, existing_dcm, expected
+  ):
+    self.assertEqual(
+        dicom_store_client._do_images_have_similar_dimensions(
+            dcm_file, existing_dcm
+        ),
+        expected,
+    )
 
   @parameterized.parameters([404, 429])
   @requests_mock.mock()
@@ -958,7 +1227,7 @@ class DicomStoreClientTest(parameterized.TestCase):
               ds_client.study_instance_uid_search(
                   accession_number=accession_number,
                   patient_id=patient_id,
-                  find_only_studies_with_undefined_patient_id=undefined_pid,
+                  find_studies_with_undefined_patient_id=undefined_pid,
               )
           ),
           expected,

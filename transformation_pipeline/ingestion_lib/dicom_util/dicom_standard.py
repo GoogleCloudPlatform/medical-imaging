@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Singlton accessor for access to DicomStandardIODUtil & DicomIODDatsetUtil.
+"""Singlton accessor for access to DicomStandardIODUtil & DicomIODDatasetUtil.
 
 Access through:
 
@@ -20,7 +20,7 @@ Access through:
                                       -> dcm_util.DicomStandardIODUtil:
 
   def dicom_iod_dataset_util(path: Optional[str] = None)
-                                    -> dicom_iod_util.DicomIODDatsetUtil:
+                                    -> dicom_iod_util.DicomIODDatasetUtil:
 
   path : Optional path to json iod description.
 
@@ -56,7 +56,7 @@ class DicomStandardSingleton:
     if DicomStandardSingleton._instance is not None:
       raise ValueError('Singleton class once.')
     self.path = path
-    self.iod = dicom_iod_util.DicomIODDatsetUtil(path)
+    self.iod = dicom_iod_util.DicomIODDatasetUtil(path)
 
   @classmethod
   def instance(cls, path: Optional[str] = None) -> DicomStandardSingleton:
@@ -64,7 +64,7 @@ class DicomStandardSingleton:
       DicomStandardSingleton._instance = DicomStandardSingleton(path)
     if DicomStandardSingleton._instance.path != path:
       DicomStandardSingleton._instance.path = path
-      DicomStandardSingleton._instance.iod = dicom_iod_util.DicomIODDatsetUtil(
+      DicomStandardSingleton._instance.iod = dicom_iod_util.DicomIODDatasetUtil(
           path
       )
     return DicomStandardSingleton._instance
@@ -80,7 +80,7 @@ class DicomStandardSingleton:
   def dicom_iod_dataset_util(
       cls,
       path: Optional[str] = None,
-  ) -> dicom_iod_util.DicomIODDatsetUtil:
+  ) -> dicom_iod_util.DicomIODDatasetUtil:
     return DicomStandardSingleton.instance(path).iod
 
 
@@ -100,13 +100,13 @@ def dicom_standard_util(
 
 def dicom_iod_dataset_util(
     path: Optional[str] = None,
-) -> dicom_iod_util.DicomIODDatsetUtil:
-  """Preferred accessor method for accessing DicomIODDatsetUtil.
+) -> dicom_iod_util.DicomIODDatasetUtil:
+  """Preferred accessor method for accessing DicomIODDatasetUtil.
 
   Args:
     path: filepath to json datasets describing dicom standard
 
   Returns:
-      DicomIODDatsetUtil
+      DicomIODDatasetUtil
   """
   return DicomStandardSingleton.dicom_iod_dataset_util(path=path)

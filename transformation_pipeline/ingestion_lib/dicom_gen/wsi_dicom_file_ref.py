@@ -13,7 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 """Dicom File Reference for WSI images."""
-from typing import Any, Mapping
+import functools
+from typing import Any, List, Mapping
 
 import pydicom
 
@@ -53,20 +54,26 @@ class WSIDicomFileRef(dicom_file_ref.DicomFileRef):
     self.define_tag(ingest_const.DICOMTagKeywords.CONCATENATION_UID)
     self.define_tag(ingest_const.DICOMTagKeywords.FRAME_OF_REFERENCE_UID)
     self.define_tag(ingest_const.DICOMTagKeywords.POSITION_REFERENCE_INDICATOR)
+    self.define_tag(ingest_const.DICOMTagKeywords.PYRAMID_UID)
+    self.define_tag(ingest_const.DICOMTagKeywords.PYRAMID_LABEL)
+    self.define_tag(ingest_const.DICOMTagKeywords.PYRAMID_DESCRIPTION)
     self.define_tag(
-        ingest_const.DICOMTagKeywords.CONCATENATION_FRAME_OFFSET_NUMBER)
+        ingest_const.DICOMTagKeywords.CONCATENATION_FRAME_OFFSET_NUMBER
+    )
     self.define_tag(ingest_const.DICOMTagKeywords.IN_CONCATENATION_NUMBER)
     self.define_private_tag(ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG)
 
   @property
   def position_reference_indicator(self) -> str:
     return self.get_tag_value(
-        ingest_const.DICOMTagKeywords.POSITION_REFERENCE_INDICATOR)
+        ingest_const.DICOMTagKeywords.POSITION_REFERENCE_INDICATOR
+    )
 
   @property
   def frame_of_reference_uid(self) -> str:
     return self.get_tag_value(
-        ingest_const.DICOMTagKeywords.FRAME_OF_REFERENCE_UID)
+        ingest_const.DICOMTagKeywords.FRAME_OF_REFERENCE_UID
+    )
 
   @property
   def concatenation_uid(self) -> str:
@@ -75,12 +82,14 @@ class WSIDicomFileRef(dicom_file_ref.DicomFileRef):
   @property
   def concatenation_frame_offset_number(self) -> str:
     return self.get_tag_value(
-        ingest_const.DICOMTagKeywords.CONCATENATION_FRAME_OFFSET_NUMBER)
+        ingest_const.DICOMTagKeywords.CONCATENATION_FRAME_OFFSET_NUMBER
+    )
 
   @property
   def in_concatenation_number(self) -> str:
     return self.get_tag_value(
-        ingest_const.DICOMTagKeywords.IN_CONCATENATION_NUMBER)
+        ingest_const.DICOMTagKeywords.IN_CONCATENATION_NUMBER
+    )
 
   @property
   def image_type(self) -> str:
@@ -105,7 +114,8 @@ class WSIDicomFileRef(dicom_file_ref.DicomFileRef):
   @property
   def pixel_representation(self) -> str:
     return self.get_tag_value(
-        ingest_const.DICOMTagKeywords.PIXEL_REPRESENTATION)
+        ingest_const.DICOMTagKeywords.PIXEL_REPRESENTATION
+    )
 
   @property
   def samples_per_pixel(self) -> str:
@@ -114,7 +124,8 @@ class WSIDicomFileRef(dicom_file_ref.DicomFileRef):
   @property
   def planar_configuration(self) -> str:
     return self.get_tag_value(
-        ingest_const.DICOMTagKeywords.PLANAR_CONFIGURATION)
+        ingest_const.DICOMTagKeywords.PLANAR_CONFIGURATION
+    )
 
   @property
   def accession_number(self) -> str:
@@ -135,7 +146,8 @@ class WSIDicomFileRef(dicom_file_ref.DicomFileRef):
   @property
   def photometric_interpretation(self) -> str:
     return self.get_tag_value(
-        ingest_const.DICOMTagKeywords.PHOTOMETRIC_INTERPRETATION)
+        ingest_const.DICOMTagKeywords.PHOTOMETRIC_INTERPRETATION
+    )
 
   @property
   def imaged_volume_width(self) -> str:
@@ -144,17 +156,20 @@ class WSIDicomFileRef(dicom_file_ref.DicomFileRef):
   @property
   def imaged_volume_height(self) -> str:
     return self.get_tag_value(
-        ingest_const.DICOMTagKeywords.IMAGED_VOLUME_HEIGHT)
+        ingest_const.DICOMTagKeywords.IMAGED_VOLUME_HEIGHT
+    )
 
   @property
   def total_pixel_matrix_columns(self) -> str:
     return self.get_tag_value(
-        ingest_const.DICOMTagKeywords.TOTAL_PIXEL_MATRIX_COLUMNS)
+        ingest_const.DICOMTagKeywords.TOTAL_PIXEL_MATRIX_COLUMNS
+    )
 
   @property
   def total_pixel_matrix_rows(self) -> str:
     return self.get_tag_value(
-        ingest_const.DICOMTagKeywords.TOTAL_PIXEL_MATRIX_ROWS)
+        ingest_const.DICOMTagKeywords.TOTAL_PIXEL_MATRIX_ROWS
+    )
 
   @property
   def number_of_frames(self) -> str:
@@ -175,7 +190,8 @@ class WSIDicomFileRef(dicom_file_ref.DicomFileRef):
   @property
   def dimension_organization_type(self) -> str:
     return self.get_tag_value(
-        ingest_const.DICOMTagKeywords.DIMENSION_ORGANIZATION_TYPE)
+        ingest_const.DICOMTagKeywords.DIMENSION_ORGANIZATION_TYPE
+    )
 
   @property
   def modality(self) -> str:
@@ -184,12 +200,26 @@ class WSIDicomFileRef(dicom_file_ref.DicomFileRef):
   @property
   def specimen_label_in_image(self) -> str:
     return self.get_tag_value(
-        ingest_const.DICOMTagKeywords.SPECIMEN_LABEL_IN_IMAGE)
+        ingest_const.DICOMTagKeywords.SPECIMEN_LABEL_IN_IMAGE
+    )
 
   @property
   def burned_in_annotation(self) -> str:
     return self.get_tag_value(
-        ingest_const.DICOMTagKeywords.BURNED_IN_ANNOTATION)
+        ingest_const.DICOMTagKeywords.BURNED_IN_ANNOTATION
+    )
+
+  @property
+  def pyramid_uid(self) -> str:
+    return self.get_tag_value(ingest_const.DICOMTagKeywords.PYRAMID_UID)
+
+  @property
+  def pyramid_label(self) -> str:
+    return self.get_tag_value(ingest_const.DICOMTagKeywords.PYRAMID_LABEL)
+
+  @property
+  def pyramid_description(self) -> str:
+    return self.get_tag_value(ingest_const.DICOMTagKeywords.PYRAMID_DESCRIPTION)
 
 
 def init_wsi_dicom_file_ref_from_file(fname: str) -> WSIDicomFileRef:
@@ -197,10 +227,18 @@ def init_wsi_dicom_file_ref_from_file(fname: str) -> WSIDicomFileRef:
 
 
 def init_wsi_dicom_file_ref_from_json(
-    file_json: Mapping[str, Any]) -> WSIDicomFileRef:
+    file_json: Mapping[str, Any]
+) -> WSIDicomFileRef:
   return dicom_file_ref.init_from_json(file_json, WSIDicomFileRef())
 
 
-def init_from_pydicom_dataset(file_path: str,
-                              ds: pydicom.FileDataset) -> WSIDicomFileRef:
+def init_from_pydicom_dataset(
+    file_path: str, ds: pydicom.Dataset
+) -> WSIDicomFileRef:
   return dicom_file_ref.init_from_loaded_file(file_path, ds, WSIDicomFileRef())
+
+
+@functools.cache
+def get_wsi_dicom_file_ref_tag_address_list() -> List[str]:
+  """Returns list of tag address for tags needed to init WSIDICOMFileRef."""
+  return [address[2:] for address in WSIDicomFileRef().tag_addresses()]

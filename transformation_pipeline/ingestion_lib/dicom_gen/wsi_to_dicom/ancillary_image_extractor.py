@@ -16,10 +16,11 @@
 
 import dataclasses
 import os
-from typing import Any, Generator, List, Optional, Tuple
+from typing import Any, Generator, List, Optional
 
 import cv2
 import numpy as np
+import openslide
 import PIL
 import pydicom
 import tifffile
@@ -28,15 +29,6 @@ from shared_libs.logging_lib import cloud_logging_client
 from transformation_pipeline import ingest_flags
 from transformation_pipeline.ingestion_lib import ingest_const
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingested_dicom_file_ref
-
-
-# The following try/except block allows for two separate executions of the code:
-# A docker container deployed in GKE and within unit testing framework.
-# pylint: disable=g-import-not-at-top
-try:
-  import openslide  # pytype: disable=import-error  # Deployed GKE container
-except ImportError:
-  import openslide_python as openslide  # Google3
 
 
 # Setting JPG quality to 95 for thumbnail, label, macro images
@@ -50,6 +42,7 @@ _JPEG2000_TRANSFER_SYNTAX = (
     '1.2.840.10008.1.2.4.90',
     '1.2.840.10008.1.2.4.91',
 )
+_RGB = 'RGB'
 _YBR_FULL_422 = 'YBR_FULL_422'
 _LABEL = 'LABEL'
 _OVERVIEW = 'OVERVIEW'
@@ -153,7 +146,7 @@ def _extract_jpeg_directly(
   with open(image.path, 'wb') as outfile:
     outfile.write(bytearray(fh.read(bytecount)))
   if page.photometric.value == _TIFF_RGB_PHOTOMETRIC:
-    image.photometric_interpretation = 'RGB'
+    image.photometric_interpretation = _RGB
   else:
     image.photometric_interpretation = _YBR_FULL_422
   image.extracted_without_decompression = True
@@ -162,7 +155,6 @@ def _extract_jpeg_directly(
 
 def _extract_jpeg_using_tifffile(
     series: tifffile.TiffPageSeries,
-    flip_red_blue: bool,
     image: AncillaryImage,
     convert_to_jpeg_2000: bool,
 ) -> bool:
@@ -172,8 +164,6 @@ def _extract_jpeg_using_tifffile(
 
   Args:
     series: tifffile series to extract image from.
-    flip_red_blue: flip red/blue color channels after image extraction. DICOM
-      JPEGs are BGR not the normal RGB.
     image: AncillaryImage to extract.
     convert_to_jpeg_2000: whether to convert to JPEG 2000 instead of JPEG.
 
@@ -185,31 +175,32 @@ def _extract_jpeg_using_tifffile(
   series_bytes = series.asarray()
   if series_bytes is None:
     return False
-  if flip_red_blue:
-    # cv2.cvtColor(img, cv2.COLOR_BGR2RGB, dst=img)
-    series_bytes_copy = np.array(series_bytes[..., 0])
-    series_bytes[..., 0] = series_bytes[..., 2]
-    series_bytes[..., 2] = series_bytes_copy
   if convert_to_jpeg_2000:
     try:
+      image.photometric_interpretation = _RGB
       PIL.Image.fromarray(series_bytes).save(image.path)
-    except (ValueError, OSError):
-      cloud_logging_client.logger().error(f'Failed to write to {output_path}.')
+      image.extracted_without_decompression = False
+      return True
+    except (ValueError, OSError) as exp:
+      cloud_logging_client.logger().error(
+          f'Failed to write to {output_path}.', exp
+      )
       return False
-  elif not cv2.imwrite(
-      output_path, series_bytes, [int(cv2.IMWRITE_JPEG_QUALITY), _JPEG_QUALITTY]
+  if cv2.imwrite(
+      output_path,
+      cv2.cvtColor(series_bytes, cv2.COLOR_RGB2BGR),
+      [int(cv2.IMWRITE_JPEG_QUALITY), _JPEG_QUALITTY],
   ):
-    cloud_logging_client.logger().error(f'Failed to write to {output_path}.')
-    return False
-  image.photometric_interpretation = _YBR_FULL_422
-  image.extracted_without_decompression = False
-  return True
+    image.photometric_interpretation = _YBR_FULL_422
+    image.extracted_without_decompression = False
+    return True
+  cloud_logging_client.logger().error(f'Failed to write to {output_path}.')
+  return False
 
 
 def _extract_ancillary_image_with_openslide(
     file_path: str,
     image: AncillaryImage,
-    flip_red_blue: bool,
     openslide_key: str,
 ) -> bool:
   """Extracts ancillary image using Openslide methods.
@@ -217,8 +208,6 @@ def _extract_ancillary_image_with_openslide(
   Args:
     file_path: File path to OpenSlide compatible input.
     image: AncillaryImage to populate with extracted image.
-    flip_red_blue: Flip red and blue color channels. DICOM encoded imaging is
-      BGR not the more typical RGB.
     openslide_key: String key for image to extract.
 
   Returns:
@@ -232,31 +221,26 @@ def _extract_ancillary_image_with_openslide(
 
   if pil_img is None:
     return False
+  if pil_img.mode not in ('RGBA', 'RGB', 'L'):
+    cloud_logging_client.logger().error(
+        'Ancillary image is encoded in unexpected format.',
+        {
+            ingest_const.LogKeywords.FILENAME: file_path,
+            'image_mode': pil_img.mode,
+            'image_size': pil_img.size,
+            'openslide_key': openslide_key,
+        },
+    )
+    return False
   raw_img_bytes = np.asarray(pil_img)
-  if len(raw_img_bytes.shape) != 3:
-    cloud_logging_client.logger().error(
-        'Ancillary image has unexpected shape.',
-        {
-            ingest_const.LogKeywords.filename: file_path,
-            'image_shape': raw_img_bytes.shape,
-            'openslide_key': openslide_key,
-        },
+  if pil_img.mode == 'RGBA':
+    raw_img_bytes = raw_img_bytes[..., :3]
+  if pil_img.mode == 'L':
+    raw_img_bytes = np.stack(
+        [raw_img_bytes, raw_img_bytes, raw_img_bytes], axis=-1
     )
-    return False
-  if raw_img_bytes.shape[2] == 4:
-    raw_img_bytes = raw_img_bytes[..., 0:3]  # drop alpha
-  if raw_img_bytes.shape[2] != 3:
-    cloud_logging_client.logger().error(
-        'Ancillary image has unexpected shape.',
-        {
-            ingest_const.LogKeywords.filename: file_path,
-            'image_shape': raw_img_bytes.shape,
-            'openslide_key': openslide_key,
-        },
-    )
-    return False
-  if flip_red_blue:
-    raw_img_bytes = cv2.cvtColor(raw_img_bytes, cv2.COLOR_BGR2RGB)
+  else:
+    raw_img_bytes = cv2.cvtColor(raw_img_bytes, cv2.COLOR_RGB2BGR)
   cv2.imwrite(
       image.path, raw_img_bytes, [int(cv2.IMWRITE_JPEG_QUALITY), _JPEG_QUALITTY]
   )
@@ -268,7 +252,6 @@ def _extract_ancillary_image_with_openslide(
 def extract_jpg_image(
     tiff_file_path: str,
     image: AncillaryImage,
-    flip_red_blue: bool,
     series_name: Optional[str] = None,
     convert_to_jpeg_2000: bool = False,
 ) -> bool:
@@ -277,7 +260,6 @@ def extract_jpg_image(
   Args:
     tiff_file_path: path to svs file.
     image: AncillaryImage to extract.
-    flip_red_blue: true flip R & B colors channels. DICOM is BGR.
     series_name: (Optional) name of series image to return.
     convert_to_jpeg_2000: whether to convert to JPEG 2000 in case of non-JPEG
       images.
@@ -317,30 +299,10 @@ def extract_jpg_image(
         # used for LZW compressed images etc.
         if convert_to_jpeg_2000:
           image.path = f'{basepath}.jp2'
-        return _extract_jpeg_using_tifffile(
-            series, flip_red_blue, image, convert_to_jpeg_2000
-        )
+        return _extract_jpeg_using_tifffile(series, image, convert_to_jpeg_2000)
   except tifffile.TiffFileError:
     pass
   return False
-
-
-def get_svs_series_name_shape(
-    svs_file_path: str,
-) -> List[Tuple[str, Tuple[int, int, int]]]:
-  """Returns list of series names and images shapes in svs file.
-
-  Args:
-    svs_file_path: path to svs file
-
-  Returns:
-    List of Tuple (series name, series image shape) in svs file
-  """
-  try:
-    with tifffile.TiffFile(svs_file_path) as tiff:
-      return [(series.name, series.shape) for series in tiff.series]
-  except tifffile.tifffile.TiffFileError:
-    return list()
 
 
 def macro_icc(svs_file_path: str) -> Optional[bytes]:
@@ -373,43 +335,34 @@ def image_icc(svs_file_path: str) -> Optional[bytes]:
 
 
 def _ancillary_image(
-    svs_file_path: str,
+    file_path: str,
     image: AncillaryImage,
     series_name: str,
     openslide_key: str,
-    flip_red_blue: bool,
 ) -> bool:
   """Extracts ancillary image from SVS file and saves it to img_path file.
 
   Args:
-    svs_file_path: path to svs file
+    file_path: path to svs file
     image: AncillaryImage for macro image extraction
     series_name: SVS Tiff file series name.
     openslide_key: OpenSlide accessory image key.
-    flip_red_blue: If True swaps red and blue channels.
 
   Returns:
     True if image extracted
   """
-  if extract_jpg_image(
-      svs_file_path, image, flip_red_blue=flip_red_blue, series_name=series_name
-  ):
+  if extract_jpg_image(file_path, image, series_name):
     cloud_logging_client.logger().info(
-        f'SVS file has a {openslide_key} image; extracting directly.'
+        f'File has a {openslide_key} image; extracting directly.'
     )
     return True
-  if _extract_ancillary_image_with_openslide(
-      svs_file_path,
-      image,
-      flip_red_blue=flip_red_blue,
-      openslide_key=openslide_key,
-  ):
+  if _extract_ancillary_image_with_openslide(file_path, image, openslide_key):
     cloud_logging_client.logger().info(
-        f'SVS file has a {openslide_key} image; extracting using Openslide.'
+        f'File has a {openslide_key} image; extracting using Openslide.'
     )
     return True
   cloud_logging_client.logger().info(
-      f'SVS file is missing the {openslide_key} image'
+      f'File is missing the {openslide_key} image'
   )
   return False
 
@@ -424,7 +377,7 @@ def macro_image(svs_file_path: str, macro: AncillaryImage) -> bool:
   Returns:
     True if image extracted
   """
-  return _ancillary_image(svs_file_path, macro, 'Macro', 'macro', True)
+  return _ancillary_image(svs_file_path, macro, 'Macro', 'macro')
 
 
 def label_image(svs_file_path: str, label: AncillaryImage) -> bool:
@@ -437,7 +390,7 @@ def label_image(svs_file_path: str, label: AncillaryImage) -> bool:
   Returns:
     True if image extracted
   """
-  return _ancillary_image(svs_file_path, label, 'Label', 'label', True)
+  return _ancillary_image(svs_file_path, label, 'Label', 'label')
 
 
 def thumbnail_image(svs_file_path: str, thumbnail: AncillaryImage) -> bool:
@@ -450,9 +403,7 @@ def thumbnail_image(svs_file_path: str, thumbnail: AncillaryImage) -> bool:
   Returns:
     True if image extracted
   """
-  return _ancillary_image(
-      svs_file_path, thumbnail, 'Thumbnail', 'thumbnail', False
-  )
+  return _ancillary_image(svs_file_path, thumbnail, 'Thumbnail', 'thumbnail')
 
 
 def get_ancillary_images_from_svs(
@@ -501,19 +452,18 @@ def _get_first_encapsulated_frame(
     ValueError: Encapsulated frame number != 1.
   """
   encapsulated_frame = None
-  for frame in encapsulated_frames:
-    if encapsulated_frame:
-      raise ValueError(
-          f'Extracting ancillary {image_type} image from DICOM '
-          'with encapsulated frames # > 1'
-      )
-    encapsulated_frame = frame
-  if encapsulated_frame is None:
+  try:
+    for frame in encapsulated_frames:
+      if encapsulated_frame is not None:
+        raise ValueError('More than one encapsulated frame.')
+      encapsulated_frame = frame
+    if encapsulated_frame is None:
+      raise ValueError('Missing encapsulated frame.')
+    return encapsulated_frame
+  except (ValueError, EOFError) as exp:
     raise ValueError(
-        f'Extracting ancillary {image_type} image from DICOM '
-        'with encapsulated frames # = 0'
-    )
-  return encapsulated_frame
+        f'Error extracting ancillary {image_type} image from DICOM.'
+    ) from exp
 
 
 def _extract_ancillary_dicom_image(
@@ -541,18 +491,20 @@ def _extract_ancillary_dicom_image(
   else:
     cv2_image_decode_type = ''
   if cv2_image_decode_type:
-    # JPEGs must be decoded to RGB color space to swap BGR DICOM to conventional
-    # RGB byte order.
     with pydicom.dcmread(wsi_image.source) as ds:
-      encoded_frames = pydicom.encaps.generate_pixel_data_frame(ds.PixelData, 1)
+      try:
+        number_of_frames = ds.NumberOfFrames
+      except AttributeError:
+        number_of_frames = 1
+      encoded_frames = pydicom.encaps.generate_pixel_data_frame(
+          ds.PixelData, number_of_frames
+      )
     encoded_frame = _get_first_encapsulated_frame(
         encoded_frames, cv2_image_decode_type
     )
     decoded_frame = cv2.imdecode(
         np.frombuffer(encoded_frame, dtype=np.uint8), flags=1
     )
-    # DICOM is BGR decode convert back to RGB
-    decoded_frame = cv2.cvtColor(decoded_frame, cv2.COLOR_BGR2RGB)
     cv2.imwrite(
         image_path,
         decoded_frame,
@@ -562,6 +514,7 @@ def _extract_ancillary_dicom_image(
   # RAW
   with pydicom.dcmread(wsi_image.source) as ds:
     pixel_data = ds.pixel_array
+  pixel_data = cv2.cvtColor(pixel_data, cv2.COLOR_BGR2RGB)
   cv2.imwrite(
       image_path, pixel_data, [int(cv2.IMWRITE_JPEG_QUALITY), _JPEG_QUALITTY]
   )

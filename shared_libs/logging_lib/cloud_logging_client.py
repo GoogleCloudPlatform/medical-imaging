@@ -18,7 +18,7 @@ from __future__ import annotations
 import os
 import sys
 import threading
-from typing import List, Optional
+from typing import Any, List, Mapping, Optional, Union
 
 from absl import flags
 import psutil
@@ -129,6 +129,19 @@ def _get_logger_flags(argv: List[str]) -> List[str]:
   return command_line_flags
 
 
+def _get_flags() -> Mapping[str, str]:
+  load_flags = {}
+  unparsed_flags = []
+  for flag_name in flags.FLAGS:
+    try:
+      load_flags[flag_name] = flags.FLAGS.__getattr__(flag_name)
+    except flags.UnparsedFlagAccessError:
+      unparsed_flags.append(flag_name)
+  if unparsed_flags:
+    load_flags['unparsed_flags'] = ', '.join(unparsed_flags)
+  return load_flags
+
+
 class CloudLoggingClient(
     cloud_logging_client_instance.CloudLoggingClientInstance
 ):
@@ -206,6 +219,7 @@ class CloudLoggingClient(
             'available_system_mem_(bytes)': vm.available,
         },
     )
+    self.debug('Initalized flags', _get_flags())
     project_name = self.gcp_project_name if self.gcp_project_name else 'DEFAULT'
     self.debug(f'Logging to GCP project: {project_name}')
 
@@ -221,6 +235,108 @@ class CloudLoggingClient(
 
 def logger() -> CloudLoggingClient:
   return CloudLoggingClient.logger()
+
+
+def debug(
+    msg: str,
+    *struct: Union[Mapping[str, Any], Exception, None],
+    stack_frames_back: int = 0,
+) -> None:
+  """Logs with debug severity.
+
+  Args:
+    msg: message to log (string).
+    *struct: zero or more dict or exception to log in structured log.
+    stack_frames_back: Additional stack frames back to log source_location.
+  """
+  logger().debug(msg, *struct, stack_frames_back=stack_frames_back + 1)
+
+
+def timed_debug(
+    msg: str,
+    *struct: Union[Mapping[str, Any], Exception, None],
+    stack_frames_back: int = 0,
+) -> None:
+  """Logs with debug severity and elapsed time since last timed debug log.
+
+  Args:
+    msg: message to log (string).
+    *struct: zero or more dict or exception to log in structured log.
+    stack_frames_back: Additional stack frames back to log source_location.
+  """
+  logger().timed_debug(msg, *struct, stack_frames_back=stack_frames_back + 1)
+
+
+def info(
+    msg: str,
+    *struct: Union[Mapping[str, Any], Exception, None],
+    stack_frames_back: int = 0,
+) -> None:
+  """Logs with info severity.
+
+  Args:
+    msg: message to log (string).
+    *struct: zero or more dict or exception to log in structured log.
+    stack_frames_back: Additional stack frames back to log source_location.
+  """
+  logger().info(msg, *struct, stack_frames_back=stack_frames_back + 1)
+
+
+def warning(
+    msg: str,
+    *struct: Union[Mapping[str, Any], Exception, None],
+    stack_frames_back: int = 0,
+) -> None:
+  """Logs with warning severity.
+
+  Args:
+    msg: Message to log (string).
+    *struct: Zero or more dict or exception to log in structured log.
+    stack_frames_back: Additional stack frames back to log source_location.
+  """
+  logger().warning(msg, *struct, stack_frames_back=stack_frames_back + 1)
+
+
+def error(
+    msg: str,
+    *struct: Union[Mapping[str, Any], Exception, None],
+    stack_frames_back: int = 0,
+) -> None:
+  """Logs with error severity.
+
+  Args:
+    msg: Message to log (string).
+    *struct: Zero or more dict or exception to log in structured log.
+    stack_frames_back: Additional stack frames back to log source_location.
+  """
+  logger().error(msg, *struct, stack_frames_back=stack_frames_back + 1)
+
+
+def critical(
+    msg: str,
+    *struct: Union[Mapping[str, Any], Exception, None],
+    stack_frames_back: int = 0,
+) -> None:
+  """Logs with critical severity.
+
+  Args:
+    msg: Message to log (string).
+    *struct: Zero or more dict or exception to log in structured log.
+    stack_frames_back: Additional stack frames back to log source_location.
+  """
+  logger().critical(msg, *struct, stack_frames_back=stack_frames_back + 1)
+
+
+def clear_log_signature() -> None:
+  logger().clear_log_signature()
+
+
+def set_log_signature(sig: Mapping[str, Any]) -> None:
+  logger().log_signature = sig
+
+
+def set_per_thread_log_signatures(val: bool) -> None:
+  logger().per_thread_log_signatures = val
 
 
 # Logging interfaces are used from processes which are forked (gunicorn,
