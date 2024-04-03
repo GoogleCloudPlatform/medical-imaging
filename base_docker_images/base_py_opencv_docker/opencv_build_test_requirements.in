@@ -1,5 +1,5 @@
 # Do not modify requirements.txt directly. Run
 # generate_requirements.sh to build requirements.txt from this file.
 # LINT.IfChange
-Pillow==10.2.0
+Pillow==10.3.0
 # LINT.ThenChange(//depot/base_docker_images/base_py_opencv_docker/opencv_build_test_requirements.txt)
