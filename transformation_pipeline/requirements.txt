@@ -7,7 +7,7 @@
 absl-py==2.0.0 \
     --hash=sha256:9a28abb62774ae4e8edbe2dd4c49ffcd45a6a848952a5eccc6a49f3f0fc1e2f3 \
     --hash=sha256:d9690211c5fcfefcdd1a45470ac2b5c5acd45241c3af71eed96bc5441746c0d5
-    # via -r /requirements.in
+    # via -r requirements.in
 cachetools==5.3.2 \
     --hash=sha256:086ee420196f7b2ab9ca2db2520aca326318b68fe5ba8bc4d49cca91add450f2 \
     --hash=sha256:861f35a13a451f94e301ce2bec7cac63e881232ccce7ed67fab9b5df4d3beaa1
@@ -16,7 +16,7 @@ certifi==2023.11.17 \
     --hash=sha256:9b469f3a900bf28dc19b8cfbf8019bf47f7fdd1a65a1d4ffb98fc14166beb4d1 \
     --hash=sha256:e036ab49d5b79556f99cfc2d9320b34cfbe5be05c5871b51de9329f0603b0474
     # via
-    #   -r /requirements.in
+    #   -r requirements.in
     #   requests
 cffi==1.16.0 \
     --hash=sha256:0c9ef6ff37e974b73c25eecc13952c55bceed9112be2d9d938ded8e856138bcc \
@@ -188,11 +188,11 @@ cryptography==41.0.7 \
     --hash=sha256:d6c391c021ab1f7a82da5d8d0b3cee2f4b2c455ec86c8aebbc84837a631ff309 \
     --hash=sha256:e3114da6d7f95d2dee7d3f4eec16dacff819740bbab931aff8648cb13c5ff5e7 \
     --hash=sha256:f983596065a18a2183e7f79ab3fd4c475205b839e02cbc0efbbf9666c4b3083d
-    # via -r /requirements.in
+    # via -r requirements.in
 dataclasses-json==0.6.3 \
     --hash=sha256:35cb40aae824736fdf959801356641836365219cfe14caeb115c39136f775d2a \
     --hash=sha256:4aeb343357997396f6bca1acae64e486c3a723d8f5c76301888abeccf0c45176
-    # via -r /requirements.in
+    # via -r requirements.in
 google-api-core[grpc]==2.15.0 \
     --hash=sha256:2aa56d2be495551e66bbff7f729b790546f87d5c90e74781aa77233bcb395a8a \
     --hash=sha256:abc978a72658f14a2df1e5e12532effe40f94f868f6e23d95133bd6abcca35ca
@@ -207,7 +207,7 @@ google-api-core[grpc]==2.15.0 \
 google-api-python-client==2.113.0 \
     --hash=sha256:25659d488df6c8a69615b2a510af0e63b4c47ab2cb87d71c1e13b28715906e27 \
     --hash=sha256:bcffbc8ffbad631f699cf85aa91993f3dc03060b234ca9e6e2f9135028bd9b52
-    # via -r /requirements.in
+    # via -r requirements.in
 google-auth==2.26.2 \
     --hash=sha256:3f445c8ce9b61ed6459aad86d8ccdba4a9afed841b2d1451a11ef4db08957424 \
     --hash=sha256:97327dbbf58cccb58fc5a1712bba403ae76668e64814eb30f7316f7e27126b81
@@ -232,27 +232,27 @@ google-cloud-audit-log==0.2.5 \
 google-cloud-bigquery==3.16.0 \
     --hash=sha256:1d6abf4b1d740df17cb43a078789872af8059a0b1dd999f32ea69ebc6f7ba7ef \
     --hash=sha256:8bac7754f92bf87ee81f38deabb7554d82bb9591fbe06a5c82f33e46e5a482f9
-    # via -r /requirements.in
+    # via -r requirements.in
 google-cloud-core==2.4.1 \
     --hash=sha256:9b7749272a812bde58fff28868d0c5e2f585b82f37e09a1f6ed2d4d10f134073 \
     --hash=sha256:a9e6a4422b9ac5c29f79a0ede9485473338e2ce78d91f2370c01e730eab22e61
     # via
-    #   -r /requirements.in
+    #   -r requirements.in
     #   google-cloud-bigquery
     #   google-cloud-logging
     #   google-cloud-storage
 google-cloud-logging==3.9.0 \
     --hash=sha256:094a2db068ff7f38c9e0c1017673fa49c0768fbae02769e03e06baa30f138b87 \
     --hash=sha256:4decb1b0bed4a0e3c0e58a376646e6002d6be7cad039e3466822e8665072ea33
-    # via -r /requirements.in
+    # via -r requirements.in
 google-cloud-pubsub==2.19.0 \
     --hash=sha256:0cc444e5b2220a703106668829315a724cfb4304d6772725035993bb2fc81388 \
     --hash=sha256:6a98c33f7eb5f7de2ae52efa059b2b5f75b2ccd9f0f11f2edcefdda8d14e425c
-    # via -r /requirements.in
+    # via -r requirements.in
 google-cloud-storage==2.14.0 \
     --hash=sha256:2d23fcf59b55e7b45336729c148bb1c464468c69d5efbaee30f7201dd90eb97e \
     --hash=sha256:8641243bbf2a2042c16a6399551fbb13f062cbc9a2de38d6c0bb5426962e9dbd
-    # via -r /requirements.in
+    # via -r requirements.in
 google-crc32c==1.5.0 \
     --hash=sha256:024894d9d3cfbc5943f8f230e23950cd4906b2fe004c72e29b209420a1e6b05a \
     --hash=sha256:02c65b9817512edc6a4ae7c7e987fea799d2e0ee40c53ec573a692bee24de876 \
@@ -335,7 +335,7 @@ googleapis-common-protos[grpc]==1.62.0 \
     --hash=sha256:4750113612205514f9f6aa4cb00d523a94f3e8c06c5ad2fee466387dc4875f07 \
     --hash=sha256:83f0ece9f94e5672cced82f592d2a5edf527a96ed1794f0bab36d5735c996277
     # via
-    #   -r /requirements.in
+    #   -r requirements.in
     #   google-api-core
     #   google-cloud-audit-log
     #   grpc-google-iam-v1
@@ -452,7 +452,7 @@ imagecodecs==2024.1.1 \
     --hash=sha256:e6db283c41118cb66c4ec05f966d1b7cc9251f66fcba8cb472d71af2184902fb \
     --hash=sha256:ef7a13d09966b021c33e2dd726ee44b9cd3cb198b32474c7e48cca55abd52f6a \
     --hash=sha256:fde46bd698d008255deef5411c59b35c0e875295e835bf6079f7e2ab22f216eb
-    # via -r /requirements.in
+    # via -r requirements.in
 marshmallow==3.20.2 \
     --hash=sha256:4c1daff273513dc5eb24b219a8035559dc573c8f322558ef85f5438ddd1236dd \
     --hash=sha256:c21d4b98fee747c130e6bc8f45c4b3199ea66bc00c12ee1f639f0aeca034d5e9
@@ -499,7 +499,7 @@ numpy==1.26.3 \
     --hash=sha256:f25e2811a9c932e43943a2615e65fc487a0b6b49218899e62e426e7f0a57eeda \
     --hash=sha256:f73497e8c38295aaa4741bdfa4fda1a5aedda5473074369eca10626835445511
     # via
-    #   -r /requirements.in
+    #   -r requirements.in
     #   imagecodecs
     #   pandas
     #   tifffile
@@ -515,7 +515,7 @@ openslide-python==1.3.1 \
     --hash=sha256:d208e53d3da82313213303058b2ca9fc66c2d98365b9338e27ecc46ab8b07e9d \
     --hash=sha256:d834fbca0824b902da9d8541f7c34a3e62496823a42de5ac7bf6c35e4c799678 \
     --hash=sha256:fc1d1b5996775c61b9c4f71f200586d710ec5adeffab45e2a7b5f4561d199eeb
-    # via -r /requirements.in
+    # via -r requirements.in
 packaging==23.2 \
     --hash=sha256:048fb0e9405036518eaaf48a55953c750c11e1a1b68e0dd1a9d62ed0c092cfc5 \
     --hash=sha256:8c491190033a9af7e1d931d0b5dacc2ef47509b34dd0de67ed209b5203fc88c7
@@ -548,7 +548,7 @@ pandas==2.1.4 \
     --hash=sha256:f237e6ca6421265643608813ce9793610ad09b40154a3344a088159590469e46 \
     --hash=sha256:f69b0c9bb174a2342818d3e2778584e18c740d56857fc5cdb944ec8bbe4082cf \
     --hash=sha256:fcb68203c833cc735321512e13861358079a96c174a61f5116a1de89c58c0ef7
-    # via -r /requirements.in
+    # via -r requirements.in
 pillow==10.2.0 \
     --hash=sha256:0304004f8067386b477d20a518b50f3fa658a28d44e4116970abfcd94fac34a8 \
     --hash=sha256:0689b5a8c5288bc0504d9fcee48f61a6a586b9b98514d7d29b840143d6734f39 \
@@ -619,7 +619,7 @@ pillow==10.2.0 \
     --hash=sha256:f379abd2f1e3dddb2b61bc67977a6b5a0a3f7485538bcc6f39ec76163891ee48 \
     --hash=sha256:fe4c15f6c9285dc54ce6553a3ce908ed37c8f3825b5a51a15c91442bb955b868
     # via
-    #   -r /requirements.in
+    #   -r requirements.in
     #   openslide-python
 proto-plus==1.23.0 \
     --hash=sha256:89075171ef11988b3fa157f5dbd8b9cf09d65fffee97e29ce403cd8defba19d2 \
@@ -667,7 +667,7 @@ psutil==5.9.7 \
     --hash=sha256:f37f87e4d73b79e6c5e749440c3113b81d1ee7d26f21c19c47371ddea834f414 \
     --hash=sha256:fe361f743cb3389b8efda21980d93eb55c1f1e3898269bc9a2a1d0bb7b1f6508 \
     --hash=sha256:fe8b7f07948f1304497ce4f4684881250cd859b16d06a1dc4d7941eeb6233bfe
-    # via -r /requirements.in
+    # via -r requirements.in
 pyasn1==0.5.1 \
     --hash=sha256:4439847c58d40b1d0a573d07e3856e95333f1976294494c325775aeca506eb58 \
     --hash=sha256:6d391a96e59b23130a5cfa74d6fd7f388dbbe26cc8f1edf39fdddf08d9d6676c
@@ -685,7 +685,7 @@ pycparser==2.21 \
 pydicom==2.4.4 \
     --hash=sha256:90b4801d851ce65be3df520e16bbfa3d6c767cf2a3a3b1c18f6780e6b670b87a \
     --hash=sha256:f9f8e19b78525be57aa6384484298833e4d06ac1d6226c79459131ddb0bd7c42
-    # via -r /requirements.in
+    # via -r requirements.in
 pyparsing==3.1.1 \
     --hash=sha256:32c7c0b711493c72ff18a981d24f28aaf9c1fb7ed5e9667c9e84e3db623bdbfb \
     --hash=sha256:ede28a1a32462f5a9705e07aea48001a08f7cf81a021585011deba701581a0db
@@ -751,16 +751,16 @@ pyyaml==6.0.1 \
     --hash=sha256:fca0e3a251908a499833aa292323f32437106001d436eca0e6e7833256674585 \
     --hash=sha256:fd1592b3fdf65fff2ad0004b5e363300ef59ced41c2e6b3a99d4089fa8c5435d \
     --hash=sha256:fd66fc5d0da6d9815ba2cebeb4205f95818ff4b79c3ebe268e75d961704af52f
-    # via -r /requirements.in
+    # via -r requirements.in
 redis==5.0.1 \
     --hash=sha256:0dab495cd5753069d3bc650a0dde8a8f9edde16fc5691b689a566eda58100d0f \
     --hash=sha256:ed4802971884ae19d640775ba3b03aa2e7bd5e8fb8dfaed2decce4d0fc48391f
-    # via -r /requirements.in
-requests==2.31.0 \
-    --hash=sha256:58cd2187c01e70e6e26505bca751777aa9f2ee0b7f4300988b709f44e013003f \
-    --hash=sha256:942c5a758f98d790eaed1a29cb6eefc7ffb0d1cf7af05c3d2791656dbd6ad1e1
+    # via -r requirements.in
+requests==2.32.0 \
+    --hash=sha256:f2c3881dddb70d056c5bd7600a4fae312b2a300e39be6a118d30b90bd27262b5 \
+    --hash=sha256:fa5490319474c82ef1d2c9bc459d3652e3ae4ef4c4ebdd18a21145a47ca4b6b8
     # via
-    #   -r /requirements.in
+    #   -r requirements.in
     #   google-api-core
     #   google-cloud-bigquery
     #   google-cloud-storage
@@ -775,7 +775,7 @@ six==1.16.0 \
 tifffile==2023.12.9 \
     --hash=sha256:9b066e4b1a900891ea42ffd33dab8ba34c537935618b9893ddef42d7d422692f \
     --hash=sha256:9dd1da91180a6453018a241ff219e1905f169384355cd89c9ef4034c1b46cdb8
-    # via -r /requirements.in
+    # via -r requirements.in
 typing-extensions==4.9.0 \
     --hash=sha256:23478f88c37f27d76ac8aee6c905017a143b0b1b886c3c9f66bc2fd94f9f5783 \
     --hash=sha256:af72aea155e91adfc61c3ae9e0e342dbc0cba726d6cba4b6c72c1f34e47291cd
