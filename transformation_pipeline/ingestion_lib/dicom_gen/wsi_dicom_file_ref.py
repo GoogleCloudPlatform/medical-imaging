@@ -61,6 +61,9 @@ class WSIDicomFileRef(dicom_file_ref.DicomFileRef):
         ingest_const.DICOMTagKeywords.CONCATENATION_FRAME_OFFSET_NUMBER
     )
     self.define_tag(ingest_const.DICOMTagKeywords.IN_CONCATENATION_NUMBER)
+    self.define_tag(
+        ingest_const.DICOMTagKeywords.TOTAL_PIXEL_MATRIX_FOCAL_PLANES
+    )
     self.define_private_tag(ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG)
 
   @property
@@ -163,6 +166,12 @@ class WSIDicomFileRef(dicom_file_ref.DicomFileRef):
   def total_pixel_matrix_columns(self) -> str:
     return self.get_tag_value(
         ingest_const.DICOMTagKeywords.TOTAL_PIXEL_MATRIX_COLUMNS
+    )
+
+  @property
+  def total_pixel_matrix_focal_planes(self) -> str:
+    return self.get_tag_value(
+        ingest_const.DICOMTagKeywords.TOTAL_PIXEL_MATRIX_FOCAL_PLANES
     )
 
   @property

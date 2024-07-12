@@ -66,7 +66,7 @@ def _contains_already_ingested_dicom_tags(
   result = bool(
       metadata_tags.intersection(DICOM_ALREADY_INGESTED_TAG_ADDRESSES)
   )
-  cloud_logging_client.logger().debug(
+  cloud_logging_client.debug(
       'DICOM instance has been processed by the transformation pipeline.'
       if result
       else 'DICOM instance not processed by the transformation pipeline.',
@@ -141,7 +141,7 @@ class IngestDicom(ingest_base.IngestBase):
         slide_id = decode_slideid.get_slide_id_from_filename(
             dicom_gen, self.metadata_storage_client
         )
-        cloud_logging_client.logger().info(
+        cloud_logging_client.info(
             'Slide ID identified in ingested filename.',
             {
                 ingest_const.LogKeywords.FILENAME: dicom_gen.localfile,
@@ -157,7 +157,7 @@ class IngestDicom(ingest_base.IngestBase):
         slide_id = decode_slideid.find_slide_id_in_metadata(
             dcm.BarcodeValue, self.metadata_storage_client
         )
-        cloud_logging_client.logger().info(
+        cloud_logging_client.info(
             'Slide ID identified in DICOM BarcodeValue tag.',
             {ingest_const.LogKeywords.SLIDE_ID: slide_id},
         )
@@ -212,7 +212,7 @@ class IngestDicom(ingest_base.IngestBase):
       dcm: pydicom.Dataset,
       slide_id: str,
       message_id: str,
-      dcm_store_client: dicom_store_client.DicomStoreClient,
+      abstract_dicom_handler: abstract_dicom_generation.AbstractDicomGeneration,
   ) -> None:
     """Reads and updates metadata for DICOM instance.
 
@@ -221,19 +221,19 @@ class IngestDicom(ingest_base.IngestBase):
       dcm: Pydicom dataset to add metadata.
       slide_id: DICOM slide ID.
       message_id: Polling client message id.
-      dcm_store_client: DICOM store client.
+      abstract_dicom_handler: dicom generation handler.
     """
     sop_class_name = dcm[ingest_const.DICOMTagKeywords.SOP_CLASS_UID].repval
     dcm_json = self.get_slide_dicom_json_formatted_metadata(
         sop_class_name,
         slide_id,
-        dcm_store_client,
+        abstract_dicom_handler.dcm_store_client,
     ).dicom_json
     ingest_base.initialize_metadata_study_and_series_uids_for_dicom_triggered_ingestion(
         dcm.StudyInstanceUID,
         dcm.SeriesInstanceUID,
         dcm_json,
-        dcm_store_client,
+        abstract_dicom_handler,
         self._set_study_instance_uid_from_metadata(),
         self._set_series_instance_uid_from_metadata(),
     )
@@ -291,7 +291,7 @@ class IngestDicom(ingest_base.IngestBase):
     except (json.JSONDecodeError, requests.HTTPError) as exp:
       # If unable to determine metadata pipleine may be in the process of
       # of processing DICOM. return False to continue processing
-      cloud_logging_client.logger().warning(
+      cloud_logging_client.warning(
           'Error occurred querying DICOM store for instance metadata. Possibly '
           'due to DICOM instance metadata update in progress.',
           log,
@@ -300,14 +300,14 @@ class IngestDicom(ingest_base.IngestBase):
       return False
     log[ingest_const.LogKeywords.METADATA] = dicom_json_metadata
     if not dicom_json_metadata:
-      cloud_logging_client.logger().warning(
+      cloud_logging_client.warning(
           'Could not find metadata for DICOM instance. Possibly '
           'due to DICOM instance metadata update in progress.',
           log,
       )
       return False
     elif len(dicom_json_metadata) > 1:
-      cloud_logging_client.logger().warning(
+      cloud_logging_client.warning(
           'DICOM store instance query returned more than one dataset.',
           log,
       )
@@ -411,7 +411,7 @@ class IngestDicom(ingest_base.IngestBase):
           dcm,
           self.slide_id,
           message_id,
-          abstract_dicom_handler.dcm_store_client,
+          abstract_dicom_handler,
       )
 
       generated_dicom_path = os.path.join(dicom_gen_dir, _OUTPUT_DICOM_FILENAME)

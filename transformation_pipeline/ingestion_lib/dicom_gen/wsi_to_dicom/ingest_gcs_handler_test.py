@@ -842,7 +842,7 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
           testcase_name='slide_id_in_filename',
           filename='SR-21-2-A1-5_test.dcm',
           barcode_value='MD-01-1-A1-1',
-          expected='SR-21-2-A1-5',
+          expected='GCS_TRIGGERED SLIDEID:SR-21-2-A1-5',
       ),
       dict(
           testcase_name='slide_id_not_found',
@@ -854,7 +854,7 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
           testcase_name='slide_id_in_barcode',
           barcode_value='SR-21-2-A1-5',
           filename='test.dcm',
-          expected='SR-21-2-A1-5',
+          expected='GCS_TRIGGERED SLIDEID:SR-21-2-A1-5',
       ),
   ])
   @flagsaver.flagsaver(
@@ -901,12 +901,12 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
       dict(
           testcase_name='filename_preceeds_barcode',
           filename='MD-01-1-A1-1_ingest.zip',
-          expected='MD-01-1-A1-1',
+          expected='GCS_TRIGGERED SLIDEID:MD-01-1-A1-1',
       ),
       dict(
           testcase_name='barcode_if_not_from_filename',
           filename='not_found.dcm',
-          expected='SR-21-2-A1-5',
+          expected='GCS_TRIGGERED SLIDEID:SR-21-2-A1-5',
       ),
   ])
   @flagsaver.flagsaver(
@@ -950,17 +950,12 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
       )
     self.assertEqual(result.name, expected)
 
-  @parameterized.named_parameters([
-      dict(
-          testcase_name='filename_preceeds_barcode',
-          expected='MD-01-1-A1-1',
-      ),
-  ])
   @flagsaver.flagsaver(
       gcs_ingest_study_instance_uid_source=ingest_flags.UidSource.METADATA,
   )
   @mock.patch.object(polling_client, 'PollingClient', autospec=True)
-  def test_gcs_handler_ndpi_transform_lock(self, mock_polling_client, expected):
+  def test_gcs_handler_ndpi_transform_lock(self, mock_polling_client):
+    expected = 'MD-01-1-A1-1'
     filename = f'{expected}_ndpi_test.ndpi'
     dicom_path = os.path.join(self.create_tempdir(), filename)
     shutil.copyfile(gen_test_util.test_file_path('ndpi_test.ndpi'), dicom_path)
@@ -988,7 +983,7 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
           ),
           mock_polling_client,
       )
-    self.assertEqual(result.name, expected)
+    self.assertEqual(result.name, f'GCS_TRIGGERED SLIDEID:{expected}')
 
   @parameterized.parameters([True, False])
   @mock.patch.object(polling_client, 'PollingClient', autospec=True)
@@ -1099,6 +1094,232 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
       )
       mock_polling_client.ack.assert_not_called()
       mock_polling_client.nack.assert_called_once()
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='ignored_by_extension',
+          gcs_upload_ignore_file_exts=['.ndpi'],
+          gcs_ignore_file_regexs='',
+          file_ignored=True,
+      ),
+      dict(
+          testcase_name='ignored_by_regex',
+          gcs_upload_ignore_file_exts=[],
+          gcs_ignore_file_regexs=['.*n.*ndpi'],
+          file_ignored=True,
+      ),
+      dict(
+          testcase_name='not_ignored',
+          gcs_upload_ignore_file_exts=[],
+          gcs_ignore_file_regexs='',
+          file_ignored=False,
+      ),
+  ])
+  @flagsaver.flagsaver(
+      gcs_ingest_study_instance_uid_source=ingest_flags.UidSource.METADATA,
+  )
+  def test_ignored_ingested_file_no_ignore_bucket(
+      self,
+      gcs_upload_ignore_file_exts,
+      gcs_ignore_file_regexs,
+      file_ignored,
+  ):
+    filename = 'ndpi_test.ndpi'
+    ingest_bucket_name = 'test_bucket'
+    test_bucket_path = self.create_tempdir().full_path
+    with flagsaver.flagsaver(
+        gcs_upload_ignore_file_exts=gcs_upload_ignore_file_exts,
+        gcs_ignore_file_regexs=gcs_ignore_file_regexs,
+    ):
+      shutil.copyfile(
+          gen_test_util.test_file_path(filename),
+          os.path.join(test_bucket_path, filename),
+      )
+      with gcs_mock.GcsMock({ingest_bucket_name: test_bucket_path}):
+        ingest_handler = ingest_gcs_handler.IngestGcsPubSubHandler(
+            'gs://test_bucket/success',
+            'gs://test_bucket/failure',
+            'mock_dicom_store_web_path',
+            ingest_ignore_root_dirs=frozenset([]),
+            oof_trigger_config=None,
+            metadata_client=metadata_storage_client.MetadataStorageClient(),
+        )
+        msg = ingest_handler.decode_pubsub_msg(
+            _create_test_pubsub_msg(filename, ingest_bucket_name)
+        )
+        self.assertEqual(msg.ignore, file_ignored)
+        self.assertTrue(
+            google.cloud.storage.Blob.from_string(
+                f'gs://test_bucket/{filename}',
+                client=google.cloud.storage.Client(),
+            ).exists()
+        )
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='ignored_by_extension',
+          gcs_upload_ignore_file_exts=['.ndpi'],
+          gcs_ignore_file_regexs='',
+          file_ignored=True,
+      ),
+      dict(
+          testcase_name='ignored_by_regex',
+          gcs_upload_ignore_file_exts=[],
+          gcs_ignore_file_regexs=['.*n.*ndpi'],
+          file_ignored=True,
+      ),
+      dict(
+          testcase_name='not_ignored',
+          gcs_upload_ignore_file_exts=[],
+          gcs_ignore_file_regexs='',
+          file_ignored=False,
+      ),
+  ])
+  @flagsaver.flagsaver(
+      gcs_ingest_study_instance_uid_source=ingest_flags.UidSource.METADATA,
+  )
+  def test_ignored_ingested_file_moved_to_ignore_bucket(
+      self,
+      gcs_upload_ignore_file_exts,
+      gcs_ignore_file_regexs,
+      file_ignored,
+  ):
+    filename = 'ndpi_test.ndpi'
+    ingest_bucket_name = 'test_bucket'
+    test_bucket_path = self.create_tempdir().full_path
+    test_ignore_bucket_path = self.create_tempdir().full_path
+    gcs_ignore_file_bucket = 'ignore_bucket'
+    with flagsaver.flagsaver(
+        gcs_upload_ignore_file_exts=gcs_upload_ignore_file_exts,
+        gcs_ignore_file_regexs=gcs_ignore_file_regexs,
+        gcs_ignore_file_bucket=f'gs://{gcs_ignore_file_bucket}',
+    ):
+      shutil.copyfile(
+          gen_test_util.test_file_path(filename),
+          os.path.join(test_bucket_path, filename),
+      )
+      with gcs_mock.GcsMock({
+          ingest_bucket_name: test_bucket_path,
+          gcs_ignore_file_bucket: test_ignore_bucket_path,
+      }):
+        ingest_handler = ingest_gcs_handler.IngestGcsPubSubHandler(
+            'gs://test_bucket/success',
+            'gs://test_bucket/failure',
+            'mock_dicom_store_web_path',
+            ingest_ignore_root_dirs=frozenset([]),
+            oof_trigger_config=None,
+            metadata_client=metadata_storage_client.MetadataStorageClient(),
+        )
+        msg = ingest_handler.decode_pubsub_msg(
+            _create_test_pubsub_msg(filename, ingest_bucket_name)
+        )
+        self.assertEqual(msg.ignore, file_ignored)
+        self.assertEqual(
+            google.cloud.storage.Blob.from_string(
+                f'gs://test_bucket/{filename}',
+                client=google.cloud.storage.Client(),
+            ).exists(),
+            not msg.ignore,
+        )
+        self.assertEqual(
+            google.cloud.storage.Blob.from_string(
+                f'gs://{gcs_ignore_file_bucket}/{filename}',
+                client=google.cloud.storage.Client(),
+            ).exists(),
+            msg.ignore,
+        )
+
+  @flagsaver.flagsaver(
+      gcs_ingest_study_instance_uid_source=ingest_flags.UidSource.METADATA,
+  )
+  def test_cannot_find_ignore_bucket_causes_file_to_remain_in_ingest_bucket(
+      self,
+  ):
+    filename = 'ndpi_test.ndpi'
+    ingest_bucket_name = 'test_bucket'
+    test_bucket_path = self.create_tempdir().full_path
+    with flagsaver.flagsaver(
+        gcs_upload_ignore_file_exts=['.ndpi'],
+        gcs_ignore_file_regexs='',
+        gcs_ignore_file_bucket='gs://invalid_bucket',
+    ):
+      shutil.copyfile(
+          gen_test_util.test_file_path(filename),
+          os.path.join(test_bucket_path, filename),
+      )
+      with gcs_mock.GcsMock({
+          ingest_bucket_name: test_bucket_path,
+      }):
+        ingest_handler = ingest_gcs_handler.IngestGcsPubSubHandler(
+            'gs://test_bucket/success',
+            'gs://test_bucket/failure',
+            'mock_dicom_store_web_path',
+            ingest_ignore_root_dirs=frozenset([]),
+            oof_trigger_config=None,
+            metadata_client=metadata_storage_client.MetadataStorageClient(),
+        )
+        msg = ingest_handler.decode_pubsub_msg(
+            _create_test_pubsub_msg(filename, ingest_bucket_name)
+        )
+        self.assertTrue(msg.ignore)
+        self.assertTrue(
+            google.cloud.storage.Blob.from_string(
+                f'gs://test_bucket/{filename}',
+                client=google.cloud.storage.Client(),
+            ).exists()
+        )
+
+  @mock.patch.object(
+      cloud_storage_client, 'del_blob', autospec=True, return_value=False
+  )
+  @flagsaver.flagsaver(
+      gcs_ingest_study_instance_uid_source=ingest_flags.UidSource.METADATA,
+  )
+  def test_cannot_delete_from_ingest_bucket_causes_ignore_file_to_remain(
+      self, _
+  ):
+    filename = 'ndpi_test.ndpi'
+    ingest_bucket_name = 'test_bucket'
+    test_bucket_path = self.create_tempdir().full_path
+    test_ignore_bucket_path = self.create_tempdir().full_path
+    gcs_ignore_file_bucket = 'ignore_bucket'
+    with flagsaver.flagsaver(
+        gcs_upload_ignore_file_exts=['.ndpi'],
+        gcs_ignore_file_regexs='',
+        gcs_ignore_file_bucket=f'gs://{gcs_ignore_file_bucket}',
+    ):
+      shutil.copyfile(
+          gen_test_util.test_file_path(filename),
+          os.path.join(test_bucket_path, filename),
+      )
+      with gcs_mock.GcsMock({
+          ingest_bucket_name: test_bucket_path,
+          gcs_ignore_file_bucket: test_ignore_bucket_path,
+      }):
+        ingest_handler = ingest_gcs_handler.IngestGcsPubSubHandler(
+            'gs://test_bucket/success',
+            'gs://test_bucket/failure',
+            'mock_dicom_store_web_path',
+            ingest_ignore_root_dirs=frozenset([]),
+            oof_trigger_config=None,
+            metadata_client=metadata_storage_client.MetadataStorageClient(),
+        )
+        msg = ingest_handler.decode_pubsub_msg(
+            _create_test_pubsub_msg(filename, ingest_bucket_name)
+        )
+        self.assertTrue(msg.ignore)
+        self.assertTrue(
+            google.cloud.storage.Blob.from_string(
+                f'gs://test_bucket/{filename}',
+                client=google.cloud.storage.Client(),
+            ).exists()
+        )
+        self.assertTrue(
+            google.cloud.storage.Blob.from_string(
+                f'gs://{gcs_ignore_file_bucket}/{filename}',
+                client=google.cloud.storage.Client(),
+            ).exists(),
+        )
 
 
 if __name__ == '__main__':

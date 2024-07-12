@@ -298,6 +298,8 @@ class ClientMock:
       timeout: Optional[gcs_mock_types.TimeoutType] = 60,
       retry: Optional[gcs_mock_types.RetryType] = None,
       match_glob: Optional[str] = None,
+      include_folders_as_prefixes: Optional[bool] = None,  # pylint:disable=unused-argument
+      soft_deleted: Optional[bool] = None,  # pylint:disable=unused-argument
   ) -> Iterator[gcs_mock_types.GcsBlobType]:
     """Yields blobs on a bucket in client.
 
@@ -332,6 +334,8 @@ class ClientMock:
         mock.
       match_glob: A glob pattern used to filter results (for example, foo*bar).
         The string value must be UTF-8 encoded.
+      include_folders_as_prefixes: (Optional) Not implemented in mock.
+      soft_deleted: (Optional) Not implemented in mock.
 
     Yields:
       Iterator of buckets on client.

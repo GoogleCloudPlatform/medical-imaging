@@ -16,6 +16,7 @@
 import collections
 import dataclasses
 import json
+import typing
 from typing import Any, List, Mapping, MutableMapping, NewType, Optional, Set, Tuple
 
 import google.api_core
@@ -328,9 +329,11 @@ def create_ingest_complete_pubsub_msg(
     series_uid = 'SeriesInstanceUID is uninitialized'
 
   # Convert list of DICOM_file_refs to list of dicts.
-  ingest_dicoms = [_WSIDicomFileRefDict(dcm.dict()) for dcm in ingest_dicoms]
+  ingest_dicoms = [
+      typing.cast(_WSIDicomFileRefDict, dcm.dict()) for dcm in ingest_dicoms
+  ]
   duplicate_dicoms = [
-      _WSIDicomFileRefDict(dcm.dict()) for dcm in duplicate_dicoms
+      typing.cast(_WSIDicomFileRefDict, dcm.dict()) for dcm in duplicate_dicoms
   ]
 
   # Add struct to cloud op logs.
@@ -383,23 +386,23 @@ def publish_pubsubmsg(msg: PubSubMsg):
   log = msg.log
   if log is None:
     log = {}
-  publisher = pubsub_v1.PublisherClient()
-  msg_elements_log = {
-      'pubsub_topic_name': msg.topic_name,
-      'pubsub_message': msg.message,
-  }
-  try:
-    future = publisher.publish(msg.topic_name, msg.message)
-    msg_id = future.result()
-    cloud_logging_client.logger().info(
-        f'DICOM ingest complete pub/sub msg {msg_id} published.',
-        log,
-        msg_elements_log,
-    )
-  except google.api_core.exceptions.NotFound as exp:
-    cloud_logging_client.logger().critical(
-        'Could not publish DICOM ingest complete pub/sub msg',
-        log,
-        msg_elements_log,
-        exp,
-    )
+  with pubsub_v1.PublisherClient() as publisher:
+    msg_elements_log = {
+        'pubsub_topic_name': msg.topic_name,
+        'pubsub_message': msg.message,
+    }
+    try:
+      future = publisher.publish(msg.topic_name, msg.message)
+      msg_id = future.result()
+      cloud_logging_client.info(
+          f'DICOM ingest complete pub/sub msg {msg_id} published.',
+          log,
+          msg_elements_log,
+      )
+    except google.api_core.exceptions.NotFound as exp:
+      cloud_logging_client.critical(
+          'Could not publish DICOM ingest complete pub/sub msg',
+          log,
+          msg_elements_log,
+          exp,
+      )

@@ -28,11 +28,7 @@ from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingeste
 _LABEL = ingest_const.LABEL
 _OVERVIEW = ingest_const.OVERVIEW
 _THUMBNAIL = ingest_const.THUMBNAIL
-_ORIGINAL = ingest_const.ORIGINAL
-_DERIVED = ingest_const.DERIVED
 _RESAMPLED = ingest_const.RESAMPLED
-_PRIMARY = ingest_const.PRIMARY
-_VOLUME = ingest_const.VOLUME
 _ORIGINAL_PRIMARY_VOLUME = ingest_const.ORIGINAL_PRIMARY_VOLUME
 _DERIVED_PRIMARY_VOLUME = ingest_const.DERIVED_PRIMARY_VOLUME
 _YES = 'YES'
@@ -43,7 +39,7 @@ _SM = 'SM'
 SUPPORTED_DICOM_TRANSFER_SYNTAX = (
     '1.2.840.10008.1.2',
     '1.2.840.10008.1.2.1',
-    '1.2.840.10008.1.2.4.50',
+    ingest_const.DicomImageTransferSyntax.JPEG_LOSSY,
     '1.2.840.10008.1.2.4.51',
     '1.2.840.10008.1.2.4.90',
     '1.2.840.10008.1.2.4.91',
@@ -81,6 +77,22 @@ def _dicom_ref_num(dicom_ref_val: str) -> int:
     return -1
 
 
+def _invalid_total_pixel_matrix_focal_planes(
+    dcm_ref: ingested_dicom_file_ref.IngestDicomFileRef,
+) -> bool:
+  """Tests if total_pixel_matrix_focal_planes is not 1 in wsi instance."""
+  if not dcm_ref.total_pixel_matrix_focal_planes:
+    # value undefined, pipeline will assume 1
+    return False
+  try:
+    total_pixel_matrix_focal_planes = int(
+        dcm_ref.total_pixel_matrix_focal_planes
+    )
+  except ValueError:
+    return True
+  return total_pixel_matrix_focal_planes != 1
+
+
 def _validate_uid(
     uid: str, dcm_ref: Optional[ingested_dicom_file_ref.IngestDicomFileRef]
 ):
@@ -99,12 +111,12 @@ def _validate_uid(
     ref_dict = dcm_ref.dict()
 
   if not uid:
-    cloud_logging_client.logger().error('Empty UID', ref_dict)
+    cloud_logging_client.error('Empty UID', ref_dict)
     raise ingested_dicom_file_ref.DicomIngestError(
         ingest_const.ErrorMsgs.DICOM_UID_INCORRECTLY_FORMATTED
     )
   if len(uid) > uid_generator.MAX_LENGTH_OF_DICOM_UID:
-    cloud_logging_client.logger().error(
+    cloud_logging_client.error(
         'UID exceeds max length', ref_dict, {'ERRORING_UID': uid}
     )
     raise ingested_dicom_file_ref.DicomIngestError(
@@ -112,7 +124,7 @@ def _validate_uid(
     )
   for num_str in uid.split('.'):
     if not uid_generator.is_uid_block_correctly_formatted(num_str):
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           'UID block contains invalid char.', ref_dict, {'ERRORING_UID': uid}
       )
       raise ingested_dicom_file_ref.DicomIngestError(
@@ -134,7 +146,7 @@ def _validate_wsi_dicom_instance(
 
   # https://www.dicomlibrary.com/dicom/transfer-syntax/
   if dcm_ref.transfer_syntax not in SUPPORTED_DICOM_TRANSFER_SYNTAX:
-    cloud_logging_client.logger().error(
+    cloud_logging_client.error(
         'DICOM instance encoded with unsupported transfer syntax.',
         {'supported_transfer_syntax': str(SUPPORTED_DICOM_TRANSFER_SYNTAX)},
         dcm_ref.dict(),
@@ -143,7 +155,7 @@ def _validate_wsi_dicom_instance(
         ingest_const.ErrorMsgs.DICOM_INSTANCE_ENCODED_WITH_UNSUPPORTED_TRANSFER_SYNTAX
     )
   if _dicom_ref_num(dcm_ref.bits_allocated) != 8:
-    cloud_logging_client.logger().error(
+    cloud_logging_client.error(
         'DICOM instance pixel not allocated with 8 bits per pixel.',
         dcm_ref.dict(),
     )
@@ -151,21 +163,21 @@ def _validate_wsi_dicom_instance(
         ingest_const.ErrorMsgs.WSI_DICOM_INSTANCE_PIXEL_NOT_ALLOCATED_WITH_8_BITS_PER_PIXEL
     )
   if _dicom_ref_num(dcm_ref.bits_stored) != 8:
-    cloud_logging_client.logger().error(
+    cloud_logging_client.error(
         'DICOM instance pixel not stored with 8 bits per pixel.', dcm_ref.dict()
     )
     raise ingested_dicom_file_ref.DicomIngestError(
         ingest_const.ErrorMsgs.WSI_DICOM_INSTANCE_PIXEL_NOT_STORED_WITH_8_BITS_PER_PIXEL
     )
   if _dicom_ref_num(dcm_ref.high_bit) != 7:
-    cloud_logging_client.logger().error(
+    cloud_logging_client.error(
         'DICOM instance pixel high bit != 7.', dcm_ref.dict()
     )
     raise ingested_dicom_file_ref.DicomIngestError(
         ingest_const.ErrorMsgs.WSI_DICOM_INSTANCE_ENCODED_WITH_INVALID_HIGH_PIXEL_BIT
     )
   if _dicom_ref_num(dcm_ref.samples_per_pixel) not in (1, 3):
-    cloud_logging_client.logger().error(
+    cloud_logging_client.error(
         'DICOM instance encoded with samples per pixel != 1 or 3.',
         dcm_ref.dict(),
     )
@@ -173,53 +185,60 @@ def _validate_wsi_dicom_instance(
         ingest_const.ErrorMsgs.WSI_DICOM_INSTANCE_ENCODED_WITH_INVALID_SAMPLES_PER_PIXEL
     )
   if _dicom_ref_num(dcm_ref.number_of_frames) <= 0:
-    cloud_logging_client.logger().error(
+    cloud_logging_client.error(
         'WSI DICOM instance has 0 frames.', dcm_ref.dict()
     )
     raise ingested_dicom_file_ref.DicomIngestError(
         ingest_const.ErrorMsgs.WSI_DICOM_INSTANCE_HAS_0_FRAMES
     )
   if _dicom_ref_num(dcm_ref.rows) <= 0:
-    cloud_logging_client.logger().error(
-        'WSI DICOM instance has 0 rows.', dcm_ref.dict()
-    )
+    cloud_logging_client.error('WSI DICOM instance has 0 rows.', dcm_ref.dict())
     raise ingested_dicom_file_ref.DicomIngestError(
         ingest_const.ErrorMsgs.WSI_DICOM_INSTANCE_HAS_0_ROWS
     )
   if _dicom_ref_num(dcm_ref.columns) <= 0:
-    cloud_logging_client.logger().error(
+    cloud_logging_client.error(
         'WSI DICOM instance has 0 columns.', dcm_ref.dict()
     )
     raise ingested_dicom_file_ref.DicomIngestError(
         ingest_const.ErrorMsgs.WSI_DICOM_INSTANCE_HAS_0_COLUMNS
     )
   if _dicom_ref_num(dcm_ref.total_pixel_matrix_columns) <= 0:
-    cloud_logging_client.logger().error(
+    cloud_logging_client.error(
         'WSI DICOM instance has 0 total_pixel_matrix_columns.', dcm_ref.dict()
     )
     raise ingested_dicom_file_ref.DicomIngestError(
         'wsi_dicom_instance_has_0_total_pixel_matrix_columns'
     )
   if _dicom_ref_num(dcm_ref.total_pixel_matrix_rows) <= 0:
-    cloud_logging_client.logger().error(
+    cloud_logging_client.error(
         'WSI DICOM instance has 0 total_pixel_matrix_rows.', dcm_ref.dict()
     )
     raise ingested_dicom_file_ref.DicomIngestError(
         ingest_const.ErrorMsgs.WSI_DICOM_INSTANCE_HAS_0_TOTAL_PIXEL_MATRIX_ROWS
     )
   if dcm_ref.specimen_label_in_image not in (_YES, _NO):
-    cloud_logging_client.logger().error(
+    cloud_logging_client.error(
         'WSI DICOM SpecimenLabelInImage != "YES" or "NO"', dcm_ref.dict()
     )
     raise ingested_dicom_file_ref.DicomIngestError(
         ingest_const.ErrorMsgs.WSI_DICOM_SPECIMEN_LABEL_IN_IMAGE_NOT_YES_OR_NO
     )
   if dcm_ref.burned_in_annotation not in (_YES, _NO):
-    cloud_logging_client.logger().error(
+    cloud_logging_client.error(
         'WSI DICOM BurnedInAnnotation != "YES" or "NO"', dcm_ref.dict()
     )
     raise ingested_dicom_file_ref.DicomIngestError(
         ingest_const.ErrorMsgs.WSI_DICOM_BURNED_IN_ANNOTATION_IN_IMAGE_NOT_YES_OR_NO
+    )
+  if _invalid_total_pixel_matrix_focal_planes(dcm_ref):
+    cloud_logging_client.error(
+        'Transforming DICOM instance encoded with total pixel matrix focal'
+        ' planes != 1 is unsupported.',
+        dcm_ref.dict(),
+    )
+    raise ingested_dicom_file_ref.DicomIngestError(
+        ingest_const.ErrorMsgs.DICOM_INSTANCE_HAS_UNSUPPORTED_TOTAL_PIXEL_MATRIX_FOCAL_PLANE_VALUE
     )
   # validate frame count is as expected
   total_rows = _dicom_ref_num(dcm_ref.total_pixel_matrix_rows)
@@ -230,7 +249,7 @@ def _validate_wsi_dicom_instance(
   column_frames = int(math.ceil(float(total_columns) / float(columns)))
   total_frames = row_frames * column_frames
   if _dicom_ref_num(dcm_ref.number_of_frames) != total_frames:
-    cloud_logging_client.logger().error(
+    cloud_logging_client.error(
         'WSI DICOM instance does not have the expected number of frames.',
         {'expected_frame_count': total_frames},
         dcm_ref.dict(),
@@ -243,7 +262,7 @@ def _validate_wsi_dicom_instance(
       total_frames > 1
       and dcm_ref.dimension_organization_type != ingest_const.TILED_FULL
   ):
-    cloud_logging_client.logger().error(
+    cloud_logging_client.error(
         (
             'WSI DICOM instance has invalid dimensional organization. Only '
             'TILED_FULL is supported.'
@@ -271,7 +290,7 @@ def _validate_wsi_dicom_instance(
   ):
     ancillary_image_indicator += 1
   if ancillary_image_indicator > 1:
-    cloud_logging_client.logger().error(
+    cloud_logging_client.error(
         'DICOM instance image_type/frame_type indeterminate.', dcm_ref.dict()
     )
     raise ingested_dicom_file_ref.DicomIngestError(
@@ -281,7 +300,7 @@ def _validate_wsi_dicom_instance(
       ancillary_image_indicator == 1
       and _dicom_ref_num(dcm_ref.number_of_frames) > 1
   ):
-    cloud_logging_client.logger().error(
+    cloud_logging_client.error(
         'DICOM ancillary wsi instance image has more than one frame.',
         dcm_ref.dict(),
     )
@@ -305,7 +324,7 @@ def validate_dicom_files(
     ingested_dicom_file_ref.DicomIngestError: If imaging violates expectation.
   """
   if not dicom_file_list:
-    cloud_logging_client.logger().error('No dicom instances found in payload.')
+    cloud_logging_client.error('No dicom instances found in payload.')
     raise ingested_dicom_file_ref.DicomIngestError(
         ingest_const.ErrorMsgs.DICOM_INSTANCE_NOT_FOUND
     )
@@ -328,28 +347,28 @@ def validate_dicom_files(
     # Validate DICOM has StudyInstanceUID, SeriesInstanceUID, SOPInstanceUID
     #                    and SOPClassUID defined.
     if not dcm_ref.study_instance_uid:
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           'DICOM instance missing StudyInstanceUID.', dcm_ref.dict()
       )
       raise ingested_dicom_file_ref.DicomIngestError(
           ingest_const.ErrorMsgs.DICOM_INSTANCE_MISSING_STUDY_INSTANCE_UID
       )
     if not dcm_ref.series_instance_uid:
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           'DICOM instance missing SeriesInstanceUID.', dcm_ref.dict()
       )
       raise ingested_dicom_file_ref.DicomIngestError(
           ingest_const.ErrorMsgs.DICOM_INSTANCE_MISSING_SERIES_INSTANCE_UID
       )
     if not dcm_ref.sop_instance_uid:
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           'DICOM instance missing SOPInstanceUID.', dcm_ref.dict()
       )
       raise ingested_dicom_file_ref.DicomIngestError(
           ingest_const.ErrorMsgs.DICOM_INSTANCE_MISSING_SOP_INSTANCE_UID
       )
     if not dcm_ref.sop_class_uid:
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           'DICOM instance missing SOPClassUID.', dcm_ref.dict()
       )
       raise ingested_dicom_file_ref.DicomIngestError(
@@ -361,7 +380,7 @@ def validate_dicom_files(
       study_uid = dcm_ref.study_instance_uid
       _validate_uid(study_uid, dcm_ref)
     if study_uid != dcm_ref.study_instance_uid:
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           'DICOM StudyInstanceUID are not the same across dicom instances.',
           {'previously_found_StudyInstanceUID': study_uid},
           dcm_ref.dict(),
@@ -373,7 +392,7 @@ def validate_dicom_files(
       series_uid = dcm_ref.series_instance_uid
       _validate_uid(series_uid, dcm_ref)
     if series_uid != dcm_ref.series_instance_uid:
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           'DICOM SeriesInstanceUID are not the same across dicom instances.',
           {'previously_found_SeriesInstanceUID': series_uid},
           dcm_ref.dict(),
@@ -384,7 +403,7 @@ def validate_dicom_files(
 
     # Make sure all DICOM have same Unique SOPInstanceUID
     if dcm_ref.sop_instance_uid in instance_uid_set:
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           'Duplicate DICOM SOPInstanceUID.',
           {'previously_found_SOPInstanceUID': str(instance_uid_set)},
           dcm_ref.dict(),
@@ -401,7 +420,7 @@ def validate_dicom_files(
       if not barcode_value:
         barcode_value = dcm_ref.barcode_value
       if barcode_value != dcm_ref.barcode_value:
-        cloud_logging_client.logger().error(
+        cloud_logging_client.error(
             'DICOM instance barcode value do not match.',
             {'previously_found_barcodevalue': barcode_value},
             dcm_ref.dict(),
@@ -439,7 +458,7 @@ def validate_dicom_files(
         original_image_count_found += 1
         original_image = dcm_ref
         if original_image_count_found > 1:
-          cloud_logging_client.logger().error(
+          cloud_logging_client.error(
               (
                   'Ingested DICOM contains multiple instances with an ImageType'
                   ' that defines original imaging, e.g. '
@@ -453,7 +472,7 @@ def validate_dicom_files(
       elif _LABEL in image_type:
         label_count += 1
         if label_count > 1:
-          cloud_logging_client.logger().error(
+          cloud_logging_client.error(
               'DICOM instances contain multiple label images.', dcm_ref.dict()
           )
           raise ingested_dicom_file_ref.DicomIngestError(
@@ -462,7 +481,7 @@ def validate_dicom_files(
       elif _OVERVIEW in image_type:
         overview_count += 1
         if overview_count > 1:
-          cloud_logging_client.logger().error(
+          cloud_logging_client.error(
               'DICOM instances contain multiple overview images.',
               dcm_ref.dict(),
           )
@@ -472,7 +491,7 @@ def validate_dicom_files(
       elif _THUMBNAIL in image_type:
         thumbnail_count += 1
         if thumbnail_count > 1:
-          cloud_logging_client.logger().error(
+          cloud_logging_client.error(
               'DICOM instances contain multiple thumbnail images.',
               dcm_ref.dict(),
           )
@@ -480,7 +499,7 @@ def validate_dicom_files(
               ingest_const.ErrorMsgs.DICOM_INSTANCES_HAVE_MULTIPLE_THUMBNAIL_IMAGES
           )
   if len(accession_number_found) > 1:
-    cloud_logging_client.logger().error(
+    cloud_logging_client.error(
         'DICOM instances describe instances with multiple accession numbers.',
         {'accession_numbers_found': accession_number_found},
     )
@@ -488,7 +507,7 @@ def validate_dicom_files(
         ingest_const.ErrorMsgs.DICOM_INSTANCES_HAVE_MULTIPLE_ACCESSION_NUMBERS
     )
   if len(patient_name_found) > 1:
-    cloud_logging_client.logger().error(
+    cloud_logging_client.error(
         'DICOM instances describe instances with multiple patient names.',
         {'patient_names_found': patient_name_found},
     )
@@ -496,7 +515,7 @@ def validate_dicom_files(
         ingest_const.ErrorMsgs.DICOM_INSTANCES_HAVE_MULTIPLE_PATIENT_NAMES
     )
   if len(patient_id_found) > 1:
-    cloud_logging_client.logger().error(
+    cloud_logging_client.error(
         'DICOM instances describe instances with multiple patient ids.',
         {'patient_ids_found': patient_id_found},
     )
@@ -504,7 +523,7 @@ def validate_dicom_files(
         ingest_const.ErrorMsgs.DICOM_INSTANCES_HAVE_MULTIPLE_PATIENT_IDS
     )
   if len(modality_found) > 1:
-    cloud_logging_client.logger().error(
+    cloud_logging_client.error(
         'DICOM instances describe instances from multiple modalties.',
         {'modalities_found': modality_found},
     )

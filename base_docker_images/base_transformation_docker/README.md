@@ -7,11 +7,11 @@ container when the transformation containers cache expires.
 
 - Libraries built in this container:
 
-  *  Boost (1.80.0)
-  *  Openslide (3.4.1)
+  *  Boost (1.85.0)
+  *  Openslide (4.0.0)
   *  JsonCPP (1.9.5)
-  *  Abseil (20220623)
-  *  DCMTK (3.6.7)
+  *  Abseil (20240116.2)
+  *  DCMTK (3.6.8)
 
 
 The docker image will need to be rebuilt when these libraries are updated.

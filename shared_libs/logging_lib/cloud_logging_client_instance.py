@@ -55,31 +55,6 @@ class _LogSeverity(enum.Enum):
   DEBUG = logging.DEBUG
 
 
-def _get_thread(thread_id: int) -> threading.Thread:
-  for thread in threading.enumerate():
-    if thread_id == thread.native_id:
-      return thread
-  raise KeyError('ThreadID not found')
-
-
-class _LogSignatureObj:
-
-  def __init__(self, thread_id: int, per_thread_log_signatures: bool):
-    self._thread = _get_thread(thread_id) if per_thread_log_signatures else None
-    self.signature = collections.OrderedDict()
-
-  def is_alive(self) -> bool:
-    return True if self._thread is None else self._thread.is_alive()
-
-
-def _is_signature_obj_alive(log_sig_obj: Optional[_LogSignatureObj]) -> bool:
-  return log_sig_obj is not None and log_sig_obj.is_alive()
-
-
-def _is_signature_obj_dead(log_sig_obj: Optional[_LogSignatureObj]) -> bool:
-  return log_sig_obj is None or not log_sig_obj.is_alive()
-
-
 def _load_build_version() -> str:
   try:
     dir_name, _ = os.path.split(__file__)
@@ -101,7 +76,7 @@ class CloudLoggerInstanceExceptionError(Exception):
 
 
 def _merge_struct(
-    dict_tuple: Tuple[Union[Mapping[str, Any], Exception, None], ...]
+    dict_tuple: Tuple[Union[Mapping[str, Any], Exception, None], ...],
 ) -> Optional[MutableMapping[str, str]]:
   """Merges a list of dict and ordered dicts.
 
@@ -212,6 +187,17 @@ def _get_source_location_to_log(stack_frames_back: int) -> Mapping[str, Any]:
   return source_location
 
 
+def _add_trace_to_log(
+    project_id: str, trace_key: str, struct: Mapping[str, Any]
+) -> Mapping[str, Any]:
+  if not project_id or not trace_key:
+    return {}
+  trace_id = struct.get(trace_key, '')
+  if trace_id:
+    return {'trace': f'projects/{project_id}/traces/{trace_id}'}
+  return {}
+
+
 class CloudLoggingClientInstance:
   """Wrapper for cloud ops structured logging.
 
@@ -222,7 +208,9 @@ class CloudLoggingClientInstance:
   # within a process.
   _global_lock = threading.Lock()
   # Cloud logging handler init at process level.
-  _cloud_logging_handler = None
+  _cloud_logging_handler: Optional[
+      cloud_logging.handlers.CloudLoggingHandler
+  ] = None
   _cloud_logging_handler_init_params = ''
 
   @classmethod
@@ -256,6 +244,7 @@ class CloudLoggingClientInstance:
       enabled: bool = True,
       log_error_level: int = _LogSeverity.DEBUG.value,
       per_thread_log_signatures: bool = True,
+      trace_key: str = '',
   ):
     """Constructor.
 
@@ -273,17 +262,21 @@ class CloudLoggingClientInstance:
       enabled: If disabled, logging is not initalized and logging operations are
         nops.
       log_error_level: Error level at which logger will log.
-      per_thread_log_signatures: Log signatures reported per thread
+      per_thread_log_signatures: Log signatures reported per thread.
+      trace_key: Log key value which contains a trace id value.
     """
     # lock for log makes access to singleton
     # safe across threads. Logging used in main thread and ack_timeout_mon
     self._enabled = enabled
+    self._trace_key = trace_key
     self._log_error_level = log_error_level
     self._log_lock = threading.RLock()
     self._log_name = log_name.strip()
     self._pod_hostname = pod_hostname.strip()
     self._pod_uid = pod_uid.strip()
-    self._log_signature: MutableMapping[int, _LogSignatureObj] = {}
+    self._per_thread_log_signatures = per_thread_log_signatures
+    self._thread_local_storage = threading.local()
+    self._shared_log_signature = self._signature_defaults(0)
     self._disable_structured_logging = disable_structured_logging
     self._debug_log_time = time.time()
     self._gcp_project_name = gcp_project_to_write_logs_to.strip()
@@ -291,8 +284,15 @@ class CloudLoggingClientInstance:
     self._log_all_python_logs_to_cloud = log_all_python_logs_to_cloud
     self._gcp_credentials = gcp_credentials
     absl_logging.set_verbosity(absl_logging.INFO)
-    self._per_thread_log_signatures = per_thread_log_signatures
     self._python_logger = self._init_cloud_handler()
+
+  @property
+  def trace_key(self) -> str:
+    return self._trace_key
+
+  @trace_key.setter
+  def trace_key(self, val: str) -> None:
+    self._trace_key = val
 
   @property
   def per_thread_log_signatures(self) -> bool:
@@ -301,10 +301,7 @@ class CloudLoggingClientInstance:
   @per_thread_log_signatures.setter
   def per_thread_log_signatures(self, val: bool) -> None:
     with self._log_lock:
-      if self._per_thread_log_signatures == val:
-        return
       self._per_thread_log_signatures = val
-      self._log_signature = {}
 
   @property
   def python_logger(self) -> logging.Logger:
@@ -358,6 +355,9 @@ class CloudLoggingClientInstance:
             project=self._gcp_project_name if self._gcp_project_name else None,
             credentials=self._gcp_credentials,
         )
+        logging_client.project = (
+            self._gcp_project_name if self._gcp_project_name else None
+        )
         handler = cloud_logging.handlers.CloudLoggingHandler(
             client=logging_client,
             name=log_name,
@@ -389,12 +389,14 @@ class CloudLoggingClientInstance:
     dct = copy.copy(self.__dict__)
     del dct['_log_lock']
     del dct['_python_logger']
+    del dct['_thread_local_storage']
     return dct
 
   def __setstate__(self, dct: MutableMapping[str, Any]):
     """Un-pickles class and re-creates log lock."""
     self.__dict__ = dct
     self._log_lock = threading.RLock()
+    self._thread_local_storage = threading.local()
     # Re-init logging in process.
     self._python_logger = self._init_cloud_handler()
 
@@ -437,31 +439,14 @@ class CloudLoggingClientInstance:
       raise ValueError('Undefined POD UID')
     return self._pod_uid
 
-  def _remove_unused_signatures(self) -> None:
-    if not self._per_thread_log_signatures:
-      return
-    dead_threads = [
-        id
-        for id, log_sig_obj in self._log_signature.items()
-        if _is_signature_obj_dead(log_sig_obj)
-    ]
-    for thread_id in dead_threads:
-      del self._log_signature[thread_id]
-
-  def _get_thread_id(self) -> int:
-    if self._per_thread_log_signatures:
-      return threading.get_native_id()
-    return 0
-
   def _get_thread_signature(self) -> MutableMapping[str, Any]:
-    thread_id = self._get_thread_id()
-    log_sig_obj = self._log_signature.get(thread_id)
-    if _is_signature_obj_alive(log_sig_obj):
-      return log_sig_obj.signature  # pytype: disable=attribute-error
-    log_sig_obj = _LogSignatureObj(thread_id, self._per_thread_log_signatures)
-    log_sig_obj.signature = self._signature_defaults(thread_id)
-    self._log_signature[thread_id] = log_sig_obj
-    return log_sig_obj.signature
+    if not self._per_thread_log_signatures:
+      return self._shared_log_signature
+    if not hasattr(self._thread_local_storage, 'signature'):
+      self._thread_local_storage.signature = self._signature_defaults(
+          threading.get_native_id()
+      )
+    return self._thread_local_storage.signature
 
   @property
   def log_signature(self) -> MutableMapping[str, Any]:
@@ -471,7 +456,6 @@ class CloudLoggingClientInstance:
     if thread is set to log using another threads log signature.
     """
     with self._log_lock:
-      self._remove_unused_signatures()
       return copy.copy(self._get_thread_signature())
 
   def _signature_defaults(self, thread_id: int) -> MutableMapping[str, str]:
@@ -498,36 +482,29 @@ class CloudLoggingClientInstance:
       sig: Signature for threads to logs to use.
     """
     with self._log_lock:
-      thread_id = self._get_thread_id()
-      self._remove_unused_signatures()
-      log_sig_obj = self._log_signature.get(thread_id)
-      if _is_signature_obj_alive(log_sig_obj):
-        log_sig_obj.signature.clear()
+      if self._per_thread_log_signatures:
+        thread_id = threading.get_native_id()
+        if not hasattr(self._thread_local_storage, 'log_signature'):
+          self._thread_local_storage.signature = collections.OrderedDict()
+        log_sig = self._thread_local_storage.signature
       else:
-        log_sig_obj = _LogSignatureObj(
-            thread_id, self._per_thread_log_signatures
-        )
-        self._log_signature[thread_id] = log_sig_obj
+        thread_id = 0
+        log_sig = self._shared_log_signature
+      log_sig.clear()
       if sig is not None:
         for key in sorted(sig):
-          log_sig_obj.signature[str(key)] = str(sig[key])
-      log_sig_obj.signature.update(self._signature_defaults(thread_id))
+          log_sig[str(key)] = str(sig[key])
+      log_sig.update(self._signature_defaults(thread_id))
 
   def clear_log_signature(self) -> None:
-    """Clears thread log signature.
-
-    Log signature of thread may not be altered if thread is set to log using
-    another threads log signature.
-    """
+    """Clears thread log signature."""
     with self._log_lock:
-      thread_id = self._get_thread_id()
-      log_sig_obj = self._log_signature.get(thread_id)
-      if _is_signature_obj_dead(log_sig_obj):
-        log_sig_obj = _LogSignatureObj(
-            thread_id, self._per_thread_log_signatures
+      if self._per_thread_log_signatures:
+        self._thread_local_storage.signature = self._signature_defaults(
+            threading.get_native_id()
         )
-        self._log_signature[thread_id] = log_sig_obj
-      log_sig_obj.signature = self._signature_defaults(thread_id)
+      else:
+        self._shared_log_signature = self._signature_defaults(0)
 
   def _clip_struct_log(
       self, log: MutableMapping[str, Any], max_log_size: int
@@ -668,11 +645,14 @@ class CloudLoggingClientInstance:
       if not self.use_absl_logging() and not self._disable_structured_logging:
         # Log using structured logs
         source_location = _get_source_location_to_log(stack_frames_back + 1)
+        trace = _add_trace_to_log(
+            self._gcp_project_name, self._trace_key, struct
+        )
         self._clip_struct_log(struct, MAX_LOG_SIZE)
         _py_log(
             self.python_logger,
             msg,
-            extra={'json_fields': struct, **source_location},
+            extra={'json_fields': struct, **source_location, **trace},
             severity=severity,
         )
         return

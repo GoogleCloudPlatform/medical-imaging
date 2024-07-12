@@ -33,9 +33,9 @@ from absl import flags
 from absl.testing import absltest
 from absl.testing import flagsaver
 from absl.testing import parameterized
-import PIL
 import pydicom
 
+from shared_libs.logging_lib import cloud_logging_client
 from shared_libs.test_utils.dicom_store_mock import dicom_store_mock
 from shared_libs.test_utils.gcs_mock import gcs_mock
 from transformation_pipeline import ingest_flags
@@ -342,6 +342,22 @@ class IngestWsiDicomTest(parameterized.TestCase):
   def setUp(self):
     super().setUp()
     self.enter_context(flagsaver.flagsaver(metadata_bucket='metadata'))
+    self.enter_context(
+        mock.patch.object(
+            dicom_util,
+            '_get_colorspace_description_from_iccprofile_bytes',
+            autospec=True,
+            return_value='SRGB',
+        )
+    )
+    self.enter_context(
+        mock.patch.object(
+            dicom_util,
+            '_get_srgb_iccprofile',
+            autospec=True,
+            return_value='SRGB_ICCPROFILE_BYTES'.encode('utf-8'),
+        )
+    )
 
   def _get_unique_test_file_path(self, filename: str) -> str:  # pylint: disable=g-unreachable-test-method
     path = gen_test_util.test_file_path(filename)
@@ -381,16 +397,7 @@ class IngestWsiDicomTest(parameterized.TestCase):
 
     self.assertIsNone(ingest_wsi_dicom._get_icc_profile(fs))
 
-  @mock.patch.object(
-      PIL.ImageCms, 'ImageCmsProfile', return_value=mock.Mock(), autospec=True
-  )
-  @mock.patch.object(
-      PIL.ImageCms,
-      'getProfileDescription',
-      return_value='result',
-      autospec=True,
-  )
-  def test_add_correct_optical_path_sequence_from_ds(self, m1, m2):  # pylint: disable=unused-argument
+  def test_add_correct_optical_path_sequence_from_ds(self):
     ds = pydicom.Dataset()
     profile = icc_bytes()
     ds.ICCProfile = profile
@@ -400,18 +407,9 @@ class IngestWsiDicomTest(parameterized.TestCase):
 
     self.assertLen(fs.OpticalPathSequence, 1)
     self.assertEqual(fs.OpticalPathSequence[0].ICCProfile, profile)
-    self.assertEqual(fs.OpticalPathSequence[0].ColorSpace, 'RESULT')
+    self.assertEqual(fs.OpticalPathSequence[0].ColorSpace, 'SRGB')
 
-  @mock.patch.object(
-      PIL.ImageCms, 'ImageCmsProfile', return_value=mock.Mock(), autospec=True
-  )
-  @mock.patch.object(
-      PIL.ImageCms,
-      'getProfileDescription',
-      return_value='result',
-      autospec=True,
-  )
-  def test_add_correct_optical_path_sequence_from_ds_icc(self, m1, m2):  # pylint: disable=unused-argument
+  def test_add_correct_optical_path_sequence_from_ds_icc(self):
     ds = pydicom.Dataset()
     fs = pydicom.FileDataset('test.dcm', dataset=ds)
 
@@ -419,7 +417,7 @@ class IngestWsiDicomTest(parameterized.TestCase):
 
     self.assertLen(fs.OpticalPathSequence, 1)
     self.assertEqual(fs.OpticalPathSequence[0].ICCProfile, icc_bytes())
-    self.assertEqual(fs.OpticalPathSequence[0].ColorSpace, 'RESULT')
+    self.assertEqual(fs.OpticalPathSequence[0].ColorSpace, 'SRGB')
 
   def test_add_correct_optical_path_sequence_missing(self):
     ds = pydicom.Dataset()
@@ -428,23 +426,12 @@ class IngestWsiDicomTest(parameterized.TestCase):
     ingest_wsi_dicom._add_correct_optical_path_sequence(fs)
 
     self.assertLen(fs.OpticalPathSequence, 1)
-    self.assertNotIn(
-        ingest_const.DICOMTagKeywords.ICC_PROFILE, fs.OpticalPathSequence[0]
+    self.assertEqual(
+        fs.OpticalPathSequence[0].ICCProfile, b'SRGB_ICCPROFILE_BYTES\x00'
     )
-    self.assertNotIn(
-        ingest_const.DICOMTagKeywords.COLOR_SPACE, fs.OpticalPathSequence[0]
-    )
+    self.assertEqual(fs.OpticalPathSequence[0].ColorSpace, 'SRGB')
 
-  @mock.patch.object(
-      PIL.ImageCms, 'ImageCmsProfile', return_value=mock.Mock(), autospec=True
-  )
-  @mock.patch.object(
-      PIL.ImageCms,
-      'getProfileDescription',
-      return_value='result',
-      autospec=True,
-  )
-  def test_add_correct_optical_path_sequence_missing_colorspace(self, m1, m2):  # pylint: disable=unused-argument
+  def test_add_correct_optical_path_sequence_missing_colorspace(self):
     profile = icc_bytes()
     inner_ds = pydicom.Dataset()
     inner_ds.ICCProfile = profile
@@ -462,7 +449,7 @@ class IngestWsiDicomTest(parameterized.TestCase):
         ingest_const.DICOMTagKeywords.COLOR_SPACE, fs.OpticalPathSequence[0]
     )
     self.assertEqual(fs.OpticalPathSequence[1].ICCProfile, profile)
-    self.assertEqual(fs.OpticalPathSequence[1].ColorSpace, 'RESULT')
+    self.assertEqual(fs.OpticalPathSequence[1].ColorSpace, 'SRGB')
 
   def test_read_zipfile_expected_length(self):
     temp_dir = self.create_tempdir()
@@ -998,19 +985,10 @@ class IngestWsiDicomTest(parameterized.TestCase):
           'NotListed-1-A1-1_ingest',
       )
 
-  @mock.patch.object(
-      PIL.ImageCms, 'ImageCmsProfile', return_value=mock.Mock(), autospec=True
-  )
-  @mock.patch.object(
-      PIL.ImageCms,
-      'getProfileDescription',
-      return_value='result',
-      autospec=True,
-  )
   @flagsaver.flagsaver(
       pod_hostname='1234', dicom_guid_prefix=uid_generator.TEST_UID_PREFIX
   )
-  def test_add_metadata_to_generated_image(self, unused_mk1, unused_mk2):
+  def test_add_metadata_to_generated_image(self):
     test_dicom_path = self._get_unique_test_file_path('test_wikipedia.dcm')
     temp_wiki = self._get_unique_test_file_path('test_wikipedia.dcm')
 
@@ -1295,6 +1273,18 @@ class IngestWsiDicomTest(parameterized.TestCase):
         tags,
     )
 
+  def _verify_generated_dicom_json_equal(
+      self,
+      results: ingest_base.GenDicomResult,
+      expected_json: List[Mapping[str, Any]],
+  ):
+    instance_json = _get_instances_json(
+        results.files_to_upload.main_store_instances
+    )
+    self.assertLen(instance_json, len(expected_json))
+    for index, expected_instance_json in enumerate(expected_json):
+      self.assertEqual(instance_json[index], expected_instance_json)
+
   @parameterized.named_parameters([
       dict(
           testcase_name='original_main_image',
@@ -1312,6 +1302,12 @@ class IngestWsiDicomTest(parameterized.TestCase):
           override_study_uid_with_metadata=True,
       ),
   ])
+  @mock.patch.object(
+      cloud_logging_client,
+      'get_build_version',
+      autospec=True,
+      return_value='Build_Version:123',
+  )
   @mock.patch.object(
       uid_generator,
       'generate_uid',
@@ -1345,8 +1341,8 @@ class IngestWsiDicomTest(parameterized.TestCase):
     self.assertLen(result.files_to_upload.main_store_instances, 1)
     self.assertFalse(result.generated_series_instance_uid)
     self.assertEqual(result.dest_uri, 'gs://output/success')
-    self.assertEqual(
-        _get_instances_json(result.files_to_upload.main_store_instances),
+    self._verify_generated_dicom_json_equal(
+        result,
         _load_expected_json(
             expected_json, override_study_uid_with_metadata, dcm
         ),
@@ -1369,6 +1365,12 @@ class IngestWsiDicomTest(parameterized.TestCase):
           override_study_uid_with_metadata=True,
       ),
   ])
+  @mock.patch.object(
+      cloud_logging_client,
+      'get_build_version',
+      autospec=True,
+      return_value='Build_Version:123',
+  )
   @mock.patch.object(
       uid_generator,
       'generate_uid',
@@ -1406,10 +1408,7 @@ class IngestWsiDicomTest(parameterized.TestCase):
     expected_json = _load_expected_json(
         expected_json, override_study_uid_with_metadata, dcm
     )
-    self.assertEqual(
-        _get_instances_json(result.files_to_upload.main_store_instances),
-        expected_json,
-    )
+    self._verify_generated_dicom_json_equal(result, expected_json)
 
   @parameterized.parameters([True, False])
   @mock.patch.object(
@@ -1610,6 +1609,12 @@ class IngestWsiDicomTest(parameterized.TestCase):
       ),
   ])
   @mock.patch.object(
+      cloud_logging_client,
+      'get_build_version',
+      autospec=True,
+      return_value='Build_Version:123',
+  )
+  @mock.patch.object(
       uid_generator,
       'generate_uid',
       autospec=True,
@@ -1640,8 +1645,8 @@ class IngestWsiDicomTest(parameterized.TestCase):
     self.assertLen(result.files_to_upload.main_store_instances, 1)
     self.assertFalse(result.generated_series_instance_uid)
     self.assertEqual(result.dest_uri, 'gs://output/success')
-    self.assertEqual(
-        _get_instances_json(result.files_to_upload.main_store_instances),
+    self._verify_generated_dicom_json_equal(
+        result,
         _load_expected_json(
             expected_json, override_study_uid_with_metadata, dcm
         ),
@@ -1657,6 +1662,12 @@ class IngestWsiDicomTest(parameterized.TestCase):
           override_study_uid_with_metadata=False,
       ),
   ])
+  @mock.patch.object(
+      cloud_logging_client,
+      'get_build_version',
+      autospec=True,
+      return_value='Build_Version:123',
+  )
   @mock.patch.object(
       uid_generator,
       'generate_uid',
@@ -1683,8 +1694,8 @@ class IngestWsiDicomTest(parameterized.TestCase):
     self.assertLen(result.files_to_upload.main_store_instances, 1)
     self.assertFalse(result.generated_series_instance_uid)
     self.assertEqual(result.dest_uri, 'gs://output/success')
-    self.assertEqual(
-        _get_instances_json(result.files_to_upload.main_store_instances),
+    self._verify_generated_dicom_json_equal(
+        result,
         _load_expected_json(
             expected_json, override_study_uid_with_metadata, dcm
         ),

@@ -26,7 +26,7 @@ class DicomStorePubSubMsg(abstract_pubsub_msg.AbstractPubSubMsg):
     super().__init__(msg)
     self._dicom_instance = self._received_msg.message.data.decode('utf-8')
     if not self._dicom_instance:
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           'Error decoding DICOM store pub/sub msg. Missing DICOM instance data.'
       )
       self.ignore = True

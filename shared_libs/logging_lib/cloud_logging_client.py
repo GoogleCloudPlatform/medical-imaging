@@ -21,37 +21,38 @@ import threading
 from typing import Any, List, Mapping, Optional, Union
 
 from absl import flags
+import google.auth
 import psutil
 
-from shared_libs.flags import flag_utils
+from shared_libs.flags import secret_flag_utils
 from shared_libs.logging_lib import cloud_logging_client_instance
 
 # name of cloud ops log
 CLOUD_OPS_LOG_NAME_FLG = flags.DEFINE_string(
     'ops_log_name',
-    os.getenv('CLOUD_OPS_LOG_NAME', 'python'),
+    secret_flag_utils.get_secret_or_env('CLOUD_OPS_LOG_NAME', 'python'),
     'Cloud ops log name to write logs to.',
 )
 CLOUD_OPS_LOG_PROJECT_FLG = flags.DEFINE_string(
     'ops_log_project',
-    os.getenv('CLOUD_OPS_LOG_PROJECT'),
+    secret_flag_utils.get_secret_or_env('CLOUD_OPS_LOG_PROJECT', None),
     'GCP project name to write log to. Undefined = default',
 )
 POD_HOSTNAME_FLG = flags.DEFINE_string(
     'pod_hostname',
-    os.getenv('HOSTNAME'),
+    secret_flag_utils.get_secret_or_env('HOSTNAME', None),
     'Host name of GKE pod. Set by container ENV. '
     'Set to mock value in unit test.',
 )
 POD_UID_FLG = flags.DEFINE_string(
     'pod_uid',
-    os.getenv('MY_POD_UID'),
+    secret_flag_utils.get_secret_or_env('MY_POD_UID', None),
     'UID of GKE pod. Do not set unless in test.',
 )
 
 DISABLE_STRUCTURED_LOGGING_FLG = flags.DEFINE_boolean(
     'disable_structured_logging',
-    flag_utils.env_value_to_bool('DISABLE_STRUCTURED_LOGGING'),
+    secret_flag_utils.get_bool_secret_or_env('DISABLE_STRUCTURED_LOGGING'),
     'Disable structured logging.',
 )
 
@@ -64,13 +65,13 @@ _DEBUG_LOGGING_USE_ABSL_LOGGING_FLG = flags.DEFINE_boolean(
 
 LOG_ALL_PYTHON_LOGS_TO_CLOUD_FLG = flags.DEFINE_boolean(
     'log_all_python_logs_to_cloud',
-    flag_utils.env_value_to_bool('LOG_ALL_PYTHON_LOGS_TO_CLOUD'),
+    secret_flag_utils.get_bool_secret_or_env('LOG_ALL_PYTHON_LOGS_TO_CLOUD'),
     'Logs every modules log to Cloud Ops.',
 )
 
 PER_THREAD_LOG_SIGNATURES_FLG = flags.DEFINE_boolean(
     'per_thread_log_signatures',
-    flag_utils.env_value_to_bool('PER_THREAD_LOG_SIGNATURES', True),
+    secret_flag_utils.get_bool_secret_or_env('PER_THREAD_LOG_SIGNATURES', True),
     'If True Log signatures are not shared are across threads if false '
     'Process threads share a common log signature',
 )
@@ -142,6 +143,16 @@ def _get_flags() -> Mapping[str, str]:
   return load_flags
 
 
+def _default_gcp_project() -> str:
+  try:
+    _, project = google.auth.default(
+        scopes=['https://www.googleapis.com/auth/cloud-platform']
+    )
+    return project
+  except google.auth.exceptions.DefaultCredentialsError:
+    return ''
+
+
 class CloudLoggingClient(
     cloud_logging_client_instance.CloudLoggingClientInstance
 ):
@@ -177,7 +188,7 @@ class CloudLoggingClient(
             'Singleton already initialized.'
         )
       gcp_project = (
-          ''
+          _default_gcp_project()
           if CLOUD_OPS_LOG_PROJECT_FLG.value is None
           else CLOUD_OPS_LOG_PROJECT_FLG.value
       )
@@ -224,17 +235,24 @@ class CloudLoggingClient(
     self.debug(f'Logging to GCP project: {project_name}')
 
   @classmethod
-  def logger(cls) -> CloudLoggingClient:
+  def logger(cls, show_startup_msg: bool = True) -> CloudLoggingClient:
     if cls._singleton_instance is None:
       with cls._singleton_lock:  # makes instance creation thread safe.
         if cls._singleton_instance is None:
           cls._singleton_instance = CloudLoggingClient()
-          cls._singleton_instance.startup_msg()  # pytype: disable=attribute-error
+          if not show_startup_msg:
+            cls._startup_message_logged = True
+          else:
+            cls._singleton_instance.startup_msg()  # pytype: disable=attribute-error
     return cls._singleton_instance  # pytype: disable=bad-return-type
 
 
 def logger() -> CloudLoggingClient:
   return CloudLoggingClient.logger()
+
+
+def do_not_log_startup_msg() -> None:
+  CloudLoggingClient.logger(show_startup_msg=False)
 
 
 def debug(
@@ -331,12 +349,26 @@ def clear_log_signature() -> None:
   logger().clear_log_signature()
 
 
+def get_log_signature() -> Mapping[str, Any]:
+  return logger().log_signature
+
+
 def set_log_signature(sig: Mapping[str, Any]) -> None:
   logger().log_signature = sig
 
 
 def set_per_thread_log_signatures(val: bool) -> None:
   logger().per_thread_log_signatures = val
+
+
+def get_build_version(clip_length: Optional[int] = None) -> str:
+  if clip_length is not None and clip_length >= 0:
+    return logger().build_version[:clip_length]
+  return logger().build_version
+
+
+def set_log_trace_key(key: str) -> None:
+  logger().trace_key = key
 
 
 # Logging interfaces are used from processes which are forked (gunicorn,

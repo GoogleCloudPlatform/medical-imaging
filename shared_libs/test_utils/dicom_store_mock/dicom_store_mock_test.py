@@ -69,9 +69,13 @@ class DicomStoreMockTest(parameterized.TestCase):
 
   def test_convert_instance_from_store_json(self):
     dcm = pydicom.dcmread(_test_file_path())
-    dcm_json = dicom_store_mock._pydicom_file_dataset_to_json(dcm)
+    dcm_json = dicom_store_mock._pydicom_file_dataset_to_json(
+        dcm, dicom_store_mock._FilterBinaryTagOperation.REMOVE
+    )
     dcm2 = dicom_store_mock._convert_to_pydicom_file_dataset(dcm_json)
-    del dcm['PixelData']
+    # Binary Tags are removed
+    del dcm['PixelData']  # Pixel Data tag
+    del dcm.file_meta['00020001']  # 	File Meta Information Version tag
     self.assertEqual(dcm2.to_json_dict(), dcm.to_json_dict())
     self.assertEqual(
         dcm2.file_meta.to_json_dict(), dcm.file_meta.to_json_dict()
@@ -327,7 +331,9 @@ class DicomStoreMockTest(parameterized.TestCase):
     test_dicom_path = _test_file_path()
     dcm = pydicom.dcmread(test_dicom_path)
     studyuid = dcm.StudyInstanceUID
-    with dicom_store_mock.MockDicomStores(_MOCK_STORE_URL) as mock_ds:
+    with dicom_store_mock.MockDicomStores(
+        _MOCK_STORE_URL, bulkdata_uri_enabled=False
+    ) as mock_ds:
       mock_ds[_MOCK_STORE_URL].add_instance(test_dicom_path)
       headers = {'accept': 'application/dicom+json; charset=utf-8'}
       response = requests.get(
@@ -339,7 +345,9 @@ class DicomStoreMockTest(parameterized.TestCase):
       self.assertLen(metadata_response, 1)
     self.assertEqual(
         metadata_response[0],
-        dicom_store_mock._pydicom_file_dataset_to_json(dcm),
+        dicom_store_mock._pydicom_file_dataset_to_json(
+            dcm, dicom_store_mock._FilterBinaryTagOperation.REMOVE
+        ),
     )
 
   @parameterized.parameters(['', '?', '/?'])
@@ -348,7 +356,9 @@ class DicomStoreMockTest(parameterized.TestCase):
     dcm = pydicom.dcmread(test_dicom_path)
     studyuid = dcm.StudyInstanceUID
     seriesuid = dcm.SeriesInstanceUID
-    with dicom_store_mock.MockDicomStores(_MOCK_STORE_URL) as mock_ds:
+    with dicom_store_mock.MockDicomStores(
+        _MOCK_STORE_URL, bulkdata_uri_enabled=False
+    ) as mock_ds:
       mock_ds[_MOCK_STORE_URL].add_instance(test_dicom_path)
       headers = {'accept': 'application/dicom+json; charset=utf-8'}
       response = requests.get(
@@ -363,7 +373,9 @@ class DicomStoreMockTest(parameterized.TestCase):
       self.assertLen(metadata_response, 1)
     self.assertEqual(
         metadata_response[0],
-        dicom_store_mock._pydicom_file_dataset_to_json(dcm),
+        dicom_store_mock._pydicom_file_dataset_to_json(
+            dcm, dicom_store_mock._FilterBinaryTagOperation.REMOVE
+        ),
     )
 
   def test_instance_metadata_request(self):
@@ -372,7 +384,9 @@ class DicomStoreMockTest(parameterized.TestCase):
     studyuid = dcm.StudyInstanceUID
     seriesuid = dcm.SeriesInstanceUID
     instanceuid = dcm.SOPInstanceUID
-    with dicom_store_mock.MockDicomStores(_MOCK_STORE_URL) as mock_ds:
+    with dicom_store_mock.MockDicomStores(
+        _MOCK_STORE_URL, bulkdata_uri_enabled=False
+    ) as mock_ds:
       mock_ds[_MOCK_STORE_URL].add_instance(test_dicom_path)
       headers = {'accept': 'application/dicom+json; charset=utf-8'}
       response = requests.get(
@@ -387,7 +401,9 @@ class DicomStoreMockTest(parameterized.TestCase):
       self.assertLen(metadata_response, 1)
     self.assertEqual(
         metadata_response[0],
-        dicom_store_mock._pydicom_file_dataset_to_json(dcm),
+        dicom_store_mock._pydicom_file_dataset_to_json(
+            dcm, dicom_store_mock._FilterBinaryTagOperation.REMOVE
+        ),
     )
 
   @parameterized.parameters(
@@ -453,7 +469,7 @@ class DicomStoreMockTest(parameterized.TestCase):
       mock_ds[_MOCK_STORE_URL].add_instance(test_dicom_path)
       headers = {
           'accept': (
-              'multipart/related; type=application/octet-stream;'
+              'multipart/related; type="application/octet-stream";'
               ' transfer-syntax=*'
           )
       }
@@ -512,7 +528,7 @@ class DicomStoreMockTest(parameterized.TestCase):
       mock_ds[_MOCK_STORE_URL].add_instance(test_dicom_path)
       headers = {
           'accept': (
-              'multipart/related; type=application/octet-stream;'
+              'multipart/related; type="application/octet-stream";'
               ' transfer-syntax=*'
           )
       }
@@ -534,7 +550,9 @@ class DicomStoreMockTest(parameterized.TestCase):
     dcm = pydicom.dcmread(test_dicom_path)
     studyuid = dcm.StudyInstanceUID
     seriesuid = dcm.SeriesInstanceUID
-    with dicom_store_mock.MockDicomStores(_MOCK_STORE_URL) as mock_ds:
+    with dicom_store_mock.MockDicomStores(
+        _MOCK_STORE_URL, bulkdata_uri_enabled=False
+    ) as mock_ds:
       mock_ds[_MOCK_STORE_URL].add_instance(test_dicom_path)
       http_auth = google_auth_httplib2.AuthorizedHttp(None)
       try:
@@ -550,7 +568,9 @@ class DicomStoreMockTest(parameterized.TestCase):
     self.assertLen(metadata_response, 1)
     self.assertEqual(
         metadata_response[0],
-        dicom_store_mock._pydicom_file_dataset_to_json(dcm),
+        dicom_store_mock._pydicom_file_dataset_to_json(
+            dcm, dicom_store_mock._FilterBinaryTagOperation.REMOVE
+        ),
     )
 
   def test_invalid_httplib2_request(self):
@@ -745,7 +765,9 @@ class DicomStoreMockTest(parameterized.TestCase):
     temp_dir = self.create_tempdir()
     source_file = _test_file_path()
     headers = {'accept': 'application/dicom+json; charset=utf-8'}
-    with dicom_store_mock.MockDicomStores(_MOCK_STORE_URL) as mk:
+    with dicom_store_mock.MockDicomStores(
+        _MOCK_STORE_URL, bulkdata_uri_enabled=False
+    ) as mk:
       mk[_MOCK_STORE_URL].set_dicom_store_disk_storage(temp_dir)
       with pydicom.dcmread(source_file) as dcm:
         mk[_MOCK_STORE_URL].add_instance(dcm)
@@ -758,7 +780,11 @@ class DicomStoreMockTest(parameterized.TestCase):
         )
         self.assertEqual(
             response.json(),
-            [dicom_store_mock._pydicom_file_dataset_to_json(dcm)],
+            [
+                dicom_store_mock._pydicom_file_dataset_to_json(
+                    dcm, dicom_store_mock._FilterBinaryTagOperation.REMOVE
+                ),
+            ],
         )
 
   def test_get_repeated_calls_to_file_system_instance_metadata_return_same_val(

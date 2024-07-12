@@ -13,7 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 """Tests for cloud_storage_client."""
-import os
 from typing import Optional
 from unittest import mock
 
@@ -29,14 +28,16 @@ class CloudStorageClientTest(parameterized.TestCase):
 
   def setUp(self):
     super().setUp()
-    self._old_project_id = os.environ.get('PROJECT_ID')
     cloud_storage_client.reset_storage_client('PROJECT_ID')
     self._mocked_classes = []
     self._mocks = [
         mock.patch(
             'google.auth.default',
             autospec=True,
-            return_value=(mock.MagicMock(), mock.MagicMock()),
+            return_value=(
+                mock.MagicMock(universe_domain='googleapis.com'),
+                mock.MagicMock(),
+            ),
         )
     ]
     for mk in self._mocks:

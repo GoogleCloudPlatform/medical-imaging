@@ -29,6 +29,7 @@ import tifffile
 from shared_libs.logging_lib import cloud_logging_client
 from transformation_pipeline.ingestion_lib import ingest_const
 from transformation_pipeline.ingestion_lib.dicom_gen import dicom_json_util
+from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ancillary_image_extractor
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
 
@@ -120,9 +121,7 @@ def _extract_tif_tags_metadata(tif_path: str) -> _TifTagsDicomMetadata:
   metadata = _TifTagsDicomMetadata()
   with tifffile.TiffFile(tif_path) as tif:
     if not tif.pages:
-      cloud_logging_client.logger().warning(
-          f'TIF image missing pages: {tif_path}.'
-      )
+      cloud_logging_client.warning(f'TIF image missing pages: {tif_path}.')
       return metadata
 
     tags = tif.pages[0].tags
@@ -142,7 +141,7 @@ def _extract_tif_tags_metadata(tif_path: str) -> _TifTagsDicomMetadata:
           y_resolution, resolution_unit
       )
       if not metadata.column_spacing or not metadata.row_spacing:
-        cloud_logging_client.logger().warning(
+        cloud_logging_client.warning(
             f'Invalid resolution TIF tags in {tif_path}.'
         )
 
@@ -153,7 +152,7 @@ def _extract_tif_tags_metadata(tif_path: str) -> _TifTagsDicomMetadata:
             datetime_value, _TIF_DATE_TIME_FORMAT
         )
       except ValueError:
-        cloud_logging_client.logger().warning(
+        cloud_logging_client.warning(
             f'Failed to parse acquisition datetime TIF tag in {tif_path}: '
             f'{datetime_value}.'
         )
@@ -248,7 +247,10 @@ def _create_image_dicom_metadata(image_path: str) -> _ImageDicomMetadata:
     )
 
   if img.mode in ['RGB', 'RGBA']:
-    photometric_interpretation = 'YBR_FULL_422'
+    if transfer_syntax == ingest_const.DicomImageTransferSyntax.JPEG_LOSSY:
+      photometric_interpretation = 'YBR_FULL_422'
+    else:
+      photometric_interpretation = 'RGB'
     samples_per_pixel = 3
   else:
     photometric_interpretation = 'MONOCHROME2'
@@ -306,6 +308,7 @@ def _create_dicom(
 
   file_meta = pydicom.dataset.FileMetaDataset()
   file_meta.ImplementationClassUID = ingest_const.SCMI_IMPLEMENTATION_CLASS_UID
+  file_meta.ImplementationVersionName = ingest_const.IMPLEMENTATION_VERSION_NAME
   file_meta.MediaStorageSOPClassUID = sop_class.uid
   file_meta.MediaStorageSOPInstanceUID = instance_uid
   file_meta.TransferSyntaxUID = metadata.transfer_syntax
@@ -318,7 +321,6 @@ def _create_dicom(
   )
   ds.is_little_endian = True
   ds.is_implicit_VR = False
-  ds.NumberOfFrames = 1
   if (
       metadata.transfer_syntax
       == ingest_const.DicomImageTransferSyntax.JPEG_LOSSY
@@ -330,6 +332,10 @@ def _create_dicom(
     ds.LossyImageCompressionRatio = metadata.compression_ratio
   else:  # Lossless JPEG 2000
     ds.LossyImageCompression = '00'  # Image not subjected to lossy compression.
+  ds.NumberOfFrames = 1
+  ds.Modality = 'SM'
+  ds.PlanarConfiguration = 0
+  ds.PatientOrientation = ''
   ds.StudyInstanceUID = study_uid
   ds.SeriesInstanceUID = series_uid
   ds.SOPInstanceUID = instance_uid
@@ -346,18 +352,25 @@ def _create_dicom(
   ds.SamplesPerPixel = metadata.samples_per_pixel
   ds.ImageType = metadata.image_type
   ds.PixelData = pydicom.encaps.encapsulate([metadata.image_bytes])
-
+  ds.FrameOfReferenceUID = uid_generator.generate_uid()
   try:
     dicom_util.add_default_optical_path_sequence(ds, metadata.icc_profile)
   except dicom_util.InvalidICCProfileError as exp:
-    cloud_logging_client.logger().warning(
+    cloud_logging_client.warning(
         f'Failed to add ICC profile to {image_path}', exp
     )
 
   if metadata.tif_tags.column_spacing and metadata.tif_tags.row_spacing:
+    # DICOM Standard represents the pixel spacing as a decimal string. The
+    # total length of the string is required to be less than 16 bytes.
+    # Pixel Spacing
+    # https://dicom.nema.org/medical/dicom/current/output/chtml/part03/sect_C.8.12.html#table_C.8-77
+    #
+    # DS VR Code (Limit to 16 characters)
+    # https://dicom.nema.org/medical/dicom/current/output/chtml/part05/sect_6.2.html
     ds.PixelSpacing = [
-        metadata.tif_tags.column_spacing,
-        metadata.tif_tags.row_spacing,
+        str(metadata.tif_tags.column_spacing)[:16],
+        str(metadata.tif_tags.row_spacing)[:16],
     ]
   if metadata.tif_tags.acquisition_datetime:
     dicom_util.set_acquisition_date_time(

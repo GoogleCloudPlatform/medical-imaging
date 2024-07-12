@@ -52,6 +52,9 @@ class PollingClient(abstract_polling_client.AbstractPollingClient):
       ],
   ):
     cloud_logging_client.set_per_thread_log_signatures(False)
+    cloud_logging_client.set_log_trace_key(
+        ingest_const.LogKeywords.DPAS_INGESTION_TRACE_ID
+    )
     cloud_logging_client.info('DPAS ingest pipeline starting')
     if not project_id:
       raise ValueError('Missing project id.')

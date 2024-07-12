@@ -94,10 +94,10 @@ class PubSubAckTimeoutMonitor(threading.Thread):
     """
     with self._monitor_lock:
       if not self.is_alive():
-        cloud_logging_client.error((
+        cloud_logging_client.error(
             'PubSubAckTimeoutMonitor thread is not running. '
             'Pub/sub message ack timeout will not be extended.'
-        ))
+        )
         return
       self._current_msg_extended_ack_timeout = 0.0
       self._current_msg_ack_id = current_msg.ack_id

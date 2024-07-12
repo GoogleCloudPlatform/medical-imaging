@@ -103,7 +103,7 @@ def _get_downsampled_dicom_files(
       path_to_largest_downsampled_dicom = filepath
 
   if len(downsamples) != len(file_set):
-    cloud_logging_client.logger().warning(
+    cloud_logging_client.warning(
         'Wsi2Dcm failed to produce expected downsample.',
         {
             'files_found': str(sorted(file_set)),
@@ -155,7 +155,7 @@ class DicomInstanceIngestionSets:
       self._oof = set()
     else:
       self._oof = _get_downsampled_dicom_files(dicom_files, downsamples.oof)
-    cloud_logging_client.logger().info(
+    cloud_logging_client.info(
         'Dicom Store ingestion lists',
         {
             ingest_const.LogKeywords.MAIN_DICOM_STORE: '\n'.join(
@@ -234,7 +234,7 @@ def _get_wsi2dcm_cmdline(
   if series_uid is not None and series_uid:
     cmd_line.append(f'--seriesId={series_uid}')
   cmd_line = ' '.join(cmd_line)
-  cloud_logging_client.logger().debug(
+  cloud_logging_client.debug(
       'Wsi2Dcm Command line',
       {'wsi2dcm_command_line': cmd_line},
   )
@@ -261,7 +261,7 @@ def _get_generated_dicom_files_sorted_by_size(output_path: str) -> List[str]:
 
         match = _DICOM_DOWNSAMPLE_FILE_NAME_REGEX.search(entry.name)
         if match is None:
-          cloud_logging_client.logger().critical(
+          cloud_logging_client.critical(
               'Wsi2Dcm produced invalid filename.',
               {ingest_const.LogKeywords.FILENAME: entry.name},
           )
@@ -282,7 +282,7 @@ def _get_generated_dicom_files_sorted_by_size(output_path: str) -> List[str]:
 
         filesize = entry.stat().st_size
         generated_dicom_files.append((filepath, filesize))
-        cloud_logging_client.logger().info(
+        cloud_logging_client.info(
             'WSI-to-DICOM conversion created',
             {
                 ingest_const.LogKeywords.FILENAME: filepath,
@@ -385,19 +385,21 @@ def _build_wsi2dcm_param_string() -> str:
 
 def _correct_missing_study_instance_uid_in_metadata(
     wsi_dcm_json: MutableMapping[str, Any],
-    dicom_client: dicom_store_client.DicomStoreClient,
+    abstract_dicom_handler: abstract_dicom_generation.AbstractDicomGeneration,
 ) -> str:
   """Corrects missing study instance uid in DICOM metadata.
 
   Args:
     wsi_dcm_json: DICOM JSON formatted metadata to merge with generated imaging.
-    dicom_client: DICOM store client.
+    abstract_dicom_handler: Abstract_dicom pub/sub message handler calling
+      generate_dicom.
 
   Returns:
     Metadata Study Instance UID as string.
 
   Raises:
     GenDicomFailedError: Could not determine study instance uid.
+    redis_client.CouldNotAcquireNonBlockingLockError: Could not acquire lock.
   """
   create_missing_study_instance_uid = (
       ingest_flags.ENABLE_CREATE_MISSING_STUDY_INSTANCE_UID_FLG.value
@@ -419,7 +421,7 @@ def _correct_missing_study_instance_uid_in_metadata(
         'Unable to create StudyInstanceUID metadata is missing accession'
         ' number.'
     )
-    cloud_logging_client.logger().error(msg, exp, wsi_dcm_json)
+    cloud_logging_client.error(msg, exp, wsi_dcm_json)
     raise GenDicomFailedError(
         msg,
         ingest_const.ErrorMsgs.MISSING_ACCESSION_NUMBER_UNABLE_TO_CREATE_STUDY_INSTANCE_UID,
@@ -434,11 +436,12 @@ def _correct_missing_study_instance_uid_in_metadata(
     patient_id = ''  # Seach for studies that do not define patient id.
     search_patient_id = ''
     undefined_patient_id = True
-  cloud_logging_client.logger().info(
+  cloud_logging_client.info(
       'Searching for DICOM Study Instance UID associated with accession'
       f' number{search_patient_id}.',
       logs,
   )
+  dicom_client = abstract_dicom_handler.dcm_store_client
   try:
     study_uid_found = dicom_client.study_instance_uid_search(
         accession_number=accession_number,
@@ -454,7 +457,7 @@ def _correct_missing_study_instance_uid_in_metadata(
         'Error occurred querying DICOM store. Unable to create'
         ' StudyInstanceUID.'
     )
-    cloud_logging_client.logger().error(msg, logs, exp)
+    cloud_logging_client.error(msg, logs, exp)
     raise GenDicomFailedError(
         msg,
         ingest_const.ErrorMsgs.ERROR_OCCURRED_QUERYING_DICOM_STORE_UNABLE_TO_CREATE_STUDY_INSTANCE_UID,
@@ -467,17 +470,30 @@ def _correct_missing_study_instance_uid_in_metadata(
           ' metadata is associated with multiple Study Instance UID in the'
           ' DICOM store.'
       )
-      cloud_logging_client.logger().error(msg, logs)
+      cloud_logging_client.error(msg, logs)
       raise GenDicomFailedError(
           msg,
           ingest_const.ErrorMsgs.UNABLE_TO_CREATE_STUDY_INSTANCE_UID_ACCESSION_NUMBER_IS_ASSOCIATED_WITH_MULTIPLE_STUDY_INSTANCE_UID,
       )
     study_instance_uid = study_uid_found[0]
   else:
-    cloud_logging_client.logger().info(
-        'Accession number is not assocated with exsting DICOM Study Instance'
+    cloud_logging_client.info(
+        'Accession number is not associated with existing StudyInstanceUID'
         ' UID; Generating new UID.',
         logs,
+    )
+    # This lock is only used if the pipeline has the
+    # ENABLE_CREATE_MISSING_STUDY_INSTANCE_UID_FLG flag enabled
+    # AND a study instance uid does not currently exist in the DICOM store
+    # for the accession number that is being generated. Under these combined
+    # conditions we want to block other instances of the pipeline from ingesting
+    # a slide with the same accession number as this would likely result in the
+    # imaging being ingested into different study instances uids
+    # (the pipeline is creating study instance uids). If the accession number
+    # exist then we will use the found study instance uid and we don't need to
+    # lock.
+    abstract_dicom_handler.acquire_non_blocking_lock(
+        ingest_const.RedisLockKeywords.DICOM_ACCESSION_NUMBER % accession_number
     )
     study_instance_uid = uid_generator.generate_uid()
   logs[ingest_const.LogKeywords.STUDY_INSTANCE_UID] = study_instance_uid
@@ -491,7 +507,7 @@ def initialize_metadata_study_and_series_uids_for_dicom_triggered_ingestion(
     study_uid: str,
     series_uid: str,
     metadata: MutableMapping[str, Any],
-    dicom_client: dicom_store_client.DicomStoreClient,
+    abstract_dicom_handler: abstract_dicom_generation.AbstractDicomGeneration,
     set_study_instance_uid_from_metadata: bool,
     set_series_instance_uid_from_metadata: bool,
 ) -> None:
@@ -517,8 +533,8 @@ def initialize_metadata_study_and_series_uids_for_dicom_triggered_ingestion(
     series_uid: Series Instance UID of DICOM imaging triggering ingestion.
     metadata: DICOM formatted JSON metadata that will be merged with generated
       and ingested DICOM imaging.
-    dicom_client: DICOM Store Client used to query and Study Instance UID in
-      when sourced from metadata but not defined in metadata.
+    abstract_dicom_handler: Abstract_dicom pub/sub message handler calling
+      generate_dicom.
     set_study_instance_uid_from_metadata: If true, set study instance uid to
       value used in metadata; otherwise use value passed in.
     set_series_instance_uid_from_metadata: If true, set series instance uid to
@@ -527,11 +543,12 @@ def initialize_metadata_study_and_series_uids_for_dicom_triggered_ingestion(
   Raises:
     GenDicomFailedError: Unable to determine Study Instance UID or Series
       instance UID from metadata.
+    redis_client.CouldNotAcquireNonBlockingLockError: Could not acquire lock.
   """
   # Determine Study Instance UID for DICOM ingestion.
   if set_study_instance_uid_from_metadata:
     study_uid = _correct_missing_study_instance_uid_in_metadata(
-        metadata, dicom_client
+        metadata, abstract_dicom_handler
     )
   # Set metadata to match
   dicom_json_util.set_study_instance_uid_in_metadata(metadata, study_uid)
@@ -550,7 +567,7 @@ def initialize_metadata_study_and_series_uids_for_dicom_triggered_ingestion(
   # remove SOP Class UID in metadata to ensure metadata does not overwrite
   # value in DICOM.
   dicom_json_util.remove_sop_class_uid_from_metadata(metadata)
-  cloud_logging_client.logger().info(
+  cloud_logging_client.info(
       'Ingesting images into StudyInstanceUID and SeriesInstanceUID',
       {
           ingest_const.DICOMTagKeywords.STUDY_INSTANCE_UID: study_uid,
@@ -560,7 +577,7 @@ def initialize_metadata_study_and_series_uids_for_dicom_triggered_ingestion(
 
 
 def initialize_metadata_study_and_series_uids_for_non_dicom_image_triggered_ingestion(
-    dcm_store_client: dicom_store_client.DicomStoreClient,
+    abstract_dicom_handler: abstract_dicom_generation.AbstractDicomGeneration,
     dicom_gen: abstract_dicom_generation.GeneratedDicomFiles,
     wsi_dcm_json: MutableMapping[str, Any],
     initialize_series_uid_from_metadata: bool = False,
@@ -585,7 +602,8 @@ def initialize_metadata_study_and_series_uids_for_non_dicom_image_triggered_inge
     ).
 
   Args:
-    dcm_store_client: DICOM Store client.
+    abstract_dicom_handler: Abstract_dicom pub/sub message handler calling
+      generate_dicom.
     dicom_gen: Payload for DICOM being generated.
     wsi_dcm_json: WSI DICOM Json formatted metadata.
     initialize_series_uid_from_metadata: Whether to initialize series UID from
@@ -598,12 +616,14 @@ def initialize_metadata_study_and_series_uids_for_non_dicom_image_triggered_inge
   Raises:
     GenDicomFailedError: Unable to determine Study Instance UID or Series
       instance UID from metadata.
+    redis_client.CouldNotAcquireNonBlockingLockError: Could not acquire lock.
   """
   study_uid = _correct_missing_study_instance_uid_in_metadata(
-      wsi_dcm_json, dcm_store_client
+      wsi_dcm_json, abstract_dicom_handler
   )
   # Search to determine if a slide was already partially added. If it was
   # add any remaining imaging to the existing series.
+  dcm_store_client = abstract_dicom_handler.dcm_store_client
   series_uid = (
       dcm_store_client.get_series_uid_and_existing_dicom_for_study_and_hash(
           study_uid, dicom_gen.hash
@@ -616,7 +636,7 @@ def initialize_metadata_study_and_series_uids_for_non_dicom_image_triggered_inge
     # and would need to be handled externally via the series def in metadata.
     try:
       series_uid = dicom_json_util.get_series_instance_uid(wsi_dcm_json)
-      cloud_logging_client.logger().info(
+      cloud_logging_client.info(
           'Series UID defined from metadata.',
           {'SeriesInstanceUID': series_uid},
       )
@@ -629,12 +649,12 @@ def initialize_metadata_study_and_series_uids_for_non_dicom_image_triggered_inge
   if series_uid is None:
     series_uid = uid_generator.generate_uid()
     generated_series_instance_uid = True
-    cloud_logging_client.logger().info(
+    cloud_logging_client.info(
         'Generating new series instance UID',
         {ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID: series_uid},
     )
   else:
-    cloud_logging_client.logger().info(
+    cloud_logging_client.info(
         'Ingesting images into existing series',
         {ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID: series_uid},
     )
@@ -677,7 +697,7 @@ def generate_metadata_free_slide_metadata(
       requests.HTTPError,
   ) as exp:
     msg = 'Error occurred querying the DICOM store.'
-    cloud_logging_client.logger().error(msg, exp)
+    cloud_logging_client.error(msg, exp)
     raise GenDicomFailedError(
         msg,
         'error_querying_dicom_store',
@@ -801,7 +821,7 @@ class IngestBase(metaclass=abc.ABCMeta):
     return self._ingest_buckets.failure_uri
 
   def log_and_get_failure_bucket_path(self, exp: Exception) -> str:
-    cloud_logging_client.logger().error('Failed to ingest DICOM.', exp)
+    cloud_logging_client.error('Failed to ingest DICOM.', exp)
     if not self.ingest_failed_uri:
       return ''
     if len(exp.args) == 2:
@@ -844,12 +864,12 @@ class IngestBase(metaclass=abc.ABCMeta):
         self.default_wsi_conv_params,
     )
     try:
-      cloud_logging_client.logger().info(
+      cloud_logging_client.info(
           'Starting WSI-to-DICOM conversion', {'cmd_line': cmd_line}
       )
       subprocess.run(cmd_line, capture_output=True, check=True, shell=True)
     except subprocess.CalledProcessError as exp:
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           'WSI-to-DICOM conversion error',
           {
               'cmd': cmd_line,
@@ -960,7 +980,7 @@ class IngestBase(metaclass=abc.ABCMeta):
           )
           if metadata_row is None:
             msg = 'No BigQuery metadata found.'
-            cloud_logging_client.logger().error(msg, bq_table_log)
+            cloud_logging_client.error(msg, bq_table_log)
             raise GenDicomFailedError(
                 msg,
                 ingest_const.ErrorMsgs.BQ_METADATA_NOT_FOUND,
@@ -970,7 +990,7 @@ class IngestBase(metaclass=abc.ABCMeta):
             decode_slideid.BigQueryMetadataTableEnvFormatError,
         ) as exc:
           msg = f'Error parsing BigQuery table id: {bq_table_id}'
-          cloud_logging_client.logger().critical(msg, bq_table_log, exc)
+          cloud_logging_client.critical(msg, bq_table_log, exc)
           raise GenDicomFailedError(
               msg,
               ingest_const.ErrorMsgs.BQ_METADATA_NOT_FOUND,

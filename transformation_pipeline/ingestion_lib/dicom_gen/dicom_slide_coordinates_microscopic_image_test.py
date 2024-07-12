@@ -31,6 +31,7 @@ from transformation_pipeline.ingestion_lib import gen_test_util
 from transformation_pipeline.ingestion_lib import ingest_const
 from transformation_pipeline.ingestion_lib.dicom_gen import dicom_slide_coordinates_microscopic_image
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ancillary_image_extractor
+from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
 
 
 _STUDY_UID = '1.2.3.4.5'
@@ -119,12 +120,14 @@ class DicomSlideCoordinatesMicroscopicImageTest(parameterized.TestCase):
                   'logo.jpg',
                   'logo.jpg',
                   ['ORIGINAL', 'PRIMARY'],
+                  'YBR_FULL_422',
                   DicomImageTransferSyntax.JPEG_LOSSY,
               ),
               (
                   'logo.png',
                   'logo_png_converted.jp2',
                   ['DERIVED', 'PRIMARY'],
+                  'RGB',
                   DicomImageTransferSyntax.JPEG_2000,
               ),
               (
@@ -133,18 +136,21 @@ class DicomSlideCoordinatesMicroscopicImageTest(parameterized.TestCase):
                   if PIL.__version__ == '9.4.0'
                   else 'logo_png_transparent_converted.jp2',
                   ['DERIVED', 'PRIMARY'],
+                  'RGB',
                   DicomImageTransferSyntax.JPEG_2000,
               ),
               (
                   'logo_jpg.tif',
                   'logo_tif_converted.jpg',
                   ['ORIGINAL', 'PRIMARY'],
+                  'YBR_FULL_422',
                   DicomImageTransferSyntax.JPEG_LOSSY,
               ),
               (
                   'logo.tif',
                   'logo_tif_converted.jp2',
                   ['DERIVED', 'PRIMARY'],
+                  'RGB',
                   DicomImageTransferSyntax.JPEG_2000,
               ),
           ],
@@ -154,12 +160,22 @@ class DicomSlideCoordinatesMicroscopicImageTest(parameterized.TestCase):
           ],
       )
   )
+  @mock.patch.object(
+      dicom_util,
+      '_get_colorspace_description_from_iccprofile_bytes',
+      autospec=True,
+      return_value='SRGB',
+  )
   def test_create_encapsulated_flat_image_dicom_succeeds(
-      self, image_params, sop_class
+      self, image_params, sop_class, unused_mock
   ):
-    input_image, output_image, expected_image_type, expected_transfer_syntax = (
-        image_params
-    )
+    (
+        input_image,
+        output_image,
+        expected_image_type,
+        expected_photometric_interpretation,
+        expected_transfer_syntax,
+    ) = image_params
     temp_dir = self.create_tempdir()
     src_image_path = gen_test_util.test_file_path(input_image)
     image_path = os.path.join(temp_dir, input_image)
@@ -174,12 +190,14 @@ class DicomSlideCoordinatesMicroscopicImageTest(parameterized.TestCase):
     dcm.save_as(dcm_tmp_filepath, write_like_original=False)
     saved_dcm = pydicom.dcmread(dcm_tmp_filepath)
     logging.info(saved_dcm)
-
+    self.assertEqual(saved_dcm.NumberOfFrames, 1)
     self.assertEqual(saved_dcm.StudyInstanceUID, _STUDY_UID)
     self.assertEqual(saved_dcm.SeriesInstanceUID, _SERIES_UID)
     self.assertEqual(saved_dcm.SOPInstanceUID, _INSTANCE_UID)
     self.assertEqual(saved_dcm.SOPClassUID, sop_class.uid)
-    self.assertEqual(saved_dcm.PhotometricInterpretation, 'YBR_FULL_422')
+    self.assertEqual(
+        saved_dcm.PhotometricInterpretation, expected_photometric_interpretation
+    )
     self.assertEqual(saved_dcm.SamplesPerPixel, 3)
     self.assertIn('OpticalPathSequence', saved_dcm)
     self.assertEqual(saved_dcm.ImageType, expected_image_type)
@@ -194,7 +212,15 @@ class DicomSlideCoordinatesMicroscopicImageTest(parameterized.TestCase):
         saved_dcm.PixelData, pydicom.encaps.encapsulate([img_bytes])
     )
 
-  def test_create_encapsulated_flat_image_dicom_additional_tags_succeeds(self):
+  @mock.patch.object(
+      dicom_util,
+      '_get_colorspace_description_from_iccprofile_bytes',
+      autospec=True,
+      return_value='SRGB',
+  )
+  def test_create_encapsulated_flat_image_dicom_additional_tags_succeeds(
+      self, unused_mock
+  ):
     image_path = gen_test_util.test_file_path('logo.jpg')
     dcm = dicom_slide_coordinates_microscopic_image.create_encapsulated_flat_image_dicom(
         image_path,
@@ -259,7 +285,15 @@ class DicomSlideCoordinatesMicroscopicImageTest(parameterized.TestCase):
         saved_dcm.PixelData, pydicom.encaps.encapsulate([img_bytes])
     )
 
-  def test_create_encapsulated_flat_image_dicom_includes_tif_tags(self):
+  @mock.patch.object(
+      dicom_util,
+      '_get_colorspace_description_from_iccprofile_bytes',
+      autospec=True,
+      return_value='SRGB',
+  )
+  def test_create_encapsulated_flat_image_dicom_includes_tif_tags(
+      self, unused_mock
+  ):
     temp_dir = self.create_tempdir()
     src_image_path = gen_test_util.test_file_path('logo_tags.tif')
     image_path = os.path.join(temp_dir, 'logo_tags.tif')
@@ -284,7 +318,7 @@ class DicomSlideCoordinatesMicroscopicImageTest(parameterized.TestCase):
         saved_dcm.SOPClassUID,
         ingest_const.DicomSopClasses.SLIDE_COORDINATES_IMAGE.uid,
     )
-    self.assertEqual(saved_dcm.PhotometricInterpretation, 'YBR_FULL_422')
+    self.assertEqual(saved_dcm.PhotometricInterpretation, 'RGB')
     self.assertEqual(saved_dcm.SamplesPerPixel, 3)
     self.assertEqual(saved_dcm.AcquisitionDateTime, '20220831131415.000000')
     self.assertEqual(saved_dcm.PixelSpacing, [0.254, 0.635])
@@ -299,9 +333,19 @@ class DicomSlideCoordinatesMicroscopicImageTest(parameterized.TestCase):
         saved_dcm.PixelData, pydicom.encaps.encapsulate([img_bytes])
     )
 
+  @mock.patch.object(
+      dicom_util,
+      '_get_colorspace_description_from_iccprofile_bytes',
+      autospec=True,
+      return_value='SRGB',
+  )
   @mock.patch.object(datetime, 'datetime', autospec=True)
-  def test_create_encapsulated_flat_image_dicom_invalid_time_tif_tag(self, mck):
-    mck.strptime.side_effect = ValueError()
+  def test_create_encapsulated_flat_image_dicom_invalid_time_tif_tag(
+      self,
+      mock_datetime,
+      unused_mock,
+  ):
+    mock_datetime.strptime.side_effect = ValueError()
     temp_dir = self.create_tempdir()
     src_image_path = gen_test_util.test_file_path('logo_tags.tif')
     image_path = os.path.join(temp_dir, 'logo_tags.tif')
@@ -326,7 +370,7 @@ class DicomSlideCoordinatesMicroscopicImageTest(parameterized.TestCase):
         saved_dcm.SOPClassUID,
         ingest_const.DicomSopClasses.SLIDE_COORDINATES_IMAGE.uid,
     )
-    self.assertEqual(saved_dcm.PhotometricInterpretation, 'YBR_FULL_422')
+    self.assertEqual(saved_dcm.PhotometricInterpretation, 'RGB')
     self.assertEqual(saved_dcm.SamplesPerPixel, 3)
     self.assertNotIn('AcquisitionDateTime', saved_dcm)
     self.assertEqual(saved_dcm.PixelSpacing, [0.254, 0.635])

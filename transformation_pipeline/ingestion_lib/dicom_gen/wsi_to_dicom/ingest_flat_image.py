@@ -74,7 +74,7 @@ class IngestFlatImage(ingest_base.IngestBase):
           dicom_gen,
           self.metadata_storage_client,
       )
-      cloud_logging_client.logger().info(
+      cloud_logging_client.info(
           'Slide ID identified in ingested filename.',
           {
               ingest_const.LogKeywords.FILENAME: dicom_gen.localfile,
@@ -160,7 +160,7 @@ class IngestFlatImage(ingest_base.IngestBase):
           abstract_dicom_handler.dcm_store_client,
       ).dicom_json
       generated_series_instance_uid = ingest_base.initialize_metadata_study_and_series_uids_for_non_dicom_image_triggered_ingestion(
-          abstract_dicom_handler.dcm_store_client,
+          abstract_dicom_handler,
           dicom_gen,
           dcm_json,
           self._init_series_instance_uid_from_metadata(),

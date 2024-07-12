@@ -117,6 +117,18 @@ class GkeMainTest(absltest.TestCase):
     mck_enter.return_value.run.assert_called_once()
     mck_exit.assert_called_once()
 
+  @flagsaver.flagsaver(oof_dicomweb_base_url='')
+  def test_get_oof_trigger_config_disabled(self):
+    self.assertIsNone(gke_main._get_oof_trigger_config())
+
+  def test_get_oof_trigger_config_enabled(self):
+    dicom_store_web_path = 'http://healthcare.dicomstore.mock/'
+    with flagsaver.flagsaver(oof_dicomweb_base_url=dicom_store_web_path):
+      self.assertEqual(
+          gke_main._get_oof_trigger_config().dicom_store_web_path,  # pytype: disable=attribute-error
+          dicom_store_web_path,
+      )
+
 
 if __name__ == '__main__':
   with flagsaver.flagsaver(

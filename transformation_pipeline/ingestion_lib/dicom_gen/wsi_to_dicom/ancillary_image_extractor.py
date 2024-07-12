@@ -36,7 +36,7 @@ from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingeste
 _JPEG_QUALITTY = 95
 _TIFF_JPEG_COMPRESSION = 7
 _TIFF_RGB_PHOTOMETRIC = 2
-_JPEG_TRANSFER_SYNTAX = '1.2.840.10008.1.2.4.50'
+_JPEG_TRANSFER_SYNTAX = ingest_const.DicomImageTransferSyntax.JPEG_LOSSY
 _JPEG2000_TRANSFER_SYNTAX = (
     '1.2.840.10008.1.2.4.51',
     '1.2.840.10008.1.2.4.90',
@@ -135,9 +135,7 @@ def _extract_jpeg_directly(
   Returns:
     True if image written.
   """
-  cloud_logging_client.logger().info(
-      f'Extracting  {image.path} without decompression.'
-  )
+  cloud_logging_client.info(f'Extracting  {image.path} without decompression.')
   page = series.pages[0]
   offset = page.dataoffsets[0]
   bytecount = page.databytecounts[0]
@@ -171,7 +169,7 @@ def _extract_jpeg_using_tifffile(
     True if image written.
   """
   output_path = image.path
-  cloud_logging_client.logger().info(f'Decoding {output_path} using tifffile.')
+  cloud_logging_client.info(f'Decoding {output_path} using tifffile.')
   series_bytes = series.asarray()
   if series_bytes is None:
     return False
@@ -182,9 +180,7 @@ def _extract_jpeg_using_tifffile(
       image.extracted_without_decompression = False
       return True
     except (ValueError, OSError) as exp:
-      cloud_logging_client.logger().error(
-          f'Failed to write to {output_path}.', exp
-      )
+      cloud_logging_client.error(f'Failed to write to {output_path}.', exp)
       return False
   if cv2.imwrite(
       output_path,
@@ -194,7 +190,7 @@ def _extract_jpeg_using_tifffile(
     image.photometric_interpretation = _YBR_FULL_422
     image.extracted_without_decompression = False
     return True
-  cloud_logging_client.logger().error(f'Failed to write to {output_path}.')
+  cloud_logging_client.error(f'Failed to write to {output_path}.')
   return False
 
 
@@ -222,7 +218,7 @@ def _extract_ancillary_image_with_openslide(
   if pil_img is None:
     return False
   if pil_img.mode not in ('RGBA', 'RGB', 'L'):
-    cloud_logging_client.logger().error(
+    cloud_logging_client.error(
         'Ancillary image is encoded in unexpected format.',
         {
             ingest_const.LogKeywords.FILENAME: file_path,
@@ -352,18 +348,16 @@ def _ancillary_image(
     True if image extracted
   """
   if extract_jpg_image(file_path, image, series_name):
-    cloud_logging_client.logger().info(
+    cloud_logging_client.info(
         f'File has a {openslide_key} image; extracting directly.'
     )
     return True
   if _extract_ancillary_image_with_openslide(file_path, image, openslide_key):
-    cloud_logging_client.logger().info(
+    cloud_logging_client.info(
         f'File has a {openslide_key} image; extracting using Openslide.'
     )
     return True
-  cloud_logging_client.logger().info(
-      f'File is missing the {openslide_key} image'
-  )
+  cloud_logging_client.info(f'File is missing the {openslide_key} image')
   return False
 
 

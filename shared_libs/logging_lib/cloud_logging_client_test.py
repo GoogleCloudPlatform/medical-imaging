@@ -18,7 +18,6 @@ import concurrent.futures
 import inspect
 import logging
 import os
-import queue
 import re
 import threading
 import time
@@ -43,10 +42,7 @@ _MOCK_BUILD_VERSION = {'BUILD_VERSION': 'MOCK_UNIT_TEST'}
 def _logger_test_thread(val: int) -> None:
   cl = cloud_logging_client.logger()
   cl.log_signature = {'Thread': str(val)}
-  with mock.patch.dict(
-      cl._log_signature[threading.get_native_id()].signature,
-      _MOCK_BUILD_VERSION,
-  ):
+  with mock.patch.dict(cl._thread_local_storage.signature, _MOCK_BUILD_VERSION):
     cl.info(f'Thread_test_{val}')
 
 
@@ -96,7 +92,7 @@ class CloudLoggingTest(parameterized.TestCase):
             'cloud_logging_client_test.py'
         ),
         function='test_get_source_location_to_log',
-        line=77,
+        line=73,
     )  # test will fail if source code line # changes.
     self.assertEqual(location, expected)
 
@@ -223,8 +219,7 @@ class CloudLoggingTest(parameterized.TestCase):
     ):
       cl.log_signature = {}
       with mock.patch.dict(
-          cl._log_signature[threading.get_native_id()].signature,
-          _MOCK_BUILD_VERSION,
+          cl._thread_local_storage.signature, _MOCK_BUILD_VERSION
       ):
         cl._log(
             'test',
@@ -281,8 +276,7 @@ class CloudLoggingTest(parameterized.TestCase):
     ):
       cl.log_signature = {}
       with mock.patch.dict(
-          cl._log_signature[threading.get_native_id()].signature,
-          _MOCK_BUILD_VERSION,
+          cl._thread_local_storage.signature, _MOCK_BUILD_VERSION
       ):
         cl._log(
             'test', cloud_logging_client_instance._LogSeverity.INFO, (None,)
@@ -316,8 +310,7 @@ class CloudLoggingTest(parameterized.TestCase):
     cl = cloud_logging_client.logger()
     cl.log_signature = {}
     with mock.patch.dict(
-        cl._log_signature[threading.get_native_id()].signature,
-        _MOCK_BUILD_VERSION,
+        cl._thread_local_storage.signature, _MOCK_BUILD_VERSION
     ):
       cl._log(
           'test',
@@ -631,6 +624,7 @@ class CloudLoggingTest(parameterized.TestCase):
       cloud_logging_client.CloudLoggingClient, '_log', autospec=True
   )
   @mock.patch.object(time, 'time', side_effect=[2.22, 5.55], autospec=True)
+  @flagsaver.flagsaver(ops_log_project='test_project')
   def test_timed_debug_log(self, _, mocked_method):
     logger_instance = cloud_logging_client.logger()
 
@@ -746,8 +740,7 @@ class CloudLoggingTest(parameterized.TestCase):
       except ValueError as exp:
         cl.log_signature = {}
         with mock.patch.dict(
-            cl._log_signature[threading.get_native_id()].signature,
-            _MOCK_BUILD_VERSION,
+            cl._thread_local_storage.signature, _MOCK_BUILD_VERSION
         ):
           cl.info('test', {'abc': 123}, {'457': 789}, exp)
     mock_pylogger.assert_called_once_with(
@@ -778,18 +771,13 @@ class CloudLoggingTest(parameterized.TestCase):
     cl = cloud_logging_client.logger()
     cl.log_signature = {'Thread': 'Main'}
     with mock.patch.dict(
-        cl._log_signature[threading.get_native_id()].signature,
-        _MOCK_BUILD_VERSION,
+        cl._thread_local_storage.signature, _MOCK_BUILD_VERSION
     ):
       cl.info('main_test_start')
       for x in range(3):
         th = threading.Thread(target=_logger_test_thread, args=(x,))
         th.start()
         th.join()
-      # remove all but running main
-      cl._remove_unused_signatures()
-      # test ._remove_unused_signatures() removed all non-running threads
-      self.assertLen(cl._log_signature, 1)
       # test expected number of messages were logged
       self.assertLen(mock_log.call_args_list, 4)
 
@@ -820,17 +808,13 @@ class CloudLoggingTest(parameterized.TestCase):
     cl = cloud_logging_client.logger()
     cl.log_signature = {'Thread': 'Main'}
     with mock.patch.dict(
-        cl._log_signature[threading.get_native_id()].signature,
-        _MOCK_BUILD_VERSION,
+        cl._thread_local_storage.signature, _MOCK_BUILD_VERSION
     ):
       cl.info('main_test_start')
       for x in range(3):
         th = threading.Thread(target=_logger_test_thread, args=(x,))
         th.start()
         th.join()
-      # remove all but running main
-      cl._remove_unused_signatures()
-      self.assertLen(cl._log_signature, 1)
       self.assertLen(mock_log.call_args_list, 4)
 
       main_log = []
@@ -860,8 +844,7 @@ class CloudLoggingTest(parameterized.TestCase):
     cl = cloud_logging_client.logger()
     cl.log_signature = log_signature
     with mock.patch.dict(
-        cl._log_signature[threading.get_native_id()].signature,
-        _MOCK_BUILD_VERSION,
+        cl._thread_local_storage.signature, _MOCK_BUILD_VERSION
     ):
       cl.info('main_test_start')
       # test that the thread's log signature was used for all messages
@@ -990,8 +973,10 @@ class CloudLoggingTest(parameterized.TestCase):
     )
 
   def test_cloud_logging_client_instance_fork_shutdown_handler(self):
+    client = mock.create_autospec(cloud_logging.Client, instance=True)
+    client.project = ''
     handler = cloud_logging.handlers.CloudLoggingHandler(
-        client=mock.create_autospec(cloud_logging.Client, instance=True),
+        client=client,
         name='foo',
     )
     self.assertNotIn(handler, logging.getLogger().handlers)
@@ -1434,13 +1419,6 @@ class CloudLoggingTest(parameterized.TestCase):
     )
     self.assertNotEqual(signature_main_thread_dict['THREAD_ID'], os.getpid())
 
-  def test_get_thread_id_not_found_throws(self):
-    invalid_thread_id = (
-        max([thread.native_id for thread in threading.enumerate()]) + 99
-    )
-    with self.assertRaises(KeyError):
-      cloud_logging_client_instance._get_thread(invalid_thread_id)
-
   def test_get_per_thread_log_signatures_default(self):
     cl = cloud_logging_client_instance.CloudLoggingClientInstance()
     self.assertTrue(cl.per_thread_log_signatures)
@@ -1451,14 +1429,11 @@ class CloudLoggingTest(parameterized.TestCase):
     )
     self.assertFalse(cl.per_thread_log_signatures)
 
-  def test_set_per_thread_log_signatures(self):
+  @parameterized.parameters([True, False])
+  def test_set_per_thread_log_signatures(self, val):
     cl = cloud_logging_client_instance.CloudLoggingClientInstance()
-    cl._log_signature[1] = cloud_logging_client_instance._LogSignatureObj(
-        0, False
-    )
-    cl.per_thread_log_signatures = False
-    self.assertEmpty(cl._log_signature)
-    self.assertFalse(cl.per_thread_log_signatures)
+    cl.per_thread_log_signatures = val
+    self.assertEqual(cl.per_thread_log_signatures, val)
 
   def test_per_thread_log_signatures_true_logs_thread_id(self):
     cl = cloud_logging_client_instance.CloudLoggingClientInstance(
@@ -1481,39 +1456,6 @@ class CloudLoggingTest(parameterized.TestCase):
 
   def test_per_thread_log_signatures_flag_default(self):
     self.assertTrue(cloud_logging_client.logger().per_thread_log_signatures)
-
-  def test_log_signature_object_is_alive(self):
-    obj = cloud_logging_client_instance._LogSignatureObj(
-        threading.get_native_id(), True
-    )
-    self.assertTrue(obj.is_alive())
-
-  def test_log_signature_object_is_alive_per_thread_false_thread_not_running(
-      self,
-  ):
-    invalid_thread_id = (
-        max([thread.native_id for thread in threading.enumerate()]) + 99
-    )
-    obj = cloud_logging_client_instance._LogSignatureObj(
-        invalid_thread_id, False
-    )
-    self.assertTrue(obj.is_alive())
-
-  def test_log_signature_object_is_alive_false_thread_finishes(
-      self,
-  ):
-    def _get_thread_id(th_queue):
-      th_queue.put(threading.get_native_id())
-      th_queue.join()
-
-    th_queue = queue.Queue()
-    running_thread = threading.Thread(target=_get_thread_id, args=(th_queue,))
-    running_thread.start()
-    thread_id = th_queue.get()
-    obj = cloud_logging_client_instance._LogSignatureObj(thread_id, True)
-    th_queue.task_done()
-    running_thread.join()
-    self.assertFalse(obj.is_alive())
 
   @parameterized.named_parameters([
       dict(
@@ -1580,6 +1522,82 @@ class CloudLoggingTest(parameterized.TestCase):
     self.assertIsNotNone(logger_1)
     self.assertIsNotNone(logger_2)
     self.assertEqual(handler_1 is handler_2, expected)
+
+  @flagsaver.flagsaver(ops_log_project='test_project')
+  def test_get_cloud_logging_client_project_from_env_var(self):
+    self.assertEqual(
+        cloud_logging_client.CloudLoggingClient().gcp_project_name,
+        'test_project',
+    )
+
+  @mock.patch.object(
+      google.auth,
+      'default',
+      autospec=True,
+      return_value=(mock.Mock(), 'test_project_2'),
+  )
+  def test_get_cloud_logging_client_project_from_default_cred(self, _):
+    self.assertEqual(
+        cloud_logging_client.CloudLoggingClient().gcp_project_name,
+        'test_project_2',
+    )
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='no_project',
+          project='',
+          key='key',
+          struct={'key': 'value'},
+          expected={},
+      ),
+      dict(
+          testcase_name='no_key',
+          project='project',
+          key='',
+          struct={'key': 'value'},
+          expected={},
+      ),
+      dict(
+          testcase_name='key_not_in_struct',
+          project='project',
+          key='key',
+          struct={'foo': 'value'},
+          expected={},
+      ),
+      dict(
+          testcase_name='key_in_struct',
+          project='project',
+          key='key',
+          struct={'key': 'value'},
+          expected={'trace': 'projects/project/traces/value'},
+      ),
+  ])
+  def test_add_trace_to_log(self, project, key, struct, expected):
+    self.assertEqual(
+        cloud_logging_client_instance._add_trace_to_log(project, key, struct),
+        expected,
+    )
+
+  def test_trace_empty_if_not_set(self):
+    cl = cloud_logging_client.CloudLoggingClient()
+    self.assertEmpty(cl.trace_key)
+
+  def test_trace_set_value(self):
+    cl = cloud_logging_client.CloudLoggingClient()
+    cl.trace_key = 'test_trace'
+    self.assertEqual(cl.trace_key, 'test_trace')
+
+  def test_do_not_log_startup_msg(self):
+    cloud_logging_client.CloudLoggingClient._startup_message_logged = False
+    with mock.patch.object(
+        cloud_logging_client.CloudLoggingClient, 'startup_msg', autospec=True
+    ) as mock_startup_msg:
+      cloud_logging_client.do_not_log_startup_msg()
+      cloud_logging_client.info('test_log')
+      mock_startup_msg.assert_not_called()
+      self.assertTrue(
+          cloud_logging_client.CloudLoggingClient._startup_message_logged
+      )
 
 
 if __name__ == '__main__':

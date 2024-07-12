@@ -39,8 +39,15 @@ class _MockRedisLockState:
 class _MockRedis:
   """Mock Redis Client."""
 
-  def __init__(self, host: str, port: int):
-    del host, port
+  def __init__(
+      self,
+      host: str,
+      port: int,
+      db: int = 0,
+      username: Optional[str] = None,
+      password: Optional[str] = None,
+  ):
+    del host, port, db, username, password
     self._connected = True
     self._redis_locks: Dict[str, _MockRedisLockState] = {}
     self.lock = threading.Lock()

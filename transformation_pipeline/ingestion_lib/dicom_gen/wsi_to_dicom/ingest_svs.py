@@ -81,7 +81,7 @@ def add_metadata_to_wsi_dicom_files(
   except ancillary_image_extractor.TiffSeriesNotFoundError:
     _, extension = os.path.splitext(gen_dicom.localfile)
     if extension.lower() == '.svs':
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           'Could not find Baseline series in ingested image'
       )
       raise
@@ -92,14 +92,18 @@ def add_metadata_to_wsi_dicom_files(
       _add_burned_in_annotation_and_specimen_label_in_image_if_not_def(dcm_file)
       dicom_util.set_all_defined_pydicom_tags(dcm_file, svs_metadata)
       dicom_util.add_default_optical_path_sequence(dcm_file, icc)
+      dicom_util.add_default_total_pixel_matrix_origin_sequence_if_not_defined(
+          dcm_file
+      )
       dicom_util.add_openslide_dicom_properties(dcm_file, gen_dicom.localfile)
-      dicom_util.add_metadata_to_dicom(
+      dicom_util.add_metadata_to_generated_wsi_dicom(
           additional_wsi_metadata, dcm_json, private_tags, dcm_file
       )
       dicom_util.add_missing_type2_dicom_metadata(dcm_file)
+      dicom_util.if_missing_create_encapsulated_frame_offset_table(dcm_file)
       dcm_file.save_as(dicom_path, write_like_original=True)
     except pydicom.errors.InvalidDicomError as exp:
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           'WSI-to-DICOM conversion created invalid DICOM file.',
           {ingest_const.LogKeywords.FILENAME: dicom_path},
           exp,
@@ -144,7 +148,7 @@ class IngestSVS(ingest_base.IngestBase):
       slide_id = decode_slideid.get_slide_id_from_filename(
           dicom_gen, self.metadata_storage_client
       )
-      cloud_logging_client.logger().info(
+      cloud_logging_client.info(
           'Slide ID identified in file name.',
           {
               ingest_const.LogKeywords.FILENAME: dicom_gen.localfile,
@@ -163,7 +167,7 @@ class IngestSVS(ingest_base.IngestBase):
           self.metadata_storage_client,
           current_exception,
       )
-      cloud_logging_client.logger().info(
+      cloud_logging_client.info(
           'Slide ID identified in image barcode.',
           {ingest_const.LogKeywords.SLIDE_ID: slide_id},
       )
@@ -264,7 +268,7 @@ class IngestSVS(ingest_base.IngestBase):
           abstract_dicom_handler.dcm_store_client,
       ).dicom_json
       generated_series_instance_uid = ingest_base.initialize_metadata_study_and_series_uids_for_non_dicom_image_triggered_ingestion(
-          abstract_dicom_handler.dcm_store_client,
+          abstract_dicom_handler,
           dicom_gen,
           wsi_dcm_json,
           self._init_series_instance_uid_from_metadata(),
@@ -285,9 +289,7 @@ class IngestSVS(ingest_base.IngestBase):
       )
 
       if not dicom_gen.generated_dicom_files:
-        cloud_logging_client.logger().error(
-            'A error occurred converting to DICOM'
-        )
+        cloud_logging_client.error('A error occurred converting to DICOM')
         raise ingest_base.GenDicomFailedError('dicom_conversion_failed')
       svs_metadata = dicom_util.get_svs_metadata(dicom_gen.localfile)
       private_tags = abstract_dicom_generation.get_private_tags_for_gen_dicoms(

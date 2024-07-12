@@ -29,7 +29,7 @@ class IngestedDicomFileRefTest(absltest.TestCase):
   def test_raise_error_on_uninitialized_transfer_syntax_access(self):
     ingest_ref = ingested_dicom_file_ref.IngestDicomFileRef()
     with self.assertRaises(ingested_dicom_file_ref.DicomIngestError):
-      cloud_logging_client.logger().error(str(ingest_ref.transfer_syntax))
+      cloud_logging_client.error(str(ingest_ref.transfer_syntax))
 
   def test_raise_error_double_initialization_of_transfer_syntax(self):
     ingest_ref = ingested_dicom_file_ref.IngestDicomFileRef()

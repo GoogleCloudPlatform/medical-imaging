@@ -16,7 +16,7 @@
 from __future__ import annotations
 
 import dataclasses
-from typing import List, Optional, Set, Union
+from typing import List, Optional, Sequence, Set, Union
 
 import pydicom
 
@@ -124,6 +124,7 @@ def _get_undefined_dicom_tags_by_type(
     ds: pydicom.Dataset,
     tag_type: Set[str],
     dicom_tag_path: DICOMTagPath,
+    require_modules: Optional[Sequence[str]],
 ) -> List[DICOMTagPath]:
   """Returns list of root level undefined DICOM tags that are not defined.
 
@@ -132,13 +133,16 @@ def _get_undefined_dicom_tags_by_type(
     ds: Pydicom Dataset, must be initalized with SOPClassUID.
     tag_type: Set of DICOM tag types to return.
     dicom_tag_path: Path to DICOM dataset to test for undefined tags.
+    require_modules: Require listed IOD modules to be included regardless of
+      Module IOD requirement level; e.g., treat listed modules with C or U usage
+      requirement as having being mandatory.
 
   Returns:
     List of paths to DICOM tags of desired type which are not defined.
   """
   iod_path = [path_element.tag.keyword for path_element in dicom_tag_path.path]
   dataset = dicom_standard.dicom_iod_dataset_util().get_iod_dicom_dataset(
-      iod_name, iod_path=iod_path
+      iod_name, iod_path=iod_path, require_modules=require_modules
   )
   if dataset is None:
     return []
@@ -160,6 +164,7 @@ def _get_undefined_dicom_tags_by_type(
                   inner_ds,
                   tag_type,
                   dicom_tag_path.get_sequence_index(tag, index),
+                  require_modules=require_modules,
               )
           )
       continue
@@ -181,12 +186,16 @@ def _get_undefined_dicom_tags_by_type(
 def get_undefined_dicom_tags_by_type(
     ds: pydicom.Dataset,
     tag_type: Set[str],
+    require_modules: Optional[Sequence[str]] = None,
 ) -> List[DICOMTagPath]:
   """Search DICOM dataset for DICOM tags with tag_type that are not defined.
 
   Args:
     ds: Pydicom Dataset, must be initalized with SOPClassUID.
     tag_type: Set of DICOM tag types to return.
+    require_modules: Require listed IOD modules to be included regardless of
+      Module IOD requirement level; e.g., treat listed modules with C or U usage
+      requirement as having being mandatory.
 
   Returns:
     List of paths to DICOM tags of desired type which are not defined.
@@ -198,11 +207,11 @@ def get_undefined_dicom_tags_by_type(
       ds.SOPClassUID
   )
   if iod_name is None:
-    cloud_logging_client.logger().warning(
+    cloud_logging_client.warning(
         'DICOM standard metadata error could not identify DICOM IOD for UID.',
         {'SOPClassUID': ds.SOPClassUID},
     )
     raise UndefinedIODError()
   return _get_undefined_dicom_tags_by_type(
-      iod_name, ds, tag_type, DICOMTagPath()
+      iod_name, ds, tag_type, DICOMTagPath(), require_modules
   )

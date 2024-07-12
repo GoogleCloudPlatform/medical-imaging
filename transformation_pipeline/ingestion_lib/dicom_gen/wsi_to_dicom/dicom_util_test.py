@@ -14,7 +14,9 @@
 # ==============================================================================
 """Tests for dicom_util."""
 
+import binascii
 import datetime
+import io
 import os
 import shutil
 from typing import Any, MutableMapping, Optional
@@ -23,11 +25,12 @@ from unittest import mock
 from absl.testing import absltest
 from absl.testing import flagsaver
 from absl.testing import parameterized
+import numpy as np
 import openslide
-import PIL
 import pydicom
 
 from shared_libs.test_utils.dicom_store_mock import dicom_store_mock
+from transformation_pipeline import ingest_flags
 from transformation_pipeline.ingestion_lib import gen_test_util
 from transformation_pipeline.ingestion_lib import ingest_const
 from transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
@@ -62,29 +65,100 @@ def icc_bytes() -> bytes:
 
 class DicomUtilTest(parameterized.TestCase):
 
-  def test_add_add_openslide_dicom_properties(self):
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='srgb',
+          icc_profile_color=ingest_flags.DefaultIccProfile.SRGB,
+          expected_len=60960,
+      ),
+      dict(
+          testcase_name='adobergb',
+          icc_profile_color=ingest_flags.DefaultIccProfile.ADOBERGB,
+          expected_len=560,
+      ),
+      dict(
+          testcase_name='rommrgb',
+          icc_profile_color=ingest_flags.DefaultIccProfile.ROMMRGB,
+          expected_len=864,
+      ),
+  ])
+  def test_get_default_icc_profile_color(self, icc_profile_color, expected_len):
+    with flagsaver.flagsaver(default_iccprofile=icc_profile_color):
+      self.assertLen(dicom_util.get_default_icc_profile_color(), expected_len)
+
+  @flagsaver.flagsaver(default_iccprofile=ingest_flags.DefaultIccProfile.NONE)
+  def test_get_default_icc_profile_color_none_returns_none(self):
+    self.assertIsNone(dicom_util.get_default_icc_profile_color())
+
+  @flagsaver.flagsaver(default_iccprofile=10)
+  def test_get_default_icc_profile_color_unexpected_enum_value_raises(self):
+    with self.assertRaises(ValueError):
+      dicom_util.get_default_icc_profile_color()
+
+  def test_unable_to_load_icc_profile_raises(self):
+    with self.assertRaises(FileNotFoundError):
+      dicom_util._read_icc_profile('file_not_found.icc')
+
+  @parameterized.parameters([
+      ingest_flags.DefaultIccProfile.ADOBERGB,
+      ingest_flags.DefaultIccProfile.ROMMRGB,
+  ])
+  @mock.patch.object(
+      dicom_util,
+      '_read_icc_profile',
+      autospec=True,
+      side_effect=FileNotFoundError(),
+  )
+  def test_get_default_icc_profile_color_unable_to_load_profile_raises_file_not_found(
+      self, profile, _
+  ):
+    with flagsaver.flagsaver(default_iccprofile=profile):
+      with self.assertRaises(FileNotFoundError):
+        dicom_util.get_default_icc_profile_color()
+
+  @mock.patch.object(
+      dicom_util,
+      '_read_icc_profile',
+      autospec=True,
+      side_effect=FileNotFoundError(),
+  )
+  @flagsaver.flagsaver(default_iccprofile=ingest_flags.DefaultIccProfile.SRGB)
+  def test_get_default_srgb_icc_profile_color_unable_to_load_profile_returns_pill_version_if_file_not_found(
+      self, _
+  ):
+    profile = dicom_util.get_default_icc_profile_color()
+    self.assertLen(profile, 588)
+
+  @mock.patch.object(
+      dicom_util,
+      '_get_colorspace_description_from_iccprofile_bytes',
+      autospec=True,
+      return_value='SRGB',
+  )
+  def test_add_add_openslide_dicom_properties(self, unused_mock):
     ds = pydicom.Dataset()
     dicom_util.add_default_optical_path_sequence(ds, None)
     path = gen_test_util.test_file_path('ndpi_test.ndpi')
     dicom_util.add_openslide_dicom_properties(ds, path)
     self.assertEqual(ds.OpticalPathSequence[0].ObjectiveLensPower, '20')
     self.assertNotIn('RecommendedAbsentPixelCIELabValue', ds)
-    self.assertEqual(
-        ds.TotalPixelMatrixOriginSequence[0].XOffsetInSlideCoordinateSystem, 0
-    )
-    self.assertEqual(
-        ds.TotalPixelMatrixOriginSequence[0].YOffsetInSlideCoordinateSystem, 0
-    )
 
   @parameterized.parameters(
       ['TotalPixelMatrixOriginSequence', 'OpticalPathSequence']
   )
   @flagsaver.flagsaver(add_openslide_total_pixel_matrix_origin_seq=True)
+  @mock.patch.object(
+      dicom_util,
+      '_get_colorspace_description_from_iccprofile_bytes',
+      autospec=True,
+      return_value='SRGB',
+  )
   def test_add_add_openslide_dicom_properties_raises_value_error_missing_sq(
-      self, sq_name
+      self, sq_name, unused_mock
   ):
     ds = pydicom.Dataset()
     dicom_util.add_default_optical_path_sequence(ds, None)
+    dicom_util.add_default_total_pixel_matrix_origin_sequence_if_not_defined(ds)
     path = gen_test_util.test_file_path('ndpi_test.ndpi')
     del ds[sq_name]
     with self.assertRaises(ValueError):
@@ -200,15 +274,12 @@ class DicomUtilTest(parameterized.TestCase):
     self.assertTrue(dicom_util.has_optical_path_sequence(ds))
 
   @mock.patch.object(
-      PIL.ImageCms, 'ImageCmsProfile', return_value=mock.Mock(), autospec=True
-  )
-  @mock.patch.object(
-      PIL.ImageCms,
-      'getProfileDescription',
-      return_value='result',
+      dicom_util,
+      '_get_colorspace_description_from_iccprofile_bytes',
       autospec=True,
+      return_value='SRGB',
   )
-  def test_add_icc_colorspace_if_missing(self, m1, m2):  # pylint: disable=unused-argument
+  def test_add_icc_colorspace_if_missing(self, unused_mock):
     profile = icc_bytes()
     inner_ds = pydicom.Dataset()
     inner_ds.ICCProfile = profile
@@ -219,8 +290,8 @@ class DicomUtilTest(parameterized.TestCase):
 
     dicom_util.add_icc_colorspace_if_not_defined(test)
 
-    self.assertEqual(test.ColorSpace, 'RESULT')
-    self.assertEqual(test.OpticalPathSequence[0].ColorSpace, 'RESULT')
+    self.assertEqual(test.ColorSpace, 'SRGB')
+    self.assertEqual(test.OpticalPathSequence[0].ColorSpace, 'SRGB')
 
   def test_single_code_val_sq(self):
     ds = dicom_util._single_code_val_sq('123', 'bar', 'foo')
@@ -231,15 +302,12 @@ class DicomUtilTest(parameterized.TestCase):
     self.assertEqual(ds[0].CodeMeaning, 'foo')
 
   @mock.patch.object(
-      PIL.ImageCms, 'ImageCmsProfile', return_value=mock.Mock(), autospec=True
-  )
-  @mock.patch.object(
-      PIL.ImageCms,
-      'getProfileDescription',
-      return_value='result',
+      dicom_util,
+      '_get_colorspace_description_from_iccprofile_bytes',
       autospec=True,
+      return_value='SRGB',
   )
-  def test_add_default_optical_path_sequence(self, m1, m2):  # pylint: disable=unused-argument
+  def test_add_default_optical_path_sequence(self, unused_mock):
     profile = icc_bytes()
     ds = pydicom.FileDataset('foo.dcm', pydicom.Dataset())
     self.assertTrue(dicom_util.add_default_optical_path_sequence(ds, profile))
@@ -248,15 +316,6 @@ class DicomUtilTest(parameterized.TestCase):
     first_seq = ds.OpticalPathSequence[0]
     self.assertLen(first_seq.IlluminationTypeCodeSequence, 1)
     self.assertLen(first_seq.IlluminationColorCodeSequence, 1)
-    self.assertLen(ds.TotalPixelMatrixOriginSequence, 1)
-    self.assertEqual(
-        ds.TotalPixelMatrixOriginSequence[0].XOffsetInSlideCoordinateSystem,
-        0,
-    )
-    self.assertEqual(
-        ds.TotalPixelMatrixOriginSequence[0].YOffsetInSlideCoordinateSystem,
-        0,
-    )
     illumination_color = (
         first_seq.IlluminationColorCodeSequence[0].CodeValue,
         first_seq.IlluminationColorCodeSequence[0].CodingSchemeDesignator,
@@ -280,7 +339,51 @@ class DicomUtilTest(parameterized.TestCase):
         illumination_type, ('111741', 'DCM', 'Transmission illumination')
     )
     self.assertEqual(
-        optical_path_seq_tags, ('1', 'Transmitted Light', profile, 'RESULT')
+        optical_path_seq_tags, ('1', 'Transmitted Light', profile, 'SRGB')
+    )
+
+  def test_add_default_total_pixel_matrix_origin_sequence_if_not_defined(self):
+    ds = pydicom.FileDataset('foo.dcm', pydicom.Dataset())
+    self.assertTrue(
+        dicom_util.add_default_total_pixel_matrix_origin_sequence_if_not_defined(
+            ds
+        )
+    )
+    self.assertLen(ds.TotalPixelMatrixOriginSequence, 1)
+    self.assertEqual(
+        ds.TotalPixelMatrixOriginSequence[0].XOffsetInSlideCoordinateSystem,
+        0,
+    )
+    self.assertEqual(
+        ds.TotalPixelMatrixOriginSequence[0].YOffsetInSlideCoordinateSystem,
+        0,
+    )
+    self.assertFalse(
+        dicom_util.add_default_total_pixel_matrix_origin_sequence_if_not_defined(
+            ds
+        )
+    )
+
+  def test_add_default_total_pixel_matrix_origin_sequence_not_overwrite_defined(
+      self,
+  ):
+    ds = pydicom.FileDataset('foo.dcm', pydicom.Dataset())
+    dicom_util.add_default_total_pixel_matrix_origin_sequence_if_not_defined(ds)
+    ds.TotalPixelMatrixOriginSequence[0].XOffsetInSlideCoordinateSystem = 10
+    ds.TotalPixelMatrixOriginSequence[0].YOffsetInSlideCoordinateSystem = 10
+    self.assertFalse(
+        dicom_util.add_default_total_pixel_matrix_origin_sequence_if_not_defined(
+            ds
+        )
+    )
+    self.assertLen(ds.TotalPixelMatrixOriginSequence, 1)
+    self.assertEqual(
+        ds.TotalPixelMatrixOriginSequence[0].XOffsetInSlideCoordinateSystem,
+        10,
+    )
+    self.assertEqual(
+        ds.TotalPixelMatrixOriginSequence[0].YOffsetInSlideCoordinateSystem,
+        10,
     )
 
   def test_add_default_optical_path_sequence_has_existing(self):
@@ -301,15 +404,12 @@ class DicomUtilTest(parameterized.TestCase):
     self.assertNotIn('ColorSpace', ds)
 
   @mock.patch.object(
-      PIL.ImageCms, 'ImageCmsProfile', return_value=mock.Mock(), autospec=True
-  )
-  @mock.patch.object(
-      PIL.ImageCms,
-      'getProfileDescription',
-      return_value='result',
+      dicom_util,
+      '_get_colorspace_description_from_iccprofile_bytes',
       autospec=True,
+      return_value='SRGB',
   )
-  def test_add_icc_colorspace_to_dicom(self, m1, m2):  # pylint: disable=unused-argument
+  def test_add_icc_colorspace_to_dicom(self, unused_mock):
     profile = icc_bytes()
     ds = pydicom.Dataset()
     ds.ColorSpace = 'foo'
@@ -317,18 +417,15 @@ class DicomUtilTest(parameterized.TestCase):
 
     dicom_util.add_icc_colorspace_to_dicom(ds)
 
-    self.assertEqual(ds.ColorSpace, 'RESULT')
+    self.assertEqual(ds.ColorSpace, 'SRGB')
 
   @mock.patch.object(
-      PIL.ImageCms, 'ImageCmsProfile', return_value=mock.Mock(), autospec=True
-  )
-  @mock.patch.object(
-      PIL.ImageCms,
-      'getProfileDescription',
-      side_effect=dicom_util.InvalidICCProfileError(),
+      dicom_util,
+      '_get_colorspace_description_from_iccprofile_bytes',
       autospec=True,
+      side_effect=dicom_util.InvalidICCProfileError,
   )
-  def test_add_icc_colorspace_to_dicom_invalid_profile(self, m1, m2):  # pylint: disable=unused-argument
+  def test_add_icc_colorspace_to_dicom_invalid_profile(self, unused_mock):
     ds = pydicom.Dataset()
     ds.ColorSpace = 'foo'
     ds.ICCProfile = b'1234'
@@ -337,15 +434,12 @@ class DicomUtilTest(parameterized.TestCase):
       dicom_util.add_icc_colorspace_to_dicom(ds)
 
   @mock.patch.object(
-      PIL.ImageCms, 'ImageCmsProfile', return_value=mock.Mock(), autospec=True
-  )
-  @mock.patch.object(
-      PIL.ImageCms,
-      'getProfileDescription',
-      return_value='result',
+      dicom_util,
+      '_get_colorspace_description_from_iccprofile_bytes',
       autospec=True,
+      return_value='SRGB',
   )
-  def test_add_icc_profile_to_dicom(self, m1, m2):  # pylint: disable=unused-argument
+  def test_add_icc_profile_to_dicom(self, unused_mock):
     profile = icc_bytes()
     ds = pydicom.Dataset()
     ds.ICCProfile = b'1234'
@@ -354,7 +448,7 @@ class DicomUtilTest(parameterized.TestCase):
     dicom_util._add_icc_profile_to_dicom(ds, profile)
 
     self.assertEqual(ds.ICCProfile, profile)
-    self.assertEqual(ds.ColorSpace, 'RESULT')
+    self.assertEqual(ds.ColorSpace, 'SRGB')
 
   def test_add_icc_profile_to_dicom_no_icc(self):
     ds = pydicom.Dataset()
@@ -513,21 +607,7 @@ class DicomUtilTest(parameterized.TestCase):
     self.assertEqual(dest.FrameOfReferenceUID, '1.2.3')
     self.assertEqual(dest.PositionReferenceIndicator, 'bar')
 
-  @flagsaver.flagsaver(
-      pod_hostname='1234', dicom_guid_prefix=uid_generator.TEST_UID_PREFIX
-  )
   def test_set_sop_instance_uid(self):
-    ds = pydicom.Dataset()
-    ds.file_meta = pydicom.dataset.FileMetaDataset()
-    dicom_util.set_sop_instance_uid(ds)
-
-    self.assertEqual(ds.file_meta.MediaStorageSOPInstanceUID, ds.SOPInstanceUID)
-    self.assertStartsWith(
-        ds.file_meta.MediaStorageSOPInstanceUID, ingest_const.DPAS_UID_PREFIX
-    )
-    self.assertStartsWith(ds.SOPInstanceUID, ingest_const.DPAS_UID_PREFIX)
-
-  def test_set_sop_instance_uid_custom_uid(self):
     ds = pydicom.Dataset()
     ds.file_meta = pydicom.dataset.FileMetaDataset()
     sop_instance_uid = pydicom.uid.generate_uid()
@@ -731,6 +811,7 @@ class DicomUtilTest(parameterized.TestCase):
         'ContainerTypeCodeSequence',
         'BarcodeValue',
         'AlternateContainerIdentifierSequence[0].IssuerOfTheContainerIdentifierSequence',
+        'LabelText',
     }
     expected_tags = additional_expected_tags | expected_tags
     ds = pydicom.Dataset()
@@ -797,6 +878,301 @@ class DicomUtilTest(parameterized.TestCase):
         .StudyInstanceUID,
         '4.6.3',
     )
+
+  @parameterized.named_parameters(
+      dict(
+          testcase_name='image_volume_depth_defined',
+          metadata='{"00480003": {"Value": [5.0], "vr": "FL"}}',
+          expected=5.0,
+      ),
+      dict(
+          testcase_name='slice_thickness_undefined_init_from_flg',
+          metadata='{}',
+          expected=12.0,
+      ),
+      dict(
+          testcase_name='slice_thickness_defined_from_pixel_measurment_sq',
+          metadata=(
+              '{"52009229": {"vr": "SQ", "Value": [{"00289110": {"vr": "SQ",'
+              ' "Value": [{"00180050": {"vr": "DS", "Value":["0.004"]}}]}}]}}'
+          ),
+          expected=4.0,
+      ),
+  )
+  def test_init_slice_thickness_metadata_if_undefined(self, metadata, expected):
+    ds = pydicom.Dataset().from_json(metadata)
+    dicom_util._init_slice_thickness_metadata_if_undefined(ds)
+    self.assertEqual(ds.ImagedVolumeDepth, expected)
+    self.assertEqual(
+        ds.SharedFunctionalGroupsSequence[0]
+        .PixelMeasuresSequence[0]
+        .SliceThickness,
+        expected / 1000.0,
+    )
+
+  def test_init_acquision_date_time_if_undefined_nop_defined_in_metadata(self):
+    metadata = '{"0008002A": {"Value": ["20230617120160.50"], "vr": "DT"}}'
+    ds = pydicom.Dataset().from_json(metadata)
+    dicom_util._init_acquision_date_time_if_undefined(ds)
+    self.assertEqual(ds.AcquisitionDateTime, '20230617120160.50')
+    self.assertNotIn('AcquisitionDate', ds)
+    self.assertNotIn('AcquisitionTime', ds)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='acquision_date_time_tags',
+          metadata=(
+              '{"00080022": {"Value": ["20230617"], "vr": "DA"},'
+              ' "00080032":{"Value":["111213.1"], "vr":"TM"}, "00080023":'
+              ' {"Value": ["10230617"], "vr": "DA"},'
+              ' "00080033":{"Value":["211213.1"], "vr":"TM"}}'
+          ),
+          exp_date='20230617',
+          exp_time='111213.1',
+          exp_datetime='20230617111213.1',
+      ),
+      dict(
+          testcase_name='content_date_time_tags',
+          metadata=(
+              '{"00080023": {"Value": ["10230617"], "vr": "DA"},'
+              ' "00080033":{"Value":["211213.1"], "vr":"TM"}}'
+          ),
+          exp_date='10230617',
+          exp_time='211213.1',
+          exp_datetime='10230617211213.1',
+      ),
+      dict(
+          testcase_name='undefined_use_current_datetime',
+          metadata='{}',
+          exp_date='19960612',
+          exp_time='061215.123',
+          exp_datetime='19960612061215.123',
+      ),
+      dict(
+          testcase_name='pad_acquision_time',
+          metadata=(
+              '{"00080022": {"Value": ["2023"], "vr": "DA"},'
+              ' "00080032":{"Value":["11"], "vr":"TM"}, "00080023":'
+              ' {"Value": ["10230617"], "vr": "DA"},'
+              ' "00080033":{"Value":["211213.1"], "vr":"TM"}}'
+          ),
+          exp_date='2023',
+          exp_time='11',
+          exp_datetime='20230000110000',
+      ),
+      dict(
+          testcase_name='pad_content_date_time',
+          metadata=(
+              '{"00080023": {"Value": ["1023"], "vr": "DA"},'
+              ' "00080033":{"Value":["21"], "vr":"TM"}}'
+          ),
+          exp_date='1023',
+          exp_time='21',
+          exp_datetime='10230000210000',
+      ),
+  ])
+  @mock.patch.object(
+      dicom_util,
+      '_dicom_formatted_date',
+      autospec=True,
+      return_value='19960612',
+  )
+  @mock.patch.object(
+      dicom_util,
+      '_dicom_formatted_time',
+      autospec=True,
+      return_value='061215.123',
+  )
+  def test_init_acquision_date_time_if_undefined(
+      self, *unused_mocks, metadata, exp_date, exp_time, exp_datetime
+  ):
+    ds = pydicom.Dataset().from_json(metadata)
+    dicom_util._init_acquision_date_time_if_undefined(ds)
+    self.assertEqual(ds.AcquisitionDateTime, exp_datetime)
+    self.assertEqual(ds.AcquisitionDate, exp_date)
+    self.assertEqual(ds.AcquisitionTime, exp_time)
+
+  def test_create_basic_offset_tables(self):
+    mock_frame_data = (''.join([str(i) for i in range(0, 10)])).encode('utf-8')
+    file_meta = pydicom.dataset.FileMetaDataset()
+    file_meta.TransferSyntaxUID = (
+        ingest_const.DicomImageTransferSyntax.JPEG_LOSSY
+    )
+    ds = pydicom.FileDataset(
+        '', pydicom.Dataset(), file_meta=file_meta, preamble=b'\0' * 128
+    )
+    ds.NumberOfFrames = 3
+    ds.PixelData = pydicom.encaps.encapsulate(
+        [mock_frame_data, mock_frame_data, mock_frame_data]
+    )
+
+    dicom_util.if_missing_create_encapsulated_frame_offset_table(ds)
+
+    # test basic offset table points to Frame Data.
+    file_like = pydicom.filebase.DicomFileLike(io.BytesIO(ds.PixelData))
+    file_like.is_little_endian = True
+    has_basic_offset_table, offset_table = pydicom.encaps.get_frame_offsets(
+        file_like
+    )
+    self.assertTrue(has_basic_offset_table)
+    self.assertNotIn('ExtendedOffsetTable', ds)
+    self.assertNotIn('ExtendedOffsetTableLengths', ds)
+    # Basic offset table format:
+    # https://dicom.nema.org/medical/dicom/current/output/chtml/part05/sect_A.4.html
+    # tag(0xfeff00e0)(4 byte basic offset table length)[(4 byte offset to start
+    # of frame)*number_of_frames][(frame pixel data tag 4 bytes, feff00e0)
+    # (4 byte frame data length)(frame data) * number_of_frames].
+
+    # Validate basic offset table
+    with io.BytesIO(ds.PixelData) as pixe_data:
+      tag = binascii.hexlify(bytearray(pixe_data.read(4)))
+      # offset table tag.
+      self.assertEqual(tag, b'feff00e0')
+      # read length of offset table
+      table_size = int.from_bytes(pixe_data.read(4), 'little')
+      self.assertEqual(table_size, 12)
+      # size of header is table size + tag size + size of table length.
+      table_size += 8
+    # Validate can use basic offset table to access encapsulated frame
+    # data.
+    with io.BytesIO(ds.PixelData) as pixe_data:
+      for index in range(3):
+        offset = offset_table[index] + table_size
+        # Seek to start of frame
+        pixe_data.seek(offset, os.SEEK_CUR)
+        # Read frame tag.
+        tag = binascii.hexlify(bytearray(pixe_data.read(4)))
+        self.assertEqual(tag, b'feff00e0')
+        # read length of frame data.
+        length = int.from_bytes(pixe_data.read(4), 'little')
+        # read frame data.
+        frame_data = pixe_data.read(length)
+        self.assertEqual(frame_data, mock_frame_data)
+        # seek back to start of first frame
+        pixe_data.seek(-offset - 8 - length, os.SEEK_CUR)
+
+  def test_create_extended_offset_tables(self):
+    large_frame_data = np.arange(0, 1024, dtype=np.uint32).tobytes()
+    file_meta = pydicom.dataset.FileMetaDataset()
+    file_meta.TransferSyntaxUID = (
+        ingest_const.DicomImageTransferSyntax.JPEG_LOSSY
+    )
+    ds = pydicom.FileDataset(
+        '', pydicom.Dataset(), file_meta=file_meta, preamble=b'\0' * 128
+    )
+    ds.NumberOfFrames = 3
+    ds.PixelData = pydicom.encaps.encapsulate(
+        [large_frame_data] * ds.NumberOfFrames, has_bot=False
+    )
+
+    original_max_pixel_data_size = (
+        dicom_util._MAX_PIXEL_DATA_SIZE_FOR_BASIC_OFFSET_TABLE
+    )
+    try:
+      dicom_util._MAX_PIXEL_DATA_SIZE_FOR_BASIC_OFFSET_TABLE = 0xFF
+      dicom_util.if_missing_create_encapsulated_frame_offset_table(ds)
+    finally:
+      dicom_util._MAX_PIXEL_DATA_SIZE_FOR_BASIC_OFFSET_TABLE = (
+          original_max_pixel_data_size
+      )
+    # test basic offset table points to Frame Data.
+    file_like = pydicom.filebase.DicomFileLike(io.BytesIO(ds.PixelData))
+    file_like.is_little_endian = True
+    has_basic_offset_table, _ = pydicom.encaps.get_frame_offsets(file_like)
+    self.assertFalse(has_basic_offset_table)
+    extended_offset_table = np.frombuffer(
+        ds.ExtendedOffsetTable, dtype=np.uint64
+    )
+    extended_offset_table_length = np.frombuffer(
+        ds.ExtendedOffsetTableLengths, dtype=np.uint64
+    )
+    with io.BytesIO(ds.PixelData) as pixe_data:
+      for index in range(3):
+        offset = int(extended_offset_table[index] + 8)
+        extended_offset_length = extended_offset_table_length[index]
+        # Seek to start of frame
+        pixe_data.seek(offset, os.SEEK_CUR)
+        # Read frame tag.
+        tag = binascii.hexlify(bytearray(pixe_data.read(4)))
+        self.assertEqual(tag, b'feff00e0')
+        # read length of frame data.
+        length = int.from_bytes(pixe_data.read(4), 'little')
+        self.assertEqual(length, extended_offset_length)
+        # read frame data.
+        frame_data = pixe_data.read(length)
+        self.assertEqual(frame_data, large_frame_data)
+        # seek back to start of first frame
+        pixe_data.seek(-offset - 8 - length, os.SEEK_CUR)
+
+  def test_create_offset_tables_nop_if_no_pixel_data(self):
+    file_meta = pydicom.dataset.FileMetaDataset()
+    file_meta.TransferSyntaxUID = (
+        ingest_const.DicomImageTransferSyntax.JPEG_LOSSY
+    )
+    ds = pydicom.FileDataset(
+        '', pydicom.Dataset(), file_meta=file_meta, preamble=b'\0' * 128
+    )
+    dicom_util.if_missing_create_encapsulated_frame_offset_table(ds)
+    self.assertNotIn('PixelData', ds)
+    self.assertNotIn('ExtendedOffsetTable', ds)
+    self.assertNotIn('ExtendedOffsetTableLengths', ds)
+
+  def test_create_offset_tables_nop_if_not_encapsulated_pixel_data(self):
+    file_meta = pydicom.dataset.FileMetaDataset()
+    file_meta.TransferSyntaxUID = (
+        ingest_const.DicomImageTransferSyntax.IMPLICIT_VR_LITTLE_ENDIAN
+    )
+    ds = pydicom.FileDataset(
+        '', pydicom.Dataset(), file_meta=file_meta, preamble=b'\0' * 128
+    )
+    ds.PixelData = b'1234'
+    dicom_util.if_missing_create_encapsulated_frame_offset_table(ds)
+
+    with io.BytesIO(ds.PixelData) as pixe_data:
+      tag = binascii.hexlify(bytearray(pixe_data.read(4)))
+      # offset table tag.
+      self.assertNotEqual(tag, b'feff00e0')
+
+    self.assertNotIn('ExtendedOffsetTable', ds)
+    self.assertNotIn('ExtendedOffsetTableLengths', ds)
+
+  def test_create_offset_tables_nop_if_has_basic_offset_tables(self):
+    file_meta = pydicom.dataset.FileMetaDataset()
+    file_meta.TransferSyntaxUID = (
+        ingest_const.DicomImageTransferSyntax.JPEG_LOSSY
+    )
+    ds = pydicom.FileDataset(
+        '', pydicom.Dataset(), file_meta=file_meta, preamble=b'\0' * 128
+    )
+    ds.NumberOfFrames = 4
+    ds.PixelData = pydicom.encaps.encapsulate([b'1234'] * ds.NumberOfFrames)
+    with mock.patch.object(
+        pydicom.encaps, 'encapsulate', autospec=True
+    ) as mock_encapsulate:
+      dicom_util.if_missing_create_encapsulated_frame_offset_table(ds)
+      mock_encapsulate.assert_not_called()
+    self.assertNotIn('ExtendedOffsetTable', ds)
+    self.assertNotIn('ExtendedOffsetTableLengths', ds)
+
+  def test_create_offset_tables_nop_if_has_extended_offset_tables(self):
+    file_meta = pydicom.dataset.FileMetaDataset()
+    file_meta.TransferSyntaxUID = (
+        ingest_const.DicomImageTransferSyntax.JPEG_LOSSY
+    )
+    ds = pydicom.FileDataset(
+        '', pydicom.Dataset(), file_meta=file_meta, preamble=b'\0' * 128
+    )
+    ds.NumberOfFrames = 4
+    ds.PixelData = pydicom.encaps.encapsulate(
+        [b'1234'] * ds.NumberOfFrames, has_bot=False
+    )
+    ds.ExtendedOffsetTable = b'12345678'
+    with mock.patch.object(
+        pydicom.encaps, 'encapsulate', autospec=True
+    ) as mock_encapsulate:
+      dicom_util.if_missing_create_encapsulated_frame_offset_table(ds)
+      mock_encapsulate.assert_not_called()
+    self.assertNotIn('ExtendedOffsetTableLengths', ds)
 
 
 if __name__ == '__main__':

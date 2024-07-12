@@ -180,6 +180,11 @@ class BlobMockTest(parameterized.TestCase):
         self, actual_blob, mocked_blob
     )
 
+  def test_blob_with_no_chunk(self):
+    mocked_blob_no_chunk = blob_mock.BlobMock('fake', None)
+    with self.assertRaises(gcs_mock_types.GcsMockError):
+      mocked_blob_no_chunk.path  # pylint: disable=pointless-statement
+
   @parameterized.named_parameters([
       dict(
           testcase_name='blob_exists',

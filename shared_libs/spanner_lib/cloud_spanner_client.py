@@ -16,7 +16,6 @@
 
 Provides the utilities for read/write access to Cloud Spanner.
 """
-import os
 from typing import Any, Dict, List, Optional, TypeVar
 
 from absl import flags
@@ -24,15 +23,18 @@ from google.cloud import spanner
 from google.cloud.spanner_v1 import database
 from google.cloud.spanner_v1 import streamed
 
+from shared_libs.flags import secret_flag_utils
 from shared_libs.logging_lib import cloud_logging_client
 
 INSTANCE_ID_FLG = flags.DEFINE_string(
     'instance_id',
-    os.environ.get('INSTANCE_ID'),
+    secret_flag_utils.get_secret_or_env('INSTANCE_ID', None),
     'Instance Id of instance containing database.',
 )
 DATABASE_NAME_FLG = flags.DEFINE_string(
-    'database_name', os.environ.get('DATABASE_NAME'), 'Name of database.'
+    'database_name',
+    secret_flag_utils.get_secret_or_env('DATABASE_NAME', None),
+    'Name of database.',
 )
 
 CloudSpannerClientType = TypeVar(
@@ -49,7 +51,7 @@ class CloudSpannerClient:
 
   def __init__(self):
     """Initializes a Cloud Spanner Client wrapper."""
-    cloud_logging_client.logger().info(
+    cloud_logging_client.info(
         'Connecting to Spanner instance.',
         {
             'instance_id': INSTANCE_ID_FLG.value,

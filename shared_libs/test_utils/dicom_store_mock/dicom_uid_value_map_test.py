@@ -66,13 +66,6 @@ class DicomUidValueMapTest(parameterized.TestCase):
     self.assertEmpty(list(val_map.get_instances(uid)))
     self.assertEmpty(val_map._uid_value_map)
 
-  @parameterized.parameters([(('', '2', '3'),), (('1', '', '3'),)])
-  def test_get_bad_formatted_uid_raises(self, uid):
-    val_map = dicom_uid_value_map.DicomUidValueMap[int]()
-    with self.assertRaises(dicom_uid_value_map.UidValueMapError):
-      val_map.get_instances(uid)
-    self.assertEmpty(val_map._uid_value_map)
-
   def test_remove_all_uid_value_from_empty_map(self):
     uid = ('', '', '')
     val_map = dicom_uid_value_map.DicomUidValueMap[int]()

@@ -75,7 +75,7 @@ class DicomPrivateTagGenerator(object):
       address = DicomPrivateTagGenerator._get_address(private_tag.address)
       block.add_new(address & 0x000000FF, private_tag.vr, private_tag.value)
     if log_action:
-      cloud_logging_client.logger().info(
+      cloud_logging_client.info(
           'Adding private tag to dataset',
           {'private_dicom_tags': str(private_tags)},
       )
@@ -98,7 +98,7 @@ class DicomPrivateTagGenerator(object):
           private_tags, dcm, log_action=False
       )
       dcm.save_as(file_name, write_like_original=True)
-      cloud_logging_client.logger().info(
+      cloud_logging_client.info(
           'Adding private tags to DICOM',
           {
               ingest_const.LogKeywords.FILENAME: file_name,

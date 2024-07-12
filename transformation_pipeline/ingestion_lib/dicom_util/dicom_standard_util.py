@@ -26,7 +26,8 @@ Main class: DicomStandardIODUtil
 import dataclasses
 import json
 import os
-from typing import Any, List, Mapping, NewType, Optional, Set, Union
+import re
+from typing import Any, List, Mapping, NewType, Optional, Sequence, Set, Union
 
 IODName = NewType('IODName', str)
 ModuleName = NewType('ModuleName', str)
@@ -41,6 +42,8 @@ DicomTableTagRequirement = NewType('DicomTableTagRequirement', str)
 
 DicomPathEntry = Union[DicomTagAddress, DicomKeyword, str]
 DicomPathType = List[DicomPathEntry]
+
+_RE_IS_UID_IOD = re.compile(r'[0-9\.]+')
 
 
 @dataclasses.dataclass
@@ -132,6 +135,10 @@ class DICOMSpecMetadataError(Exception):
   pass
 
 
+def _module_name_search(name: str) -> str:
+  return name.replace(' ', '').strip()
+
+
 class DicomStandardIODUtil(object):
   """Utility class decodes and work with DICOM spec generated json.
 
@@ -176,7 +183,12 @@ class DicomStandardIODUtil(object):
     self._iod_uid = DicomStandardIODUtil._read_json(
         'dicom_iod_class_uid.json', json_dir
     )
-    self._iod = DicomStandardIODUtil._read_json('dicom_iod.json', json_dir)
+    self._iod_to_module_map = DicomStandardIODUtil._read_json(
+        'dicom_iod_module_map.json', json_dir
+    )
+    self._iod_modules = DicomStandardIODUtil._read_json(
+        'dicom_iod.json', json_dir
+    )
     self._modules = DicomStandardIODUtil._read_json(
         'dicom_modules.json', json_dir
     )
@@ -201,8 +213,8 @@ class DicomStandardIODUtil(object):
           ' different versions of the specification. Json '
           'metadata should be regenerated.'
       )
-    self._version = self._iod['header']['dicom_standard_version']
-    self._iod = self._iod['dicom_iod']
+    self._version = self._iod_modules['header']['dicom_standard_version']
+    self._iod_modules = self._iod_modules['dicom_iod']
     self._modules = self._modules['dicom_modules']
     self._table = self._table['dicom_tables_part_1']
     self._table2 = self._table2['dicom_tables_part_2']
@@ -297,7 +309,7 @@ class DicomStandardIODUtil(object):
       return self._header_test_result
     version_set = set()
     for tstobj in [
-        self._iod,
+        self._iod_modules,
         self._modules,
         self._table,
         self._tags,
@@ -313,7 +325,7 @@ class DicomStandardIODUtil(object):
 
   def list_dicom_iods(self) -> List[IODName]:
     """Returns a list of DICOM IODs."""
-    return [IODName(iod_name) for iod_name in sorted(list(self._iod.keys()))]
+    return [IODName(iod_name) for iod_name in sorted(list(self._iod_uid))]
 
   def get_table(self, table_name: TableName) -> Table:
     """Returns named tables JSON definition.
@@ -357,11 +369,16 @@ class DicomStandardIODUtil(object):
         for item in self._modules[name]
     ]
 
-  def get_iod_modules(self, iod_name: IODName) -> List[ModuleDef]:
+  def get_iod_modules(
+      self, iod_name: IODName, require_modules: Optional[Sequence[str]] = None
+  ) -> List[ModuleDef]:
     """Returns list of modules defined in an IOD.
 
     Args:
       iod_name: Name of DICOM IOD to return modules (str).
+      require_modules: Require listed IOD modules to be included regardless of
+        Module IOD requirement level; e.g., treat listed modules with C or U
+        usage, requirement as having being mandatory.
 
     Returns:
       List of module definitions
@@ -369,13 +386,22 @@ class DicomStandardIODUtil(object):
     Raises:
       DICOMSpecMetadataError: DICOM IOD name not found.
     """
-    module_list = self._iod.get(iod_name)
+    if require_modules is None:
+      require_modules = set()
+    else:
+      require_modules = {_module_name_search(name) for name in require_modules}
+    module_list = self._iod_modules.get(self._get_iod_primary_module(iod_name))
     if module_list is None:
       raise DICOMSpecMetadataError(f'IOD: {iod_name} not found.')
-    return [
-        ModuleDef(module['name'], module['ref'], module['usage'])
-        for module in module_list
-    ]
+    return_module_list = []
+    for module in module_list:
+      name = module['name']
+      ref = module['ref']
+      usage = module['usage']
+      if usage != 'M' and _module_name_search(name) in require_modules:
+        usage = 'M'
+      return_module_list.append(ModuleDef(name, ref, usage))
+    return return_module_list
 
   def get_iod_functional_group_modules(
       self, iod_name: IODName
@@ -392,7 +418,9 @@ class DicomStandardIODUtil(object):
       DICOMSpecMetadataError: DICOM IOD name not found or functional group not
         found.
     """
-    module_list = self._iod_functional_group_modules.get(iod_name)
+    module_list = self._iod_functional_group_modules.get(
+        self._get_iod_primary_module(iod_name)
+    )
     if module_list is None:
       raise DICOMSpecMetadataError(f'IOD: {iod_name} not found.')
     return [
@@ -412,9 +440,9 @@ class DicomStandardIODUtil(object):
     Raises:
       DICOMSpecMetadataError: DICOM IOD name not found.
     """
-    module_list = self._iod_functional_group_modules.get(iod_name)
-    if module_list is None:
-      return False
+    module_list = self._iod_functional_group_modules.get(
+        self._get_iod_primary_module(iod_name)
+    )
     return module_list is not None and module_list
 
   def get_iod_module_names(self, iod_name: IODName) -> List[ModuleName]:
@@ -684,24 +712,41 @@ class DicomStandardIODUtil(object):
         max_characters.append(ch_size)
     return int(max(max_characters))
 
-  @classmethod
-  def _replace_suffix(
-      cls, text_str: str, old_suffix: str, new_suffix: str
-  ) -> str:
-    """if string has a suffix replace it with a new suffix otherwise nop.
+  def _search_norm(self, name: str) -> str:
+    return name.lower().replace(' ', '')
+
+  def _get_iod_primary_module(self, iod_name: IODName) -> str:
+    if iod_name in self._iod_modules:
+      return iod_name
+    return self._iod_to_module_map.get(
+        self.normalize_sop_class_name(iod_name), iod_name
+    )
+
+  def normalize_sop_class_name(self, iod_name: str) -> IODName:
+    """Return IOD SOPClassUID Name.
 
     Args:
-      text_str: String to operate on.
-      old_suffix: Old suffix to replace if present.
-      new_suffix: New suffix to replace with.
+      iod_name: IOD name can be full sop class uid storage name, primary module
+        name or IOD SOPCLASS UID.
 
     Returns:
-      string with new suffix ending or original string.
+      IODName
     """
-    if text_str.endswith(old_suffix):
-      text_str = text_str[: -len(old_suffix)]
-      text_str = f'{text_str}{new_suffix}'
-    return text_str
+    if iod_name in self._iod_uid:
+      return IODName(iod_name)
+    elif _RE_IS_UID_IOD.fullmatch(iod_name) is not None:
+      name = self.get_sop_classid_name(iod_name)
+      if name is not None:
+        return name
+    else:
+      search_name = self._search_norm(iod_name)
+      for name, module in self._iod_to_module_map.items():
+        if (
+            self._search_norm(name) == search_name
+            or self._search_norm(module) == search_name
+        ):
+          return IODName(name)
+    return IODName(iod_name)
 
   def get_sop_classid_name(self, sop_classid: str) -> Optional[IODName]:
     """Returns the name defined for a given sop_classid.
@@ -712,13 +757,10 @@ class DicomStandardIODUtil(object):
     Returns:
        String name of DICOM IOD.
     """
+    search_id = sop_classid.strip()
     for iod_name, iod_uid in self._iod_uid.items():
-      if iod_uid == sop_classid:
-        return IODName(
-            DicomStandardIODUtil._replace_suffix(
-                iod_name, ' Storage', ' IOD Modules'
-            )
-        )
+      if iod_uid == search_id:
+        return IODName(iod_name)
     return None
 
   def get_sop_classname_uid(
@@ -733,7 +775,4 @@ class DicomStandardIODUtil(object):
     Returns:
       DICOM UID
     """
-    sop_class_name = DicomStandardIODUtil._replace_suffix(
-        sop_class_name, ' IOD Modules', ' Storage'
-    )
-    return self._iod_uid.get(sop_class_name)
+    return self._iod_uid.get(self.normalize_sop_class_name(sop_class_name))

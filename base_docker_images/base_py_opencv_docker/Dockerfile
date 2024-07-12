@@ -33,12 +33,12 @@ RUN rm -rf /usr/lib/google-cloud-sdk/bin/anthoscli \
 
 WORKDIR /
 
-#Install LibJpegTurbo 3.0.1
+#Install LibJpegTurbo 3.0.3
 RUN apt-get install -y nasm && \
-    wget -O libjpeg_turbo.zip https://github.com/libjpeg-turbo/libjpeg-turbo/archive/refs/tags/3.0.1.zip > /dev/null && \
+    wget -O libjpeg_turbo.zip https://github.com/libjpeg-turbo/libjpeg-turbo/archive/refs/tags/3.0.3.zip > /dev/null && \
     unzip libjpeg_turbo.zip > /dev/null && \
     rm libjpeg_turbo.zip && \
-    mv libjpeg-turbo-3.0.1 libjpeg-turbo && \
+    mv libjpeg-turbo-3.0.3 libjpeg-turbo && \
     mkdir -p /libjpeg-turbo/build && \
     cd /libjpeg-turbo/build && \
     cmake -G"Unix Makefiles" -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DBUILD_SHARED_LIBS:bool=on .. && \
@@ -46,19 +46,19 @@ RUN apt-get install -y nasm && \
     make install && \
     rm -rf /libjpeg-turbo
 
-#Install OpenJPEG 2.5.0
+#Install OpenJPEG 2.5.2
 RUN apt-get install -y liblcms2-dev libzstd-dev libwebp-dev && \
-    wget -O v2.5.0.zip  https://github.com/uclouvain/openjpeg/archive/v2.5.0.zip > /dev/null && \
-    unzip v2.5.0.zip > /dev/null && \
-    rm v2.5.0.zip && \
-    mkdir -p /openjpeg-2.5.0/build && \
-    cd /openjpeg-2.5.0/build && \
+    wget -O v2.5.2.zip  https://github.com/uclouvain/openjpeg/archive/v2.5.2.zip > /dev/null && \
+    unzip v2.5.2.zip > /dev/null && \
+    rm v2.5.2.zip && \
+    mkdir -p /openjpeg-2.5.2/build && \
+    cd /openjpeg-2.5.2/build && \
     cmake  -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS:bool=on -DCMAKE_INSTALL_PREFIX="/usr" .. && \
     make -j12 && \
     make install && \
     make clean && \
     cd / && \
-    rm -rf /openjpeg-2.5.0
+    rm -rf /openjpeg-2.5.2
 
 # Install libtiff from source with JPEG support
 # http://www.simplesystems.org/libtiff/build.html
@@ -82,7 +82,7 @@ RUN git clone https://gitlab.com/libtiff/libtiff.git && \
     -DCMAKE_POSITION_INDEPENDENT_CODE=ON . && \
   make install
 
-#Install OpenCV 4.9.0 (numpy required to build opencv python interface)
+#Install OpenCV 4.10.0 (numpy required to build opencv python interface)
 # OpenCV build is using above built: LibJpegTurbo & OpenJPEG for
 # jpeg and JPEG2000 decoding.
 COPY /opencv_build_test_requirements.txt /opencv_build_test_requirements.txt
@@ -91,10 +91,10 @@ COPY /opencv_build_test.py /opencv_build_test.py
 RUN python3 -m pip install -r opencv_build_requirements.txt --require-hashes && \
     apt-get update && \
     apt-get install -y libglib2.0-0 && \
-    wget -O opencv.zip https://github.com/opencv/opencv/archive/refs/tags/4.9.0.zip > /dev/null && \
+    wget -O opencv.zip https://github.com/opencv/opencv/archive/refs/tags/4.10.0.zip > /dev/null && \
     unzip opencv.zip > /dev/null && \
     rm opencv.zip  && \
-    mv opencv-4.9.0 opencv && \
+    mv opencv-4.10.0 opencv && \
     mkdir -p /opencv/build && \
     cd /opencv/build && \
     cmake -DWITH_JPEG=ON -DBUILD_JPEG=OFF -DWITH_TIFF=ON -DBUILD_TIFF=OFF -DJPEG_LIBRARY=/opt/libjpeg-turbo/lib64/libjpeg.a -DJPEG_INCLUDE_DIR=/opt/libjpeg-turbo/include .. -DBUILD_LIST=core,imgproc,imgcodecs,python3  && \

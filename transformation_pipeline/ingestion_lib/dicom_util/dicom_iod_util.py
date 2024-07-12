@@ -57,7 +57,7 @@ from __future__ import annotations
 import collections
 import copy
 import dataclasses
-from typing import Any, Generator, Iterator, List, NewType, Optional, Set, Tuple, Union
+from typing import Any, Iterator, List, NewType, Optional, Sequence, Set, Tuple, Union
 
 from transformation_pipeline.ingestion_lib.dicom_util import dicom_standard_util as dcm_util
 
@@ -584,7 +584,7 @@ class DICOMDataset:
       return opt
     return val
 
-  def keys(self) -> Generator[dcm_util.DicomTagAddress, None, None]:
+  def keys(self) -> Iterator[dcm_util.DicomTagAddress]:
     """Generator yields tag address defined in dataset.
 
     Yields:
@@ -594,7 +594,7 @@ class DICOMDataset:
     for key in self._dataset:
       yield key
 
-  def values(self) -> Generator[DICOMTag, None, None]:
+  def values(self) -> Iterator[DICOMTag]:
     """Generator yields tags defined in dataset.
 
     Yields:
@@ -607,7 +607,7 @@ class DICOMDataset:
 
   def items(
       self,
-  ) -> Generator[Tuple[dcm_util.DicomTagAddress, DICOMTag], None, None]:
+  ) -> Iterator[Tuple[dcm_util.DicomTagAddress, DICOMTag]]:
     """Generator yields (address, tags) tuples defined in dataset.
 
     Yields:
@@ -620,7 +620,7 @@ class DICOMDataset:
       yield item
 
   def __iter__(self):
-    self._key_list = list(self._dataset.keys())
+    self._key_list = list(self._dataset)
     return self
 
   def __next__(self):
@@ -746,17 +746,12 @@ class DicomIODDatasetUtil:
         )
     return dataset_level
 
-  def _norm_iod_name(self, iod_name: dcm_util.IODName) -> dcm_util.IODName:
-    if iod_name.endswith(' Storage'):
-      txtlen = len(' Storage')
-      iod_name = f'{iod_name[:-txtlen]} IOD Modules'
-    return dcm_util.IODName(iod_name)
-
   def get_iod_dicom_dataset(
       self,
       iod_name: dcm_util.IODName,
       iod_path: Optional[dcm_util.DicomPathType] = None,
       module_name_subset: Optional[Set[str]] = None,
+      require_modules: Optional[Sequence[str]] = None,
   ) -> DICOMDataset:
     """Returns DicomDataset for path specified position in IOD.
 
@@ -770,6 +765,9 @@ class DicomIODDatasetUtil:
         DICOM dataset.
       module_name_subset: List of names of modules defined within the IOD to
         selectively return DICOM tags for.
+      require_modules: Require listed IOD modules to be included regardless of
+        Module IOD requirement level; e.g., treat listed modules with C or U
+        usage requirement as having being mandatory.
 
     Returns:
       DICOMDataset
@@ -780,8 +778,10 @@ class DicomIODDatasetUtil:
        IODDoesNotDefineModuleError: IOD does not define one or more modules in
          module_name_subset.
     """
-    iod_name = self._norm_iod_name(iod_name)
-    iod_module_list = self._dicom_standard.get_iod_modules(iod_name)
+    iod_name = self._dicom_standard.normalize_sop_class_name(iod_name)
+    iod_module_list = self._dicom_standard.get_iod_modules(
+        iod_name, require_modules=require_modules
+    )
     if module_name_subset is not None:
       iod_modules = {str(module.name) for module in iod_module_list}
       missing_module_names = module_name_subset - iod_modules
@@ -845,7 +845,7 @@ class DicomIODDatasetUtil:
        DICOMSpecMetadataError : invalid iod name
        DicomPathError : invalid path
     """
-    iod_name = self._norm_iod_name(iod_name)
+    iod_name = self._dicom_standard.normalize_sop_class_name(iod_name)
     iod_module_list = self._dicom_standard.get_iod_functional_group_modules(
         iod_name
     )

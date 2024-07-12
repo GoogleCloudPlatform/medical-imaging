@@ -33,27 +33,27 @@ def validate_topic_exists(topic_name: str) -> None:
     google_exceptions.NotFound: Pub/sub topic sub is not defined.
     google_exceptions.PermissionDenied: Permission denied accessing topic.
   """
-  publisher = pubsub_v1.PublisherClient()
-  try:
-    publisher.get_topic(topic=topic_name)
-  except google_exceptions.NotFound as exp:
-    cloud_logging_client.logger().critical(
-        'Pub/sub topic is not defined.',
-        {ingest_const.LogKeywords.PUBSUB_TOPIC_NAME: topic_name},
-        exp,
-    )
-    raise
-  except google_exceptions.PermissionDenied as exp:
-    cloud_logging_client.logger().critical(
-        'Permission denied accessing pub/sub topic.',
-        {ingest_const.LogKeywords.PUBSUB_TOPIC_NAME: topic_name},
-        exp,
-    )
-    raise
-  except Exception as exp:
-    cloud_logging_client.logger().critical(
-        'Unexpected exception accessing pub/sub topic.',
-        {ingest_const.LogKeywords.PUBSUB_TOPIC_NAME: topic_name},
-        exp,
-    )
-    raise
+  with pubsub_v1.PublisherClient() as publisher:
+    try:
+      publisher.get_topic(topic=topic_name)
+    except google_exceptions.NotFound as exp:
+      cloud_logging_client.critical(
+          'Pub/sub topic is not defined.',
+          {ingest_const.LogKeywords.PUBSUB_TOPIC_NAME: topic_name},
+          exp,
+      )
+      raise
+    except google_exceptions.PermissionDenied as exp:
+      cloud_logging_client.critical(
+          'Permission denied accessing pub/sub topic.',
+          {ingest_const.LogKeywords.PUBSUB_TOPIC_NAME: topic_name},
+          exp,
+      )
+      raise
+    except Exception as exp:
+      cloud_logging_client.critical(
+          'Unexpected exception accessing pub/sub topic.',
+          {ingest_const.LogKeywords.PUBSUB_TOPIC_NAME: topic_name},
+          exp,
+      )
+      raise

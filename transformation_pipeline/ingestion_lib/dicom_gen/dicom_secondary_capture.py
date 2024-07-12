@@ -35,6 +35,7 @@ class DicomReferencedInstance:
 
   referenced_sop_class_uid: str
   referenced_sop_instance_uid: str
+  implementation_version_name: str = ingest_const.IMPLEMENTATION_VERSION_NAME
 
 
 class UnsupportedDICOMSecondaryCaptureImageError(Exception):
@@ -75,10 +76,11 @@ def _add_instance_refs_to_dicom(
   if not instances:
     return
   instance_ref_list = []
-  for i in instances:
+  for instance in instances:
     instance_ds = pydicom.dataset.Dataset()
-    instance_ds.ReferencedSOPClassUID = i.referenced_sop_class_uid
-    instance_ds.ReferencedSOPInstanceUID = i.referenced_sop_instance_uid
+    instance_ds.ReferencedSOPClassUID = instance.referenced_sop_class_uid
+    instance_ds.ReferencedSOPInstanceUID = instance.referenced_sop_instance_uid
+    instance_ds.ImplementationVersionName = instance.implementation_version_name
     instance_ref_list.append(instance_ds)
   series_ref = pydicom.dataset.Dataset()
   series_ref.SeriesInstanceUID = series_uid
@@ -155,6 +157,7 @@ def _build_dicom_instance(
     )
   _add_instance_refs_to_dicom(ds, series_uid, reference_instances)
   file_meta.ImplementationClassUID = ingest_const.SC_IMPLEMENTATION_CLASS_UID
+  file_meta.ImplementationVersionName = ingest_const.IMPLEMENTATION_VERSION_NAME
   # end todo
   fd = pydicom.dataset.FileDataset(
       '', ds, file_meta=file_meta, preamble=b'\0' * 128
@@ -172,7 +175,7 @@ def _log_create_sec_capture(
     instance_uid: Optional[str] = None,
     instance_number: Optional[int] = None,
 ):
-  cloud_logging_client.logger().info(
+  cloud_logging_client.info(
       'Creating DICOM secondary capture',
       {
           'type': capture_type,
@@ -238,7 +241,7 @@ def create_raw_dicom_secondary_capture_from_img(
     elif img.mode == 'LAB':
       im = cv2.cvtColor(im, cv2.COLOR_Lab2RGB)
     elif img.mode != 'RGB':
-      cloud_logging_client.logger().error(f'Unsupported image mode: {img.mode}')
+      cloud_logging_client.error(f'Unsupported image mode: {img.mode}')
       raise UnsupportedDICOMSecondaryCaptureImageError()
   # Initialize secondary capture dicom header
   # 'Secondary Capture Image Storage'
@@ -255,7 +258,9 @@ def create_raw_dicom_secondary_capture_from_img(
       reference_instances,
       private_tags,
   )
-  ds.file_meta.TransferSyntaxUID = ingest_const.EXPLICIT_VR_LITTLE_ENDIAN
+  ds.file_meta.TransferSyntaxUID = (
+      ingest_const.DicomImageTransferSyntax.EXPLICIT_VR_LITTLE_ENDIAN
+  )
   ds.LossyImageCompression = '00'  # Image is encoded as RAW RGB bytes
   return ds
 
@@ -303,16 +308,14 @@ def create_encapsulated_jpeg_dicom_secondary_capture(
   with PIL.Image.open(jpg_image_path) as img:
     image_shape = img.size
     if img.format != 'JPEG':
-      cloud_logging_client.logger().error(
-          f'Unsupported image format: {img.format}'
-      )
+      cloud_logging_client.error(f'Unsupported image format: {img.format}')
       raise UnsupportedDICOMSecondaryCaptureImageError()
     if img.mode == 'L':
       samples_per_pixel = 1
     elif img.mode == 'RGB':
       samples_per_pixel = 3
     else:
-      cloud_logging_client.logger().error(f'Unsupported image mode: {img.mode}')
+      cloud_logging_client.error(f'Unsupported image mode: {img.mode}')
       raise UnsupportedDICOMSecondaryCaptureImageError()
   # get image bytes
   with open(jpg_image_path, 'rb') as img:

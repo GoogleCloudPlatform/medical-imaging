@@ -178,7 +178,7 @@ class PydicomUtilTest(parameterized.TestCase):
     mk_get_iod_dataset.return_value = mock_dicom_dataset
     ds = pydicom.Dataset()
     tag_list = pydicom_util._get_undefined_dicom_tags_by_type(
-        iod_name, ds, {'2'}, pydicom_util.DICOMTagPath()
+        iod_name, ds, {'2'}, pydicom_util.DICOMTagPath(), None
     )
     self.assertEqual([tag_path.tag.keyword for tag_path in tag_list], expected)
 

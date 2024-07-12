@@ -1,0 +1,60 @@
+{
+  "dry_run": true,
+  "dicom_store_config": {
+    "dicom_store_path": "projects/my-proj/locations/my-location/datasets/my-ds-dataset/dicomStores/my-dicom-store",
+    "dicom_store_bigquery_table": "my-proj.my_ds_dataset.my-ds-table",
+    "set_storage_class_max_num_instances": 1000,
+    "set_storage_class_timeout_min": 60,
+    "max_dicom_store_qps": 2
+  },
+  "logs_config": {
+    "logs_bigquery_table": "my-proj.my_log_dataset.my_log_tables*",
+    "max_dicom_store_qps": 2
+  },
+  "instances_disallow_list": [],
+  "storage_class_config": {
+    "move_rules": [
+      {
+        "from_storage_class": "STANDARD",
+        "to_storage_class": "ARCHIVE",
+        "downgrade_conditions": [
+          {
+            "pixel_spacing_range": {
+              "min": 0.00049,
+              "max": 0.00051
+            },
+            "access_count_lower_or_equal_to": {
+              "count": 5,
+              "num_days": 30
+            }
+          },
+          {
+            "date_before": "20230101",
+            "access_count_lower_or_equal_to": {
+              "count": 5,
+              "num_days": 30
+            }
+          }
+        ]
+      },
+      {
+        "from_storage_class": "ARCHIVE",
+        "to_storage_class": "STANDARD",
+        "upgrade_conditions": [
+          {
+            "modality": "SM",
+            "access_count_higher_or_equal_to": {
+              "count": 20,
+              "num_days": 7
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "tmp_gcs_uri": "gs://my-gcs-bucket/tmp/",
+  "report_config": {
+    "summarized_results_report_gcs_uri": "gs://my-gcs-bucket/summarized-results-{}.txt",
+    "detailed_results_report_gcs_uri":  "gs://my-gcs-bucket/detailed-results-{}.txt"
+  }
+}

@@ -67,7 +67,7 @@ def get_main_dicom_web_url() -> str:
   )
   if not dicomweb_path:
     msg = 'Main DICOM store DICOMweb path is undefined.'
-    cloud_logging_client.logger().critical(msg)
+    cloud_logging_client.critical(msg)
     raise ValueError(msg)
   return dicomweb_path
 

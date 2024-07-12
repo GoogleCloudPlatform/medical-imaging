@@ -16,27 +16,71 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 import threading
-from typing import Dict, Optional
+import time
+from typing import Dict, Mapping, Optional
 
 import redis
 
 from shared_libs.logging_lib import cloud_logging_client
 from transformation_pipeline import ingest_flags
+from transformation_pipeline.ingestion_lib import ingest_const
 
 
 class RedisServerIPUndefinedError(Exception):
   """Redis server IP is undefined or empty."""
 
 
+class CouldNotAcquireNonBlockingLockError(Exception):
+  """Exception raised when nonblocking lock cannot be acquired."""
+
+  def __init__(self, lock_name: str, log: Optional[Mapping[str, str]] = None):
+    super().__init__(
+        f'Could not acquire lock: {lock_name}.',
+        ingest_const.ErrorMsgs.COULD_NOT_ACQUIRE_LOCK,
+    )
+    self._lock_name = lock_name
+    self._log = log
+
+  @property
+  def log(self) -> Mapping[str, str]:
+    return self._log if self._log is not None else {}
+
+  @property
+  def lock_name(self) -> str:
+    return self._lock_name
+
+
+class _AutoLockUnlocker(contextlib.AbstractContextManager):
+  """Automatically unlocks redis lock when lock exits a context block."""
+
+  def __init__(self, name: str, log: Optional[Mapping[str, str]] = None):
+    super().__init__()
+    self._lock_name = name
+    self._start_time = time.time()
+    self._unlock_log = dict(log) if log is not None else {}
+
+  def __exit__(self, exc_type, exc_value, traceback):
+    super().__exit__(exc_type, exc_value, traceback)
+    r_client = RedisClient.get_singleton()
+    if not r_client.has_redis_client():
+      return
+    r_client.release_lock(self._lock_name, ignore_redis_exception=True)
+    self._unlock_log[ingest_const.LogKeywords.LOCK_HELD_SEC] = (
+        time.time() - self._start_time
+    )
+    cloud_logging_client.info(
+        f'Released transformation lock: {self._lock_name}', self._unlock_log
+    )
+
+
 def _extend_rlock(redis_lock: redis.lock.Lock, ttl: int) -> None:
   try:
     redis_lock.extend(ttl, replace_ttl=True)
   except redis.exceptions.LockError as exp:
-    cloud_logging_client.logger().error(
-        'Error occured extending redis lock TTL.', exp
-    )
+    cloud_logging_client.error('Error occured extending redis lock TTL.', exp)
 
 
 class RedisClient:
@@ -59,7 +103,11 @@ class RedisClient:
         raise RedisServerIPUndefinedError()
       self._redis_port = ingest_flags.REDIS_SERVER_PORT_FLG.value
       self._client_instance = redis.Redis(
-          host=self._redis_ip, port=self._redis_port
+          host=self._redis_ip,
+          port=self._redis_port,
+          db=ingest_flags.REDIS_DB_FLG.value,
+          username=ingest_flags.REDIS_USERNAME_FLG.value,
+          password=ingest_flags.REDIS_AUTH_PASSWORD_FLG.value,
       )
     RedisClient._instance = self
 
@@ -117,16 +165,21 @@ class RedisClient:
       name: str,
       value: str,
       expiry_seconds: int,
-  ) -> bool:
+      context_block: contextlib.ExitStack,
+      unlock_log: Optional[Mapping[str, str]] = None,
+  ):
     """Sets the value at key with an expiry time only if a key with name does not already exist or the current key value pair already exists.
 
     Args:
       name: Name of key
       value: Value to be stored for key
       expiry_seconds: Expiry time in seconds
+      context_block: Context block to auto-unlock lock.
+      unlock_log: Optional log to report when lock is released, only applies to
+        newly acquired locks.
 
-    Returns:
-      True if key was created or ref_counted
+    Raises:
+      CouldNotAcquireNonBlockingLockError: Lock cannot be acquired.
     """
     with self._lock:
       rlock = self._redis_lock_dict.get(name)
@@ -144,11 +197,12 @@ class RedisClient:
         )
       acquired = rlock.acquire(blocking=False, token=value)
       if not acquired:
-        return False
+        raise CouldNotAcquireNonBlockingLockError(name, unlock_log)
       self._redis_lock_dict[name] = rlock
-      if not new_lock:
+      if new_lock:
+        context_block.enter_context(_AutoLockUnlocker(name, unlock_log))
+      else:
         _extend_rlock(rlock, expiry_seconds)
-      return True
 
   def is_lock_owned(self, name: str) -> bool:
     with self._lock:

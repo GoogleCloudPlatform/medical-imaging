@@ -57,13 +57,19 @@ _MAX_METADATA_CACHE_INSTANCE_SIZE = 100
 # Omiting study, series, and instance used to refer to all instances in store.
 _ALL_DICOM_INSTANCES_IN_STORE = ('', '', '')
 
-_DICOM_ICC_PROFILE_TAG = '00282000'
-_DICOM_OPTICAL_PATH_SEQUENCE_TAG = '00480105'
+_BINARY_DICOM_TAG_VR_CODES = ('OB', 'OD', 'OF', 'OL', 'OV', 'OW')
+_BULK_DATA_URI = 'BulkDataURI'
 _DICOM_PIXEL_DATA_TAG = '7FE00010'
 _DICOM_SERIES_INSTANCE_UID_TAG = '0020000E'
 _DICOM_SOP_INSTANCE_UID_TAG = '00080018'
 _DICOM_STUDY_INSTANCE_UID_TAG = '0020000D'
+_INLINE_BINARY = 'InlineBinary'
+_SQ = 'SQ'
 _VALUE = 'Value'
+_VR = 'vr'
+_GET_REQUESTED_TRANSFER_SYNTAX = re.compile(
+    r'.*;[ ]+transfer-syntax=(.*)', re.IGNORECASE
+)
 
 _DicomUidTriple = dicom_store_mock_types.DicomUidTriple
 
@@ -122,7 +128,7 @@ class ContentType(enum.Enum):
   APPLICATION_JSON = 'application/json; charset=UTF-8'
   MULTIPART_RELATED = 'multipart/related'
   UNTRANSCODED_FRAME_REQUEST = (
-      'multipart/related; type=application/octet-stream; transfer-syntax=*'
+      'multipart/related; type="application/octet-stream"; transfer-syntax=*'
   )
 
 
@@ -149,15 +155,44 @@ def _does_iterator_have_items(itr: Iterator[Any]) -> bool:
   return not _is_iterator_empty(itr)
 
 
-def _remove_tag(tag: str, dicom_json: MutableMapping[str, Any]) -> None:
-  try:
-    del dicom_json[tag]
-  except KeyError:
-    pass
+class _FilterBinaryTagOperation(enum.Enum):
+  NONE = 0
+  REMOVE = 1
+  CREATE_BULKDATA_URI = 2
+
+
+def _filter_binary_tags(
+    metadata: MutableMapping[str, Any],
+    operation: _FilterBinaryTagOperation,
+    path: str = '',
+) -> MutableMapping[str, Any]:
+  """Filter DICOM json metadata to remove binary tags or add buldata uri."""
+  remove_tag_list = []
+  for key, value in metadata.items():
+    vr_code = value.get(_VR, '').upper()
+    if vr_code == _SQ:
+      cr_uri = operation == _FilterBinaryTagOperation.CREATE_BULKDATA_URI
+      for index, sq_value in enumerate(value.get(_VALUE, [])):
+        new_path = _join_url_parts(path, f'{key}/{index}') if cr_uri else path
+        _filter_binary_tags(sq_value, operation, new_path)
+      continue
+    elif vr_code in _BINARY_DICOM_TAG_VR_CODES:
+      if operation == _FilterBinaryTagOperation.REMOVE:
+        remove_tag_list.append(key)
+      elif operation == _FilterBinaryTagOperation.CREATE_BULKDATA_URI:
+        del value[_INLINE_BINARY]
+        value[_BULK_DATA_URI] = _join_url_parts(path, key)
+      else:
+        raise ValueError(f'Unsupported operation: {operation}')
+  for key in remove_tag_list:
+    del metadata[key]
+  return metadata
 
 
 def _pydicom_file_dataset_to_json(
     dcm: pydicom.FileDataset,
+    operation: _FilterBinaryTagOperation,
+    dicomweb_path: str = '',
 ) -> Mapping[str, Any]:
   """Coverts pydicom to json metadata representation.
 
@@ -166,23 +201,27 @@ def _pydicom_file_dataset_to_json(
 
   Args:
     dcm: Pydicom file dataset.
+    operation: Operation to perfrom on binary tags.
+    dicomweb_path: Dicom web path to DICOM store.
 
   Returns:
     JSON representation.
   """
+  path = ''
+  if operation == _FilterBinaryTagOperation.CREATE_BULKDATA_URI:
+    study_uid = dcm.StudyInstanceUID
+    series_uid = dcm.SeriesInstanceUID
+    sop_instance_uid = dcm.SOPInstanceUID
+    path = f'{dicomweb_path}/studies/{study_uid}/series/{series_uid}/instances/{sop_instance_uid}/bulkdata'
   result = dcm.to_json_dict()
-  # remove pixel data
-  _remove_tag(_DICOM_PIXEL_DATA_TAG, result)
-  # remove root icc profile
-  _remove_tag(_DICOM_ICC_PROFILE_TAG, result)
-  # remove icc profile in optical path sequence
+  # always remove pixel data from metadata representation.
   try:
-    for seq_dict in result[_DICOM_OPTICAL_PATH_SEQUENCE_TAG][_VALUE]:
-      _remove_tag(_DICOM_ICC_PROFILE_TAG, seq_dict)
+    del result[_DICOM_PIXEL_DATA_TAG]
   except KeyError:
     pass
-  file_meta = dcm.file_meta.to_json_dict()
-  result.update(file_meta)
+  result.update(dcm.file_meta.to_json_dict())
+  if operation != _FilterBinaryTagOperation.NONE:
+    _filter_binary_tags(result, operation, path)
   return result
 
 
@@ -260,6 +299,8 @@ class _MockDicomStoreAbstractStorage(metaclass=abc.ABCMeta):
   @abc.abstractmethod
   def get_metadata(
       self,
+      dicomweb_path: str,
+      bulkdata_uri_enabled: bool,
       study_instance_uid: str,
       series_instance_uid: str,
       sop_instance_uid: str,
@@ -321,13 +362,22 @@ class _MockDicomStoreMemoryStorage(_MockDicomStoreAbstractStorage):
 
   def get_metadata(
       self,
+      dicomweb_path: str,
+      bulkdata_uri_enabled: bool,
       study_instance_uid: str,
       series_instance_uid: str,
       sop_instance_uid: str,
   ) -> Iterator[Mapping[str, Any]]:
     uid = (study_instance_uid, series_instance_uid, sop_instance_uid)
+    operation = (
+        _FilterBinaryTagOperation.CREATE_BULKDATA_URI
+        if bulkdata_uri_enabled
+        else _FilterBinaryTagOperation.REMOVE
+    )
     for instance in self._instance_map.get_instances(uid):
-      yield _pydicom_file_dataset_to_json(instance)
+      yield _pydicom_file_dataset_to_json(
+          instance, operation, dicomweb_path=dicomweb_path
+      )
 
 
 class _UnableToReadDicomInstanceError(Exception):
@@ -514,11 +564,18 @@ class _MockDicomStoreFileSystemStorage(_MockDicomStoreAbstractStorage):
 
   def get_metadata(
       self,
+      dicomweb_path: str,
+      bulkdata_uri_enabled: bool,
       study_instance_uid: str,
       series_instance_uid: str,
       sop_instance_uid: str,
   ) -> Iterator[Mapping[str, Any]]:
     instances_to_remove = []
+    operation = (
+        _FilterBinaryTagOperation.CREATE_BULKDATA_URI
+        if bulkdata_uri_enabled
+        else _FilterBinaryTagOperation.REMOVE
+    )
     for instance in self._instance_map.get_instances(
         (study_instance_uid, series_instance_uid, sop_instance_uid)
     ):
@@ -531,7 +588,9 @@ class _MockDicomStoreFileSystemStorage(_MockDicomStoreAbstractStorage):
         continue
       try:
         dataset = self._load_instance(instance.dicom_data_path)
-        metadata = _pydicom_file_dataset_to_json(dataset)
+        metadata = _pydicom_file_dataset_to_json(
+            dataset, operation, dicomweb_path=dicomweb_path
+        )
         self._metadata_cache[instance.uid] = metadata
         yield metadata
       except _UnableToReadDicomInstanceError:
@@ -542,11 +601,13 @@ class _MockDicomStoreFileSystemStorage(_MockDicomStoreAbstractStorage):
 def _accept_header_transfer_syntax_matches_dcm_transfer_syntax(
     accept_header: str, dcm: pydicom.FileDataset
 ) -> bool:
-  result = re.fullmatch(
-      r'.*type=application/octet-stream;[ ]+transfer-syntax=(.*)',
-      accept_header,
-      re.IGNORECASE,
-  )
+  """Test if accept header matches DICOM Transfer Syntax."""
+  if (
+      accept_header == 'image/jpeg'
+      and dcm.file_meta.TransferSyntaxUID == '1.2.840.10008.1.2.4.50'
+  ):
+    return True
+  result = _GET_REQUESTED_TRANSFER_SYNTAX.fullmatch(accept_header)
   if result is None:
     return False
   return result.groups()[0] == dcm.file_meta.TransferSyntaxUID
@@ -594,7 +655,7 @@ def _build_response(
 
 
 def _convert_to_pydicom_file_dataset(
-    dcm: Union[str, Mapping[str, Any], pydicom.FileDataset]
+    dcm: Union[str, Mapping[str, Any], pydicom.FileDataset],
 ) -> pydicom.FileDataset:
   """Converts input to pydicom.FileDataset."""
   if isinstance(dcm, pydicom.FileDataset):
@@ -674,13 +735,13 @@ def _replace_bulkdata(
         for dataset_value in dataset.values():
           value_list.append(dataset_value)
       continue
-    bulkdata_uri = value.get('BulkDataURI')
+    bulkdata_uri = value.get(_BULK_DATA_URI)
     if bulkdata_uri is None:
       continue
     content = content_location_map.get(bulkdata_uri)
     if content is not None:
-      del value['BulkDataURI']
-      value['InlineBinary'] = content
+      del value[_BULK_DATA_URI]
+      value[_INLINE_BINARY] = content
 
 
 def _build_pydicom_dicom_from_request_json(
@@ -746,12 +807,14 @@ class MockDicomStoreClient(contextlib.ContextDecorator):
       read_auth_bearer_tokens: Optional[List[str]] = None,
       write_auth_bearer_tokens: Optional[List[str]] = None,
       real_http: bool = False,
+      bulkdata_uri_enabled: bool = True,
   ):
     self._read_auth_bearer_tokens = read_auth_bearer_tokens
     self._write_auth_bearer_tokens = write_auth_bearer_tokens
     self._context_manager_entered = False
     self._mock_dicom_store_request_entered = False
     self._dicomweb_path = dicomweb_path
+    self._bulkdata_uri_enabled = bulkdata_uri_enabled
     if not mock_credential:
       self._credentials_mock = None
     else:
@@ -782,7 +845,12 @@ class MockDicomStoreClient(contextlib.ContextDecorator):
         self._delete_study_instance_uid,
         self._download_frame,
         self._store_level_study_request,
+        self._bulkdata_request,
     ]
+
+  @property
+  def bulkdata_uri_support_enabled(self) -> bool:
+    return self._bulkdata_uri_enabled
 
   def set_dicom_store_memory_storage(self) -> None:
     """Set mock DICOM store to back instance storage in memory."""
@@ -965,7 +1033,11 @@ class MockDicomStoreClient(contextlib.ContextDecorator):
     if sop_instance_uid is None:
       sop_instance_uid = ''
     return self._dicom_storage.get_metadata(
-        study_instance_uid, series_instance_uid, sop_instance_uid
+        self._dicomweb_path,
+        self._bulkdata_uri_enabled,
+        study_instance_uid,
+        series_instance_uid,
+        sop_instance_uid,
     )
 
   def _parse_url(
@@ -1128,6 +1200,14 @@ class MockDicomStoreClient(contextlib.ContextDecorator):
       except (KeyError, IndexError) as _:
         continue
 
+  def _remove_binary_tag_metadata(
+      self, dataset: Iterator[Mapping[str, Any]]
+  ) -> Iterator[Mapping[str, Any]]:
+    for metadata in dataset:
+      yield _filter_binary_tags(
+          dict(metadata), _FilterBinaryTagOperation.REMOVE, self._dicomweb_path
+      )
+
   def _filter_metadata_response(
       self,
       parsed_url_parts: Tuple[str, ...],
@@ -1168,6 +1248,11 @@ class MockDicomStoreClient(contextlib.ContextDecorator):
         limit_study=limit_study,
         limit_series=limit_series,
     )
+    # Google DICOM store does not return binary tags inline for tag search
+    # requests. i.g. for DICOMweb instances, studies, or series requests.
+    # If bulk uri support not is enabled strip binary tags from metadata.
+    if not self._bulkdata_uri_enabled:
+      metadata = self._remove_binary_tag_metadata(metadata)
     return self._limit_metadata(
         metadata,
         self._parse_url_parameters(parsed_url_parts, parameter_index, 'Limit'),
@@ -1204,6 +1289,69 @@ class MockDicomStoreClient(contextlib.ContextDecorator):
           json.dumps(metadata),
           ContentType.APPLICATION_DICOM_JSON,
       )
+    return _build_response(
+        http.HTTPStatus.NO_CONTENT, '', ContentType.TEXT_HTML
+    )
+
+  def _get_binary_tag_data(
+      self, metadata: pydicom.FileDataset, path: str
+  ) -> Optional[bytes]:
+    """Returns binary data referenced by bulkdata uri path."""
+    bulkuri_parts = path.split('/')
+    index = 0
+    while index < len(bulkuri_parts):
+      try:
+        metadata = metadata[bulkuri_parts[index]]
+      except KeyError:
+        return None
+      index += 1
+      if index == len(bulkuri_parts):
+        try:
+          return metadata.value
+        except KeyError:
+          return None
+      try:
+        sq_index = int(bulkuri_parts[index])
+      except ValueError:
+        return None
+      index += 1
+      try:
+        metadata = metadata[sq_index]
+      except (IndexError, KeyError) as _:
+        return None
+    return None
+
+  def _bulkdata_request(
+      self, request: requests.Request
+  ) -> Optional[requests.Response]:
+    """Entry point for handling a store level study metadata request."""
+    if not self._bulkdata_uri_enabled:
+      return None
+    result = self._parse_url(
+        request,
+        r'/studies/(.*?)/series/(.*?)/instances/(.*?)/bulkdata/(.*)',
+        RequestMethod.GET,
+    )
+    if result is None:
+      return None
+    parts = result.groups()
+    if not self._can_read(request.headers):
+      return _build_response(
+          http.HTTPStatus.UNAUTHORIZED,
+          '',
+          ContentType.TEXT_HTML,
+      )
+    metadata = list(self._get_instances(parts[0], parts[1], parts[2]))
+    if not metadata:
+      return _build_response(
+          http.HTTPStatus.BAD_REQUEST,
+          'Error poorly formatted multipart content.',
+          ContentType.TEXT_HTML,
+      )
+    response = self._get_binary_tag_data(metadata[0], parts[3])
+    if response is not None:
+      content = CustomContentType('application/octet-stream; transfer-syntax=*')
+      return _build_response(http.HTTPStatus.OK, response, content)
     return _build_response(
         http.HTTPStatus.NO_CONTENT, '', ContentType.TEXT_HTML
     )
@@ -1485,7 +1633,7 @@ class MockDicomStoreClient(contextlib.ContextDecorator):
         request,
         (
             r'/studies/([0-9.]+)/series/([0-9.]+)/instances/([0-9.]+)/frames/(('
-            r' *[0-9]+ *,{0,1})+)/{0,1}'
+            r' *[0-9]+ *,{0,1})+)($|/.*)'
         ),
         RequestMethod.GET,
     )
@@ -1502,8 +1650,7 @@ class MockDicomStoreClient(contextlib.ContextDecorator):
         series_instance_uid,
         sop_instance_uid,
         frame_indexes,
-        _,
-    ) = result.groups()
+    ) = result.groups()[:4]
     instance_list = list(
         self._get_instances(
             study_instance_uid, series_instance_uid, sop_instance_uid
@@ -1776,6 +1923,7 @@ class MockDicomStores(contextlib.ExitStack):
       read_auth_bearer_tokens: Optional[List[str]] = None,
       write_auth_bearer_tokens: Optional[List[str]] = None,
       real_http: bool = False,
+      bulkdata_uri_enabled: bool = True,
   ):
     """Constructor.
 
@@ -1792,6 +1940,8 @@ class MockDicomStores(contextlib.ExitStack):
       real_http: If true pass unhandled http requests through to server,
         real_http is not compatiable with httplib2 mock and disables the mock
         support for httplib2 mediated transactions.
+      bulkdata_uri_enabled: If True store will encode and support binary data
+        bulkdata uri.
     """
     super().__init__()
     self._real_http = real_http
@@ -1802,6 +1952,7 @@ class MockDicomStores(contextlib.ExitStack):
     self._mock_credential_project = mock_credential_project
     self._mock_request = mock_request
     self._mocked_dicom_stores = {}
+    self._bulkdata_uri_enabled = bulkdata_uri_enabled
 
   def _httplib2_request_handler(
       self, uri: str, method: str, body: str, headers: Mapping[str, str]
@@ -1876,6 +2027,7 @@ class MockDicomStores(contextlib.ExitStack):
             self._read_auth_bearer_tokens,
             self._write_auth_bearer_tokens,
             real_http=self._real_http,
+            bulkdata_uri_enabled=self._bulkdata_uri_enabled,
         )
         self._mocked_dicom_stores[mocked_store_path] = mocked_store
         self.enter_context(mocked_store)

@@ -70,6 +70,7 @@ class WsiDicomFileRefTest(absltest.TestCase):
             '0x00081088',
             '0x00209228',
             '0x00209162',
+            '0x00480303',
             '0x30211001',
             '0x30210010',
         ],
@@ -292,6 +293,10 @@ class WsiDicomFileRefTest(absltest.TestCase):
               ingest_const.DICOMTagAddress.PYRAMID_DESCRIPTION,
           ),
       )
+      self.assertEqual(
+          fref.total_pixel_matrix_focal_planes,
+          _tag(ingest_const.DICOMTagKeywords.TOTAL_PIXEL_MATRIX_FOCAL_PLANES),
+      )
     # Test all attributes were tested.
     self.assertEqual(set(fref.tags.keys()), tested_tags)
 
@@ -359,6 +364,7 @@ class WsiDicomFileRefTest(absltest.TestCase):
             '00209228',
             '00209162',
             '30211001',
+            '00480303',
         },
     )
 

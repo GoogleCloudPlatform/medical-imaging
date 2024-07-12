@@ -71,7 +71,7 @@ class IngestDicomStorePubSubHandler(
           '--dicom_store_ingest_gcs_uri flag or DICOM_STORE_INGEST_GCS_URI env '
           'variable must be set for DICOM store ingestion.'
       )
-      cloud_logging_client.logger().critical(err_msg)
+      cloud_logging_client.critical(err_msg)
       raise ValueError(err_msg)
     self._gcs_recovery_uri = (
         ingest_flags.DICOM_STORE_INGEST_GCS_URI_FLG.value.strip()
@@ -100,7 +100,7 @@ class IngestDicomStorePubSubHandler(
     )
     m = _DICOM_STORE_INSTANCE_PATTERN.match(dicom_msg.uri)
     if m is None or len(m.groups()) != 5:
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           f'Invalid data in DICOM store pub/sub message: {dicom_msg.filename}'
       )
       dicom_msg.ignore = True
@@ -136,7 +136,7 @@ class IngestDicomStorePubSubHandler(
     self._current_instance = _IngestionInstance(
         msg_gcs_recovery_uri, msg_viewer_debug_url, msg_dicom_store_client
     )
-    cloud_logging_client.logger().debug(
+    cloud_logging_client.debug(
         'Decoded DICOM store pub/sub msg.',
         {ingest_const.LogKeywords.URI: dicom_msg.uri},
     )
@@ -168,7 +168,7 @@ class IngestDicomStorePubSubHandler(
       )
       read_from_dcm_store = True
     except requests.HTTPError as exp:
-      cloud_logging_client.logger().warning(
+      cloud_logging_client.warning(
           f'Failed to download DICOM from {uri} with error {exp}. '
           'Attempting to download from recovery GCS: '
           f'{self._current_instance.gcs_recovery_uri}'
@@ -183,7 +183,7 @@ class IngestDicomStorePubSubHandler(
     # Write to GCS temporarily. Will be deleted once updated instance is
     # uploaded to DICOM store.
     if read_from_dcm_store:
-      cloud_logging_client.logger().debug(
+      cloud_logging_client.debug(
           f'Downloaded DICOM from {uri}. Writing to recovery GCS: '
           f'{self._current_instance.gcs_recovery_uri}'
       )
@@ -198,12 +198,12 @@ class IngestDicomStorePubSubHandler(
 
   def _delete_recovery_instance(self):
     if cloud_storage_client.del_blob(self._current_instance.gcs_recovery_uri):
-      cloud_logging_client.logger().debug(
+      cloud_logging_client.debug(
           'Deleted temporary DICOM instance from GCS: '
           f'{self._current_instance.gcs_recovery_uri}.'
       )
     else:
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           'Failed to delete temporary DICOM instance from GCS:'
           f' {self._current_instance.gcs_recovery_uri}. Instance may have'
           ' already been deleted or will require manual deletion.'
@@ -234,13 +234,13 @@ class IngestDicomStorePubSubHandler(
     if not self._current_instance.dicom_store_client.delete_resource_from_dicom_store(
         dcm.dicom_gen.source_uri
     ):
-      cloud_logging_client.logger().warning(
+      cloud_logging_client.warning(
           'Failed to delete original DICOM instance from DICOM store: '
           f'{dcm.dicom_gen.source_uri}. Instance may have already been '
           'deleted.'
       )
     # Write updated DICOM to store.
-    cloud_logging_client.logger().info(
+    cloud_logging_client.info(
         f'Uploading {dcm.dicom_gen.source_uri} to DICOM store.'
     )
     try:
@@ -273,7 +273,7 @@ class IngestDicomStorePubSubHandler(
       exp: Exception,
   ):
     """See base class."""
-    cloud_logging_client.logger().critical(
+    cloud_logging_client.critical(
         (
             'An unexpected exception occurred during DICOM store ingestion.'
             ' Recovery instance will remain in GCS:'
@@ -304,13 +304,13 @@ class IngestDicomStorePubSubHandler(
       TransformationLock
     """
     if not self._current_instance.gcs_recovery_uri:
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           'Unable to ingest instance: missing DICOM instance GCS recovery URI.'
       )
       polling_client.ack()
       return abstract_dicom_generation.TransformationLock()
     if not self._current_instance.dicom_store_client:
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           'Unable to ingest instance: DICOM store client undefined.'
       )
       self._delete_recovery_instance()
@@ -320,16 +320,16 @@ class IngestDicomStorePubSubHandler(
     if self._ingest_dicom_handler.is_dicom_file_already_ingested(
         ingest_file.localfile
     ):
-      cloud_logging_client.logger().debug('DICOM instance already ingested.')
+      cloud_logging_client.debug('DICOM instance already ingested.')
       self._delete_recovery_instance()
       polling_client.ack()
       return abstract_dicom_generation.TransformationLock()
 
-    cloud_logging_client.logger().info('Processing DICOM store ingestion.')
+    cloud_logging_client.info('Processing DICOM store ingestion.')
     try:
       self._ingest_dicom_handler.update_metadata()
     except metadata_storage_client.MetadataDownloadExceptionError as exp:
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           'Error downloading metadata. Ignoring DICOM store pub/sub message.',
           exp,
       )
@@ -341,7 +341,7 @@ class IngestDicomStorePubSubHandler(
     try:
       slide_id = self._ingest_dicom_handler.get_slide_id(ingest_file, self)
     except ingest_base.DetermineSlideIDError as exp:
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           'Cannot find metadata for DICOM instance. Ignoring DICOM store'
           ' pub/sub message.',
           exp,
@@ -350,7 +350,8 @@ class IngestDicomStorePubSubHandler(
       polling_client.ack()
       return abstract_dicom_generation.TransformationLock()
     slide_lock_str = (
-        f'slide_id: {slide_id}; direct_dicom: {ingest_file.source_uri}'
+        ingest_const.RedisLockKeywords.DICOM_STORE_TRIGGERED_INGESTION
+        % (ingest_file.source_uri, slide_id)
     )
     return abstract_dicom_generation.TransformationLock(slide_lock_str)
 

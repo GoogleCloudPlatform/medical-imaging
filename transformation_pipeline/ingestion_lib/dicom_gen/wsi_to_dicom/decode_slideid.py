@@ -136,7 +136,7 @@ def _get_candidate_slide_ids_from_filename(
   }
   filename, _ = os.path.splitext(filename)  # remove file extension
   if not filename:
-    cloud_logging_client.logger().warning(
+    cloud_logging_client.warning(
         f'Could not find a candidate slide metadata primary key in {filename}.',
         log,
     )
@@ -164,7 +164,7 @@ def _get_candidate_slide_ids_from_filename(
     if slide_id_regex.fullmatch(candidate_slide_id):
       candidate_slide_ids.append(candidate_slide_id)
   if not candidate_slide_ids:
-    cloud_logging_client.logger().warning(
+    cloud_logging_client.warning(
         f'Could not find a candidate slide metadata primary key in {filename}.',
         log,
     )
@@ -173,7 +173,7 @@ def _get_candidate_slide_ids_from_filename(
         _FILENAME_MISSING_SLIDE_METADATA_PRIMARY_KEY_ERROR_LEVEL,
     )
   log['candidate_slide_metadata_primary_keys'] = candidate_slide_ids
-  cloud_logging_client.logger().info(
+  cloud_logging_client.info(
       f'Identified candidate slide metadata primary key(s) in {filename}.', log
   )
   return candidate_slide_ids
@@ -193,7 +193,7 @@ def decode_bq_metadata_table_env() -> Tuple[str, str, str]:
     project_id, dataset_id, table_name = bq_table_id
     return project_id.strip(), dataset_id.strip(), table_name.strip()
   except ValueError as exp:
-    cloud_logging_client.logger().critical(
+    cloud_logging_client.critical(
         'BIG_QUERY_METADATA_TABLE enviromental variable is incorrectly'
         ' formatted. Expected: {ProjectID}.{DatasetID}.{TableName}',
         {'BIG_QUERY_METADATA_TABLE': bq_table_id},
@@ -239,11 +239,6 @@ def find_slide_id_in_metadata(
       )
     else:
       metadata.get_slide_metadata_from_csv(candidate_slide_id)
-    cloud_logging_client.logger().info(
-        'Candidate slide primary key found in metadata.',
-        {ingest_const.LogKeywords.SLIDE_ID: candidate_slide_id},
-        log,
-    )
     return candidate_slide_id
   except BigQueryMetadataTableEnvFormatError as exp:
     raise SlideIdIdentificationError(
@@ -251,12 +246,6 @@ def find_slide_id_in_metadata(
         _SLIDE_ID_MISSING_FROM_BQ_METADATA_ERROR_LEVEL,
     ) from exp
   except metadata_storage_client.MetadataNotFoundExceptionError as exp:
-    cloud_logging_client.logger().warning(
-        'Candidate slide primary key not found in metadata.',
-        {ingest_const.LogKeywords.SLIDE_ID: candidate_slide_id},
-        log,
-        exp,
-    )
     msg = (
         ingest_const.ErrorMsgs.SLIDE_ID_MISSING_FROM_BQ_METADATA
         if bq_metadata_source
@@ -265,7 +254,7 @@ def find_slide_id_in_metadata(
     error_level = _PRIMARY_KEY_MISSING_FROM_METADATA_ERROR_LEVEL
     raise SlideIdIdentificationError(msg, error_level) from exp
   except metadata_storage_client.MetadataDefinedOnMultipleRowError as exp:
-    cloud_logging_client.logger().warning(
+    cloud_logging_client.warning(
         'Candidate slide primary key ignored; defined on multiple rows.',
         {
             ingest_const.LogKeywords.SLIDE_ID: candidate_slide_id,
@@ -304,7 +293,7 @@ def get_slide_id_from_filename(
     except SlideIdIdentificationError as exp:
       current_exception = highest_error_level_exception(current_exception, exp)
 
-  cloud_logging_client.logger().info(
+  cloud_logging_client.info(
       'None of the filename generated slide id candidates were found in'
       ' metadata primary key.',
       {'tested_slide_id_candidates': candidate_slide_ids},
@@ -332,7 +321,7 @@ def get_slide_id_from_ancillary_images(
     SlideIdIdentificationError: Unable to determine Barcode from images.
   """
   if not ancillary_images:
-    cloud_logging_client.logger().warning('No barcode containing images found.')
+    cloud_logging_client.warning('No barcode containing images found.')
     raise highest_error_level_exception(
         current_exception,
         SlideIdIdentificationError(
@@ -346,7 +335,7 @@ def get_slide_id_from_ancillary_images(
   if '' in barcodevalue_dict:
     del barcodevalue_dict['']
   if not barcodevalue_dict:
-    cloud_logging_client.logger().warning(
+    cloud_logging_client.warning(
         'Could not find and decode barcodes in any images.'
     )
     raise highest_error_level_exception(
@@ -357,7 +346,7 @@ def get_slide_id_from_ancillary_images(
         ),
     )
   if len(barcodevalue_dict) > 1:
-    cloud_logging_client.logger().warning(
+    cloud_logging_client.warning(
         'More than one barcode found in images',
         {ingest_const.LogKeywords.BARCODE: str(barcodevalue_dict)},
     )
@@ -386,7 +375,7 @@ def get_metadata_free_slide_id(
     SlideIdIdentificationError: Errors encountered identifying slide id.
   """
   slide_id = _get_whole_filename_to_test(dicom_gen)
-  cloud_logging_client.logger().info(
+  cloud_logging_client.info(
       'Metadata free transform.',
       {ingest_const.LogKeywords.SLIDE_ID: slide_id},
   )
@@ -395,7 +384,7 @@ def get_metadata_free_slide_id(
     return slide_id
   if not slide_id:
     error_msg = 'slide id is empty.'
-    cloud_logging_client.logger().error(
+    cloud_logging_client.error(
         f'Metadata free transform; {error_msg}',
         {ingest_const.LogKeywords.SLIDE_ID: slide_id},
     )
@@ -416,7 +405,7 @@ def get_metadata_free_slide_id(
         ' exceed the DICOM Standard length limits. Tag cropping is not'
         ' supported for metadata free ingestion.'
     )
-    cloud_logging_client.logger().warning(
+    cloud_logging_client.warning(
         f'Metadata free transform; {error_msg}',
         {ingest_const.LogKeywords.SLIDE_ID: slide_id},
     )
@@ -425,7 +414,7 @@ def get_metadata_free_slide_id(
       f'Filename exceeds {maximum_id_length} characters; the length limit for'
       ' LO VR tags.'
   )
-  cloud_logging_client.logger().error(
+  cloud_logging_client.error(
       f'Metadata free transform; {error_msg}',
       {ingest_const.LogKeywords.SLIDE_ID: slide_id},
   )

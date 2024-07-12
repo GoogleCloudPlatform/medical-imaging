@@ -54,6 +54,7 @@ _VL_WHOLE_SLIDE_MICROSCOPY_IOD_MODULES_TO_COPY_FROM_PRIMARY_TO_RESAMPLED = {
     'General Equipment',
     'General Series',
     'General Study',
+    'Microscope Slide Layer Tile Organization',
     'Optical Path',
     'Patient',
     'Patient Study',
@@ -75,23 +76,23 @@ def _unarchive_zipfile(zip_file_path: str, out_directory: str) -> List[str]:
     List of files unarchived or passed file path if not zip file.
   """
   if not zipfile.is_zipfile(zip_file_path):
-    cloud_logging_client.logger().info(
+    cloud_logging_client.info(
         'File is not zip file. Atttempting to process as DICOM.',
         {'filename': zip_file_path},
     )
     return [zip_file_path]
   file_list = []
-  cloud_logging_client.logger().info('Decompressing zip file.')
+  cloud_logging_client.info('Decompressing zip file.')
   with tempfile.TemporaryDirectory() as unarchive_temp_path:
     with zipfile.ZipFile(zip_file_path, allowZip64=True) as zip_archive:
       for zip_file_info in zip_archive.infolist():
         if zip_file_info.is_dir():
-          cloud_logging_client.logger().warning(
+          cloud_logging_client.warning(
               'Zip file contains directories; directories ignored.'
           )
           continue
         if zip_file_info.file_size == 0:
-          cloud_logging_client.logger().warning(
+          cloud_logging_client.warning(
               'Ingoring zipped file. File contained 0 bytes',
               {'filename': zip_file_info.filename},
           )
@@ -101,7 +102,7 @@ def _unarchive_zipfile(zip_file_path: str, out_directory: str) -> List[str]:
         outfile = os.path.join(out_directory, f'file_{len(file_list)}.dcm')
         shutil.move(extracted_file, outfile)
         file_list.append(outfile)
-  cloud_logging_client.logger().info(
+  cloud_logging_client.info(
       'Decompressed files.', {'decompressed_file_list': str(file_list)}
   )
   return file_list
@@ -126,14 +127,14 @@ def get_dicom_filerefs_list(
     try:
       file_ref = ingested_dicom_file_ref.load_ingest_dicom_fileref(path)
     except pydicom.errors.InvalidDicomError as exp:
-      cloud_logging_client.logger().warning(
+      cloud_logging_client.warning(
           'Received Non-DICOM file in ingestion payload.  Ignoring file.',
           {'filename': path},
           exp,
       )
       continue
     except ingested_dicom_file_ref.DicomIngestError as exp:
-      cloud_logging_client.logger().warning(
+      cloud_logging_client.warning(
           'Unable to determine transfer syntax of dicom file in ingestion'
           ' payload.  Ignoring file.',
           {'filename': path},
@@ -141,7 +142,7 @@ def get_dicom_filerefs_list(
       )
       continue
     file_ref_list.append(file_ref)
-    cloud_logging_client.logger().info(
+    cloud_logging_client.info(
         'Received DICOM file instance in ingestion payload.',
         {'filename': path},
         file_ref.dict(),
@@ -365,7 +366,7 @@ def _remove_duplicate_generated_dicom(
       )
       for path in generate_dicoms
   ]
-  cloud_logging_client.logger().debug(
+  cloud_logging_client.debug(
       'Removing generated downsampled DICOM instances that duplicate provided'
       ' DICOM instances.',
       {
@@ -432,7 +433,7 @@ def _determine_slideid(
   # attempt to get slide id from ingested file filename
   try:
     slide_id = decode_slideid.get_slide_id_from_filename(dicom_gen, metadata)
-    cloud_logging_client.logger().info(
+    cloud_logging_client.info(
         'Slide ID identified in file name.',
         {
             ingest_const.LogKeywords.FILENAME: dicom_gen.localfile,
@@ -447,7 +448,7 @@ def _determine_slideid(
   # attempt to get slide id from barcode tag in dicom file.
   try:
     slide_id = decode_slideid.find_slide_id_in_metadata(barcode_value, metadata)
-    cloud_logging_client.logger().info(
+    cloud_logging_client.info(
         'Slide ID identified in DICOM BarcodeValue tag.',
         {ingest_const.LogKeywords.SLIDE_ID: slide_id},
     )
@@ -468,7 +469,7 @@ def _determine_slideid(
       slide_id = decode_slideid.get_slide_id_from_ancillary_images(
           ancillary_images, metadata, current_exception
       )
-      cloud_logging_client.logger().info(
+      cloud_logging_client.info(
           'Slide ID identified in image barcode.',
           {ingest_const.LogKeywords.SLIDE_ID: slide_id},
       )
@@ -586,6 +587,12 @@ def _add_metadata_to_generated_dicom_files(
       dcm_file = pydicom.dcmread(dicom_path, force=False)
       dcm_file.BurnedInAnnotation = source_dicom_ref.burned_in_annotation
       dcm_file.SpecimenLabelInImage = source_dicom_ref.specimen_label_in_image
+      if (
+          ingest_const.DICOMTagKeywords.IMAGE_ORIENTATION_SLIDE in dcm_file
+          and ingest_const.DICOMTagKeywords.IMAGE_ORIENTATION_SLIDE in dcm_tags
+      ):
+        # if image orientation was defined in the input image prefer that.
+        del dcm_file[ingest_const.DICOMTagKeywords.IMAGE_ORIENTATION_SLIDE]
       # Undefined tags, mapped value is None, are not set.
       dicom_util.set_defined_pydicom_tags(
           dcm_file,
@@ -597,20 +604,21 @@ def _add_metadata_to_generated_dicom_files(
           dcm_file
       )
       _add_correct_optical_path_sequence(dcm_file, reference_icc_profile)
-      dicom_util.add_metadata_to_dicom(
+      dicom_util.add_default_total_pixel_matrix_origin_sequence_if_not_defined(
+          dcm_file
+      )
+      dicom_util.add_metadata_to_generated_wsi_dicom(
           additional_wsi_metadata,
           dcm_json,
           generated_dicom_private_tags,
           dcm_file,
       )
-
-      # It is intended that the line below will overwrite study uid definition
-      # in metadata schema.
       dicom_util.add_missing_type2_dicom_metadata(dcm_file)
+      dicom_util.if_missing_create_encapsulated_frame_offset_table(dcm_file)
       dcm_file.save_as(dicom_path, write_like_original=True)
       dicom_path_list.append(dicom_path)
     except pydicom.errors.InvalidDicomError as exp:
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           'WSI-to-DICOM conversion created invalid DICOM file.',
           {ingest_const.LogKeywords.FILENAME: dicom_path},
           exp,
@@ -628,9 +636,12 @@ def _common_init_for_externally_generated_dicom_instance(
   """Comon initalization for extenrally generated DICOM files."""
   # if dicom defined with implicit vr endian transfer syntax set to
   # explicit VR little endian
-  if dcm_file.file_meta.TransferSyntaxUID == '1.2.840.10008.1.2':
+  if (
+      dcm_file.file_meta.TransferSyntaxUID
+      == ingest_const.DicomImageTransferSyntax.IMPLICIT_VR_LITTLE_ENDIAN
+  ):
     dcm_file.file_meta.TransferSyntaxUID = (
-        ingest_const.EXPLICIT_VR_LITTLE_ENDIAN
+        ingest_const.DicomImageTransferSyntax.EXPLICIT_VR_LITTLE_ENDIAN
     )
   dcm_file.is_implicit_VR = False
   dcm_file.InstanceNumber = instance_number_util.get_instance_number(dcm_file)
@@ -677,10 +688,14 @@ def _add_metadata_to_ingested_wsi_dicom(
     try:
       dcm_file = pydicom.dcmread(wsi_ref.source, force=True)
       _add_correct_optical_path_sequence(dcm_file)
+      dicom_util.add_default_total_pixel_matrix_origin_sequence_if_not_defined(
+          dcm_file
+      )
       dicom_util.copy_pydicom_dataset(additional_wsi_metadata, dcm_file)
       _common_init_for_externally_generated_dicom_instance(
           dcm_file, private_tags, instance_number_util, dcm_json
       )
+      dicom_util.init_undefined_wsi_imaging_type1_tags(dcm_file)
       dicom_util.add_missing_type2_dicom_metadata(dcm_file)
       if highest_magnification_image is None:
         dcm_file.save_as(wsi_ref.source, write_like_original=True)
@@ -698,7 +713,7 @@ def _add_metadata_to_ingested_wsi_dicom(
           ancillary_image_type in wsi_ref.image_type
           for ancillary_image_type in ancillary_image_types
       ]):
-        cloud_logging_client.logger().info(
+        cloud_logging_client.info(
             (
                 'Skipping downsample determination. DICOM instance describes '
                 'ancillary image.'
@@ -709,7 +724,7 @@ def _add_metadata_to_ingested_wsi_dicom(
         dicom_path_list.append(wsi_ref.source)
         continue
       if not wsi_ref.imaged_volume_width or not wsi_ref.imaged_volume_height:
-        cloud_logging_client.logger().info(
+        cloud_logging_client.info(
             (
                 'Skipping downsample determination. DICOM instance does not'
                 ' have physical dimensions.'
@@ -729,7 +744,7 @@ def _add_metadata_to_ingested_wsi_dicom(
             / int(wsi_ref.total_pixel_matrix_rows)
         )
       except (ZeroDivisionError, ValueError) as exp:
-        cloud_logging_client.logger().warning(
+        cloud_logging_client.warning(
             'Could not determine DICOM instance downsampling.',
             {
                 'highest_mag_instance': highest_magnification_image.dict(),
@@ -744,7 +759,7 @@ def _add_metadata_to_ingested_wsi_dicom(
       downsample_name = f'downsample-{downsample}-{base_name}'
       file_path = os.path.join(dir_name, downsample_name)
       dcm_file.save_as(file_path, write_like_original=True)
-      cloud_logging_client.logger().debug(
+      cloud_logging_client.debug(
           'Re-naming ingested DICOM to identify instance downsampling.',
           {
               'old_file_name': base_name,
@@ -755,7 +770,7 @@ def _add_metadata_to_ingested_wsi_dicom(
       )
       dicom_path_list.append(file_path)
     except pydicom.errors.InvalidDicomError as exp:
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           'Adding metadata to ingested wsi-DICOM instance.', wsi_ref.dict(), exp
       )
       raise
@@ -904,7 +919,7 @@ class IngestWsiDicom(ingest_base.IngestBase):
             wsi_metadata,
         )
         if metadata is None:
-          cloud_logging_client.logger().warning(
+          cloud_logging_client.warning(
               'Could not identify SOPClassUID specfic metadata using VL Whole'
               ' Slide Microscopy Image formatted metadata.',
               {ingest_const.LogKeywords.SOP_CLASS_UID: dicom_ref.sop_class_uid},
@@ -921,7 +936,7 @@ class IngestWsiDicom(ingest_base.IngestBase):
           dcm_file.save_as(dicom_path, write_like_original=True)
           dicom_path_list.append(dicom_path)
       except pydicom.errors.InvalidDicomError as exp:
-        cloud_logging_client.logger().error(
+        cloud_logging_client.error(
             'Adding metadata to ingested DICOM instance.', dicom_ref.dict(), exp
         )
         raise
@@ -995,7 +1010,7 @@ class IngestWsiDicom(ingest_base.IngestBase):
           dicom_file_info.study_uid,
           dicom_file_info.series_uid,
           wsi_dcm_json,
-          abstract_dicom_handler.dcm_store_client,
+          abstract_dicom_handler,
           self._set_study_instance_uid_from_metadata(),
           self._set_series_instance_uid_from_metadata(),
       )
@@ -1005,7 +1020,7 @@ class IngestWsiDicom(ingest_base.IngestBase):
       # However, other DICOM present in the payload will be ingested.
       if dicom_file_info.original_image is None:
         dicom_gen.generated_dicom_files = []
-        cloud_logging_client.logger().warning(
+        cloud_logging_client.warning(
             'DICOM ingestion payload does not contain either an'
             ' ORIGINAL\\PRIMARY\\VOLUME or DERIVED\\PRIMARY\\VOLUME.'
             ' Downsampled pyramid layers will not be generated for this'

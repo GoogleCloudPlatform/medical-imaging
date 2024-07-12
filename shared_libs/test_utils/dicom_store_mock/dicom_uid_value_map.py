@@ -137,7 +137,6 @@ class DicomUidValueMap(Generic[UidMapType]):
     Raises:
       UidValueMapError: incorrectly formatted.
     """
-    _raise_if_incorrectly_formatted_for_search_and_remove(uid)
     return self._get_instances(uid, _UIDIndex.STUDY_INSTANCE_UID)
 
   def add_instance(self, uid: Tuple[str, str, str], value: UidMapType) -> bool:

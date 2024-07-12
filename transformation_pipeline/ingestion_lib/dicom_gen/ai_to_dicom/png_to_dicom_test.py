@@ -14,10 +14,11 @@
 # ==============================================================================
 """Tests for PNG to DICOM conversion."""
 
+import contextlib
 import json
 import os
 import time
-from typing import Any, Mapping, Tuple
+from typing import Any, Mapping
 from unittest import mock
 
 from absl import logging
@@ -112,27 +113,30 @@ class AiPngtoDicomSecondaryCaptureTest(parameterized.TestCase):
         mock.Mock(), ingest_file, RuntimeError('unexpected error')
     )
 
-  def get_client_convert_and_test_input(
+  def get_png_to_dicom_converter(
       self,
       mock_dicomweb_url: str,
       pubsub_msg: pubsub_v1.types.ReceivedMessage,
       local_path: str,
-  ) -> Tuple[
-      png_to_dicom.AiPngtoDicomSecondaryCapture,
-      abstract_dicom_generation.GeneratedDicomFiles,
-  ]:
+  ) -> png_to_dicom.AiPngtoDicomSecondaryCapture:
     png_to_dicom_converter = png_to_dicom.AiPngtoDicomSecondaryCapture(
         mock_dicomweb_url
     )
+    get_pubsub_file = self.enter_context(
+        mock.patch.object(
+            abstract_dicom_generation.AbstractDicomGeneration,
+            'get_pubsub_file',
+            autospec=True,
+        )
+    )
     mock_triggering_msg = png_to_dicom_converter.decode_pubsub_msg(pubsub_msg)
-    abstract_gen_dicom_files = abstract_dicom_generation.GeneratedDicomFiles(
-        local_path, mock_triggering_msg.uri
+    get_pubsub_file.return_value = (
+        abstract_dicom_generation.GeneratedDicomFiles(
+            local_path, mock_triggering_msg.uri
+        )
     )
     png_to_dicom_converter.root_working_dir = self.create_tempdir()
-    return (
-        png_to_dicom_converter,
-        abstract_gen_dicom_files,
-    )
+    return png_to_dicom_converter
 
   @parameterized.parameters([
       ({}, 'https://mock.oof_source.com/dicomWeb'),
@@ -184,18 +188,14 @@ class AiPngtoDicomSecondaryCaptureTest(parameterized.TestCase):
           source_dicom_instance_path
       )
       with flagsaver.flagsaver(dicom_store_to_clean=dicom_store_to_clean):
-        png_to_dicom_converter, abstract_gen_dicom_files = (
-            self.get_client_convert_and_test_input(
-                mock_oof_dest_dicomweb_url, pubsub_msg, local_path
-            )
+        png_to_dicom_converter = self.get_png_to_dicom_converter(
+            mock_oof_dest_dicomweb_url, pubsub_msg, local_path
         )
         mock_polling_client.current_msg = (
             png_to_dicom_converter.decode_pubsub_msg(pubsub_msg)
         )
         with mock_redis_client.MockRedisClient('1.2.3.4'):
-          png_to_dicom_converter._generate_dicom_and_push_to_store_lock_wrapper(
-              abstract_gen_dicom_files, mock_polling_client
-          )
+          png_to_dicom_converter.process_message(mock_polling_client)
 
       # test source instance not deleted
       mk_store[mock_oof_source_dicomweb_url].assert_not_empty(self)
@@ -243,19 +243,14 @@ class AiPngtoDicomSecondaryCaptureTest(parameterized.TestCase):
           source_dicom_instance_path
       )
       with flagsaver.flagsaver(dicom_store_to_clean=dicom_store_to_clean):
-        png_to_dicom_converter, abstract_gen_dicom_files = (
-            self.get_client_convert_and_test_input(
-                mock_oof_dest_dicomweb_url, pubsub_msg, local_path
-            )
+        png_to_dicom_converter = self.get_png_to_dicom_converter(
+            mock_oof_dest_dicomweb_url, pubsub_msg, local_path
         )
         mock_polling_client.current_msg = (
             png_to_dicom_converter.decode_pubsub_msg(pubsub_msg)
         )
         with mock_redis_client.MockRedisClient(redis_ip):
-          png_to_dicom_converter._generate_dicom_and_push_to_store_lock_wrapper(
-              abstract_gen_dicom_files, mock_polling_client
-          )
-
+          png_to_dicom_converter.process_message(mock_polling_client)
       # test source instance deleted
       mk_store[mock_oof_source_dicomweb_url].assert_empty(self)
       # test_instance uploaded to store
@@ -277,6 +272,7 @@ class AiPngtoDicomSecondaryCaptureTest(parameterized.TestCase):
   ):
     # Tests that AI transformation will do nothing and nack if redis lock
     # cannot be acquired.
+    local_test_context_block = self.enter_context(contextlib.ExitStack())
     redis_ip = '1.2.3.4'
     mock_oof_source_dicomweb_url = 'https://mock.oof_source.com/dicomWeb'
     mock_oof_dest_dicomweb_url = 'https://mock.ai_ml_dest.store.com/dicomWeb'
@@ -301,27 +297,29 @@ class AiPngtoDicomSecondaryCaptureTest(parameterized.TestCase):
           source_dicom_instance_path
       )
       with flagsaver.flagsaver(dicom_store_to_clean=dicom_store_to_clean):
-        png_to_dicom_converter, abstract_gen_dicom_files = (
-            self.get_client_convert_and_test_input(
-                mock_oof_dest_dicomweb_url, pubsub_msg, local_path
-            )
+        png_to_dicom_converter = self.get_png_to_dicom_converter(
+            mock_oof_dest_dicomweb_url, pubsub_msg, local_path
         )
-        mock_polling_client.current_msg = (
-            png_to_dicom_converter.decode_pubsub_msg(pubsub_msg)
-        )
+        decoded_msg = png_to_dicom_converter.decode_pubsub_msg(pubsub_msg)
+        mock_polling_client.current_msg = decoded_msg
+
         with mock_redis_client.MockRedisClient(redis_ip):
           # Simulate a lock by another pod on the images identiying lock name.
           png_transform_lock = png_to_dicom_converter.get_slide_transform_lock(
-              abstract_gen_dicom_files, mock_polling_client
+              abstract_dicom_generation.GeneratedDicomFiles(
+                  local_path, decoded_msg.uri
+              ),
+              mock_polling_client,
           )
           redis_client.redis_client().acquire_non_blocking_lock(
-              png_transform_lock.name, 'ANOTHER_POD_UID', 100
+              png_transform_lock.name,
+              'ANOTHER_POD_UID',
+              100,
+              local_test_context_block,
           )
 
           # Now to try process the image with the acquired lock.
-          png_to_dicom_converter._generate_dicom_and_push_to_store_lock_wrapper(
-              abstract_gen_dicom_files, mock_polling_client
-          )
+          png_to_dicom_converter.process_message(mock_polling_client)
 
       # test that nothing happend
       # source instance not deleted
@@ -350,24 +348,27 @@ class AiPngtoDicomSecondaryCaptureTest(parameterized.TestCase):
         params,
         source_dicom_instance_path,
     )
-    png_to_dicom_converter, abstract_gen_dicom_files = (
-        self.get_client_convert_and_test_input(
-            'https://mock.ai_ml_dest.store.com/dicomWeb',
-            pubsub_msg,
-            local_path,
-        )
+    png_to_dicom_converter = self.get_png_to_dicom_converter(
+        'https://mock.ai_ml_dest.store.com/dicomWeb',
+        pubsub_msg,
+        local_path,
     )
-    mock_polling_client.current_msg = png_to_dicom_converter.decode_pubsub_msg(
-        pubsub_msg
-    )
+    decoded_msg = png_to_dicom_converter.decode_pubsub_msg(pubsub_msg)
+    mock_polling_client.current_msg = decoded_msg
 
     # Now to try process the image with the acquired lock.
     lock = png_to_dicom_converter.get_slide_transform_lock(
-        abstract_gen_dicom_files, mock_polling_client
+        abstract_dicom_generation.GeneratedDicomFiles(
+            local_path, decoded_msg.uri
+        ),
+        mock_polling_client,
     )
     self.assertEqual(
         lock.name,
-        'oof_result_study:1.2.276.0.7230010.3.1.2.296485376.46.1648688993.578030_series:1.2.276.0.7230010.3.1.3.296485376.46.1648688993.578031',
+        'ML_TRIGGERED'
+        ' STUDY_INSTANCE_UID:1.2.276.0.7230010.3.1.2.296485376.46.1648688993.578030'
+        ' SERIES_INSTANCE_UID:'
+        ' 1.2.276.0.7230010.3.1.3.296485376.46.1648688993.578031',
     )
 
 

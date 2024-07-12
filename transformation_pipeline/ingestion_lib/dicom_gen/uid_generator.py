@@ -45,7 +45,7 @@ def _log_and_raise(msg: str):
   Raises:
     InvalidUIDPrefixError: Error in uid prefix definition.
   """
-  cloud_logging_client.logger().critical(msg)
+  cloud_logging_client.critical(msg)
   raise InvalidUIDPrefixError(msg)
 
 
@@ -241,7 +241,7 @@ def generate_uid() -> str:
     uid = _get_uid([prefix, hostname, rand_fraction, f'{time_str}{counter}'])
     if len(uid) > MAX_LENGTH_OF_DICOM_UID:
       raise ValueError('UID length exceeds max length for DICOM UID')
-    cloud_logging_client.logger().debug('Generated GUID', {'uid': str(uid)})
+    cloud_logging_client.debug('Generated GUID', {'uid': str(uid)})
     return uid
 
 

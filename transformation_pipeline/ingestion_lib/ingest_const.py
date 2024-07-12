@@ -13,14 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 """Constants used in transformation pipeline."""
-
 import dataclasses
 from typing import NewType
-
-# ******************************************************************************
-# File is imported outside of ingestion (OOF). Do not import internal ingestion
-# dependencies.
-# ******************************************************************************
 
 HEALTHCARE_API = 'https://healthcare.googleapis.com/v1'
 
@@ -29,21 +23,15 @@ PRIVATE_TAG_CREATOR = 'GOOGLE'
 SC_MANUFACTURER_NAME = 'GOOGLE'
 
 # DICOM UIDs used in ingest pipeline.
+# Google Implentation Class UID.
 SC_IMPLEMENTATION_CLASS_UID = '1.3.6.1.4.1.11129.5.4.1'
 WSI_IMPLEMENTATION_CLASS_UID = '1.3.6.1.4.1.11129.5.4.1'
 SCMI_IMPLEMENTATION_CLASS_UID = '1.3.6.1.4.1.11129.5.4.1'
+IMPLEMENTATION_VERSION_NAME = 'GooglePathTrans'  # Max len 16 characters
 
+# UID prefix based on Google UID prefix used to generate UIDs.
+# https://dicom.nema.org/medical/dicom/current/output/chtml/part05/sect_6.2.html
 DPAS_UID_PREFIX = '1.3.6.1.4.1.11129.5.7'
-# components should subprefix.
-# NDSAIngest = 1.3.6.1.4.1.11129.5.7.1
-# MLIngest   = 1.3.6.1.4.1.11129.5.7.2
-
-# DICOM default. Private tags not compatible with transfer syntax.
-# And are not returned by store on query.
-# DO NOT USE implicit_vr_endian_transfer_syntax = '1.2.840.10008.1.2'
-# See b/207162516
-
-EXPLICIT_VR_LITTLE_ENDIAN = '1.2.840.10008.1.2.1'
 
 MESSAGE_TTL_S = int(600)
 
@@ -52,6 +40,7 @@ OVERVIEW = 'OVERVIEW'
 THUMBNAIL = 'THUMBNAIL'
 LABEL = 'LABEL'
 DERIVED = 'DERIVED'
+MONOCHROME2 = 'MONOCHROME2'
 SECONDARY = 'SECONDARY'
 ORIGINAL = 'ORIGINAL'
 PRIMARY = 'PRIMARY'
@@ -109,6 +98,9 @@ class DICOMTagKeywords:
   """DICOM Keywords used in ingest project."""
 
   ACCESSION_NUMBER = 'AccessionNumber'
+  ACQUISITION_DATE = 'AcquisitionDate'
+  ACQUISITION_DATE_TIME = 'AcquisitionDateTime'
+  ACQUISITION_TIME = 'AcquisitionTime'
   BARCODE_VALUE = 'BarcodeValue'
   BITS_ALLOCATED = 'BitsAllocated'
   BITS_STORED = 'BitsStored'
@@ -117,17 +109,24 @@ class DICOMTagKeywords:
   COLUMNS = 'Columns'
   CONCATENATION_FRAME_OFFSET_NUMBER = 'ConcatenationFrameOffsetNumber'
   CONCATENATION_UID = 'ConcatenationUID'
+  CONTENT_DATE = 'ContentDate'
+  CONTENT_TIME = 'ContentTime'
+  DEVICE_SERIAL_NUMBER = 'DeviceSerialNumber'
   DICOM_GOOGLE_PRIVATE_CREATOR_BLOCK_TAG = (
       DICOMTagAddress.DICOM_GOOGLE_PRIVATE_CREATOR_BLOCK_TAG
   )
   DIMENSION_ORGANIZATION_TYPE = 'DimensionOrganizationType'
+  EXTENDED_DEPTH_OF_FIELD = 'ExtendedDepthOfField'
+  FOCUS_METHOD = 'FocusMethod'
   FRAME_OF_REFERENCE_UID = 'FrameOfReferenceUID'
   FRAME_TYPE = 'FrameType'
   GROUP_ADDRESS = '3021'
   HASH_PRIVATE_TAG = DICOMTagAddress.HASH_PRIVATE_TAG
   HIGH_BIT = 'HighBit'
   ICC_PROFILE = 'ICCProfile'
+  IMAGE_ORIENTATION_SLIDE = 'ImageOrientationSlide'
   IMAGE_TYPE = 'ImageType'
+  IMAGED_VOLUME_DEPTH = 'ImagedVolumeDepth'
   IMAGED_VOLUME_HEIGHT = 'ImagedVolumeHeight'
   IMAGED_VOLUME_WIDTH = 'ImagedVolumeWidth'
   IN_CONCATENATION_NUMBER = 'InConcatenationNumber'
@@ -154,14 +153,17 @@ class DICOMTagKeywords:
   SERIES_INSTANCE_UID = 'SeriesInstanceUID'
   SERIES_NUMBER = 'SeriesNumber'
   SHARED_FUNCTIONAL_GROUPS_SEQUENCE = 'SharedFunctionalGroupsSequence'
+  SLICE_THICKNESS = 'SliceThickness'
   SOFTWARE_VERSIONS = 'SoftwareVersions'
   SOP_CLASS_UID = 'SOPClassUID'
   SOP_INSTANCE_UID = 'SOPInstanceUID'
   SPECIMEN_LABEL_IN_IMAGE = 'SpecimenLabelInImage'
   STUDY_INSTANCE_UID = 'StudyInstanceUID'
   TOTAL_PIXEL_MATRIX_COLUMNS = 'TotalPixelMatrixColumns'
+  TOTAL_PIXEL_MATRIX_FOCAL_PLANES = 'TotalPixelMatrixFocalPlanes'
   TOTAL_PIXEL_MATRIX_ROWS = 'TotalPixelMatrixRows'
   TRANSFER_SYNTAX_UID = 'TransferSyntaxUID'
+  VOLUMETRIC_PROPERTIES = 'VolumetricProperties'
 
 
 SOPClassUID = NewType('SOPClassUID', str)
@@ -200,12 +202,40 @@ class DicomSopClasses:
 
 
 class DicomImageTransferSyntax:
+  """DICOM Transfer Syntaxs."""
+
+  # DICOM transfer syntaxs define pixel data encoding.
+  # https://dicom.nema.org/medical/dicom/current/output/chtml/part06/chapter_a.html
+
+  # DICOM default. Private tags not compatible with transfer syntax.
+  # And are not returned by store on query.
+  # DO NOT USE see b/207162516
+  IMPLICIT_VR_LITTLE_ENDIAN = '1.2.840.10008.1.2'
+  # DO NOT USE poor performance
+  DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN = '1.2.840.10008.1.2.1.99'
+  # Prefered transfer syntax
+  EXPLICIT_VR_LITTLE_ENDIAN = '1.2.840.10008.1.2.1'
+  # DO not use deprecated
+  EXPLICIT_VR_BIG_ENDIAN = '1.2.840.10008.1.2.2'
+  # encapsulated transfer syntaxs
   JPEG_LOSSY = '1.2.840.10008.1.2.4.50'
   JPEG_2000 = '1.2.840.10008.1.2.4.90'
 
 
+# https://dicom.nema.org/medical/dicom/current/output/chtml/part03/sect_C.7.6.html#sect_C.7.6.1.1.5.1
 class DicomImageCompressionMethod:
   JPEG_LOSSY = 'ISO_10918_1'
+
+
+class RedisLockKeywords:
+  """Keywords used to identify unique portions of redis lock values."""
+
+  DICOM_ACCESSION_NUMBER = 'DICOM_ACCESSION_NUMBER:%s'
+  GCS_TRIGGERED_INGESTION = 'GCS_TRIGGERED SLIDEID:%s'
+  DICOM_STORE_TRIGGERED_INGESTION = 'DICOM_STORE_TRIGGERED STORE:%s SLIDE_ID:%s'
+  ML_TRIGGERED_INGESTION = (
+      'ML_TRIGGERED STUDY_INSTANCE_UID:%s SERIES_INSTANCE_UID: %s'
+  )
 
 
 class PubSubKeywords:
@@ -243,8 +273,16 @@ class LogKeywords:
   FILE_NAME_PART_SPLIT_STRING = 'file_name_slide_id_part_split_string'
   FILE_SIZE = 'file_size(bytes)'
   FILENAME = 'filename'
+  GCS_IGNORE_FILE_REGEXS = 'gcs_ignore_file_regexs'
   HASH = 'hash'
+  IGNORE_FILE_BUCKET = 'ignore_file_bucket'
+  INGESTION_HANDLER = 'ingestion_handler'
+  INVALID_CHARACTER = 'invalid_character'
+  LOCK_HELD_SEC = 'lock_held_sec'
+  LOCK_NAME = 'lock_name'
+  LOCK_TOKEN = 'lock_token'
   MAIN_DICOM_STORE = 'main_dicom_store'
+  MATCHED_REGEX = 'matched_regex'
   MESSAGE_COUNT = 'message_count'
   METADATA = 'metadata'
   METADATA_PRIMARY_KEY = 'metadata_primary_key'
@@ -263,6 +301,8 @@ class LogKeywords:
   PUBSUB_SUBSCRIPTION = 'pubsub_subscription'
   PUBSUB_TOPIC_NAME = 'pubsub_topic_name'
   RECEIVED_EVENT_TYPE = 'received_event_type'
+  REDIS_SERVER_IP = 'redis_server_ip'
+  REDIS_SERVER_PORT = 'redis_server_port'
   RETURN_CODE = 'return-code'
   SERIES_INSTANCE_UID = 'series_instance_uid'
   SLIDE_ID = 'slide_id'
@@ -278,12 +318,15 @@ class LogKeywords:
   TOTAL_TIME_SEC = 'total_time_sec'
   TYPE2_AND_2C_TAGS_ADDED = 'type2_and_2c_tags_added'
   TYPE2_TAGS_ADDED = 'type2_tags_added'
-  URI = 'URI'
+  URI = 'uri'
+  URL = 'url'
 
 
 class EnvVarNames:
   DICOM_STORE_TO_CLEAN = 'DICOM_STORE_TO_CLEAN'
   DICOMWEB_URL = 'DICOMWEB_URL'
+  GCS_IGNORE_FILE_BUCKET = 'GCS_IGNORE_FILE_BUCKET'
+  GCS_IGNORE_FILE_REGEXS = 'GCS_IGNORE_FILE_REGEXS'
   GCS_UPLOAD_IGNORE_FILE_EXT = 'GCS_UPLOAD_IGNORE_FILE_EXT'
   INGEST_COMPLETE_OOF_TRIGGER_PUBSUB_TOPIC = (
       'INGEST_COMPLETE_OOF_TRIGGER_PUBSUB_TOPIC'
@@ -305,10 +348,12 @@ class ErrorMsgs:
   paths, which are passed as an additional args element in exceptions.
   """
 
+  ACQUIRING_LOCK_OUTSIDE_CONTEXT_BLOCK = 'acquiring_lock_outside_context_block'
   BQ_METADATA_NOT_FOUND = 'bigquery_metadata_not_found'
   BQ_METADATA_TABLE_ENV_FORMAT = (
       'big_query_metadata_table_env_incorrectly_formatted'
   )
+  COULD_NOT_ACQUIRE_LOCK = 'could_not_acquire_lock'
   INVALID_DICOM = 'invalid_dicom'
   INVALID_DICOM_STANDARD_REPRESENTATION = (
       'invalid_dicom_standard_representation'
@@ -461,6 +506,9 @@ class ErrorMsgs:
   )
   DICOM_INSTANCES_HAVE_MULTIPLE_PATIENT_IDS = (
       'dicom_instances_have_multiple_patient_ids'
+  )
+  DICOM_INSTANCE_HAS_UNSUPPORTED_TOTAL_PIXEL_MATRIX_FOCAL_PLANE_VALUE = (
+      'dicom_instance_has_unsupported_total_pixel_matrix_focal_plane_value'
   )
   DICOM_INSTANCES_DESCRIBE_MULTIPLE_MODALITIES = (
       'dicom_instances_describe_multiple_modalities'

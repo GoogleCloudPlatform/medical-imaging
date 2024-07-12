@@ -49,3 +49,6 @@ repository [here](https://github.com/GoogleCloudPlatform/cloud-pathology-iac/blo
 
 For a how to guide with a walkthrough of the pipeline refer to documentation
   [here](https://github.com/GoogleCloudPlatform/Cloud-Pathology/blob/main/transformation_pipeline/docs/digital_pathology_transformation_pipeline_to_dicom.md)
+
+A tool to test transformation pipeline deployments is provided
+  [here](https://github.com/GoogleCloudPlatform/cloud-pathology/tree/main/transformation_pipeline/test_utils/ingest_data_generator). The tool simplifies triggering transformation pipeline execution by generating synthetic metadata for imaging and triggering the pipeline with the provided imaging and metadata. Among its uses the tool can be used to test imaging formats, GKE scaling configurations, and metadata generation.

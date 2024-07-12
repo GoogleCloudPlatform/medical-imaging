@@ -1,0 +1,72 @@
+{
+  "name": "Image Lifecycle Management Pipeline",
+  "description": "An Apache Beam pipeline that performs storage class updates on instances in a DICOM Store based on user defined heuristics.",
+  "parameters": [
+    {
+      "name": "experiments",
+      "label": "experiments",
+      "helpText": "[Beam pipeline option] Additional experiments for runners.",
+      "isOptional": false
+    },
+    {
+      "name": "max_num_workers",
+      "label": "max_num_workers",
+      "helpText": "[Beam pipeline option] Maximum number of workers.",
+      "isOptional": false
+    },
+    {
+      "name": "default_sdk_harness_log_level",
+      "label": "default_sdk_harness_log_level",
+      "helpText": "[Beam pipeline option] Controls the default log level of all loggers without a log level override. Can be used to increase log level if logger worker is being throttled.",
+      "isOptional": true
+    },
+    {
+      "name": "sdk_container_image",
+      "label": "sdk_container_image",
+      "helpText": "[Beam pipeline option] Worker image.",
+      "isOptional": false
+    },
+    {
+      "name": "sdk_location",
+      "label": "sdk_location",
+      "helpText": "[Beam pipeline option] Path to custom Beam SDK package.",
+      "isOptional": false
+    },
+    {
+      "name": "service_account_email",
+      "label": "service_account_email",
+      "helpText": "[Beam pipeline option] Service account email to use.",
+      "isOptional": false
+    },
+    {
+      "name": "worker_machine_type",
+      "label": "worker_machine_type",
+      "helpText": "[Beam pipeline option] Machine type to use for workers.",
+      "isOptional": false
+    },
+    {
+      "name": "project",
+      "label": "project",
+      "helpText": "[Beam pipeline option] GCP project to use for Dataflow job.",
+      "isOptional": false
+    },
+    {
+      "name": "temp_location",
+      "label": "temp_location",
+      "helpText": "[Beam pipeline option] GCS path for saving temporary workflow jobs.",
+      "isOptional": false
+    },
+    {
+      "name": "staging_location",
+      "label": "staging_location",
+      "helpText": "[Beam pipeline option] GCS path for staging code packages needed by workers.",
+      "isOptional": false
+    },
+    {
+      "name": "ilm_config_gcs_uri",
+      "label": "ilm_config_gcs_uri",
+      "helpText": "GCS path to ILM pipeline config.",
+      "isOptional": false
+    }
+ ]
+}

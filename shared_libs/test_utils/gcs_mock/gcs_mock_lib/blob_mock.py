@@ -146,6 +146,8 @@ class BlobMock:
   @property
   def path(self) -> str:
     """Returns gcs path to blob."""
+    if not self._bucket:
+      raise gcs_mock_types.GcsMockError('Bucket is not set.')
     return f'{self._bucket.path}/o/{self.name}'
 
   @property
@@ -245,6 +247,7 @@ class BlobMock:
       if_metageneration_not_match: Optional[int] = None,
       timeout: Optional[gcs_mock_types.TimeoutType] = 60,
       retry: Optional[gcs_mock_types.RetryType] = None,
+      soft_deleted: Optional[bool] = None,  # pylint:disable=unused-argument
   ) -> bool:
     """Returns true if blob exists on client in bucket.
 
@@ -262,6 +265,7 @@ class BlobMock:
         response.
       retry:    google.api_core.retry.Retry or
         google.cloud.storage.retry.ConditionalRetryPolicy
+      soft_deleted: (Optional) Not implemented in mock.
 
     Returns:
       True if blob exists.
@@ -352,6 +356,7 @@ class BlobMock:
       if_metageneration_not_match: Optional[int] = None,
       timeout: Optional[gcs_mock_types.TimeoutType] = 60,
       retry: Optional[gcs_mock_types.RetryType] = None,
+      soft_deleted: Optional[bool] = None,  # pylint:disable=unused-argument
   ) -> None:
     """Reloads blob state from mocked cloud storage.
 
@@ -371,6 +376,7 @@ class BlobMock:
         response.
       retry:    google.api_core.retry.Retry or
         google.cloud.storage.retry.ConditionalRetryPolicy
+      soft_deleted: (Optional) Not implemented in mock.
 
     Returns:
       None

@@ -24,7 +24,7 @@ from transformation_pipeline.ingestion_lib import pubsub_util
 
 class PubSubUtilTest(absltest.TestCase):
 
-  @mock.patch.object(cloud_logging_client.CloudLoggingClient, 'critical')
+  @mock.patch.object(cloud_logging_client, 'critical')
   @mock.patch.object(
       google.auth,
       'default',
@@ -48,7 +48,7 @@ class PubSubUtilTest(absltest.TestCase):
         'Pub/sub topic is not defined.', {'pubsub_topic_name': 'foo1'}, exp
     )
 
-  @mock.patch.object(cloud_logging_client.CloudLoggingClient, 'critical')
+  @mock.patch.object(cloud_logging_client, 'critical')
   @mock.patch.object(
       google.auth,
       'default',
@@ -74,7 +74,7 @@ class PubSubUtilTest(absltest.TestCase):
         exp,
     )
 
-  @mock.patch.object(cloud_logging_client.CloudLoggingClient, 'critical')
+  @mock.patch.object(cloud_logging_client, 'critical')
   @mock.patch.object(
       google.auth,
       'default',

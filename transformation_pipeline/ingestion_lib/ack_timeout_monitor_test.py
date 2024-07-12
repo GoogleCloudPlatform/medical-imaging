@@ -13,11 +13,13 @@
 # limitations under the License.
 # ==============================================================================
 """Tests for ack_timeout_monitor."""
+import contextlib
 import json
 import time
 from unittest import mock
 
 from absl.testing import absltest
+from absl.testing import flagsaver
 from absl.testing import parameterized
 from google.cloud import pubsub_v1
 
@@ -180,40 +182,43 @@ class AckTimeoutMonitorTest(parameterized.TestCase):
   ):
     lock_name = 'foo'
     with mock_redis_client.MockRedisClient('1.2.3.4.5'):
-      redis_client.redis_client().acquire_non_blocking_lock(lock_name, 'abc', 6)
-      lock_time = time.time()
-      subscription_path = 'foo'
-      wait_time = 10
-      ack_extension_time_interval = 2
-      ack_mon = ack_timeout_monitor.PubSubAckTimeoutMonitor(
-          subscription_path, ack_extension_time_interval
-      )
-      mock_pubsub_msg = _MockPubSubMsg()
-      ack_mon.start()
-      start_time = time.time()
-      ack_mon.set_pubsub_msg(mock_pubsub_msg, start_time)
-      time.sleep(wait_time + (2 * ack_extension_time_interval))
-      self.assertGreaterEqual(ack_mon.get_ack_time_extension(), wait_time)
-      ack_mon.shutdown()
+      with contextlib.ExitStack() as lock_context:
+        redis_client.redis_client().acquire_non_blocking_lock(
+            lock_name, 'abc', 6, lock_context
+        )
+        lock_time = time.time()
+        subscription_path = 'foo'
+        wait_time = 10
+        ack_extension_time_interval = 2
+        ack_mon = ack_timeout_monitor.PubSubAckTimeoutMonitor(
+            subscription_path, ack_extension_time_interval
+        )
+        mock_pubsub_msg = _MockPubSubMsg()
+        ack_mon.start()
+        start_time = time.time()
+        ack_mon.set_pubsub_msg(mock_pubsub_msg, start_time)
+        time.sleep(wait_time + (2 * ack_extension_time_interval))
+        self.assertGreaterEqual(ack_mon.get_ack_time_extension(), wait_time)
+        ack_mon.shutdown()
 
-      mk_pubsub_client.assert_called()
-      call_count = mk_pubsub_client.call_count
-      pubsub_client_call = mock.call(
-          ack_mon._pubsub_subscriber,
-          request={
-              'subscription': subscription_path,
-              'ack_ids': [mock_pubsub_msg.ack_id],
-              'ack_deadline_seconds': ingest_const.MESSAGE_TTL_S,
-          },
-      )
-      mk_pubsub_client.assert_has_calls(
-          [pubsub_client_call] * call_count, any_order=False
-      )
-      mk_auth.assert_called_once()
-      self.assertGreater(
-          redis_client.redis_client().client.get_lock_expire_time(lock_name),
-          6 + lock_time,
-      )
+        mk_pubsub_client.assert_called()
+        call_count = mk_pubsub_client.call_count
+        pubsub_client_call = mock.call(
+            ack_mon._pubsub_subscriber,
+            request={
+                'subscription': subscription_path,
+                'ack_ids': [mock_pubsub_msg.ack_id],
+                'ack_deadline_seconds': ingest_const.MESSAGE_TTL_S,
+            },
+        )
+        mk_pubsub_client.assert_has_calls(
+            [pubsub_client_call] * call_count, any_order=False
+        )
+        mk_auth.assert_called_once()
+        self.assertGreater(
+            redis_client.redis_client().client.get_lock_expire_time(lock_name),
+            6 + lock_time,
+        )
 
   @mock.patch.object(
       pubsub_v1.SubscriberClient, 'modify_ack_deadline', autospec=True
@@ -223,6 +228,7 @@ class AckTimeoutMonitorTest(parameterized.TestCase):
       autospec=True,
       return_value=(mock.Mock(), _PROJECT_ID),
   )
+  @flagsaver.flagsaver(ops_log_project='mock_project')
   def test_clear_pubsub_msg(self, mk_auth, unused_mk_pubsub_client):
     ack_mon = ack_timeout_monitor.PubSubAckTimeoutMonitor('foo', 10)
     ack_mon.start()

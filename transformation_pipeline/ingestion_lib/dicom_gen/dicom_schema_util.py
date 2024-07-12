@@ -534,9 +534,9 @@ class SchemaDICOMTag:
       msg = 'Metadata defines incorrectly formatted DICOM UID.'
       log = {'tag': str(self), 'value': val}
       if uid_validation == ingest_flags.MetadataUidValidation.LOG_WARNING:
-        cloud_logging_client.logger().warning(msg, log)
+        cloud_logging_client.warning(msg, log)
         return
-      cloud_logging_client.logger().error(msg, log)
+      cloud_logging_client.error(msg, log)
       raise DICOMSchemaTagError(
           self,
           'DICOMTag has UI VR code, tag value does not UI VR code formatting'
@@ -576,7 +576,7 @@ class SchemaDICOMTag:
         length_validation
         == ingest_flags.MetadataTagLengthValidation.LOG_WARNING
     ):
-      cloud_logging_client.logger().warning(
+      cloud_logging_client.warning(
           'DICOM tag value exceeds DICOM Standard length limits for tag VR'
           ' type.',
           {'tag_value': val, 'tag': str(self)},
@@ -587,7 +587,7 @@ class SchemaDICOMTag:
         == ingest_flags.MetadataTagLengthValidation.LOG_WARNING_AND_CLIP
     ):
       cropped_val = val[:max_str_len]
-      cloud_logging_client.logger().warning(
+      cloud_logging_client.warning(
           'DICOM tag value cropped; value exceeds DICOM Standard length limits'
           ' for tag VR type.',
           {
@@ -600,7 +600,7 @@ class SchemaDICOMTag:
     msg = (
         'DICOM tag value exceeds DICOM Standard length limits for tag VR type.'
     )
-    cloud_logging_client.logger().error(
+    cloud_logging_client.error(
         msg,
         {'tag_value': val, 'tag': str(self)},
     )
@@ -750,7 +750,7 @@ class SchemaDICOMTag:
       return True
     if not dicom_standard.dicom_standard_util().is_vr_str_type(vr):
       test_value = str(test_value)
-      cloud_logging_client.logger().warning(
+      cloud_logging_client.warning(
           (
               'Performing VALUE_CHAR_LIMIT on non-string VR type may produce '
               'unexpected results. Casting value to string.'
@@ -1186,9 +1186,7 @@ def get_json_dicom(
       or rebuilding/fixing dicom schema JSON def.
   """
   conditiona_tag_handler = ConditionalTagHandler()
-  cloud_logging_client.logger().info(
-      'Starting generating dicom json from schema'
-  )
+  cloud_logging_client.info('Starting generating dicom json from schema')
   root = SchemaDicomDatasetBlock(dicom_schema, iod_name, json_base=json_base)
   tag_processing_stack = list(root.tags)
   while tag_processing_stack:
@@ -1205,7 +1203,7 @@ def get_json_dicom(
           if not metadata.has_column_name(col_name):
             # Enable a newer schema to be used with older CSV data.
             # Omit missing value and log warning
-            cloud_logging_client.logger().warning(
+            cloud_logging_client.warning(
                 (
                     'Invalid metadata column name in DICOM schema. '
                     'DICOM tag may not be assigned a value.'
@@ -1242,5 +1240,5 @@ def get_json_dicom(
           tag_block_list.append(block)
         tag_processing_stack.extend(child_dataset_tags)
         tag_processing_stack.extend(conditiona_tag_handler.tag_processed(tag))
-  cloud_logging_client.logger().info('Done generating dicom json')
+  cloud_logging_client.info('Done generating dicom json')
   return root.get_dicom_json()

@@ -17,6 +17,7 @@ import math
 import os
 import typing
 from typing import List, Optional, Tuple
+from unittest import mock
 
 from absl.testing import absltest
 from absl.testing import parameterized
@@ -116,7 +117,9 @@ class _GenTestDicom:
     self._dcm.BurnedInAnnotation = 'NO'
     self._dcm.SpecimenLabelInImage = 'NO'
     self._dcm.DimensionOrganizationType = ingest_const.TILED_FULL
-    self._dcm.file_meta.TransferSyntaxUID = '1.2.840.10008.1.2.1'
+    self._dcm.file_meta.TransferSyntaxUID = (
+        ingest_const.DicomImageTransferSyntax.EXPLICIT_VR_LITTLE_ENDIAN
+    )
     self._set_image_frame_type(image_type)
 
   def _set_image_frame_type(self, image_type_list: List[str]):
@@ -602,6 +605,41 @@ class ValidateIngestedDicomTest(parameterized.TestCase):
         ingest_const.ErrorMsgs.WSI_DICOM_ANCILLARY_INSTANCE_HAS_MORE_THAN_ONE_FRAME,
     ):
       validate_ingested_dicom.validate_dicom_files(dcm_list)
+
+  def test_invalid_total_pixel_matrix_focal_planesraises(self):
+    dcm_list, original_dcm = self._gen_first_dicom(
+        [_ORIGINAL, _PRIMARY, _OVERVIEW]
+    )
+    original_dcm.TotalPixelMatrixFocalPlanes = 2
+    original_dcm.save_as(dcm_list[0])
+    dcm_list = ingest_wsi_dicom.get_dicom_filerefs_list(dcm_list)
+    with self.assertRaisesRegex(
+        ingested_dicom_file_ref.DicomIngestError,
+        ingest_const.ErrorMsgs.DICOM_INSTANCE_HAS_UNSUPPORTED_TOTAL_PIXEL_MATRIX_FOCAL_PLANE_VALUE,
+    ):
+      validate_ingested_dicom.validate_dicom_files(dcm_list)
+
+  @parameterized.named_parameters([
+      dict(testcase_name='defined_success', val='1', expected=False),
+      dict(testcase_name='undefined_success', val='', expected=False),
+      dict(
+          testcase_name='multiple_focal_planes_unsupported',
+          val='2',
+          expected=True,
+      ),
+      dict(testcase_name='bad_value', val='A', expected=True),
+  ])
+  def test_invalid_total_pixel_matrix_focal_planes(self, val, expected):
+    mock_ref = mock.create_autospec(
+        ingested_dicom_file_ref.IngestDicomFileRef, instance=True
+    )
+    mock_ref.total_pixel_matrix_focal_planes = val
+    self.assertEqual(
+        validate_ingested_dicom._invalid_total_pixel_matrix_focal_planes(
+            mock_ref
+        ),
+        expected,
+    )
 
 
 if __name__ == '__main__':

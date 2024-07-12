@@ -27,7 +27,8 @@ Overview:
  - Published ingest complete pub/sub msg.
  - All Operations logged in cloud operations.
 """
-from typing import Mapping
+import threading
+from typing import Mapping, Optional
 
 from absl import app
 
@@ -43,6 +44,8 @@ from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingestion_complete_oof_trigger_pubsub_topic
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
 
+_LICENSE_FILE_PATH = './thirdparty_licenses.txt'
+
 
 class LicenseMissingError(Exception):
   pass
@@ -50,6 +53,24 @@ class LicenseMissingError(Exception):
 
 class RedisConnectionFailedError(Exception):
   pass
+
+
+_running_polling_client: Optional[polling_client.PollingClient] = None
+_running_polling_client_lock = threading.Lock()
+
+
+def stop_polling_client() -> None:
+  with _running_polling_client_lock:
+    if _running_polling_client is not None:
+      _running_polling_client.stop_polling_client()
+
+
+def _set_running_polling_client(
+    client: Optional[polling_client.PollingClient],
+) -> None:
+  with _running_polling_client_lock:
+    global _running_polling_client
+    _running_polling_client = client
 
 
 def _run_polling_client_ingest(
@@ -67,7 +88,11 @@ def _run_polling_client_ingest(
   # Wrap the polling client in a 'with' block to automatically call close() to
   # close the underlying gRPC channel when done.
   with polling_client.PollingClient(project, sub_to_handler) as client:
-    client.run()
+    _set_running_polling_client(client)
+    try:
+      client.run()
+    finally:
+      _set_running_polling_client(None)
 
 
 def _run_oof_ingest() -> None:
@@ -77,7 +102,7 @@ def _run_oof_ingest() -> None:
         'Missing OOF subscription for OOF transformation pipeline. Either '
         '--oof_subscription flag or OOF_SUBSCRIPTION env variable must be set.'
     )
-    cloud_logging_client.logger().critical(oof_msg)
+    cloud_logging_client.critical(oof_msg)
     raise ValueError(oof_msg)
 
   ingest_handler = png_to_dicom.AiPngtoDicomSecondaryCapture(
@@ -86,6 +111,20 @@ def _run_oof_ingest() -> None:
   )
   sub_to_handler = {ingest_flags.OOF_SUBSCRIPTION_FLG.value: ingest_handler}
   _run_polling_client_ingest(ingest_flags.PROJECT_ID_FLG.value, sub_to_handler)
+
+
+def _get_oof_trigger_config() -> (
+    Optional[ingest_gcs_handler.InferenceTriggerConfig]
+):
+  oof_dicom_store_url = ingestion_dicom_store_urls.get_oof_dicom_web_url()
+  if not oof_dicom_store_url:
+    return None
+  return ingest_gcs_handler.InferenceTriggerConfig(
+      dicom_store_web_path=oof_dicom_store_url,
+      pubsub_topic=ingestion_complete_oof_trigger_pubsub_topic.get_oof_trigger_pubsub_topic(),
+      use_oof_legacy_pipeline=ingest_flags.OOF_LEGACY_INFERENCE_PIPELINE_FLG.value,
+      inference_config_path=ingest_flags.OOF_INFERENCE_CONFIG_PATH_FLG.value,
+  )
 
 
 def _run_default_ingest() -> None:
@@ -99,7 +138,7 @@ def _run_default_ingest() -> None:
         'Missing GCS subscription for default transformation pipeline. Either '
         '--gcs_subscription flag or GCS_SUBSCRIPTION env variable must be set.'
     )
-    cloud_logging_client.logger().critical(gcs_msg)
+    cloud_logging_client.critical(gcs_msg)
     raise ValueError(gcs_msg)
 
   sub_to_handler = {}
@@ -112,12 +151,7 @@ def _run_default_ingest() -> None:
           ingest_flags.INGEST_IGNORE_ROOT_DIR_FLG.value
       ),
       metadata_client=metadata_client,
-      oof_trigger_config=ingest_gcs_handler.InferenceTriggerConfig(
-          dicom_store_web_path=ingestion_dicom_store_urls.get_oof_dicom_web_url(),
-          pubsub_topic=ingestion_complete_oof_trigger_pubsub_topic.get_oof_trigger_pubsub_topic(),
-          use_oof_legacy_pipeline=ingest_flags.OOF_LEGACY_INFERENCE_PIPELINE_FLG.value,
-          inference_config_path=ingest_flags.OOF_INFERENCE_CONFIG_PATH_FLG.value,
-      ),
+      oof_trigger_config=_get_oof_trigger_config(),
   )
   sub_to_handler[ingest_flags.GCS_SUBSCRIPTION_FLG.value] = gcs_handler
 
@@ -131,7 +165,7 @@ def _run_default_ingest() -> None:
         dicom_store_handler
     )
   else:
-    cloud_logging_client.logger().info(
+    cloud_logging_client.info(
         'Running GCS ingest only. To include DICOM store, either '
         '--dicom_store_subscription flag or DICOM_STORE_SUBSCRIPTION env '
         'variable must be set. '
@@ -147,32 +181,28 @@ def main(unused_argv):
       'You  may not copy, modify, or distribute this software except as '
       'permitted under your agreement with Google.'
   )
-  cloud_logging_client.logger().info(copyright_notification)
+  cloud_logging_client.info(copyright_notification)
   try:
-    with open('./thirdparty_licenses.txt', 'rt') as infile:
+    with open(_LICENSE_FILE_PATH, 'rt') as infile:
       software_license = infile.read()
   except FileNotFoundError:
     software_license = None
   if not software_license:
-    cloud_logging_client.logger().critical(
-        'GKE container is missing software license.'
-    )
+    cloud_logging_client.critical('GKE container is missing software license.')
     raise LicenseMissingError('Missing software license')
-  cloud_logging_client.logger().info(
+  cloud_logging_client.info(
       'Opensource software licenses', {'licenses': software_license}
   )
 
   log = {'redis_server': ingest_flags.REDIS_SERVER_IP_FLG.value}
   if not redis_client.redis_client().has_redis_client():
-    cloud_logging_client.logger().info('Redis is not configured', log)
+    cloud_logging_client.info('Redis is not configured', log)
   else:
-    cloud_logging_client.logger().info('Redis is configured', log)
+    cloud_logging_client.info('Redis is configured', log)
     if redis_client.redis_client().ping():
-      cloud_logging_client.logger().info(
-          'Successfully pinged redis server', log
-      )
+      cloud_logging_client.info('Successfully pinged redis server', log)
     else:
-      cloud_logging_client.logger().critical('Could not ping redis server', log)
+      cloud_logging_client.critical('Could not ping redis server', log)
       raise RedisConnectionFailedError(
           'Could not connect to redis server '
           f'{ingest_flags.REDIS_SERVER_IP_FLG.value}.'
@@ -190,7 +220,7 @@ def main(unused_argv):
         f'Invalid TRANSFORMATION_PIPELINE value: {transformation_pipeline}. '
         'Expected: default or oof.'
     )
-    cloud_logging_client.logger().critical(err_msg)
+    cloud_logging_client.critical(err_msg)
     raise ValueError(err_msg)
 
 

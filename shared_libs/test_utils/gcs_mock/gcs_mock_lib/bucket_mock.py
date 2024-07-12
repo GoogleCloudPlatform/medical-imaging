@@ -130,6 +130,7 @@ class BucketMock:
       if_metageneration_not_match: Optional[int] = None,
       timeout: gcs_mock_types.TimeoutType = 60.0,
       retry: Optional[gcs_mock_types.RetryType] = None,
+      soft_deleted: Optional[bool] = None,  # pylint:disable=unused-argument
       **kwargs,
   ) -> Optional[gcs_mock_types.GcsBlobType]:
     """Get a blob object by name.
@@ -151,6 +152,7 @@ class BucketMock:
         response.
       retry:    google.api_core.retry.Retry or
         google.cloud.storage.retry.ConditionalRetryPolicy
+      soft_deleted: (Optional) Not implemented in mock.
       **kwargs: Addtional keyword args; ignored.
 
     Returns:
@@ -260,6 +262,8 @@ class BucketMock:
       timeout: gcs_mock_types.TimeoutType = 60.0,
       retry: Optional[gcs_mock_types.RetryType] = None,
       match_glob: Optional[str] = None,
+      include_folders_as_prefixes: Optional[bool] = None,  # pylint:disable=unused-argument
+      soft_deleted: Optional[bool] = None,  # pylint:disable=unused-argument
   ) -> Iterator[gcs_mock_types.GcsBlobType]:
     """Returns iterator of blobs in a bucket.
 
@@ -291,6 +295,8 @@ class BucketMock:
         google.cloud.storage.retry.ConditionalRetryPolicy.  Not implemented in
         mock.
       match_glob: Regular expression filter, not supported by mock.
+      include_folders_as_prefixes: (Optional) Not implemented in mock.
+      soft_deleted: (Optional) Not implemented in mock.
 
     Returns:
       Iterator of buckets on client.

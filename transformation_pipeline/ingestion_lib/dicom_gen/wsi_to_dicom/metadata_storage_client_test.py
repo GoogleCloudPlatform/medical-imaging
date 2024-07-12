@@ -35,16 +35,19 @@ TESTDATA_DIR = (
 class MetadataStorageClientTest(parameterized.TestCase):
   """Tests metadata storage client."""
 
+  @parameterized.parameters([
+      'VL Whole Slide Microscopy Image IOD Modules',
+      'VL Whole Slide Microscopy Image Storage',
+      '1.2.840.10008.5.1.4.1.1.77.1.6',
+  ])
   @flagsaver.flagsaver(metadata_bucket='test')
-  def test_wsi_dicom_schema_loader(self):
+  def test_wsi_dicom_schema_loader(self, iod_filter):
     """Tests loading WSI Schema."""
     wsi_json_filename = gen_test_util.test_file_path('example_schema_wsi.json')
     metadata_filename = gen_test_util.test_file_path('metadata.csv')
     meta_client = metadata_storage_client.MetadataStorageClient()
     meta_client.set_debug_metadata([metadata_filename, wsi_json_filename])
-    schema_filter = {
-        'SOPClassUID_Name': 'VL Whole Slide Microscopy Image IOD Modules'
-    }
+    schema_filter = {'SOPClassUID_Name': iod_filter}
     schema = meta_client.get_dicom_schema(schema_filter)
     schema = json.dumps(schema)
 

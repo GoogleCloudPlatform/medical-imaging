@@ -12,22 +12,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Flags used in transformation pipeline."""
+"""Flags used in transformation pipeline.
+
+Flags annotated with:
+* 'oof' are applicable for OOF mode
+* 'default' are applicable for default mode
+* 'required' must be populated for the pipeline to work
+* 'optional' pipeline will work without populating them
+"""
 
 import enum
 import json
 import os
 import sys
-from typing import Any, Optional
+from typing import Any, List, Optional, Union
 
 from absl import flags
 
-from shared_libs.flags import flag_utils
+from shared_libs.flags import secret_flag_utils
 from transformation_pipeline.ingestion_lib import ingest_const
 
 
+def _load_multi_string(val: Optional[str]) -> Optional[Union[List[str], str]]:
+  if val is None:
+    return None
+  try:
+    return json.loads(val)
+  except json.decoder.JSONDecodeError:
+    return val
+
+
 def get_value(
-    env_var: Optional[str] = None,
+    env_var: str,
     test_default_value: Optional[Any] = None,
     default_value: Any = None,
 ) -> Any:
@@ -40,13 +56,18 @@ def get_value(
     test_default_value: Default value to use when running tests.
     default_value: Default value to use.
   """
-  if env_var and os.getenv(env_var):
-    return os.getenv(env_var)
   if test_default_value and (
       'UNITTEST_ON_FORGE' in os.environ or 'unittest' in sys.modules
   ):
-    return test_default_value
-  return default_value
+    default_value = test_default_value
+  return secret_flag_utils.get_secret_or_env(env_var, default_value)
+
+
+class DefaultIccProfile(enum.Enum):
+  NONE = 'NONE'
+  SRGB = 'SRGB'
+  ADOBERGB = 'ADOBERGB'
+  ROMMRGB = 'ROMMRGB'
 
 
 class MetadataUidValidation(enum.Enum):
@@ -93,95 +114,98 @@ class Wsi2DcmPixelEquivalentTransform(enum.Enum):
   ALL_LEVELS = 'SVSImportPreferScannerTileingForAllLevels'
 
 
-### Flag annotations used to control public documentation
-# Flags annotated with 'oof' are applicable for OOF mode.
-# Flags annotated with 'default' are applicable for default mode.
-# Flags annotated with 'required' must be populated for the pipeline to work.
-# Flags annotated with 'optional' pipeline will work without populating them.
-# Flags annotated with 'obscure' are not included in the documentation but
-# can be shared only with targeted customers.
-# Flags annotated with 'internal'' should never be shared externally.
+class WsiDicomExtendedDepthOfFieldDefault(enum.Enum):
+  YES = 'YES'
+  NO = 'NO'
+
+
+class WsiDicomFocusMethod(enum.Enum):
+  AUTO = 'AUTO'
+  MANUAL = 'MANUAL'
+
 
 TRANSFORMATION_PIPELINE_FLG = flags.DEFINE_string(
     'transformation_pipeline',
-    os.getenv('TRANSFORMATION_PIPELINE', 'default'),
+    secret_flag_utils.get_secret_or_env('TRANSFORMATION_PIPELINE', 'default'),
     '[optional|default,oof] Defines transformation pipeline to run. Must be one'
     ' of {default, oof}.',
 )
 
 EMBED_ICC_PROFILE_FLG = flags.DEFINE_boolean(
     'embed_icc_profile',
-    os.getenv('EMBED_ICC_PROFILE', 'true'),
+    secret_flag_utils.get_bool_secret_or_env('EMBED_ICC_PROFILE', True),
     '[optional|default] embed icc profile into dicom',
 )
 
 METADATA_BUCKET_FLG = flags.DEFINE_string(
     'metadata_bucket',
-    os.getenv('METADATA_BUCKET', ''),
+    secret_flag_utils.get_secret_or_env('METADATA_BUCKET', ''),
     '[required|default] Name of bucket non-imaging metadata is pushed to.',
 )
 
 BIG_QUERY_METADATA_TABLE_FLG = flags.DEFINE_string(
     'big_query_metadata_table',
-    os.getenv('BIG_QUERY_METADATA_TABLE', ''),
+    secret_flag_utils.get_secret_or_env('BIG_QUERY_METADATA_TABLE', ''),
     'Id of BigQuery table to ingest metadata from '
     'ex.project_id.dataset_id.table_name.',
 )
 
 DICOM_GUID_PREFIX_FLG = flags.DEFINE_string(
     'dicom_guid_prefix',
-    os.getenv('DICOM_GUID_PREFIX', ingest_const.DPAS_UID_PREFIX),
-    '[obscure|default] Prefix for generated DICOM GUIDs.',
+    secret_flag_utils.get_secret_or_env(
+        'DICOM_GUID_PREFIX', ingest_const.DPAS_UID_PREFIX
+    ),
+    '[optional|default] Prefix for generated DICOM GUIDs.',
 )
 
 VIEWER_DEBUG_URL_FLG = flags.DEFINE_string(
     'viewer_debug_url',
-    os.getenv('VIEWER_DEBUG_URL', ''),
+    secret_flag_utils.get_secret_or_env('VIEWER_DEBUG_URL', ''),
     '[optional|default,oof] If defined, a debug url is logged at the end of'
     ' ingestion.',
 )
 
 DICOM_QUOTA_ERROR_RETRY_FLG = flags.DEFINE_integer(
     'dicom_quota_error_retry_sec',
-    os.getenv('DICOM_QUOTA_ERROR_RETRY', '600'),
-    '[obscure|default,oof] Seconds to wait before retying DICOM Store'
+    secret_flag_utils.get_secret_or_env('DICOM_QUOTA_ERROR_RETRY', '600'),
+    '[optional|default,oof] Seconds to wait before retying DICOM Store'
     ' upload due to quota failure.',
 )
 
 COPY_DICOM_TO_BUCKET_URI_FLG = flags.DEFINE_string(
     'copy_dicom_to_bucket_uri',
-    os.getenv('COPY_DICOM_TO_BUCKET_URI', ''),
-    '[obscure|default/oof] The bucket to copy generated DICOM to. If empty, '
+    secret_flag_utils.get_secret_or_env('COPY_DICOM_TO_BUCKET_URI', ''),
+    '[optional|default/oof] The bucket to copy generated DICOM to. If empty, '
     'the generated DICOM will not be copied.',
 )
 
 # Pub/Sub flags
 PROJECT_ID_FLG = flags.DEFINE_string(
     'project_id',
-    os.getenv('PROJECT_ID', ''),
+    secret_flag_utils.get_secret_or_env('PROJECT_ID', ''),
     '[required|default,oof] GCP project id to listen on.',
 )
 GCS_SUBSCRIPTION_FLG = flags.DEFINE_string(
     'gcs_subscription',
-    os.getenv('GCS_SUBSCRIPTION', None),
+    secret_flag_utils.get_secret_or_env('GCS_SUBSCRIPTION', None),
     '[required|default] Pub/Sub GCS subscription id to listen on. Used in'
     ' regular (default) transformation pipeline only.',
 )
 DICOM_STORE_SUBSCRIPTION_FLG = flags.DEFINE_string(
     'dicom_store_subscription',
-    os.getenv('DICOM_STORE_SUBSCRIPTION', None),
+    secret_flag_utils.get_secret_or_env('DICOM_STORE_SUBSCRIPTION', None),
     '[optional|default] Pub/Sub DICOM store subscription id to listen on. Used'
     'in regular (default) transformation pipeline only.',
 )
 OOF_SUBSCRIPTION_FLG = flags.DEFINE_string(
     'oof_subscription',
-    os.getenv('OOF_SUBSCRIPTION', None),
+    secret_flag_utils.get_secret_or_env('OOF_SUBSCRIPTION', None),
     '[required|oof] Pub/Sub Dataflow subscription id to listen on. Used in OOF'
     ' transformation pipeline only.',
 )
 INGEST_COMPLETE_OOF_TRIGGER_PUBSUB_TOPIC_FLG = flags.DEFINE_string(
     'ingest_complete_oof_trigger_pubsub_topic',
-    os.getenv(
+    secret_flag_utils.get_secret_or_env(
         ingest_const.EnvVarNames.INGEST_COMPLETE_OOF_TRIGGER_PUBSUB_TOPIC, ''
     ),
     '[required|oof] Pub/Sub topic to publish to at completion of ingestion to'
@@ -191,12 +215,12 @@ INGEST_COMPLETE_OOF_TRIGGER_PUBSUB_TOPIC_FLG = flags.DEFINE_string(
 # GCS ingestion flags
 INGEST_SUCCEEDED_URI_FLG = flags.DEFINE_string(
     'ingest_succeeded_uri',
-    os.getenv('INGEST_SUCCEEDED_URI', ''),
+    secret_flag_utils.get_secret_or_env('INGEST_SUCCEEDED_URI', ''),
     '[required|default] Bucket/path to move input to if ingest succeeds.',
 )
 INGEST_FAILED_URI_FLG = flags.DEFINE_string(
     'ingest_failed_uri',
-    os.getenv('INGEST_FAILED_URI', ''),
+    secret_flag_utils.get_secret_or_env('INGEST_FAILED_URI', ''),
     '[required|default] Bucket/path to move input to if an error occurs.',
 )
 GCS_INGEST_STUDY_INSTANCE_UID_SOURCE_FLG = flags.DEFINE_enum_class(
@@ -207,8 +231,8 @@ GCS_INGEST_STUDY_INSTANCE_UID_SOURCE_FLG = flags.DEFINE_enum_class(
 )
 INGEST_IGNORE_ROOT_DIR_FLG = flags.DEFINE_multi_string(
     'ingest_ignore_root_dirs',
-    json.loads(
-        os.getenv(
+    _load_multi_string(
+        secret_flag_utils.get_secret_or_env(
             'INGEST_IGNORE_ROOT_DIR', '["cloud-ingest", "storage-transfer"]'
         )
     ),
@@ -216,22 +240,44 @@ INGEST_IGNORE_ROOT_DIR_FLG = flags.DEFINE_multi_string(
 )
 GCS_FILE_INGEST_LIST_FLG = flags.DEFINE_multi_string(
     'gcs_file_to_ingest_list',
-    os.getenv('GCS_FILE_INGEST_LIST'),
+    _load_multi_string(
+        secret_flag_utils.get_secret_or_env('GCS_FILE_INGEST_LIST', None)
+    ),
     '[optional|default] Fixed list of GCS files to ingest. Client will'
     'terminate at end of ingestion.',
 )
 GCS_UPLOAD_IGNORE_FILE_EXTS_FLG = flags.DEFINE_list(
     'gcs_upload_ignore_file_exts',
-    os.getenv(ingest_const.EnvVarNames.GCS_UPLOAD_IGNORE_FILE_EXT, ''),
+    secret_flag_utils.get_secret_or_env(
+        ingest_const.EnvVarNames.GCS_UPLOAD_IGNORE_FILE_EXT, ''
+    ),
     '[optional|default] Comma-separated list of file extensions (e.g., ".json")'
     ' which will be ignored by ingestion if uploaded to GCS. Files without'
     ' extensions can be defined as " ".',
 )
+GCS_IGNORE_FILE_REGEXS_FLG = flags.DEFINE_multi_string(
+    'gcs_ignore_file_regexs',
+    _load_multi_string(
+        secret_flag_utils.get_secret_or_env(
+            ingest_const.EnvVarNames.GCS_IGNORE_FILE_REGEXS, None
+        )
+    ),
+    '[optional|default] List of regular expression used to identify file names '
+    'to ignore. The file will will be ingored if any of the regex match.',
+)
+GCS_IGNORE_FILE_BUCKET_FLG = flags.DEFINE_string(
+    'gcs_ignore_file_bucket',
+    secret_flag_utils.get_secret_or_env(
+        ingest_const.EnvVarNames.GCS_IGNORE_FILE_BUCKET, ''
+    ),
+    '[optional|default] Optional name of bucket to move files which are ignored'
+    ' by the transformation pipeline.',
+)
 FILENAME_SLIDEID_REGEX_FLG = flags.DEFINE_string(
     'wsi2dcm_filename_slideid_regex',
-    os.getenv(
+    secret_flag_utils.get_secret_or_env(
         'SLIDEID_REGEX',
-        os.getenv(
+        secret_flag_utils.get_secret_or_env(
             'METADATA_PRIMARY_KEY_REGEX',
             '^[a-zA-Z0-9]+-[a-zA-Z0-9]+(-[a-zA-Z0-9]+)+',
         ),
@@ -242,33 +288,35 @@ FILENAME_SLIDEID_REGEX_FLG = flags.DEFINE_string(
 )
 FILENAME_SLIDEID_SPLIT_STR_FLG = flags.DEFINE_string(
     'filename_slideid_split_str',
-    os.getenv(
+    secret_flag_utils.get_secret_or_env(
         'FILENAME_SLIDEID_SPLIT_STR',
-        os.getenv('FILENAME_METADATA_PRIMARY_KEY_SPLIT_STR', '_'),
+        secret_flag_utils.get_secret_or_env(
+            'FILENAME_METADATA_PRIMARY_KEY_SPLIT_STR', '_'
+        ),
     ),
     '[optional|default] Character or string to split GCS filename to find'
     ' metadata primary key using regex defined in FILENAME_SLIDEID_REGEX_FLG.',
 )
 TEST_WHOLE_FILENAME_AS_SLIDEID_FLG = flags.DEFINE_boolean(
     'test_whole_filename_as_slideid',
-    flag_utils.env_value_to_bool(
+    secret_flag_utils.get_bool_secret_or_env(
         'TEST_WHOLE_FILENAME_AS_SLIDEID',
-        flag_utils.env_value_to_bool(
+        secret_flag_utils.get_bool_secret_or_env(
             'TEST_WHOLE_FILENAME_AS_METADATA_PRIMARY_KEY',
         ),
     ),
-    '[obscure|default] Include slide whole filename excluding file extension as'
-    ' a candidate metadata primary key.',
+    '[optional|default] Include slide whole filename excluding file extension'
+    ' as a candidate metadata primary key.',
 )
 INCLUDE_UPLOAD_BUCKET_PATH_IN_WHOLE_FILENAME_SLIDEID_FLG = flags.DEFINE_boolean(
     'include_upload_bucket_path_in_whole_filename_slideid',
-    flag_utils.env_value_to_bool(
+    secret_flag_utils.get_bool_secret_or_env(
         'INCLUDE_UPLOAD_BUCKET_PATH_IN_WHOLE_FILENAME_SLIDEID',
-        flag_utils.env_value_to_bool(
+        secret_flag_utils.get_bool_secret_or_env(
             'INCLUDE_UPLOAD_BUCKET_PATH_IN_WHOLE_FILENAME_METADATA_PRIMARY_KEY'
         ),
     ),
-    '[obscure|default] Include bucket upload path in whole filename metadata '
+    '[optional|default] Include bucket upload path in whole filename metadata '
     'primary key. If enabled and file upload to gs://mybucket/foo/bar.svs then '
     'whole filename metadata primary key will be foo/bar. If False (default), '
     'then whole filename metadata primary key will be bar.',
@@ -276,14 +324,16 @@ INCLUDE_UPLOAD_BUCKET_PATH_IN_WHOLE_FILENAME_SLIDEID_FLG = flags.DEFINE_boolean(
 
 ENABLE_CREATE_MISSING_STUDY_INSTANCE_UID_FLG = flags.DEFINE_boolean(
     'enable_create_missing_study_instance_uid',
-    flag_utils.env_value_to_bool('ENABLE_CREATE_MISSING_STUDY_INSTANCE_UID'),
+    secret_flag_utils.get_bool_secret_or_env(
+        'ENABLE_CREATE_MISSING_STUDY_INSTANCE_UID'
+    ),
     '[optional|default] If True pipeline will create instance Study Instance '
     'UID if its missing. Requires metadata to define accession number.',
 )
 
 ENABLE_METADATA_FREE_INGESTION_FLG = flags.DEFINE_boolean(
     'enable_metadata_free_ingestion',
-    flag_utils.env_value_to_bool('ENABLE_METADATA_FREE_INGESTION'),
+    secret_flag_utils.get_bool_secret_or_env('ENABLE_METADATA_FREE_INGESTION'),
     '[optional|default] If True pipeline will ingest images without requiring '
     'metadata. Each image will be ingested into unique study and series '
     'instance uid. The PatientID will be set to the ingested file name.',
@@ -304,7 +354,7 @@ METADATA_TAG_LENGTH_VALIDATION_FLG = flags.DEFINE_enum_class(
     'metadata_tag_length_validation',
     get_value(
         env_var='METADATA_TAG_LENGTH_VALIDATION',
-        default_value=MetadataUidValidation.LOG_WARNING.name,
+        default_value=MetadataTagLengthValidation.LOG_WARNING.name,
     ),
     MetadataTagLengthValidation,
     '[optional|default] How to handles DICOM tags which exceed the length/size '
@@ -314,11 +364,11 @@ METADATA_TAG_LENGTH_VALIDATION_FLG = flags.DEFINE_enum_class(
 
 DELETE_FILE_FROM_INGEST_AT_BUCKET_AT_INGEST_SUCCESS_OR_FAILURE_FLG = flags.DEFINE_boolean(
     'delete_file_from_ingest_or_bucket',
-    flag_utils.env_value_to_bool(
+    secret_flag_utils.get_bool_secret_or_env(
         'DELETE_FILE_FROM_INGEST_BUCKET_AT_INGEST_SUCCESS_OR_FAILURE',
         undefined_value=True,
     ),
-    '[obscure|default] Set flag to False to disable file deletion from the '
+    '[optional|default] Set flag to False to disable file deletion from the '
     'ingestion bucket. If disabled, file will be copied to the success/failure '
     'bucket at the end of ingestion but not removed from the ingestion bucket '
     'to help de-duplicate uploads.',
@@ -326,27 +376,47 @@ DELETE_FILE_FROM_INGEST_AT_BUCKET_AT_INGEST_SUCCESS_OR_FAILURE_FLG = flags.DEFIN
 
 REDIS_SERVER_IP_FLG = flags.DEFINE_string(
     'redis_server_ip',
-    os.getenv('REDIS_SERVER_IP'),
+    secret_flag_utils.get_secret_or_env('REDIS_SERVER_IP', None),
     '[optional|default] IP address of cloud memory store for redis. Used to '
     'back cross GKE redis locks.',
 )
 
 REDIS_SERVER_PORT_FLG = flags.DEFINE_integer(
     'redis_server_port',
-    int(os.getenv('REDIS_SERVER_PORT', '6379')),
+    int(secret_flag_utils.get_secret_or_env('REDIS_SERVER_PORT', '6379')),
     '[optional|default] Port of cloud memory store for redis. Used to back '
     'cross GKE redis locks.',
 )
 
+REDIS_DB_FLG = flags.DEFINE_integer(
+    'redis_db',
+    int(secret_flag_utils.get_secret_or_env('REDIS_DB', '0')),
+    'Redis database',
+)
+
+REDIS_USERNAME_FLG = flags.DEFINE_string(
+    'redis_auth_username',
+    secret_flag_utils.get_secret_or_env('REDIS_USERNAME', None),
+    'Redis auth username.',
+)
+
+REDIS_AUTH_PASSWORD_FLG = flags.DEFINE_string(
+    'redis_auth_password',
+    secret_flag_utils.get_secret_or_env('REDIS_AUTH_PASSWORD', None),
+    'Redis auth password.',
+)
+
 TRANSFORM_POD_UID_FLG = flags.DEFINE_string(
     'transform_pod_uid',
-    os.getenv('MY_POD_UID'),
+    secret_flag_utils.get_secret_or_env('MY_POD_UID', None),
     'UID of GKE pod. Do not set unless in test.',
 )
 
 TRANSFORMATION_LOCK_RETRY_FLG = flags.DEFINE_integer(
     'transformation_lock_retry',
-    int(os.getenv('TRANSFORMATION_LOCK_RETRY', '300')),
+    int(
+        secret_flag_utils.get_secret_or_env('TRANSFORMATION_LOCK_RETRY', '300')
+    ),
     '[optional|default] Amount of time in seconds that pipeline should wait '
     'before retrying image ingestion when an image cannot be ingested due to '
     'another instance of the pipleine holding an transformation lock.',
@@ -354,13 +424,15 @@ TRANSFORMATION_LOCK_RETRY_FLG = flags.DEFINE_integer(
 
 OOF_INFERENCE_CONFIG_PATH_FLG = flags.DEFINE_string(
     'oof_inference_config_path',
-    os.getenv(ingest_const.EnvVarNames.OOF_INFERENCE_CONFIG_PATH, ''),
+    secret_flag_utils.get_secret_or_env(
+        ingest_const.EnvVarNames.OOF_INFERENCE_CONFIG_PATH, ''
+    ),
     '[optional|default] Path to OOF inference config to be included in Pub/Sub '
     'messages generated at the end of ingestion to trigger inference pipeline.',
 )
 OOF_LEGACY_INFERENCE_PIPELINE_FLG = flags.DEFINE_boolean(
     'oof_legacy_inference_pipeline',
-    flag_utils.env_value_to_bool(
+    secret_flag_utils.get_bool_secret_or_env(
         'OOF_LEGACY_INFERENCE_PIPELINE',
         undefined_value=True,
     ),
@@ -372,7 +444,9 @@ OOF_LEGACY_INFERENCE_PIPELINE_FLG = flags.DEFINE_boolean(
 # DICOM Metadata Schema flags
 REQUIRE_TYPE1_DICOM_TAG_METADATA_IS_DEFINED_FLG = flags.DEFINE_boolean(
     'require_type1_dicom_tag_metadata_is_defined',
-    flag_utils.env_value_to_bool('REQUIRE_TYPE1_DICOM_TAG_METADATA_IS_DEFINED'),
+    secret_flag_utils.get_bool_secret_or_env(
+        'REQUIRE_TYPE1_DICOM_TAG_METADATA_IS_DEFINED'
+    ),
     '[optional|default] Require all type one tags defined in the metadata'
     ' schema have defined values; if not raise'
     ' MissingRequiredMetadataValueError exception and  fail ingestion.',
@@ -380,7 +454,7 @@ REQUIRE_TYPE1_DICOM_TAG_METADATA_IS_DEFINED_FLG = flags.DEFINE_boolean(
 
 CREATE_NULL_TYPE2C_DICOM_TAG_IF_METADATA_IS_UNDEFINED_FLG = flags.DEFINE_boolean(
     'create_null_type2c_dicom_tag_if_metadata_if_undefined',
-    flag_utils.env_value_to_bool(
+    secret_flag_utils.get_bool_secret_or_env(
         'CREATE_NULL_TYPE2C_DICOM_TAG_IF_METADATA_IS_UNDEFINED'
     ),
     '[optional|default] Undefined mandatory type2 tags are always initalized to'
@@ -390,15 +464,65 @@ CREATE_NULL_TYPE2C_DICOM_TAG_IF_METADATA_IS_UNDEFINED_FLG = flags.DEFINE_boolean
 
 METADATA_PRIMARY_KEY_COLUMN_NAME_FLG = flags.DEFINE_string(
     'metadata_primary_key_column_name',
-    os.getenv('METADATA_PRIMARY_KEY_COLUMN_NAME', 'Bar Code Value'),
+    secret_flag_utils.get_secret_or_env(
+        'METADATA_PRIMARY_KEY_COLUMN_NAME', 'Bar Code Value'
+    ),
     '[optional|default] Defines column name used as primary key for joining '
     'candidate imaging with BigQuery or CSV metadata.',
 )
 
+# Undefined Metadata default values
+
+DEFAULT_ICCPROFILE_FLG = flags.DEFINE_enum_class(
+    'default_iccprofile',
+    get_value(
+        env_var='DEFAULT_ICCPROFILE',
+        default_value=DefaultIccProfile.SRGB.name,
+    ),
+    DefaultIccProfile,
+    '[optional|default] ICC Profile to embedd in wsi imaging that does not '
+    'provide an ICCColor profile.',
+)
+
+WSI_DICOM_EXTENDED_DEPTH_OF_FIELD_DEFAULT_VALUE_FLG = flags.DEFINE_enum_class(
+    'wsi_dicom_extended_depth_of_field_default_value',
+    get_value(
+        env_var='WSI_DICOM_EXTENDED_DEPTH_OF_FIELD_DEFAULT_VALUE',
+        default_value=WsiDicomExtendedDepthOfFieldDefault.NO.name,
+    ),
+    WsiDicomExtendedDepthOfFieldDefault,
+    '[optional|default] Default metadata value for extended depth of field'
+    ' DICOM tag metadata in VL Whole Slide Microscopy Images.',
+)
+
+WSI_DICOM_FOCUS_METHOD_DEFAULT_VALUE_FLG = flags.DEFINE_enum_class(
+    'wsi_dicom_focus_method_default_value',
+    get_value(
+        env_var='WSI_DICOM_FOCUS_METHOD_DEFAULT_VALUE',
+        default_value=WsiDicomFocusMethod.AUTO.name,
+    ),
+    WsiDicomFocusMethod,
+    '[optional|default] Default metadata value for focus method DICOM tag'
+    ' metadata in VL Whole Slide Microscopy Images.',
+)
+
+WSI_DICOM_SLICE_THICKNESS_DEFAULT_VALUE_FLG = flags.DEFINE_float(
+    'wsi_dicom_slice_thickness_default_value',
+    float(
+        get_value(
+            env_var='WSI_DICOM_SLICE_THICKNESS_DEFAULT_VALUE',
+            default_value=12.0,
+        )
+    ),
+    '[optional|default] Default metadata value for slice thickness (micrometer)'
+    ' DICOM tag metadata in VL Whole Slide Microscopy Images. ',
+)
+
+
 # DICOM Store ingestion flags
 DICOM_STORE_INGEST_GCS_URI_FLG = flags.DEFINE_string(
     'dicom_store_ingest_gcs_uri',
-    os.getenv('DICOM_STORE_INGEST_GCS_URI', ''),
+    secret_flag_utils.get_secret_or_env('DICOM_STORE_INGEST_GCS_URI', ''),
     '[optional|default] GCS URI for temporarily storing DICOM files when'
     ' ingesting from DICOM Store. Files are stored as backup before deletion'
     ' from DICOM Store.',
@@ -407,7 +531,9 @@ DICOM_STORE_INGEST_GCS_URI_FLG = flags.DEFINE_string(
 # Openslide metadata flags
 ADD_OPENSLIDE_BACKGROUND_COLOR_METADATA_FLG = flags.DEFINE_boolean(
     'add_openslide_background_color_metadata',
-    flag_utils.env_value_to_bool('ADD_OPENSLIDE_BACKGROUND_COLOR_METADATA'),
+    secret_flag_utils.get_bool_secret_or_env(
+        'ADD_OPENSLIDE_BACKGROUND_COLOR_METADATA'
+    ),
     '[optional|default] OpenSlide provides hooks to return WSI background color'
     ' however metadata retrieval and embedding is experimental and disabled by '
     'default. At time of writing none of the available openslide supported WSI '
@@ -416,7 +542,9 @@ ADD_OPENSLIDE_BACKGROUND_COLOR_METADATA_FLG = flags.DEFINE_boolean(
 
 ADD_OPENSLIDE_TOTAL_PIXEL_MATRIX_ORIGIN_SEQ_FLG = flags.DEFINE_boolean(
     'add_openslide_total_pixel_matrix_origin_seq',
-    flag_utils.env_value_to_bool('ADD_OPENSLIDE_TOTAL_PIXEL_MATRIX_ORIGIN_SEQ'),
+    secret_flag_utils.get_bool_secret_or_env(
+        'ADD_OPENSLIDE_TOTAL_PIXEL_MATRIX_ORIGIN_SEQ'
+    ),
     '[optional|default] Openslide provides hooks to return the slide '
     'coordinates of the imaged region however metadata retrieval and embedding '
     'is experimental and disabled by default. At time of writing none of the '
@@ -426,18 +554,20 @@ ADD_OPENSLIDE_TOTAL_PIXEL_MATRIX_ORIGIN_SEQ_FLG = flags.DEFINE_boolean(
 # WSI specific flags
 INGESTION_PYRAMID_LAYER_GENERATION_CONFIG_PATH_FLG = flags.DEFINE_string(
     'ingestion_pyramid_layer_generation_config_path',
-    os.getenv('INGESTION_PYRAMID_LAYER_GENERATION_CONFIG_PATH', ''),
+    secret_flag_utils.get_secret_or_env(
+        'INGESTION_PYRAMID_LAYER_GENERATION_CONFIG_PATH', ''
+    ),
     '[optional|default] Path to *.YAML or *.JSON file which defines WSI'
     ' downsampling pyramid layers to generate.',
 )
 WSI2DCM_DICOM_FRAME_HEIGHT_FLG = flags.DEFINE_integer(
     'wsi2dcm_dicom_frame_height',
-    os.getenv('WSI2DCM_DICOM_FRAME_HEIGHT', '256'),
+    secret_flag_utils.get_secret_or_env('WSI2DCM_DICOM_FRAME_HEIGHT', '256'),
     '[optional|default] wsi2dcm dicom frame height.',
 )
 WSI2DCM_DICOM_FRAME_WIDTH_FLG = flags.DEFINE_integer(
     'wsi2dcm_dicom_frame_width',
-    os.getenv('WSI2DCM_DICOM_FRAME_WIDTH', '256'),
+    secret_flag_utils.get_secret_or_env('WSI2DCM_DICOM_FRAME_WIDTH', '256'),
     '[optional|default] wsi2dcm dicom frame width.',
 )
 WSI2DCM_COMPRESSION_FLG = flags.DEFINE_enum_class(
@@ -463,7 +593,9 @@ WSI2DCM_FIRST_LEVEL_COMPRESSION_FLG = flags.DEFINE_enum_class(
 )
 WSI2DCM_JPEG_COMPRESSION_QUALITY_FLG = flags.DEFINE_integer(
     'wsi2dcm_jpeg_compression_quality',
-    os.getenv('WSI2DCM_JPEG_COMPRESSION_QUALITY', '95'),
+    secret_flag_utils.get_secret_or_env(
+        'WSI2DCM_JPEG_COMPRESSION_QUALITY', '95'
+    ),
     '[optional|default] wsi2dcm jpeg compression quality range 1 - 100.',
 )
 WSI2DCM_JPEG_COMPRESSION_SUBSAMPLING_FLG = flags.DEFINE_enum_class(
@@ -487,9 +619,8 @@ WSI2DCM_PIXEL_EQUIVALENT_TRANSFORM_FLG = flags.DEFINE_enum_class(
 )
 INIT_SERIES_INSTANCE_UID_FROM_METADATA_FLG = flags.DEFINE_boolean(
     'init_series_instance_uid_from_metadata',
-    flag_utils.env_value_to_bool(
-        'INIT_SERIES_INSTANCE_UID_FROM_METADATA',
-        undefined_value=False,
+    secret_flag_utils.get_bool_secret_or_env(
+        'INIT_SERIES_INSTANCE_UID_FROM_METADATA'
     ),
     '[optional|default] Initialize series instance UID from metadata.'
     ' Recommended setting = False. If true disables auto-reingestion of rescans'
@@ -500,7 +631,9 @@ INIT_SERIES_INSTANCE_UID_FROM_METADATA_FLG = flags.DEFINE_boolean(
 # Flat image specific flags
 FLAT_IMAGES_VL_MICROSCOPIC_IMAGE_IOD_FLG = flags.DEFINE_boolean(
     'flat_images_vl_microscopic_image_iod',
-    flag_utils.env_value_to_bool('FLAT_IMAGES_VL_MICROSCOPIC_IMAGE_IOD', False),
+    secret_flag_utils.get_bool_secret_or_env(
+        'FLAT_IMAGES_VL_MICROSCOPIC_IMAGE_IOD'
+    ),
     '[optional|default] Whether to use VL Microscopic Image IOD for ingestion'
     ' of flat images without slide coordinates. If unset, all images will use'
     ' VL Slide-Coordinates Microscopic Image IOD.',
@@ -509,17 +642,23 @@ FLAT_IMAGES_VL_MICROSCOPIC_IMAGE_IOD_FLG = flags.DEFINE_boolean(
 # DICOM Store URL flags
 DICOMWEB_URL_FLG = flags.DEFINE_string(
     'dicomweb_url',
-    os.getenv(ingest_const.EnvVarNames.DICOMWEB_URL, ''),
+    secret_flag_utils.get_secret_or_env(
+        ingest_const.EnvVarNames.DICOMWEB_URL, ''
+    ),
     '[required|default,oof] DICOM Store to upload primary imaging into.',
 )
 OOF_DICOMWEB_BASE_URL_FLG = flags.DEFINE_string(
     'oof_dicomweb_base_url',
-    os.getenv(ingest_const.EnvVarNames.OOF_DICOMWEB_BASE_URL, ''),
+    secret_flag_utils.get_secret_or_env(
+        ingest_const.EnvVarNames.OOF_DICOMWEB_BASE_URL, ''
+    ),
     '[required|oof] DICOM Store to upload OOF imaging into.',
 )
 DICOM_STORE_TO_CLEAN_FLG = flags.DEFINE_string(
     'dicom_store_to_clean',
-    os.getenv(ingest_const.EnvVarNames.DICOM_STORE_TO_CLEAN, ''),
+    secret_flag_utils.get_secret_or_env(
+        ingest_const.EnvVarNames.DICOM_STORE_TO_CLEAN, ''
+    ),
     '[optional|oof] DICOM Store to cleanup instances used for OOF pipeline'
     ' after it completes.',
 )
@@ -527,15 +666,15 @@ DICOM_STORE_TO_CLEAN_FLG = flags.DEFINE_string(
 # Barcode flags
 ZXING_CLI_FLG = flags.DEFINE_string(
     'zxing_cli',
-    os.getenv('ZXING_CLI', '/zxing/cpp/build/zxing'),
+    secret_flag_utils.get_secret_or_env('ZXING_CLI', '/zxing/cpp/build/zxing'),
     '[optional|default] Path to zxing command line tool.',
 )
 DISABLE_CLOUD_VISION_BARCODE_SEG_FLG = flags.DEFINE_boolean(
     'testing_disable_cloudvision',
-    flag_utils.env_value_to_bool(
+    secret_flag_utils.get_bool_secret_or_env(
         'DISABLE_CLOUD_VISION_BARCODE_SEG',
         not (
-            flag_utils.env_value_to_bool(
+            secret_flag_utils.get_bool_secret_or_env(
                 'ENABLE_CLOUD_VISION_BARCODE_SEGMENTATION', True
             )
         ),
@@ -545,9 +684,13 @@ DISABLE_CLOUD_VISION_BARCODE_SEG_FLG = flags.DEFINE_boolean(
 
 DISABLE_BARCODE_DECODER_FLG = flags.DEFINE_boolean(
     'disable_barcode_decoder',
-    flag_utils.env_value_to_bool(
+    secret_flag_utils.get_bool_secret_or_env(
         'DISABLE_BARCODE_DECODER',
-        not (flag_utils.env_value_to_bool('ENABLE_BARCODE_DECODER', True)),
+        not (
+            secret_flag_utils.get_bool_secret_or_env(
+                'ENABLE_BARCODE_DECODER', True
+            )
+        ),
     ),
     '[optional|default] Disable barcode decoder.',
 )

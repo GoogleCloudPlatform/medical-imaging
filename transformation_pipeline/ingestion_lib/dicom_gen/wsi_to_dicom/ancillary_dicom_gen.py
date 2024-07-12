@@ -128,7 +128,7 @@ def _gen_ancillary_dicom_instance(
     image_type = f'ORIGINAL\\PRIMARY\\{description.upper()}\\NONE'
     icc = None
     ds.SpecimenLabelInImage = 'NO'
-    cloud_logging_client.logger().error(
+    cloud_logging_client.error(
         'Unexpected ancillary image type', {'type': description}
     )
   ds.ImageType = image_type
@@ -138,11 +138,12 @@ def _gen_ancillary_dicom_instance(
     # fix: b/239442285
     del ds['OpticalPathSequence']
   dicom_util.add_default_optical_path_sequence(ds, icc)
-  dicom_util.add_metadata_to_dicom(
+  dicom_util.add_default_total_pixel_matrix_origin_sequence_if_not_defined(ds)
+  dicom_util.add_metadata_to_generated_wsi_dicom(
       additional_wsi_metadata, wsi_dcm_json, private_tags, ds
   )
-  filename = f'{image_path}.dcm'
   dicom_util.add_missing_type2_dicom_metadata(ds)
+  filename = f'{image_path}.dcm'
   ds.save_as(filename, write_like_original=False)
   return filename
 
@@ -210,5 +211,5 @@ def generate_ancillary_dicom(
         additional_wsi_metadata,
     )
     ancillary_dicom_files.append(dcm_file)
-    cloud_logging_client.logger().info(f'Gen DICOM: {instance_description}')
+    cloud_logging_client.info(f'Gen DICOM: {instance_description}')
   return ancillary_dicom_files

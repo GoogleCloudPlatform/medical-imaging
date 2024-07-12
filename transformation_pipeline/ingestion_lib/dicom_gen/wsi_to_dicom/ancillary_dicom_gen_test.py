@@ -13,10 +13,12 @@
 # limitations under the License.
 # ==============================================================================
 """Unit tests for ancillary_dicom_gen."""
+
 import datetime
 import os
 import shutil
 import typing
+from unittest import mock
 
 from absl.testing import absltest
 from absl.testing import flagsaver
@@ -26,19 +28,27 @@ import pydicom
 from shared_libs.logging_lib import cloud_logging_client
 from transformation_pipeline.ingestion_lib import gen_test_util
 from transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
+from transformation_pipeline.ingestion_lib.dicom_gen import dicom_general_equipment
 from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ancillary_dicom_gen
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ancillary_image_extractor
+from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
 from transformation_pipeline.ingestion_lib.dicom_util import dicom_test_util
 
 
 class AncillaryDicomGenTest(parameterized.TestCase):
   """Tests ancillary_dicom_gen."""
 
+  @mock.patch.object(
+      dicom_util,
+      '_get_colorspace_description_from_iccprofile_bytes',
+      autospec=True,
+      return_value='SRGB',
+  )
   @flagsaver.flagsaver(
       pod_hostname='1234', dicom_guid_prefix=uid_generator.TEST_UID_PREFIX
   )
-  def test_generate_ancillary_dicom_succeeds(self):
+  def test_generate_ancillary_dicom_succeeds(self, unused_mock):
     out_dir = self.create_tempdir()
     dcm = typing.cast(
         pydicom.FileDataset,
@@ -114,10 +124,18 @@ class AncillaryDicomGenTest(parameterized.TestCase):
       ('macro', 'OVERVIEW'),
       ('other', 'OTHER'),
   )
+  @mock.patch.object(
+      dicom_util,
+      '_get_colorspace_description_from_iccprofile_bytes',
+      autospec=True,
+      return_value='SRGB',
+  )
   @flagsaver.flagsaver(
       pod_hostname='1234', dicom_guid_prefix=uid_generator.TEST_UID_PREFIX
   )
-  def test_gen_ancillary_dicom_instance_succeeds(self, label, imagetype):
+  def test_gen_ancillary_dicom_instance_succeeds(
+      self, label, imagetype, unused_mock
+  ):
     out_dir = self.create_tempdir()
     test_img_path = gen_test_util.test_file_path('barcode_datamatrix.jpeg')
     test_img = os.path.join(out_dir, 'barcode_datamatrix.jpeg')
@@ -131,6 +149,7 @@ class AncillaryDicomGenTest(parameterized.TestCase):
     ds.PatientName = 'test'
     ds.StudyInstanceUID = '1.2.3'
     ds.SeriesInstanceUID = '4.5.6'
+    ds.DimensionOrganizationType = 'TILED_FULL'
 
     img = ancillary_image_extractor.AncillaryImage(test_img)
     img.photometric_interpretation = 'YBR_FULL_422'
@@ -156,7 +175,10 @@ class AncillaryDicomGenTest(parameterized.TestCase):
     self.assertEqual(dcm.Manufacturer, 'GOOGLE')
     self.assertEqual(dcm.ManufacturerModelName, 'DPAS_transformation_pipeline')
     self.assertEqual(
-        dcm.SoftwareVersions, cloud_logging_client.logger().build_version[:64]
+        dcm.SoftwareVersions,
+        cloud_logging_client.get_build_version(
+            dicom_general_equipment._MAX_STRING_LENGTH_DICOM_SOFTWARE_VERSION_TAG
+        ),
     )
     self.assertListEqual(
         list(dcm.ImageType), ['ORIGINAL', 'PRIMARY', imagetype, 'NONE']

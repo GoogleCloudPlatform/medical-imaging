@@ -43,7 +43,7 @@ class InferencePubSubMsg(abstract_pubsub_msg.AbstractPubSubMsg):
       else:
         self._parse_inference_pipeline_msg()
     except _PubSubMsgParsingError as exp:
-      cloud_logging_client.logger().error('Error decoding pub/sub msg.', exp)
+      cloud_logging_client.error('Error decoding pub/sub msg.', exp)
       self._dicomstore_path = ''
       self._study_uid = ''
       self._series_uid = ''
@@ -97,9 +97,7 @@ class InferencePubSubMsg(abstract_pubsub_msg.AbstractPubSubMsg):
       pubsub_msg_data_dict = json.loads(
           self._received_msg.message.data.decode('utf-8')
       )
-      cloud_logging_client.logger().info(
-          'Received pub/sub msg.', pubsub_msg_data_dict
-      )
+      cloud_logging_client.info('Received pub/sub msg.', pubsub_msg_data_dict)
 
       self._dicomstore_path = pubsub_msg_data_dict['dicomstore_path']
       slide_uid = pubsub_msg_data_dict['slide_uid']

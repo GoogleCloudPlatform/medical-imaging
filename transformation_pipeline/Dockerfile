@@ -71,9 +71,9 @@ RUN set -e && \
 # base_py_opencv_docker.
 RUN ldconfig && git clone https://github.com/GNOME/gdk-pixbuf.git && \
     cd gdk-pixbuf && \
-    # Pin to version 2.42.10 (last known version as of 12/12/2022)
-    # https://github.com/GNOME/gdk-pixbuf/commit/9ac257eb38f772fec4253e8051743029e75a2acd
-    git checkout 9ac257eb38f772fec4253e8051743029e75a2acd && \
+    # Pin to version 2.42.12 (last known version as of 5/14/2024)
+    # https://github.com/GNOME/gdk-pixbuf/commit/e4315fb8553776e13d39e3f2e0ea8792db61720c
+    git checkout e4315fb8553776e13d39e3f2e0ea8792db61720c && \
     meson setup _build . -Dman=false && \
     meson compile -C _build && \
     # Avoid "cannot open shared object file" errors, from
@@ -147,7 +147,7 @@ RUN apt-get update && \
 # https://security-tracker.debian.org/tracker/CVE-2022-42012
     apt-get upgrade -y dbus && \
     rm -rf /usr/lib/google-cloud-sdk/bin/anthoscli \
-					 /usr/lib/google-cloud-sdk/bin/gcloud-crc32c
+           /usr/lib/google-cloud-sdk/bin/gcloud-crc32c
 
 # Setup python enviroment
 COPY ./transformation_pipeline/requirements.txt /requirements.txt
@@ -175,13 +175,17 @@ RUN python3 -m pip install -r setuptools_requirements.txt --require-hashes && \
 # Copy thirdparty_licenses
 COPY ./transformation_pipeline/ThirdParty_LICENSE.docker /thirdparty_licenses.txt
 
+# Copy transformation examples
+COPY ./transformation_pipeline/example /example
+
 # Copy WORKSPACE
 COPY ./WORKSPACE /WORKSPACE
 
 # Copy python source
 COPY ./transformation_pipeline/ingestion_lib /transformation_pipeline/ingestion_lib
 COPY ./transformation_pipeline/ingest_flags.py  /transformation_pipeline/ingest_flags.py
-COPY ./transformation_pipeline/gke_main.py  /gke_main.py
+COPY ./transformation_pipeline/gke_main.py  /transformation_pipeline/gke_main.py
+COPY ./transformation_pipeline/localhost_main.py  /transformation_pipeline/localhost_main.py
 COPY ./transformation_pipeline/default_config.yaml \
      ./transformation_pipeline/default_config.json /
 COPY ./shared_libs /shared_libs
@@ -195,8 +199,9 @@ RUN touch /__init__.py \
     chmod 644 *.py *.yaml *.json *.txt && \
     chmod -R 755 /transformation_pipeline /shared_libs
 
+ENV PYTHONPATH="${PYTHONPATH}:/"
 # Set container to run as non-root user.
 # NonRootUser configured in dpas-debian-python-base image.
 USER NonRootUser
 
-ENTRYPOINT ["python3", "-OO", "gke_main.py"]
+ENTRYPOINT ["python3", "-OO", "/transformation_pipeline/gke_main.py"]

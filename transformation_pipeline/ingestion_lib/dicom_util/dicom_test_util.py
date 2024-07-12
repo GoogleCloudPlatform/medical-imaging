@@ -123,7 +123,7 @@ def create_metadata_dict() -> MutableMapping[str, MutableMapping[str, Any]]:
 
 
 def _create_json_wsi_metadata(
-    metadata_changes: Optional[Mapping[str, Union[str, int, float]]] = None
+    metadata_changes: Optional[Mapping[str, Union[str, int, float]]] = None,
 ) -> MutableMapping[str, MutableMapping[str, Union[str, int, float]]]:
   """Returns JSON formatted DICOM test metadata."""
   metadata_dict = create_metadata_dict()
@@ -142,7 +142,7 @@ def _create_json_wsi_metadata(
 
 
 def create_mock_non_dpas_generated_wsi_fref(
-    metadata_changes: Optional[Mapping[str, Union[str, int, float]]] = None
+    metadata_changes: Optional[Mapping[str, Union[str, int, float]]] = None,
 ) -> wsi_dicom_file_ref.WSIDicomFileRef:
   """Returns mocked WSIDicomFileRef initialized from mock metadata."""
   return wsi_dicom_file_ref.init_wsi_dicom_file_ref_from_json(
@@ -151,7 +151,7 @@ def create_mock_non_dpas_generated_wsi_fref(
 
 
 def create_mock_dpas_generated_dicom_fref(
-    metadata_changes: Optional[Mapping[str, Union[str, int, float]]] = None
+    metadata_changes: Optional[Mapping[str, Union[str, int, float]]] = None,
 ) -> wsi_dicom_file_ref.WSIDicomFileRef:
   """Returns WSIDicomFileRef with default initialized mocked metadata."""
   metadata_updates = {
@@ -219,7 +219,9 @@ def create_test_dicom_instance(
   dcm = pydicom.FileDataset(filename, dataset=base_ds, preamble=b'\0' * 128)
   dcm.file_meta = pydicom.dataset.FileMetaDataset()
   dcm.file_meta.MediaStorageSOPClassUID = sop_class_uid
-  dcm.file_meta.TransferSyntaxUID = ingest_const.EXPLICIT_VR_LITTLE_ENDIAN
+  dcm.file_meta.TransferSyntaxUID = (
+      ingest_const.DicomImageTransferSyntax.EXPLICIT_VR_LITTLE_ENDIAN
+  )
   if sop_class_uid == ingest_const.DicomSopClasses.WHOLE_SLIDE_IMAGE.uid:
     dcm.file_meta.MediaStorageSOPInstanceUID = sop_instance_uid
     dcm.file_meta.ImplementationClassUID = (

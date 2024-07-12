@@ -59,7 +59,9 @@ def create_mock_wsi_dicom_dataset(barcode_value: str = '') -> pydicom.Dataset:
 
 def write_test_dicom(path: str, base_ds: pydicom.Dataset):
   file_meta = pydicom.dataset.FileMetaDataset()
-  file_meta.TransferSyntaxUID = ingest_const.EXPLICIT_VR_LITTLE_ENDIAN
+  file_meta.TransferSyntaxUID = (
+      ingest_const.DicomImageTransferSyntax.EXPLICIT_VR_LITTLE_ENDIAN
+  )
   ds = pydicom.dataset.FileDataset(
       '', base_ds, file_meta=file_meta, preamble=b'\0' * 128
   )

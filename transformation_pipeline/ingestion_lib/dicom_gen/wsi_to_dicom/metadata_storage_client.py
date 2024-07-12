@@ -39,6 +39,7 @@ from transformation_pipeline.ingestion_lib import csv_util
 from transformation_pipeline.ingestion_lib import hash_util
 from transformation_pipeline.ingestion_lib import ingest_const
 from transformation_pipeline.ingestion_lib.dicom_gen import dicom_schema_util
+from transformation_pipeline.ingestion_lib.dicom_util import dicom_standard
 
 _METADATA_DOWNLOAD_THREAD_COUNT = 2
 
@@ -98,7 +99,7 @@ class MetadataBlob:
     return True
 
 
-def _is_schema(name: str) -> bool:
+def is_schema(name: str) -> bool:
   upper_name = name.upper()
   return upper_name.endswith('.JSON') or upper_name.endswith('.SCHEMA')
 
@@ -150,13 +151,13 @@ class _BigQueryMetadataTableUtil:
     query_job = self._client.query(columns_query)
     try:
       self._column_names = [row[0] for row in query_job.result()]
-      cloud_logging_client.logger().debug(
+      cloud_logging_client.debug(
           f'Big Query Metadata Table columns: {self.column_names}', bq_log
       )
     except exceptions.GoogleAPICallError as exp:
       self._column_names = []
       msg = 'Error retrieving column names from BigQuery table.'
-      cloud_logging_client.logger().error(msg, bq_log, exp)
+      cloud_logging_client.error(msg, bq_log, exp)
       raise MetadataNotFoundExceptionError(msg) from exp
 
   def _find_bq_column_name(self, searchtxt: str) -> Optional[str]:
@@ -204,9 +205,9 @@ class _BigQueryMetadataTableUtil:
       bq_log[ingest_const.LogKeywords.BIGQUERY_TABLE_COLUMN_NAMES] = (
           self.column_names
       )
-      cloud_logging_client.logger().error(msg, bq_log)
+      cloud_logging_client.error(msg, bq_log)
       raise MetadataNotFoundExceptionError(msg)
-    cloud_logging_client.logger().info(
+    cloud_logging_client.info(
         f'Searching for BigQuery metadata for slide where {pk_col} is'
         f' {pk_value}.',
         bq_log,
@@ -222,7 +223,7 @@ class _BigQueryMetadataTableUtil:
         google.api_core.exceptions.BadRequest,
     ) as exp:
       msg = 'Error retrieving metadata from BigQuery table.'
-      cloud_logging_client.logger().error(msg, bq_log, exp)
+      cloud_logging_client.error(msg, bq_log, exp)
       raise MetadataNotFoundExceptionError(msg) from exp
 
   @property
@@ -332,7 +333,7 @@ class MetadataStorageClient:
       )
       metadata_blobs = []
       bucket_uri = f'gs://{self._metadata_ingest_storage_bucket}'
-      cloud_logging_client.logger().info(
+      cloud_logging_client.info(
           'Checking for new wsi-slide metadata.',
           {'metadata_bucket': bucket_uri},
       )
@@ -340,7 +341,7 @@ class MetadataStorageClient:
       for blob in storage_client.list_blobs(metadata_bucket):
         name = blob.name
         upper_name = name.upper()
-        if upper_name.endswith('.CSV') or _is_schema(upper_name):
+        if upper_name.endswith('.CSV') or is_schema(upper_name):
           md5_hash = blob.md5_hash
           size = blob.size
           create_time = blob.time_created.timestamp()
@@ -353,7 +354,7 @@ class MetadataStorageClient:
           f'Error querying {self._metadata_ingest_storage_bucket} '
           ' for csv metadata.'
       )
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           msg,
           {
               'Metadata_storage_bucket': self._metadata_ingest_storage_bucket,
@@ -367,12 +368,12 @@ class MetadataStorageClient:
         metadata_blobs, key=lambda x: x.create_time, reverse=True
     )
     if not self._has_metadata_changed(metadata_blobs):
-      cloud_logging_client.logger().info(
+      cloud_logging_client.info(
           'Metadata unchanged. Using cached files.',
           {'metadata_files_found': str(metadata_files_found)},
       )
     else:
-      cloud_logging_client.logger().info(
+      cloud_logging_client.info(
           'Metadata changed.',
           {'metadata_files_found': str(metadata_files_found)},
       )
@@ -392,7 +393,7 @@ class MetadataStorageClient:
         downloaded_metadata_list = [
             log for log in th_pool.map(download_blob_partial, metadata_blobs)
         ]
-      cloud_logging_client.logger().info(
+      cloud_logging_client.info(
           'Downloaded metadata',
           {
               'metadata_file_list': str(downloaded_metadata_list),
@@ -430,7 +431,7 @@ class MetadataStorageClient:
               )
           )
           if primary_key_column_name is None:
-            cloud_logging_client.logger().warning(
+            cloud_logging_client.warning(
                 'CSV file does not contain metadata primary key column name;'
                 ' CSV file ignored.',
                 {
@@ -444,21 +445,21 @@ class MetadataStorageClient:
           searchdf = df.loc[df[primary_key_column_name] == pk_value]
           row, _ = searchdf.shape
           if row == 1:
-            cloud_logging_client.logger().info(
+            cloud_logging_client.info(
                 f'Primary key {pk_value} found in CSV metadata',
                 {ingest_const.LogKeywords.METADATA_PRIMARY_KEY: pk_value},
             )
             self._slide_metadata_cache[pk_value] = searchdf.copy()
             return searchdf
           elif row > 1:
-            cloud_logging_client.logger().error(
+            cloud_logging_client.error(
                 'Multiple primary keys found in metadata',
                 {ingest_const.LogKeywords.METADATA_PRIMARY_KEY: pk_value},
             )
             raise MetadataDefinedOnMultipleRowError(pk_value, metadata.filename)
 
     if not csv_found:
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           'No CSV metadata found. Primary key not found in metadata',
           {ingest_const.LogKeywords.METADATA_PRIMARY_KEY: pk_value},
       )
@@ -493,7 +494,7 @@ class MetadataStorageClient:
     bq_table = _BigQueryMetadataTableUtil(project_id, dataset_name, table_name)
     table_result = bq_table.get_slide_metadata(pk_value)
     if table_result is None or not table_result or table_result.total_rows == 0:
-      cloud_logging_client.logger().error(
+      cloud_logging_client.info(
           'Primary key not found in metadata.',
           {ingest_const.LogKeywords.METADATA_PRIMARY_KEY: pk_value},
       )
@@ -502,7 +503,7 @@ class MetadataStorageClient:
           f'Primary key: {pk_value} not found in metadata.'
       )
     if table_result.total_rows > 1:
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           'Multiple primary keys found in metadata',
           {ingest_const.LogKeywords.METADATA_PRIMARY_KEY: pk_value},
       )
@@ -512,7 +513,7 @@ class MetadataStorageClient:
           f' BQ Table: {table_name}',
       )
 
-    cloud_logging_client.logger().info(
+    cloud_logging_client.info(
         'Primary key found in BigQuery metadata.',
         {ingest_const.LogKeywords.METADATA_PRIMARY_KEY: pk_value},
     )
@@ -546,15 +547,13 @@ class MetadataStorageClient:
 
     if not search_schema_def:
       msg = 'DICOM schema has not search parameters matching firs '
-      cloud_logging_client.logger().info(msg, {'filename': filename})
+      cloud_logging_client.info(msg, {'filename': filename})
       return True
     for key, value in search_schema_def.items():
       found_key = _get_key(file_scheme_def, key)
       if found_key is None or not found_key:
         msg = 'DICOM schema does not have search key ignoreing key filter'
-        cloud_logging_client.logger().warning(
-            msg, {'filename': filename, 'key': key}
-        )
+        cloud_logging_client.warning(msg, {'filename': filename, 'key': key})
         continue
       search_val = dicom_schema_util.norm_column_name(value)
       schema_val = dicom_schema_util.norm_column_name(
@@ -562,7 +561,7 @@ class MetadataStorageClient:
       )
       if schema_val != search_val:
         msg = 'DICOM schema does not match search key'
-        cloud_logging_client.logger().info(
+        cloud_logging_client.info(
             msg,
             {
                 'filename': filename,
@@ -590,11 +589,15 @@ class MetadataStorageClient:
     key = _get_key(schema_def, 'SOPCLASSUID_NAME')
     if not key:
       return schema_def
-    sop_class_name = dicom_schema_util.norm_column_name(schema_def[key])
-    if sop_class_name.endswith('STORAGE'):
-      txtlen = len('STORAGE')
-      sop_class_name = f'{sop_class_name[:-txtlen]}IODMODULES'
-    schema_def[key] = sop_class_name
+    # normalize_sop_lass_name converts names representing a sop class uid
+    # to a common string representation.
+    norm_iod_name = (
+        dicom_standard.dicom_standard_util().normalize_sop_class_name(
+            schema_def[key]
+        )
+    )
+    # norm_column_name removes spaces and case to further simplify comparison.
+    schema_def[key] = dicom_schema_util.norm_column_name(norm_iod_name)
     return schema_def
 
   def get_dicom_schema(self, schema_search: Dict[str, Any]) -> Dict[str, Any]:
@@ -613,7 +616,7 @@ class MetadataStorageClient:
     schema_files_found = []
     for metadata in self._csv_metadata_cache:
       schema_file = metadata.filename
-      if not _is_schema(schema_file):
+      if not is_schema(schema_file):
         continue
       schema_files_found.append(schema_file)
 
@@ -622,7 +625,7 @@ class MetadataStorageClient:
           schema = json.load(infile)
       except json.JSONDecodeError as exp:
         msg = 'Error occurred reading metadata file'
-        cloud_logging_client.logger().warning(
+        cloud_logging_client.warning(
             msg,
             {
                 'filename': schema_file,
@@ -634,7 +637,7 @@ class MetadataStorageClient:
       schema_def_key = _get_key(schema, 'DICOMSCHEMADEF')
       if not schema_def_key:
         msg = 'Schema missing DICOMSchemaDef file ignored.'
-        cloud_logging_client.logger().warning(
+        cloud_logging_client.warning(
             msg,
             {
                 'filename': schema_file,
@@ -644,7 +647,7 @@ class MetadataStorageClient:
         continue
       scheme_def = self._norm_schema(schema[schema_def_key])
       if self._do_schemas_match(metadata.filename, scheme_def, schema_search):
-        cloud_logging_client.logger().info(
+        cloud_logging_client.info(
             f'DICOM schema found: {metadata.filename}',
             {
                 'schema_search': str(schema_search),
@@ -654,7 +657,7 @@ class MetadataStorageClient:
         del schema[schema_def_key]
         return schema
 
-    cloud_logging_client.logger().error(
+    cloud_logging_client.error(
         'DICOM schema not found',
         {
             'schema_search': str(schema_search),

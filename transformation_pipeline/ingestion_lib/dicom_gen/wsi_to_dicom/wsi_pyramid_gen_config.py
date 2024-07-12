@@ -191,7 +191,7 @@ def _compute_relative_downsamples(
     # Returns closest power of 2 to achieve desired pixel spacing.  See comment
     # above.
     if px_spacing < source_imaging_pixel_spacing:
-      cloud_logging_client.logger().warning(
+      cloud_logging_client.warning(
           'Source imaging pixel spacing is > '
           'requested downsample. Downsample will not be returned.',
           {
@@ -205,9 +205,7 @@ def _compute_relative_downsamples(
           pow(2, round(math.log2(px_spacing / source_imaging_pixel_spacing), 0))
       )
     except ZeroDivisionError as exp:
-      cloud_logging_client.logger().error(
-          'Source imaging pixel spacing is zero.', exp
-      )
+      cloud_logging_client.error('Source imaging pixel spacing is zero.', exp)
       raise
     required_downsamples.add(ds)
   return required_downsamples
@@ -231,13 +229,13 @@ def _read_yaml(config_path: str) -> Any:
       return yaml.safe_load(infile)
   except FileNotFoundError as exp:
     msg = 'Error reading ingestion pyramid generation config.'
-    cloud_logging_client.logger().critical(
+    cloud_logging_client.critical(
         msg, {'ingest_pyramid_layer_configuration': config_path}, exp
     )
     raise _IngestPyramidConfigFileNotFoundError(msg) from exp
   except yaml.YAMLError as exp:
     msg = 'Error parsing ingestion pyramid generation config.'
-    cloud_logging_client.logger().critical(
+    cloud_logging_client.critical(
         msg, {'ingest_pyramid_layer_configuration': config_path}, exp
     )
     raise _IngestPyramidConfigYamlFormatError(msg) from exp
@@ -250,13 +248,13 @@ def _read_json(config_path: str) -> Any:
       return json.load(infile)
   except FileNotFoundError as exp:
     msg = 'Error reading ingestion pyramid generation config.'
-    cloud_logging_client.logger().critical(
+    cloud_logging_client.critical(
         msg, {'ingest_pyramid_layer_configuration': config_path}, exp
     )
     raise _IngestPyramidConfigFileNotFoundError(msg) from exp
   except json.JSONDecodeError as exp:
     msg = 'Error parsing ingestion pyramid generation config.'
-    cloud_logging_client.logger().critical(
+    cloud_logging_client.critical(
         msg, {'ingest_pyramid_layer_configuration': config_path}, exp
     )
     raise _IngestPyramidConfigJsonFormatError(msg) from exp
@@ -271,12 +269,10 @@ class WsiPyramidGenerationConfig:
     )
     self._downsample_config = None
     if not config_path:
-      cloud_logging_client.logger().info(
-          (
-              'Ingestion pyramid generation config is undefined. '
-              'Defaulting to full pyramid generation.'
-          )
-      )
+      cloud_logging_client.info((
+          'Ingestion pyramid generation config is undefined. '
+          'Defaulting to full pyramid generation.'
+      ))
       return
     _, ext = os.path.splitext(config_path)
     ext = ext.lower()
@@ -289,7 +285,7 @@ class WsiPyramidGenerationConfig:
           'Unknown pyramid generation config file type. File does not end in'
           ' ".json" or ".yaml"'
       )
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           msg,
           {
               'ingest_pyramid_layer_configuration': config_path,
@@ -298,7 +294,7 @@ class WsiPyramidGenerationConfig:
       )
       raise _IngestPyramidConfigFileTypeError(msg)
 
-    cloud_logging_client.logger().info(
+    cloud_logging_client.info(
         'Loaded ingestion pyramid generation config.',
         {
             'ingest_pyramid_layer_configuration': config_path,
@@ -308,7 +304,7 @@ class WsiPyramidGenerationConfig:
 
     if not _is_config_valid(self._downsample_config):
       msg = 'Ingestion pyamid config does not define dict of int lists.'
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           msg,
           {
               'ingest_pyramid_layer_configuration': config_path,

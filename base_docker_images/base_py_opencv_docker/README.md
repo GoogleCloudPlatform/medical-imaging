@@ -7,9 +7,9 @@ JPEG2000 codecs.
 
 - Libraries built in this container:
 
-  *  LibJpegTurbo (2.1.4) JPEG Codec
-  *  OpenJPEG (2.5.0) JPEG 2000 Codec
-  *  OpenCV (4.6.0)
+  *  LibJpegTurbo (3.0.3) JPEG Codec
+  *  OpenJPEG (2.5.2) JPEG 2000 Codec
+  *  OpenCV (4.10.0)
 
 To rebuild the base image:
 

@@ -49,7 +49,11 @@ class PollingClientTest(parameterized.TestCase):
             return_value=True,
             autospec=True,
         ),
-        mock.patch('google.auth.default', autospec=True, return_value=(1, 1)),
+        mock.patch(
+            'google.auth.default',
+            autospec=True,
+            return_value=('mock_auth_token', 'test_project'),
+        ),
         mock.patch('google.cloud.pubsub_v1.PublisherClient', autospec=True),
         mock.patch.object(
             pubsub_v1.SubscriberClient,

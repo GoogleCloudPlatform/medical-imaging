@@ -1,0 +1,4 @@
+# LINT.IfChange
+pyOpenSSL==24.1.0
+cryptography==42.0.8
+# LINT.ThenChange(//depot/base_docker_images/base_py_debian_docker/requirements.txt)

@@ -85,7 +85,10 @@ class ClientMockTest(parameterized.TestCase):
   @mock.patch(
       'google.auth.default',
       autospec=True,
-      return_value=(mock.MagicMock(), mock.MagicMock()),
+      return_value=(
+          mock.MagicMock(universe_domain='googleapis.com'),
+          mock.MagicMock(),
+      ),
   )
   def test_mock_methods_and_actual_methods_have_same_signatures(
       self, unused_mock_auth

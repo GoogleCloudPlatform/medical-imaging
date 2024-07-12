@@ -260,7 +260,7 @@ class DicomStoreClientTest(parameterized.TestCase):
     # Unit test is not compatible with Forge.
     # Due to network access requirement. Test is NOP on Forge.
     if flag_utils.env_value_to_bool('UNITTEST_ON_FORGE'):
-      cloud_logging_client.logger().info(
+      cloud_logging_client.info(
           'Test_http_get is disabled Forge always passes. Run locally to test.'
       )
       return
@@ -796,7 +796,9 @@ class DicomStoreClientTest(parameterized.TestCase):
         expected,
     )
 
-  @parameterized.parameters([404, 429])
+  @parameterized.parameters(
+      [http.HTTPStatus.NOT_FOUND, http.HTTPStatus.TOO_MANY_REQUESTS]
+  )
   @requests_mock.mock()
   @mock.patch(
       'google.auth.default',
@@ -858,7 +860,9 @@ class DicomStoreClientTest(parameterized.TestCase):
     with open(dicom_file_path, 'rb') as f:
       self.assertEqual(f.read(), dcm_data)
 
-  @parameterized.parameters([404, 429])
+  @parameterized.parameters(
+      [http.HTTPStatus.NOT_FOUND, http.HTTPStatus.TOO_MANY_REQUESTS]
+  )
   @requests_mock.mock()
   @mock.patch(
       'google.auth.default',
@@ -966,7 +970,9 @@ class DicomStoreClientTest(parameterized.TestCase):
       with pydicom.dcmread(dcm_file) as dcm:
         self.assertEqual(dcm.SeriesInstanceUID, series_uid_val)
 
-  @parameterized.parameters([404, 429])
+  @parameterized.parameters(
+      [http.HTTPStatus.NOT_FOUND, http.HTTPStatus.TOO_MANY_REQUESTS]
+  )
   @requests_mock.mock()
   @mock.patch(
       'google.auth.default',

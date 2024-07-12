@@ -52,7 +52,7 @@ def sha512hash(
   if not additional_logs:
     additional_logs = {}
   blob_hash = _hash_file(path, hashlib.sha512())
-  cloud_logging_client.logger().info(
+  cloud_logging_client.info(
       'sha512 hash computed',
       {ingest_const.LogKeywords.HASH: blob_hash},
       additional_logs,
@@ -75,7 +75,7 @@ def md5hash(
   if not additional_logs:
     additional_logs = {}
   blob_hash = _hash_file(path, hashlib.md5())
-  cloud_logging_client.logger().info(
+  cloud_logging_client.info(
       'local file hash computed',
       {ingest_const.LogKeywords.HASH: blob_hash},
       additional_logs,

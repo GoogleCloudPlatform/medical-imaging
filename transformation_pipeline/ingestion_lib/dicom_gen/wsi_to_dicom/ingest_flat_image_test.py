@@ -28,6 +28,7 @@ from transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_gener
 from transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
 from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import decode_slideid
+from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_base
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_flat_image
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
@@ -43,6 +44,7 @@ _SLIDE_ID = 'MD-03-2-A1-1'
 _STUDY_UID = '1.2.840.5555.184555.9488327844440923'
 _SERIES_UID = '1.2.3.4.5.6'
 _INSTANCE_UID = '1.2.3.4.5.6.7'
+_FRAME_REF_UID = '1.2.3.4.5.6.8'
 _MESSAGE_ID = 'message_id'
 
 
@@ -80,7 +82,7 @@ class IngestFlatImageTest(parameterized.TestCase):
         mock.patch.object(
             uid_generator,
             'generate_uid',
-            side_effect=[_SERIES_UID, _INSTANCE_UID],
+            side_effect=[_SERIES_UID, _INSTANCE_UID, _FRAME_REF_UID],
             autospec=True,
         )
     )
@@ -101,8 +103,14 @@ class IngestFlatImageTest(parameterized.TestCase):
         series_uid
     )
 
+  @mock.patch.object(
+      dicom_util,
+      '_get_colorspace_description_from_iccprofile_bytes',
+      autospec=True,
+      return_value='SRGB',
+  )
   @flagsaver.flagsaver(flat_images_vl_microscopic_image_iod=True)
-  def test_generate_dicom_microscopic_image_succeeds(self):
+  def test_generate_dicom_microscopic_image_succeeds(self, unused_mock):
     ingest = self._create_flat_image_ingest(
         schema_filename=_MICROSCOPIC_IMAGE_SCHEMA_FILENAME
     )
@@ -126,13 +134,21 @@ class IngestFlatImageTest(parameterized.TestCase):
     self.assertEqual(dcm.StudyInstanceUID, _STUDY_UID)
     self.assertEqual(dcm.SeriesInstanceUID, _SERIES_UID)
     self.assertEqual(dcm.SOPInstanceUID, _INSTANCE_UID)
+    self.assertEqual(dcm.FrameOfReferenceUID, _FRAME_REF_UID)
+    self.assertEqual(dcm.Modality, 'SM')
     self.assertEqual(dcm.PatientName, 'Curie^Marie')
     self.assertEqual(
         dcm.SOPClassUID, ingest_const.DicomSopClasses.MICROSCOPIC_IMAGE.uid
     )
     self.assertIsNotNone(dcm.PixelData)
 
-  def test_generate_dicom_slide_coordinates_image_succeeds(self):
+  @mock.patch.object(
+      dicom_util,
+      '_get_colorspace_description_from_iccprofile_bytes',
+      autospec=True,
+      return_value='SRGB',
+  )
+  def test_generate_dicom_slide_coordinates_image_succeeds(self, unused_mock):
     ingest = self._create_flat_image_ingest()
     image_path = gen_test_util.test_file_path(_TEST_PATH_JPG)
     dicom_gen = abstract_dicom_generation.GeneratedDicomFiles(image_path, None)
@@ -154,6 +170,8 @@ class IngestFlatImageTest(parameterized.TestCase):
     self.assertEqual(dcm.StudyInstanceUID, _STUDY_UID)
     self.assertEqual(dcm.SeriesInstanceUID, _SERIES_UID)
     self.assertEqual(dcm.SOPInstanceUID, _INSTANCE_UID)
+    self.assertEqual(dcm.FrameOfReferenceUID, _FRAME_REF_UID)
+    self.assertEqual(dcm.Modality, 'SM')
     self.assertEqual(dcm.PatientName, 'Curie^Marie')
     self.assertEqual(
         dcm.SOPClassUID,

@@ -14,6 +14,7 @@
 # ==============================================================================
 """Unit tests for IngestBase."""
 
+import contextlib
 import copy
 import json
 import os
@@ -35,6 +36,7 @@ from transformation_pipeline import ingest_flags
 from transformation_pipeline.ingestion_lib import abstract_polling_client
 from transformation_pipeline.ingestion_lib import gen_test_util
 from transformation_pipeline.ingestion_lib import ingest_const
+from transformation_pipeline.ingestion_lib import redis_client
 from transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
 from transformation_pipeline.ingestion_lib.dicom_gen import dicom_json_util
 from transformation_pipeline.ingestion_lib.dicom_gen import dicom_private_tag_generator
@@ -42,6 +44,7 @@ from transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
 from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_base
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
+
 
 _SCHEMA = {
     '0x00100010': {'Keyword': 'PatientName', 'Meta': 'Patient Name'},
@@ -150,6 +153,41 @@ def _create_pydicom_file_dataset_from_json(
   return ds
 
 
+class _MockAbstractDicomGenerationForTest(
+    abstract_dicom_generation.AbstractDicomGeneration
+):
+  """AbstractDicomGeneration with abstract methods implemented."""
+
+  def get_slide_transform_lock(
+      self,
+      unused_ingest_file: abstract_dicom_generation.GeneratedDicomFiles,
+      unused_polling_client: abstract_polling_client.AbstractPollingClient,
+  ) -> abstract_dicom_generation.TransformationLock:
+    return abstract_dicom_generation.TransformationLock('mock_lock')
+
+  def generate_dicom_and_push_to_store(self, ingest_file_list, polling_client):
+    pass
+
+  def decode_pubsub_msg(self, msg):
+    return None
+
+  def handle_unexpected_exception(self, polling_client, ingest_file, exp):
+    pass
+
+
+def _mock_abstract_dicom_gen_handler(
+    mock_dicomweb_url: str, context_stack: contextlib.ExitStack
+) -> abstract_dicom_generation.AbstractDicomGeneration:
+  abstract_dicom_gen = mock.create_autospec(
+      abstract_dicom_generation.AbstractDicomGeneration, instance=True
+  )
+  abstract_dicom_gen.dcm_store_client = dicom_store_client.DicomStoreClient(
+      mock_dicomweb_url
+  )
+  abstract_dicom_gen._process_message_context_block = context_stack
+  return abstract_dicom_gen
+
+
 class DicomInstanceIngestionSetsTest(parameterized.TestCase):
 
   @mock.patch.object(
@@ -193,9 +231,7 @@ class DicomInstanceIngestionSetsTest(parameterized.TestCase):
     )
     self.assertEmpty(filepaths)
 
-  @mock.patch.object(
-      cloud_logging_client.CloudLoggingClient, 'warning', autospec=True
-  )
+  @mock.patch.object(cloud_logging_client, 'warning', autospec=True)
   def test_get_downsampled_dicom_files_missing_file_warning(self, mock_logger):
     downsamples = set(range(10))
     dicom_files = _test_dicomfile_set(range(5, 10))
@@ -208,7 +244,6 @@ class DicomInstanceIngestionSetsTest(parameterized.TestCase):
     # validates when len(downsamples) != len(file_list)
     # a logs a warning.
     mock_logger.assert_called_once_with(
-        cloud_logging_client.CloudLoggingClient.logger(),
         'Wsi2Dcm failed to produce expected downsample.',
         {
             'files_found': str(sorted(expected_result)),
@@ -927,9 +962,12 @@ class IngestBaseTest(parameterized.TestCase):
             _create_pydicom_file_dataset_from_json(dicom_metadata)
         )
 
-      dicom_client = dicom_store_client.DicomStoreClient(mock_dicomweb_url)
       result = ingest_base._correct_missing_study_instance_uid_in_metadata(
-          test_metadata, dicom_client
+          test_metadata,
+          _mock_abstract_dicom_gen_handler(
+              mock_dicomweb_url,
+              self.enter_context(contextlib.ExitStack()),
+          ),
       )
     self.assertEqual(result, expected)
     self.assertEqual(
@@ -956,10 +994,13 @@ class IngestBaseTest(parameterized.TestCase):
             _create_pydicom_file_dataset_from_json(dicom_metadata)
         )
 
-      dicom_client = dicom_store_client.DicomStoreClient(mock_dicomweb_url)
       with self.assertRaises(ingest_base.GenDicomFailedError):
         ingest_base._correct_missing_study_instance_uid_in_metadata(
-            test_metadata, dicom_client
+            test_metadata,
+            _mock_abstract_dicom_gen_handler(
+                mock_dicomweb_url,
+                self.enter_context(contextlib.ExitStack()),
+            ),
         )
 
   @parameterized.named_parameters([
@@ -993,14 +1034,16 @@ class IngestBaseTest(parameterized.TestCase):
         mk_store[mock_dicomweb_url].add_instance(
             _create_pydicom_file_dataset_from_json(dicom_metadata)
         )
-
-      dicom_client = dicom_store_client.DicomStoreClient(mock_dicomweb_url)
       with flagsaver.flagsaver(
           enable_create_missing_study_instance_uid=enable_create_missing_study_instance_uid
       ):
         with self.assertRaisesRegex(ingest_base.GenDicomFailedError, error_msg):
           ingest_base._correct_missing_study_instance_uid_in_metadata(
-              test_metadata, dicom_client
+              test_metadata,
+              _mock_abstract_dicom_gen_handler(
+                  mock_dicomweb_url,
+                  self.enter_context(contextlib.ExitStack()),
+              ),
           )
 
   @parameterized.parameters(
@@ -1019,10 +1062,55 @@ class IngestBaseTest(parameterized.TestCase):
     with self.assertRaises(ingest_base.GenDicomFailedError):
       ingest_base._correct_missing_study_instance_uid_in_metadata(
           _dcm_json(accession='A1'),
-          dicom_store_client.DicomStoreClient(
-              'https://mock.dicomstore.com/dicomWeb'
+          _mock_abstract_dicom_gen_handler(
+              'https://mock.dicomstore.com/dicomWeb',
+              self.enter_context(contextlib.ExitStack()),
           ),
       )
+
+  @mock.patch.object(
+      uid_generator, 'generate_uid', autospec=True, return_value='5.6.7'
+  )
+  @mock.patch.object(
+      redis_client.RedisClient,
+      'has_redis_client',
+      autospec=True,
+      return_value=True,
+  )
+  @mock.patch.object(
+      redis_client,
+      'redis_client',
+      autospec=True,
+  )
+  @flagsaver.flagsaver(enable_create_missing_study_instance_uid=True)
+  def test_correct_missing_study_instance_locks_if_study_instance_uid_gen(
+      self, mk_redis_client, *unused_mocks
+  ):
+    mk_client = mock.create_autospec(redis_client.RedisClient, instance=True)
+    mk_client.redis_ip = '1.2.3'
+    mk_client.redis_port = '555'
+    mk_redis_client.return_value = mk_client
+    store_metadata = [_dcm_json('1.2', '1.2.1', '1.2.1.1', 'A3', 'p1')]
+    test_metadata = _dcm_json(accession='A1')
+    mock_dicomweb_url = 'https://mock.dicomstore.com/dicomWeb'
+    with dicom_store_mock.MockDicomStores(mock_dicomweb_url) as mk_store:
+      for dicom_metadata in store_metadata:
+        mk_store[mock_dicomweb_url].add_instance(
+            _create_pydicom_file_dataset_from_json(dicom_metadata)
+        )
+      handler = _MockAbstractDicomGenerationForTest(mock_dicomweb_url)
+      handler._process_message_context_block = contextlib.ExitStack()
+      ingest_base._correct_missing_study_instance_uid_in_metadata(
+          test_metadata,
+          handler,
+      )
+    mk_client.acquire_non_blocking_lock.assert_called_once_with(
+        'DICOM_ACCESSION_NUMBER:A1',
+        None,
+        600,
+        handler._process_message_context_block,
+        mock.ANY,
+    )
 
   @parameterized.named_parameters([
       dict(
@@ -1110,8 +1198,9 @@ class IngestBaseTest(parameterized.TestCase):
         input_study_instance_uid,
         input_series_instance_uid,
         metadata,
-        mock.create_autospec(
-            dicom_store_client.DicomStoreClient, instance=True
+        _mock_abstract_dicom_gen_handler(
+            'https://mock.dicomstore.com/dicomWeb',
+            self.enter_context(contextlib.ExitStack()),
         ),
         set_study_instance_uid_from_metadata=False,
         set_series_instance_uid_from_metadata=False,
@@ -1188,13 +1277,14 @@ class IngestBaseTest(parameterized.TestCase):
     ds.AccessionNumber = 'mock_accession'
     metadata = ds.to_json_dict()
     mock_dicomweb_url = 'https://mock.dicomstore.com/dicomWeb'
-    dicom_client = dicom_store_client.DicomStoreClient(mock_dicomweb_url)
     with dicom_store_mock.MockDicomStores(mock_dicomweb_url):
       ingest_base.initialize_metadata_study_and_series_uids_for_dicom_triggered_ingestion(
           '1.2.3',
           '1.2.3.4',
           metadata,
-          dicom_client,
+          _mock_abstract_dicom_gen_handler(
+              mock_dicomweb_url, self.enter_context(contextlib.ExitStack())
+          ),
           set_study_instance_uid_from_metadata=True,
           set_series_instance_uid_from_metadata=False,
       )
@@ -1219,7 +1309,6 @@ class IngestBaseTest(parameterized.TestCase):
     ds.SOPClassUID = '4.5.6'
     metadata = ds.to_json_dict()
     mock_dicomweb_url = 'https://mock.dicomstore.com/dicomWeb'
-    dicom_client = dicom_store_client.DicomStoreClient(mock_dicomweb_url)
     with dicom_store_mock.MockDicomStores(mock_dicomweb_url):
       with self.assertRaisesRegex(
           ingest_base.GenDicomFailedError,
@@ -1229,7 +1318,9 @@ class IngestBaseTest(parameterized.TestCase):
             '1.2.3',
             '1.2.3.4',
             metadata,
-            dicom_client,
+            _mock_abstract_dicom_gen_handler(
+                mock_dicomweb_url, self.enter_context(contextlib.ExitStack())
+            ),
             set_study_instance_uid_from_metadata=True,
             set_series_instance_uid_from_metadata=False,
         )
@@ -1249,10 +1340,11 @@ class IngestBaseTest(parameterized.TestCase):
         '/tmp.dcm', 'gs://tmp.dcm'
     )
     dicom_gen.hash = 'mock_hash'
-    dicom_client = dicom_store_client.DicomStoreClient(mock_dicomweb_url)
     with dicom_store_mock.MockDicomStores(mock_dicomweb_url):
       rs = ingest_base.initialize_metadata_study_and_series_uids_for_non_dicom_image_triggered_ingestion(
-          dicom_client,
+          _mock_abstract_dicom_gen_handler(
+              mock_dicomweb_url, self.enter_context(contextlib.ExitStack())
+          ),
           dicom_gen,
           metadata,
           initialize_series_uid_from_metadata=False,
@@ -1274,11 +1366,12 @@ class IngestBaseTest(parameterized.TestCase):
         '/tmp.dcm', 'gs://tmp.dcm'
     )
     dicom_gen.hash = 'mock_hash'
-    dicom_client = dicom_store_client.DicomStoreClient(mock_dicomweb_url)
     with dicom_store_mock.MockDicomStores(mock_dicomweb_url):
       with self.assertRaises(ingest_base.GenDicomFailedError):
         ingest_base.initialize_metadata_study_and_series_uids_for_non_dicom_image_triggered_ingestion(
-            dicom_client,
+            _mock_abstract_dicom_gen_handler(
+                mock_dicomweb_url, self.enter_context(contextlib.ExitStack())
+            ),
             dicom_gen,
             metadata,
             initialize_series_uid_from_metadata=False,
@@ -1299,10 +1392,11 @@ class IngestBaseTest(parameterized.TestCase):
         '/tmp.dcm', 'gs://tmp.dcm'
     )
     dicom_gen.hash = 'mock_hash'
-    dicom_client = dicom_store_client.DicomStoreClient(mock_dicomweb_url)
     with dicom_store_mock.MockDicomStores(mock_dicomweb_url):
       rs = ingest_base.initialize_metadata_study_and_series_uids_for_non_dicom_image_triggered_ingestion(
-          dicom_client,
+          _mock_abstract_dicom_gen_handler(
+              mock_dicomweb_url, self.enter_context(contextlib.ExitStack())
+          ),
           dicom_gen,
           metadata,
           initialize_series_uid_from_metadata=False,
@@ -1327,10 +1421,11 @@ class IngestBaseTest(parameterized.TestCase):
         '/tmp.dcm', 'gs://tmp.dcm'
     )
     dicom_gen.hash = 'mock_hash'
-    dicom_client = dicom_store_client.DicomStoreClient(mock_dicomweb_url)
     with dicom_store_mock.MockDicomStores(mock_dicomweb_url):
       rs = ingest_base.initialize_metadata_study_and_series_uids_for_non_dicom_image_triggered_ingestion(
-          dicom_client,
+          _mock_abstract_dicom_gen_handler(
+              mock_dicomweb_url, self.enter_context(contextlib.ExitStack())
+          ),
           dicom_gen,
           metadata,
           initialize_series_uid_from_metadata=True,
@@ -1354,11 +1449,12 @@ class IngestBaseTest(parameterized.TestCase):
         '/tmp.dcm', 'gs://tmp.dcm'
     )
     dicom_gen.hash = 'mock_hash'
-    dicom_client = dicom_store_client.DicomStoreClient(mock_dicomweb_url)
     with dicom_store_mock.MockDicomStores(mock_dicomweb_url):
       with self.assertRaises(ingest_base.GenDicomFailedError):
         ingest_base.initialize_metadata_study_and_series_uids_for_non_dicom_image_triggered_ingestion(
-            dicom_client,
+            _mock_abstract_dicom_gen_handler(
+                mock_dicomweb_url, self.enter_context(contextlib.ExitStack())
+            ),
             dicom_gen,
             metadata,
             initialize_series_uid_from_metadata=True,
@@ -1394,11 +1490,12 @@ class IngestBaseTest(parameterized.TestCase):
         '/tmp.dcm', 'gs://tmp.dcm'
     )
     dicom_gen.hash = hash_value
-    dicom_client = dicom_store_client.DicomStoreClient(mock_dicomweb_url)
     with dicom_store_mock.MockDicomStores(mock_dicomweb_url) as mk_store:
       mk_store[mock_dicomweb_url].add_instance(path)
       rs = ingest_base.initialize_metadata_study_and_series_uids_for_non_dicom_image_triggered_ingestion(
-          dicom_client,
+          _mock_abstract_dicom_gen_handler(
+              mock_dicomweb_url, self.enter_context(contextlib.ExitStack())
+          ),
           dicom_gen,
           metadata,
           initialize_series_uid_from_metadata=True,

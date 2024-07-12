@@ -34,7 +34,7 @@ class CloudStoragePubSubMsg(abstract_pubsub_msg.AbstractPubSubMsg):
       self._filename = pubsub_msg_data_dict['name']
       self._bucket_name = pubsub_msg_data_dict['bucket']
     except (ValueError, TypeError, KeyError, json.JSONDecodeError) as exp:
-      cloud_logging_client.logger().error('Error decoding pub/sub msg.', exp)
+      cloud_logging_client.error('Error decoding pub/sub msg.', exp)
       self._filename = ''
       self._bucket_name = ''
       self.ignore = True

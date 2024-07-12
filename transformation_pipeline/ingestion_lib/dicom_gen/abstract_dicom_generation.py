@@ -14,11 +14,12 @@
 # ==============================================================================
 """Base class for image to DICOM generation implementations."""
 import abc
+import contextlib
 import dataclasses
+import http
 import os
 import re
 import tempfile
-import time
 from typing import List, Optional
 
 from google.cloud import pubsub_v1
@@ -36,6 +37,7 @@ from transformation_pipeline.ingestion_lib.dicom_gen import dicom_private_tag_ge
 from transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
 from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
 from transformation_pipeline.ingestion_lib.dicom_gen import wsi_dicom_file_ref
+from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
 from transformation_pipeline.ingestion_lib.pubsub_msgs import abstract_pubsub_msg
 
 # Regular expression concatenation of three byte arrays. First starts regex
@@ -44,6 +46,15 @@ from transformation_pipeline.ingestion_lib.pubsub_msgs import abstract_pubsub_ms
 INVALID_FILENAME_BYTES = re.compile(
     b'[' + r'\?#@:&/\\"`$~\''.encode('utf-8') + rb'\x7F-\xFF\x00-\x1f]'
 )
+
+
+class _AcquireLockOutsideOfContextBlockError(Exception):
+
+  def __init__(self, lock_name: str):
+    super().__init__(
+        f'Acquire lock: {lock_name} outside of context block.',
+        ingest_const.ErrorMsgs.ACQUIRING_LOCK_OUTSIDE_CONTEXT_BLOCK,
+    )
 
 
 class GeneratedDicomFiles:
@@ -235,12 +246,23 @@ class AbstractDicomGeneration(
       # Test at startup that DICOM UID prefix configured correctly.
       uid_generator.validate_uid_prefix()
     except uid_generator.InvalidUIDPrefixError as exp:
-      cloud_logging_client.logger().critical(str(exp))
+      cloud_logging_client.critical('Invalid DICOM UID Prefix', exp)
       raise
     self._dicom_store_client = None
     self._root_working_dir = None
     self._dicomweb_path = dicom_store_web_path
     self._viewer_debug_url = ingest_flags.VIEWER_DEBUG_URL_FLG.value.strip()
+    self._process_message_context_block = None
+    try:
+      # Test default icc profile can be read at startup to fail fast.
+      dicom_util.get_default_icc_profile_color()
+    except FileNotFoundError as exp:
+      cloud_logging_client.critical(
+          'Could not load default ICC Profile; To correct set'
+          ' DEFAULT_ICCPROFILE to SRGB or NONE.',
+          exp,
+      )
+      raise
 
   @property
   def name(self) -> str:
@@ -351,7 +373,9 @@ class AbstractDicomGeneration(
     study_uid = ingested_dicom.study_instance_uid
     series_uid = ingested_dicom.series_instance_uid
     debug_url = f'{viewer_debug_url}/studies/{study_uid}/series/{series_uid}'
-    cloud_logging_client.logger().debug('Debug_Link', {'url': debug_url})
+    cloud_logging_client.debug(
+        'Debug_Link', {ingest_const.LogKeywords.URL: debug_url}
+    )
 
   @abc.abstractmethod
   def handle_unexpected_exception(
@@ -402,12 +426,53 @@ class AbstractDicomGeneration(
         transform_lock.name
     ):
       return True
-    cloud_logging_client.logger().warning(
+    cloud_logging_client.warning(
         'Slide ingestion lock is no longer owned; slide ingestion will be'
         ' retried later.',
-        {'redis_lock_name': transform_lock.name},
+        {ingest_const.LogKeywords.LOCK_NAME: transform_lock.name},
     )
     return False
+
+  def acquire_non_blocking_lock(self, lock_name: str) -> None:
+    """Acquire non-blocking transformation lock.
+
+    Args:
+      lock_name: Name of lock to acquire.
+
+    Raises:
+      redis_client.CouldNotAcquireNonBlockingLockError: Could not acquire lock.
+      _AcquireLockOutsideOfContextBlockError: Lock raised outside of context
+        block. (should never occur)
+    """
+    r_client = redis_client.redis_client()
+    if not r_client.has_redis_client():
+      return
+    token = ingest_flags.TRANSFORM_POD_UID_FLG.value
+    lock_log = {
+        ingest_const.LogKeywords.LOCK_NAME: lock_name,
+        ingest_const.LogKeywords.LOCK_TOKEN: token,
+        ingest_const.LogKeywords.REDIS_SERVER_IP: r_client.redis_ip,
+        ingest_const.LogKeywords.REDIS_SERVER_PORT: r_client.redis_port,
+    }
+    if self._process_message_context_block is None:
+      cloud_logging_client.critical(
+          'Acquired lock outside of context block.', lock_log
+      )
+      raise _AcquireLockOutsideOfContextBlockError(lock_name)
+    # Lock used to protects against other processes interacting with the dicom
+    # store prior to the processed slide being written into dicomstore. It is
+    # safe to move the ingested bits to success folder with slide in the
+    # unlocked context.
+    r_client.acquire_non_blocking_lock(
+        lock_name,
+        token,
+        ingest_const.MESSAGE_TTL_S,
+        self._process_message_context_block,
+        lock_log,
+    )
+    cloud_logging_client.info(
+        f'Acquired transformation lock: {lock_name}', lock_log
+    )
 
   def _generate_dicom_and_push_to_store_lock_wrapper(
       self,
@@ -423,49 +488,10 @@ class AbstractDicomGeneration(
     slide_lock = self.get_slide_transform_lock(ingest_file, polling_client)
     if not slide_lock.is_defined():
       return
-    r_client = redis_client.redis_client()
-    if not r_client.has_redis_client():
-      self.generate_dicom_and_push_to_store(
-          slide_lock, ingest_file, polling_client
-      )
-      return
-    # Lock used to protects against other processes interacting with
-    # dicom and or metadata stores prior to the data getting written into
-    # dicomstore. It is safe to move the ingested bits to success folder
-    # and acknowledge pub/sub msg in unlocked context.
-    expiry_seconds = ingest_const.MESSAGE_TTL_S
-    token = ingest_flags.TRANSFORM_POD_UID_FLG.value
-    lock_log = {
-        'lock_name': slide_lock.name,
-        'lock_token': token,
-        'redis_server_ip': r_client.redis_ip,
-        'redis_server_port': r_client.redis_port,
-    }
-    if not r_client.acquire_non_blocking_lock(
-        slide_lock.name, token, expiry_seconds
-    ):
-      retry_delay = ingest_flags.TRANSFORMATION_LOCK_RETRY_FLG.value
-      cloud_logging_client.logger().info(
-          'Could not acquire lock. Slide transformation will be retried in'
-          f' about {retry_delay} seconds.',
-          lock_log,
-      )
-      polling_client.nack(retry_delay)
-      return
-    start_time = time.time()
-    try:
-      cloud_logging_client.logger().info(
-          f'Acquired transformation lock: {slide_lock.name}', lock_log
-      )
-      self.generate_dicom_and_push_to_store(
-          slide_lock, ingest_file, polling_client
-      )
-    finally:
-      r_client.release_lock(slide_lock.name, ignore_redis_exception=True)
-      lock_log['sec_lock_held'] = time.time() - start_time
-      cloud_logging_client.logger().info(
-          f'Released transformation lock: {slide_lock.name}', lock_log
-      )
+    self.acquire_non_blocking_lock(slide_lock.name)
+    self.generate_dicom_and_push_to_store(
+        slide_lock, ingest_file, polling_client
+    )
 
   def process_message(
       self, polling_client: abstract_polling_client.AbstractPollingClient
@@ -477,8 +503,14 @@ class AbstractDicomGeneration(
     """
     ingest_file = None
     try:
-      # Creates a temp working directory inside the container.
-      with tempfile.TemporaryDirectory() as working_root_dir:
+      # Wrap all ingestion in context block mannager enable ingestion scoped
+      # resource reclamation.
+      with contextlib.ExitStack() as process_message_context_block:
+        self._process_message_context_block = process_message_context_block
+        # Creates a temp working directory inside the container.
+        working_root_dir = process_message_context_block.enter_context(
+            tempfile.TemporaryDirectory()
+        )
         self.root_working_dir = working_root_dir
         os.mkdir(self.img_dir)  # Could raise OSError
 
@@ -498,30 +530,43 @@ class AbstractDicomGeneration(
             ingest_file, polling_client
         )
         if polling_client.is_acked():
-          cloud_logging_client.logger().info('Ingest pipeline completed')
+          cloud_logging_client.info('Ingest pipeline completed')
+    except redis_client.CouldNotAcquireNonBlockingLockError as exp:
+      retry_delay = ingest_flags.TRANSFORMATION_LOCK_RETRY_FLG.value
+      cloud_logging_client.info(
+          f'Could not acquire lock {exp.lock_name}. Slide transformation will'
+          f' be retried in about {retry_delay} seconds.',
+          exp.log,
+      )
+      polling_client.nack(retry_delay)
+      return
     except FileNameContainsInvalidCharError as exp:
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           (
               'Ingested file contains invalid character in filename. File will '
               'not be processed or moved from ingestion bucket.'
           ),
           exp,
           {
-              'invalid_character': exp.invalid_char,
-              'filename': os.path.basename(polling_client.current_msg.filename),
-              'uri': polling_client.current_msg.uri,
+              ingest_const.LogKeywords.INVALID_CHARACTER: exp.invalid_char,
+              ingest_const.LogKeywords.FILENAME: os.path.basename(
+                  polling_client.current_msg.filename
+              ),
+              ingest_const.LogKeywords.URI: polling_client.current_msg.uri,
           },
       )
       polling_client.ack()
       return
     except FileDownloadError as exp:
       # Assume file was deleted and msg just failed to ack.
-      cloud_logging_client.logger().info(
+      cloud_logging_client.info(
           'Ingest pipeline completed. Ingest blob not found.',
           exp,
           {
-              'filename': os.path.basename(polling_client.current_msg.filename),
-              'uri': polling_client.current_msg.uri,
+              ingest_const.LogKeywords.FILENAME: os.path.basename(
+                  polling_client.current_msg.filename
+              ),
+              ingest_const.LogKeywords.URI: polling_client.current_msg.uri,
           },
       )
       polling_client.ack()
@@ -531,12 +576,12 @@ class AbstractDicomGeneration(
       # Error logged in self.dcm_store_client.upload_to_dicom_store
       retry_ttl = 0
       opt_quota_str = ''
-      if exp.response.status_code == 429:
+      if exp.response.status_code == http.HTTPStatus.TOO_MANY_REQUESTS:
         retry_ttl = ingest_flags.DICOM_QUOTA_ERROR_RETRY_FLG.value
         opt_quota_str = (
             f'; insufficient DICOM Store quota retrying in {retry_ttl} sec'
         )
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           f'HTTPError occurred in the GKE container{opt_quota_str}', exp
       )
       polling_client.nack(retry_ttl=retry_ttl)
@@ -547,3 +592,5 @@ class AbstractDicomGeneration(
       )
       polling_client.ack()
       raise exp
+    finally:
+      self._process_message_context_block = None

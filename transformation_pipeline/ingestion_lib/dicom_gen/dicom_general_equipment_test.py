@@ -28,7 +28,10 @@ class DicomGeneralEquipmentTest(absltest.TestCase):
     self.assertEqual(ds.Manufacturer, 'GOOGLE')
     self.assertEqual(ds.ManufacturerModelName, 'DPAS_transformation_pipeline')
     self.assertEqual(
-        ds.SoftwareVersions, cloud_logging_client.logger().build_version[:64]
+        ds.SoftwareVersions,
+        cloud_logging_client.get_build_version(
+            dicom_general_equipment._MAX_STRING_LENGTH_DICOM_SOFTWARE_VERSION_TAG
+        ),
     )
 
   def test_general_equipment_doesnt_overwrite(self):

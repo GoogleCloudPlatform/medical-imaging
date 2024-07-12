@@ -19,6 +19,7 @@ import copy
 import datetime
 import io
 import itertools
+import os
 from typing import Any, List, Mapping, MutableMapping, Optional, Sequence, Union
 
 import openslide
@@ -37,9 +38,68 @@ from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
 from transformation_pipeline.ingestion_lib.dicom_gen import wsi_dicom_file_ref
 from transformation_pipeline.ingestion_lib.dicom_util import pydicom_util
 
+_UM_IN_MM = 1000.0  # Number of micrometers in 1 milimeter.
+_MAX_PIXEL_DATA_SIZE_FOR_BASIC_OFFSET_TABLE = 0xFFFFFFFF
+_SRGB = 'sRGB'
+
 
 class InvalidICCProfileError(Exception):
   pass
+
+
+def _read_icc_profile(filename: str) -> bytes:
+  with open(
+      os.path.join(
+          os.path.dirname(__file__),
+          f'../../../../../pathology_cloud_icc_profile/icc_profile/{filename}',
+      ),
+      'rb',
+  ) as infile:
+    return infile.read()
+
+
+def _get_srgb_iccprofile() -> bytes:
+  try:
+    return _read_icc_profile('sRGB_v4_ICC_preference.icc')
+  except FileNotFoundError:
+    return ImageCms.ImageCmsProfile(ImageCms.createProfile(_SRGB)).tobytes()
+
+
+def _get_adobergb_iccprofile() -> bytes:
+  return _read_icc_profile('AdobeRGB1998.icc')
+
+
+def _get_rommrgb_iccprofile() -> bytes:
+  return _read_icc_profile('ISO22028-2_ROMM-RGB.icc')
+
+
+def get_default_icc_profile_color() -> Optional[bytes]:
+  """Returns default ICC profile to that should be used if none is provided."""
+  default_icc_profile = ingest_flags.DEFAULT_ICCPROFILE_FLG.value
+  try:
+    if default_icc_profile == ingest_flags.DefaultIccProfile.SRGB:
+      profile = _get_srgb_iccprofile()
+    elif default_icc_profile == ingest_flags.DefaultIccProfile.ADOBERGB:
+      profile = _get_adobergb_iccprofile()
+    elif default_icc_profile == ingest_flags.DefaultIccProfile.ROMMRGB:
+      profile = _get_rommrgb_iccprofile()
+    elif default_icc_profile == ingest_flags.DefaultIccProfile.NONE:
+      # Not recommended, ICC Profile are required for all WSI imaging that
+      # do not encode monochrome imaging.
+      profile = None
+    else:
+      raise ValueError(
+          f'Unrecognized default ICC profile: {default_icc_profile}'
+      )
+    if default_icc_profile != ingest_flags.DefaultIccProfile.NONE:
+      cloud_logging_client.info(
+          'ICC profile missing from source imaging; embedding default profile:'
+          f' {default_icc_profile.name} in DICOM.'
+      )
+    return profile
+  except FileNotFoundError as exp:
+    cloud_logging_client.error('Could not load default ICC Profile.', exp)
+    raise exp
 
 
 def _should_fix_icc_colorspace(dcm: pydicom.Dataset) -> bool:
@@ -59,7 +119,7 @@ def _dicom_formatted_time(scan_datetime: datetime.datetime) -> str:
 
 
 def _aperio_scan_time(
-    properties: Mapping[str, str]
+    properties: Mapping[str, str],
 ) -> Optional[datetime.datetime]:
   """Parses Aperio formatted slide scan date/time from openslide properties.
 
@@ -135,14 +195,14 @@ def _add_background_color(
   if background_color is None:
     return
   if color_profile is None:
-    cloud_logging_client.logger().error(
+    cloud_logging_client.error(
         'WSI image defines a background color but does not contain a ICC Color'
         ' profile. Cannot generate LAB colorvalue for'
         ' RecommendedAbsentPixelCIELabValue tag.'
     )
     return
   if len(background_color) != 6:
-    cloud_logging_client.logger().error(
+    cloud_logging_client.error(
         'Openslide returned background color that does not match expected'
         ' RRGGBB hex encoding. Cannot generate'
         ' RecommendedAbsentPixelCIELabValue tag'
@@ -242,7 +302,7 @@ def add_openslide_dicom_properties(
   try:
     o_slide = openslide.OpenSlide(source_imaging)
   except openslide.lowlevel.OpenSlideUnsupportedFormatError:
-    cloud_logging_client.logger().warning(
+    cloud_logging_client.warning(
         'OpenSlide cannot read file.',
         {ingest_const.LogKeywords.FILENAME: source_imaging},
     )
@@ -286,9 +346,16 @@ def add_missing_type2_dicom_metadata(ds: pydicom.Dataset) -> None:
       ingest_flags.CREATE_NULL_TYPE2C_DICOM_TAG_IF_METADATA_IS_UNDEFINED_FLG.value
   )
   tags_added = []
+  require_modules = (
+      ['Slide Label']
+      if ds.SOPClassUID == ingest_const.DicomSopClasses.WHOLE_SLIDE_IMAGE.uid
+      else []
+  )
   try:
     undefined_tags = pydicom_util.get_undefined_dicom_tags_by_type(
-        ds, {'2', '2C'} if init_type2c_tags else {'2'}
+        ds,
+        {'2', '2C'} if init_type2c_tags else {'2'},
+        require_modules=require_modules,
     )
   except pydicom_util.UndefinedIODError:
     return
@@ -298,7 +365,7 @@ def add_missing_type2_dicom_metadata(ds: pydicom.Dataset) -> None:
           tag_path.tag.address, list(tag_path.tag.vr)[0], None
       )
     except IndexError as _:
-      cloud_logging_client.logger().warning(
+      cloud_logging_client.warning(
           'DICOM standard metadata error tag is missing vr code.',
           {'tag': tag_path.tag},
       )
@@ -312,7 +379,7 @@ def add_missing_type2_dicom_metadata(ds: pydicom.Dataset) -> None:
     else:
       msg = 'Added undefined type 2 tags.'
       log_key = ingest_const.LogKeywords.TYPE2_TAGS_ADDED
-    cloud_logging_client.logger().info(
+    cloud_logging_client.info(
         msg,
         {log_key: tags_added},
         wsi_dicom_file_ref.init_from_pydicom_dataset('', ds).dict(),
@@ -374,11 +441,11 @@ def _add_dicom_frame_of_ref_module_to_dataset_metadata(
       continue
     frame_of_reference_uid = dicom_file_ref.frame_of_reference_uid
     position_reference_indicator = dicom_file_ref.position_reference_indicator
-    cloud_logging_client.logger().info(
+    cloud_logging_client.info(
         'DICOM FrameOfReferenceUID set from previous instance.',
         dicom_file_ref.dict(),
     )
-    cloud_logging_client.logger().info(
+    cloud_logging_client.info(
         'DICOM FrameOfReference',
         {
             'FrameOfReferenceUID': frame_of_reference_uid,
@@ -388,7 +455,7 @@ def _add_dicom_frame_of_ref_module_to_dataset_metadata(
     break
   if not frame_of_reference_uid:
     frame_of_reference_uid = uid_generator.generate_uid()
-    cloud_logging_client.logger().info(
+    cloud_logging_client.info(
         'DICOM FrameOfReferenceUID initialized to new UID.',
         {
             'FrameOfReferenceUID': frame_of_reference_uid,
@@ -454,6 +521,27 @@ def pad_bytes_to_even_length(data: bytes) -> bytes:
   return data
 
 
+def _get_colorspace_description_from_iccprofile_bytes(
+    ds: pydicom.dataset.Dataset,
+) -> str:
+  """Returns embedded description of ICC Profile colorspace.
+
+  Args:
+    ds: pydicom dataset.
+
+  Raises:
+    InvalidICCProfileError: Raised if ICC profile cannot be decoded.
+  """
+  try:
+    profile = ImageCms.ImageCmsProfile(io.BytesIO(ds.ICCProfile))
+    return ImageCms.getProfileDescription(profile)
+  except (OSError, ImageCms.PyCMSError) as exp:
+    raise InvalidICCProfileError(
+        'Could not decode embedded ICC color profile',
+        ingest_const.ErrorMsgs.INVALID_ICC_PROFILE,
+    ) from exp
+
+
 def add_icc_colorspace_to_dicom(ds: pydicom.dataset.Dataset) -> None:
   """Adds ICC profile color space to DICOM.
 
@@ -467,14 +555,7 @@ def add_icc_colorspace_to_dicom(ds: pydicom.dataset.Dataset) -> None:
     del ds.ColorSpace
   if ingest_const.DICOMTagKeywords.ICC_PROFILE not in ds or not ds.ICCProfile:
     return
-  try:
-    profile = ImageCms.ImageCmsProfile(io.BytesIO(ds.ICCProfile))
-    description = ImageCms.getProfileDescription(profile)
-  except (OSError, ImageCms.PyCMSError) as exp:
-    raise InvalidICCProfileError(
-        'Could not decode embedded ICC color profile',
-        ingest_const.ErrorMsgs.INVALID_ICC_PROFILE,
-    ) from exp
+  description = _get_colorspace_description_from_iccprofile_bytes(ds)
   # Color space is stored in DICOM VR type CS.
   # Value <= 16 characters. A bit tricky in unicode space. Approximating
   # as 16 characters assuming value isn't using multi-byte characters
@@ -482,7 +563,7 @@ def add_icc_colorspace_to_dicom(ds: pydicom.dataset.Dataset) -> None:
   # https://dicom.nema.org/medical/dicom/current/output/chtml/part05/sect_6.2.html
   if description:
     ds.ColorSpace = description.replace('\n', '').strip().upper()[:16]
-    cloud_logging_client.logger().info(
+    cloud_logging_client.info(
         'Adding ICC profile color space description DICOM',
         {
             'ICC_Profile_ColorSpace': description,
@@ -514,10 +595,10 @@ def _add_icc_profile_to_dicom(
   # https://dicom.nema.org/medical/dicom/current/output/chtml/part05/sect_6.2.html
   ds.ICCProfile = pad_bytes_to_even_length(icc_profile)
   add_icc_colorspace_to_dicom(ds)
-  cloud_logging_client.logger().info('Adding ICC profile to DICOM')
+  cloud_logging_client.info('Adding ICC profile to DICOM')
 
 
-def set_frametype_to_imagetype(dcm_file: pydicom.Dataset):
+def set_frametype_to_imagetype(dcm_file: pydicom.Dataset) -> None:
   """Set DICOM FrameType tag to same value as ImageType tag.
 
   Args:
@@ -568,22 +649,18 @@ def set_content_date_time_to_now(dcm_file: pydicom.Dataset) -> None:
   dcm_file.ContentDate = _dicom_formatted_date(content_datetime)
 
 
-def set_sop_instance_uid(
-    ds: pydicom.Dataset, sop_instance_uid: Optional[str] = None
-):
+def set_sop_instance_uid(ds: pydicom.Dataset, sop_instance_uid: str) -> None:
   """Sets SOP Instance UID.
 
   Args:
     ds: Py_dicom_dataset.
-    sop_instance_uid: SOP instance UID to use. Will be generated if unset.
+    sop_instance_uid: SOP instance UID to use.
   """
-  if not sop_instance_uid:
-    sop_instance_uid = uid_generator.generate_uid()
   ds.file_meta.MediaStorageSOPInstanceUID = sop_instance_uid
   ds.SOPInstanceUID = sop_instance_uid
 
 
-def set_wsi_dimensional_org(dcm_file: pydicom.Dataset):
+def set_wsi_dimensional_org(dcm_file: pydicom.Dataset) -> None:
   """Sets WSI DICOM dimensional organization metadata.
 
   Args:
@@ -606,6 +683,158 @@ def set_wsi_dimensional_org(dcm_file: pydicom.Dataset):
   dcm_file.DimensionIndexSequence = pydicom.Sequence(ds_list)
 
 
+def _init_slice_thickness_metadata_if_undefined(
+    dcm_file: pydicom.Dataset,
+) -> None:
+  """Inits slice thickness metadata if undefined (Required for WSI DICOM).
+
+  Sets ImagedVolumeDepth (thickness in um) and
+    SharedFunctionalGroupsSequence[0].PixelMeasuresSequence[0].SliceThickness
+    (unit = mm)
+  If they are undefined. If one is defined will init missing value from defined
+  tag value.  If neither are defined inits from value defined in
+  WSI_DICOM_SLICE_THICKNESS_DEFAULT_VALUE_FLG (default 12 um)
+
+  Args:
+    dcm_file: Pydicom dataset.
+
+  Returns:
+    None:
+  """
+  if ingest_const.DICOMTagKeywords.IMAGED_VOLUME_DEPTH in dcm_file:
+    # Imaged volume depth units = micrometers (1/1000) mm
+    thickness = dcm_file.ImagedVolumeDepth
+  else:
+    # Slice thickeness units = mm or 1000 * um
+    try:
+      thickness = (
+          float(
+              dcm_file.SharedFunctionalGroupsSequence[0]
+              .PixelMeasuresSequence[0]
+              .SliceThickness
+          )
+          * _UM_IN_MM
+      )
+    except (AttributeError, TypeError, IndexError, KeyError, ValueError) as _:
+      thickness = ingest_flags.WSI_DICOM_SLICE_THICKNESS_DEFAULT_VALUE_FLG.value
+      cloud_logging_client.info(
+          'Slice thickness metadata is undefined setting to default:'
+          f' {thickness} um.'
+      )
+    dcm_file.ImagedVolumeDepth = thickness
+  try:
+    first_fuc_group_ds = dcm_file.SharedFunctionalGroupsSequence[0]
+  except (AttributeError, IndexError) as _:
+    first_fuc_group_ds = pydicom.Dataset()
+    dcm_file.SharedFunctionalGroupsSequence = [first_fuc_group_ds]
+  try:
+    measure_ds = first_fuc_group_ds.PixelMeasuresSequence[0]
+  except (AttributeError, IndexError) as _:
+    measure_ds = pydicom.Dataset()
+    first_fuc_group_ds.PixelMeasuresSequence = [measure_ds]
+  if ingest_const.DICOMTagKeywords.SLICE_THICKNESS not in measure_ds:
+    # Convert thickness (um) to Slice Thickness mm
+    measure_ds.SliceThickness = thickness / _UM_IN_MM
+
+
+def _pad_date(date_str: str) -> str:
+  date_str = date_str[:8]
+  pad = '0' * (8 - len(date_str))
+  return f'{date_str}{pad}'
+
+
+def _pad_time(time_str: str) -> str:
+  pad = '0' * (6 - len(time_str)) if len(time_str) < 6 else ''
+  return f'{time_str}{pad}'
+
+
+def _init_acquision_date_time_if_undefined(dcm_file: pydicom.Dataset) -> None:
+  """Inits acquision date time if undefined (Required for WSI DICOM).
+
+  If tag is undefined attempts to build tag value from date/time components.
+    date = AcquisitionDate, ContentDate, and then current date.
+    time = AcquisitionTime, ContentTime, and then current time.
+
+    if date metadata does not fully describe metadata in 8 chars (YYYYMMDD)
+    then uses current date.
+
+  Args:
+    dcm_file: Pydicom dataset.
+
+  Returns:
+    None:
+  """
+  if ingest_const.DICOMTagKeywords.ACQUISITION_DATE_TIME in dcm_file:
+    return
+  datetime_now = datetime.datetime.now(datetime.timezone.utc)
+
+  acquision_date = ''
+  acquision_time = '000000'
+  try:
+    if len(dcm_file.AcquisitionDate) >= 4:
+      acquision_date = dcm_file.AcquisitionDate
+      acquision_time = dcm_file.AcquisitionTime
+  except AttributeError:
+    pass
+  if not acquision_date:
+    try:
+      if len(dcm_file.ContentDate) >= 4:
+        acquision_date = dcm_file.ContentDate
+        acquision_time = dcm_file.ContentTime
+    except AttributeError:
+      pass
+  if not acquision_date:
+    acquision_date = _dicom_formatted_date(datetime_now)
+    acquision_time = _dicom_formatted_time(datetime_now)
+    cloud_logging_client.info(
+        'Metadata missing required acquision datetime metadata setting datetime'
+        ' current date/time.'
+    )
+  if ingest_const.DICOMTagKeywords.ACQUISITION_DATE not in dcm_file:
+    dcm_file.AcquisitionDate = acquision_date
+  if ingest_const.DICOMTagKeywords.ACQUISITION_TIME not in dcm_file:
+    dcm_file.AcquisitionTime = acquision_time
+  acquision_date = _pad_date(acquision_date)
+  acquision_time = _pad_time(acquision_time)
+  dcm_file.AcquisitionDateTime = f'{acquision_date}{acquision_time}'
+
+
+def init_undefined_wsi_imaging_type1_tags(dcm_file: pydicom.Dataset) -> None:
+  """Tests WSI imaging for missing required metadata and adds it if necessary.
+
+  Args:
+    dcm_file: Pydicom dataset.
+
+  Returns:
+    None:
+  """
+  if ingest_const.DICOMTagKeywords.EXTENDED_DEPTH_OF_FIELD not in dcm_file:
+    dcm_file.ExtendedDepthOfField = (
+        ingest_flags.WSI_DICOM_EXTENDED_DEPTH_OF_FIELD_DEFAULT_VALUE_FLG.value.name
+    )
+  if ingest_const.DICOMTagKeywords.FOCUS_METHOD not in dcm_file:
+    dcm_file.FocusMethod = (
+        ingest_flags.WSI_DICOM_FOCUS_METHOD_DEFAULT_VALUE_FLG.value.name
+    )
+  _init_slice_thickness_metadata_if_undefined(dcm_file)
+  try:
+    is_tiled_full = (
+        dcm_file.DimensionOrganizationType.upper().strip()
+        == ingest_const.TILED_FULL
+    )
+  except AttributeError:
+    is_tiled_full = False
+  if (
+      is_tiled_full
+      and ingest_const.DICOMTagKeywords.TOTAL_PIXEL_MATRIX_FOCAL_PLANES
+      not in dcm_file
+  ):
+    dcm_file.TotalPixelMatrixFocalPlanes = 1
+  if ingest_const.DICOMTagKeywords.VOLUMETRIC_PROPERTIES not in dcm_file:
+    dcm_file.VolumetricProperties = ingest_const.VOLUME
+  _init_acquision_date_time_if_undefined(dcm_file)
+
+
 def add_general_metadata_to_dicom(dcm_file: pydicom.Dataset) -> None:
   """Adds general metadata (e.g date, equipment) to DICOM instance.
 
@@ -616,7 +845,7 @@ def add_general_metadata_to_dicom(dcm_file: pydicom.Dataset) -> None:
   dicom_general_equipment.add_ingest_general_equipment(dcm_file)
 
 
-def add_metadata_to_dicom(
+def add_metadata_to_generated_wsi_dicom(
     additional_wsi_metadata: pydicom.Dataset,
     dcm_json: Optional[Mapping[str, Any]],
     private_tags: List[dicom_private_tag_generator.DicomPrivateTag],
@@ -638,10 +867,14 @@ def add_metadata_to_dicom(
   dcm_file.file_meta.ImplementationClassUID = (
       ingest_const.WSI_IMPLEMENTATION_CLASS_UID
   )
-  set_sop_instance_uid(dcm_file)
+  dcm_file.file_meta.ImplementationVersionName = (
+      ingest_const.IMPLEMENTATION_VERSION_NAME
+  )
+  set_sop_instance_uid(dcm_file, uid_generator.generate_uid())
   set_wsi_dimensional_org(dcm_file)
   copy_pydicom_dataset(additional_wsi_metadata, dcm_file)
   add_general_metadata_to_dicom(dcm_file)
+  init_undefined_wsi_imaging_type1_tags(dcm_file)
 
 
 # pytype: disable=bad-return-type
@@ -729,7 +962,15 @@ def add_default_optical_path_sequence(
   """
   if has_optical_path_sequence(dcm):
     return False
-
+  try:
+    photometric_interpretation = dcm.PhotometricInterpretation
+  except AttributeError:
+    photometric_interpretation = ''
+  if (
+      icc_profile is None
+      and photometric_interpretation != ingest_const.MONOCHROME2
+  ):
+    icc_profile = get_default_icc_profile_color()
   ds = pydicom.Dataset()
   ds.IlluminationTypeCodeSequence = _single_code_val_sq(
       '111741', 'DCM', 'Transmission illumination'
@@ -742,6 +983,14 @@ def add_default_optical_path_sequence(
   )
   dcm.OpticalPathSequence = pydicom.Sequence([ds])
   dcm.NumberOfOpticalPaths = 1
+  return True
+
+
+def add_default_total_pixel_matrix_origin_sequence_if_not_defined(
+    dcm: pydicom.Dataset,
+) -> bool:
+  if 'TotalPixelMatrixOriginSequence' in dcm:
+    return False
   offset = pydicom.Dataset()
   offset.XOffsetInSlideCoordinateSystem = 0
   offset.YOffsetInSlideCoordinateSystem = 0
@@ -799,3 +1048,67 @@ def set_all_defined_pydicom_tags(
   set_defined_pydicom_tags(
       dcm, tag_value_map, tag_value_map, overwrite_existing_values=True
   )  # pytype: disable=wrong-arg-types  # mapping-is-not-sequence
+
+
+def is_unencapsulated_dicom_transfer_syntax(
+    unencapsulated_transfer_syntax_uid: str,
+) -> bool:
+  """Returns True if DICOM transfer syntax is un-encapsulated."""
+  return unencapsulated_transfer_syntax_uid in (
+      ingest_const.DicomImageTransferSyntax.IMPLICIT_VR_LITTLE_ENDIAN,
+      ingest_const.DicomImageTransferSyntax.EXPLICIT_VR_LITTLE_ENDIAN,
+      ingest_const.DicomImageTransferSyntax.DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN,
+      ingest_const.DicomImageTransferSyntax.EXPLICIT_VR_BIG_ENDIAN,
+  )
+
+
+def _has_offset_table(dcm: pydicom.Dataset) -> bool:
+  """Returns True if DICOM instance has basic offset table."""
+  if 'ExtendedOffsetTable' in dcm:
+    return True
+  file_like = pydicom.filebase.DicomFileLike(io.BytesIO(dcm.PixelData))
+  file_like.is_little_endian = True
+  has_offset_table, _ = pydicom.encaps.get_frame_offsets(file_like)
+  return has_offset_table
+
+
+def if_missing_create_encapsulated_frame_offset_table(
+    dcm_file: pydicom.FileDataset,
+) -> None:
+  """Adds basic offset or extended offset table to DICOM if missing."""
+  if 'PixelData' not in dcm_file:
+    return
+  if is_unencapsulated_dicom_transfer_syntax(
+      dcm_file.file_meta.TransferSyntaxUID
+  ):
+    return
+  if _has_offset_table(dcm_file):
+    return
+  # Offset table is needd, generate the offset table.
+  frames = [
+      fd[0]
+      for fd in pydicom.encaps.generate_pixel_data(
+          dcm_file.PixelData,
+          dcm_file.NumberOfFrames,
+      )
+  ]
+  # If the total size of the frames is less than or equal to 4 gigabytes,
+  # then use a basic offset table. Otherwise, use an extended offset table.
+  if len(dcm_file.PixelData) <= _MAX_PIXEL_DATA_SIZE_FOR_BASIC_OFFSET_TABLE:
+    dcm_file.PixelData = pydicom.encaps.encapsulate(frames)
+    table_type = 'basic'
+  else:
+    _, extended_offset_table, extend_offset_table_lengths = (
+        pydicom.encaps.encapsulate_extended(frames)
+    )
+    dcm_file.ExtendedOffsetTable = extended_offset_table
+    dcm_file.ExtendedOffsetTableLengths = extend_offset_table_lengths
+    table_type = 'extended'
+  del frames
+  cloud_logging_client.info(
+      f'Generated {table_type} offset table.',
+      {
+          'bytes': len(dcm_file.PixelData),
+          'number_of_frames': dcm_file.NumberOfFrames,
+      },
+  )

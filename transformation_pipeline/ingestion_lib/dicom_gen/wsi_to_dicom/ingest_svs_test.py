@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """Unit tests for IngestSVS."""
+
 from __future__ import annotations
 
 import contextlib
@@ -40,6 +41,7 @@ from shared_libs.test_utils.gcs_mock import gcs_mock
 from transformation_pipeline import ingest_flags
 from transformation_pipeline.ingestion_lib import gen_test_util
 from transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
+from transformation_pipeline.ingestion_lib.dicom_gen import dicom_general_equipment
 from transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
 from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
 from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ancillary_image_extractor
@@ -250,10 +252,16 @@ class IngestSVSTest(parameterized.TestCase):
         )
     )
 
+  @mock.patch.object(
+      dicom_util,
+      '_get_colorspace_description_from_iccprofile_bytes',
+      autospec=True,
+      return_value='SRGB',
+  )
   @flagsaver.flagsaver(
       pod_hostname='1234', dicom_guid_prefix=uid_generator.TEST_UID_PREFIX
   )
-  def test_add_metadata_to_wsi_dicom_files(self):
+  def test_add_metadata_to_wsi_dicom_files(self, unused_mock):
     out_dir = self.create_tempdir()
     dcm = typing.cast(
         pydicom.FileDataset,
@@ -304,7 +312,10 @@ class IngestSVSTest(parameterized.TestCase):
     self.assertEqual(dcm.Manufacturer, 'GOOGLE')
     self.assertEqual(dcm.ManufacturerModelName, 'DPAS_transformation_pipeline')
     self.assertEqual(
-        dcm.SoftwareVersions, cloud_logging_client.logger().build_version[:64]
+        dcm.SoftwareVersions,
+        cloud_logging_client.get_build_version(
+            dicom_general_equipment._MAX_STRING_LENGTH_DICOM_SOFTWARE_VERSION_TAG
+        ),
     )
     self.assertEqual(dcm.FrameOfReferenceUID, '1.2.3')
     self.assertEqual(dcm.PositionReferenceIndicator, 'Side')
@@ -471,6 +482,33 @@ class IngestSVSTest(parameterized.TestCase):
           expected_output='openslide_dicom_json/metadata_free.json',
       ),
   ])
+  @mock.patch.object(
+      dicom_util,
+      '_get_colorspace_description_from_iccprofile_bytes',
+      autospec=True,
+      return_value='SRGB',
+  )
+  @mock.patch.object(
+      dicom_util,
+      '_get_srgb_iccprofile',
+      autospec=True,
+      return_value='SRGB_ICCPROFILE_BYTES'.encode('utf-8'),
+  )
+  @mock.patch.object(
+      cloud_logging_client,
+      'get_build_version',
+      autospec=True,
+      return_value='Build_Version:123',
+  )
+  @mock.patch.object(
+      dicom_util,
+      '_dicom_formatted_date',
+      autospec=True,
+      return_value='20240312',
+  )
+  @mock.patch.object(
+      dicom_util, '_dicom_formatted_time', autospec=True, return_value='012345'
+  )
   @mock.patch.object(dicom_util, 'set_content_date_time_to_now', autospec=True)
   @mock.patch.object(
       time, 'time', autospec=True, return_value=1705894937.3804379
@@ -499,13 +537,17 @@ class IngestSVSTest(parameterized.TestCase):
         result.files_to_upload.main_store_instances
     )
     with open(gen_test_util.test_file_path(expected_output), 'rt') as infile:
-      expected_instance = json.load(infile)
-    self.assertEqual(
-        gen_instance,
-        expected_instance,
-        f'GENERATED\n\n{gen_instance}\n\nEXPECTED\n\n{expected_instance}',
-    )
+      expected_instances = json.load(infile)
+    self.assertLen(gen_instance, len(expected_instances))
+    for index, expected_instance in enumerate(expected_instances):
+      self.assertEqual(gen_instance[index], expected_instance)
 
+  @mock.patch.object(
+      dicom_util,
+      '_get_colorspace_description_from_iccprofile_bytes',
+      autospec=True,
+      return_value='SRGB',
+  )
   @mock.patch.object(
       uid_generator,
       'generate_uid',
@@ -610,6 +652,12 @@ class IngestSVSTest(parameterized.TestCase):
           expected_series_uid={'1.2.3.4.5'},
       ),
   ])
+  @mock.patch.object(
+      dicom_util,
+      '_get_colorspace_description_from_iccprofile_bytes',
+      autospec=True,
+      return_value='SRGB',
+  )
   @mock.patch.object(
       uid_generator,
       'generate_uid',

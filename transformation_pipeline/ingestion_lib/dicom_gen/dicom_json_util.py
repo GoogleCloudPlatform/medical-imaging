@@ -113,7 +113,7 @@ def get_patient_id(dcm_json: Mapping[str, Any]) -> str:
       dcm_json, ingest_const.DICOMTagAddress.PATIENT_ID
   )
   if patient_id is None or not patient_id:
-    cloud_logging_client.logger().info('PatientID not found in metadata.')
+    cloud_logging_client.info('PatientID not found in metadata.')
     raise MissingPatientIDMetadataError()
   return patient_id
 
@@ -124,9 +124,7 @@ def get_accession_number(dcm_json: Mapping[str, Any]) -> str:
       dcm_json, ingest_const.DICOMTagAddress.ACCESSION_NUMBER
   )
   if accession_number is None or not accession_number:
-    cloud_logging_client.logger().warning(
-        'AccessionNumber not found in metadata.'
-    )
+    cloud_logging_client.warning('AccessionNumber not found in metadata.')
     raise MissingAccessionNumberMetadataError()
   return accession_number
 
@@ -140,9 +138,7 @@ def get_study_instance_uid(
   )
   if study_uid is None or not study_uid:
     if log_error:
-      cloud_logging_client.logger().warning(
-          'StudyInstanceUID not found in metadata.'
-      )
+      cloud_logging_client.warning('StudyInstanceUID not found in metadata.')
     raise MissingStudyUIDInMetadataError()
   return study_uid
 
@@ -166,7 +162,7 @@ def set_study_instance_uid_in_metadata(
         ingest_const.LogKeywords.PREVIOUS_STUDY_INSTANCE_UID: old_uid,
         ingest_const.LogKeywords.STUDY_INSTANCE_UID: study_uid,
     }
-  cloud_logging_client.logger().info(
+  cloud_logging_client.info(
       'Setting DICOM study instance UID defined in metadata.', log, dcm_json
   )
 
@@ -180,7 +176,7 @@ def get_series_instance_uid(
   )
   if series_uid is None or not series_uid:
     if log_error:
-      cloud_logging_client.logger().warning(
+      cloud_logging_client.warning(
           'DICOM series instance UID not found in metadata.'
       )
     raise MissingSeriesUIDInMetadataError()
@@ -206,7 +202,7 @@ def set_series_instance_uid_in_metadata(
         ingest_const.LogKeywords.PREVIOUS_SERIES_INSTANCE_UID: old_uid,
         ingest_const.LogKeywords.SERIES_INSTANCE_UID: series_uid,
     }
-  cloud_logging_client.logger().info(
+  cloud_logging_client.info(
       'Setting DICOM series instance UID defined in metadata.', log, dcm_json
   )
 

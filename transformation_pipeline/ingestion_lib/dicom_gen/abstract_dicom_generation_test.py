@@ -23,13 +23,16 @@ from absl.testing import parameterized
 import pydicom
 
 from shared_libs.logging_lib import cloud_logging_client
+from transformation_pipeline import ingest_flags
 from transformation_pipeline.ingestion_lib import abstract_polling_client
 from transformation_pipeline.ingestion_lib import cloud_storage_client
 from transformation_pipeline.ingestion_lib import gen_test_util
 from transformation_pipeline.ingestion_lib import ingest_const
+from transformation_pipeline.ingestion_lib import redis_client
 from transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
 from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
 from transformation_pipeline.ingestion_lib.dicom_gen import wsi_dicom_file_ref
+from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
 from transformation_pipeline.ingestion_lib.dicom_util import dicom_test_util
 
 
@@ -61,6 +64,21 @@ class AbstractDicomGenerationTest(parameterized.TestCase):
   def setUp(self):
     super().setUp()
     self._dcm_path = gen_test_util.test_file_path('test_jpeg_dicom.dcm')
+
+  @mock.patch.object(
+      dicom_util,
+      '_read_icc_profile',
+      autospec=True,
+      side_effect=FileNotFoundError(),
+  )
+  @flagsaver.flagsaver(
+      default_iccprofile=ingest_flags.DefaultIccProfile.ADOBERGB
+  )
+  def test_abstract_dicom_generation_constructor_raises_if_default_icc_profile_not_found(
+      self, _
+  ) -> None:
+    with self.assertRaises(FileNotFoundError):
+      AbstractDicomGenerationForTest('abc')
 
   @parameterized.named_parameters([
       dict(
@@ -362,9 +380,7 @@ class AbstractDicomGenerationTest(parameterized.TestCase):
 
   @flagsaver.flagsaver(viewer_debug_url='http://dpas/.../dicomWeb')
   @mock.patch.object(uid_generator, 'validate_uid_prefix', autospec=True)
-  @mock.patch.object(
-      cloud_logging_client.CloudLoggingClient, 'debug', autospec=True
-  )
+  @mock.patch.object(cloud_logging_client, 'debug', autospec=True)
   def test_log_debug_url(self, log_mk, _):
     handler = AbstractDicomGenerationForTest('')
     dcm = wsi_dicom_file_ref.init_wsi_dicom_file_ref_from_file(self._dcm_path)
@@ -372,7 +388,6 @@ class AbstractDicomGenerationTest(parameterized.TestCase):
         viewer_debug_url='http://other/dicomWeb', ingested_dicom=dcm
     )
     log_mk.assert_called_once_with(
-        mock.ANY,
         'Debug_Link',
         {
             'url': (
@@ -381,6 +396,30 @@ class AbstractDicomGenerationTest(parameterized.TestCase):
             )
         },
     )
+
+  @mock.patch.object(
+      redis_client.RedisClient,
+      'has_redis_client',
+      autospec=True,
+      return_value=True,
+  )
+  @mock.patch.object(
+      redis_client,
+      'redis_client',
+      autospec=True,
+  )
+  def test_acquire_lock_outside_of_context_raises(
+      self, mk_redis_client, unused_mock
+  ):
+    mk_client = mock.create_autospec(redis_client.RedisClient, instance=True)
+    mk_client.redis_ip = '1.2.3'
+    mk_client.redis_port = '555'
+    mk_redis_client.return_value = mk_client
+    handler = AbstractDicomGenerationForTest('')
+    with self.assertRaises(
+        abstract_dicom_generation._AcquireLockOutsideOfContextBlockError
+    ):
+      handler.acquire_non_blocking_lock('foo')
 
 
 class GeneratedDicomFilesTest(absltest.TestCase):

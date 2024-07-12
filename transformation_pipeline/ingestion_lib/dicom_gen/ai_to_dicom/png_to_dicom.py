@@ -55,12 +55,12 @@ class AiPngtoDicomSecondaryCapture(
     )
     self._current_msg = None
     if not self._dicom_store_to_clean:
-      cloud_logging_client.logger().info(
+      cloud_logging_client.info(
           f'ENV {ingest_const.EnvVarNames.DICOM_STORE_TO_CLEAN} is undefined. '
           'DICOM ingested specifically for OOF will remain in the store.'
       )
     else:
-      cloud_logging_client.logger().info(
+      cloud_logging_client.info(
           'DICOM ingested specifically for OOF will be deleted.',
           {
               ingest_const.EnvVarNames.DICOM_STORE_TO_CLEAN: (
@@ -101,7 +101,7 @@ class AiPngtoDicomSecondaryCapture(
     self._current_msg = inference_pubsub_msg.InferencePubSubMsg(
         msg, self._use_oof_legacy_pipeline
     )
-    cloud_logging_client.logger().info(
+    cloud_logging_client.info(
         'Decoded OOF pub/sub msg.',
         {ingest_const.LogKeywords.URI: self._current_msg.uri},
     )
@@ -139,7 +139,7 @@ class AiPngtoDicomSecondaryCapture(
     sc_instance_uid = uid_generator.generate_uid()
 
     # Generate secondary capture dicom
-    cloud_logging_client.logger().info('Building DICOM.')
+    cloud_logging_client.info('Building DICOM.')
     dataset = (
         dicom_secondary_capture.create_raw_dicom_secondary_capture_from_img(
             image_path,
@@ -158,7 +158,7 @@ class AiPngtoDicomSecondaryCapture(
       _, filename = os.path.split(filename)
       filename = os.path.join(output_path, filename)
     dataset.save_as(filename, False)
-    cloud_logging_client.logger().info(
+    cloud_logging_client.info(
         'Saving Dicom.', {ingest_const.LogKeywords.FILENAME: filename}
     )
 
@@ -177,7 +177,7 @@ class AiPngtoDicomSecondaryCapture(
       exp: Exception,
   ):
     """See base class."""
-    cloud_logging_client.logger().critical(
+    cloud_logging_client.critical(
         'An unexpected exception occurred during OOF ingestion.',
         {
             ingest_const.LogKeywords.URI: msg.uri,
@@ -202,7 +202,10 @@ class AiPngtoDicomSecondaryCapture(
     """
     study_uid = self._current_msg.study_uid
     series_uid = self._current_msg.series_uid
-    slide_id_lock = f'oof_result_study:{study_uid}_series:{series_uid}'
+    slide_id_lock = ingest_const.RedisLockKeywords.ML_TRIGGERED_INGESTION % (
+        study_uid,
+        series_uid,
+    )
     return abstract_dicom_generation.TransformationLock(slide_id_lock)
 
   def generate_dicom_and_push_to_store(
@@ -218,7 +221,7 @@ class AiPngtoDicomSecondaryCapture(
       ingest_file: File payload to generate into DICOM.
       polling_client: Polling client receiving triggering pub/sub msg.
     """
-    cloud_logging_client.logger().info('Starting OOF ML DICOM ingestion.')
+    cloud_logging_client.info('Starting OOF ML DICOM ingestion.')
     # Parse message publish_time
     current_msg = self._current_msg
     publish_datetime = datetime.datetime.fromtimestamp(
@@ -252,7 +255,7 @@ class AiPngtoDicomSecondaryCapture(
               oof_score,
           )
       )
-      cloud_logging_client.logger().info(
+      cloud_logging_client.info(
           'Adding rounded OOF score',
           {
               'msg_oof_score': str(current_msg.whole_slide_score),
@@ -262,7 +265,7 @@ class AiPngtoDicomSecondaryCapture(
     except ValueError:
       pass
     if not private_tags:
-      cloud_logging_client.logger().warning(
+      cloud_logging_client.warning(
           'OOF Result without oof score',
           {'pub/msg_oof_score': str(current_msg.whole_slide_score)},
       )
@@ -283,9 +286,7 @@ class AiPngtoDicomSecondaryCapture(
     ingest_file.destination_uri = None
 
     if not ingest_file.generated_dicom_files:
-      cloud_logging_client.logger().error(
-          'An error occurred converting to DICOM.'
-      )
+      cloud_logging_client.error('An error occurred converting to DICOM.')
       polling_client.nack()
       return
     if not self.validate_redis_lock_held(transform_lock):
@@ -315,13 +316,13 @@ class AiPngtoDicomSecondaryCapture(
           ingest_const.OofPassThroughKeywords.SOURCE_DICOM_IN_MAIN_STORE, True
       )
       if source_dcm_in_main_store:
-        cloud_logging_client.logger().warning((
+        cloud_logging_client.warning(
             'ML ingestion appears to be incorrectly configured to delete'
             ' DICOM from the main store. OOF DICOM will not be deleted. To'
             ' fix: set env'
             f' {ingest_const.EnvVarNames.DICOM_STORE_TO_CLEAN} to the OOF'
             ' DICOM store.'
-        ))
+        )
       else:
         self._delete_instance_from_dicom_store(
             oof_source_dicom_store,

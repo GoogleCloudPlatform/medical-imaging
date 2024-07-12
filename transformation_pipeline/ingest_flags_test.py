@@ -19,11 +19,12 @@ import sys
 from unittest import mock
 
 from absl.testing import absltest
+from absl.testing import parameterized
 
 from transformation_pipeline import ingest_flags
 
 
-class IngestFlagsTest(absltest.TestCase):
+class IngestFlagsTest(parameterized.TestCase):
 
   @mock.patch.dict(os.environ, {'SOME_ENV_VAR': 'env_value'})
   def test_get_value_from_env_var(self):
@@ -78,6 +79,26 @@ class IngestFlagsTest(absltest.TestCase):
         ingest_flags.Wsi2DcmFirstLevelCompression,
         len(ingest_flags.Wsi2DcmCompression) + 1,
     )
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='none',
+          val=None,
+          expected=None,
+      ),
+      dict(
+          testcase_name='single_string',
+          val='test',
+          expected='test',
+      ),
+      dict(
+          testcase_name='multiple_strings',
+          val='["test1","test2"]',
+          expected=['test1', 'test2'],
+      ),
+  ])
+  def test_load_multi_string(self, val, expected):
+    self.assertEqual(ingest_flags._load_multi_string(val), expected)
 
 
 if __name__ == '__main__':

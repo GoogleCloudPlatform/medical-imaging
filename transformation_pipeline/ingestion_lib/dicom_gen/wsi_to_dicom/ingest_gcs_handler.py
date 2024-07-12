@@ -15,6 +15,7 @@
 """Converts image to DICOM. Conversion based on file extension."""
 import dataclasses
 import os
+import re
 from typing import FrozenSet, Mapping, Optional
 import zipfile
 
@@ -50,7 +51,7 @@ def _get_ignored_gcs_upload_file_exts() -> FrozenSet[str]:
   for test_ext in candidate_extensions:
     test_ext = test_ext.strip('\t "\'')
     if test_ext and not test_ext.startswith('.'):
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           (
               f'ENV {ingest_const.EnvVarNames.GCS_UPLOAD_IGNORE_FILE_EXT} contains'
               ' a non-empty file extension that does not start with a ".".'
@@ -67,7 +68,7 @@ def _get_ignored_gcs_upload_file_exts() -> FrozenSet[str]:
     found_extensions.add(test_ext.lower())
   if found_extensions:
     ignored_extensions = '", "'.join(sorted(list(found_extensions)))
-    cloud_logging_client.logger().info(
+    cloud_logging_client.info(
         (
             'GCS ingestion is configured to ignore files with extensions: '
             f'"{ignored_extensions}"'
@@ -146,9 +147,7 @@ class InferenceTriggerConfig:
               self.inference_config_path
           ),
       )
-    cloud_logging_client.logger().info(
-        f'OOF ingestion is enabled with config: {self}.'
-    )
+    cloud_logging_client.info(f'OOF ingestion is enabled with config: {self}.')
 
   @property
   def inference_config(self):
@@ -203,7 +202,7 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
       try:
         oof_trigger_config.validate()
       except InferenceTriggerConfigError as exp:
-        cloud_logging_client.logger().warning('OOF ingestion is disabled.', exp)
+        cloud_logging_client.warning('OOF ingestion is disabled.', exp)
         oof_trigger_config = None
     self._oof_trigger_config = oof_trigger_config
 
@@ -250,6 +249,16 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
         metadata_client,
     )
     self._current_handler: Optional[ingest_base.IngestBase] = None
+    if (
+        ingest_flags.GCS_IGNORE_FILE_REGEXS_FLG.value is not None
+        and ingest_flags.GCS_IGNORE_FILE_REGEXS_FLG.value
+    ):
+      self._gcs_ignore_file_regexes = [
+          re.compile(regex)
+          for regex in ingest_flags.GCS_IGNORE_FILE_REGEXS_FLG.value
+      ]
+    else:
+      self._gcs_ignore_file_regexes = []
 
   @property
   def current_handler(self) -> Optional[ingest_base.IngestBase]:
@@ -278,6 +287,54 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
       return ''
     return f'{self._ingest_buckets.failure_uri}/{exception_str}'
 
+  def _test_ignore_file_regex(self, filename: str) -> bool:
+    for index, regex in enumerate(self._gcs_ignore_file_regexes):
+      if regex.fullmatch(filename) is not None:
+        cloud_logging_client.debug(
+            'Name of the file uploaded to ingestion bucket matched a ignore'
+            ' file regular expression.',
+            {
+                ingest_const.LogKeywords.MATCHED_REGEX: (
+                    ingest_flags.GCS_IGNORE_FILE_REGEXS_FLG.value[index]
+                ),
+                ingest_const.LogKeywords.GCS_IGNORE_FILE_REGEXS: (
+                    ingest_flags.GCS_IGNORE_FILE_REGEXS_FLG.value
+                ),
+                ingest_const.LogKeywords.FILENAME: filename,
+            },
+        )
+        return True
+    return False
+
+  def _move_file_to_ignore_bucket(
+      self, storage_msg: cloud_storage_pubsub_msg.CloudStoragePubSubMsg
+  ) -> None:
+    ignore_file_bucket = ingest_flags.GCS_IGNORE_FILE_BUCKET_FLG.value
+    if not ignore_file_bucket:
+      return
+    dst_blob_metadata = {'pubsub_message_id': str(storage_msg.message_id)}
+    struct_msg = {
+        ingest_const.LogKeywords.URI: storage_msg.uri,
+        ingest_const.LogKeywords.IGNORE_FILE_BUCKET: ignore_file_bucket,
+    }
+    if not cloud_storage_client.copy_blob_to_uri(
+        source_uri=storage_msg.uri,
+        local_source=storage_msg.filename,
+        dst_uri=ignore_file_bucket,
+        dst_metadata=dst_blob_metadata,
+    ):
+      cloud_logging_client.error(
+          'Failed to copy file to ignore bucket.', struct_msg
+      )
+    elif not cloud_storage_client.del_blob(
+        uri=storage_msg.uri, ignore_file_not_found=True
+    ):
+      cloud_logging_client.error(
+          'Failed to delete file from ignore bucket.', struct_msg
+      )
+    else:
+      cloud_logging_client.info('File moved to ignore bucket.', struct_msg)
+
   def decode_pubsub_msg(
       self, msg: pubsub_v1.types.ReceivedMessage
   ) -> abstract_pubsub_msg.AbstractPubSubMsg:
@@ -292,7 +349,7 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
     self._init_gcs_handler_ingestion()
     storage_msg = cloud_storage_pubsub_msg.CloudStoragePubSubMsg(msg)
     if storage_msg.event_type != 'OBJECT_FINALIZE':
-      cloud_logging_client.logger().warning(
+      cloud_logging_client.warning(
           (
               'Pub/sub subscription received message with event_type != '
               'OBJECT_FINALIZE. Set subscription to publish only msgs with '
@@ -316,11 +373,10 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
       self._decoded_file_ext = self._decoded_file_ext.strip().lower()
     file_parts = storage_msg.filename.split('/')
     if self._decoded_file_ext in self._ignored_gcs_upload_file_extensions:
-      cloud_logging_client.logger().warning(
+      cloud_logging_client.warning(
           (
               'A file with an ignored file extension was uploaded to the'
-              ' ingestion bucket. This file will not be processed by ingestion'
-              ' and will remain in the bucket until removed.'
+              ' ingestion bucket.'
           ),
           {
               ingest_const.LogKeywords.FILE_EXTENSION: self._decoded_file_ext,
@@ -328,9 +384,20 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
           },
       )
       storage_msg.ignore = True
+      self._move_file_to_ignore_bucket(storage_msg)
+    elif self._test_ignore_file_regex(storage_msg.filename):
+      cloud_logging_client.warning(
+          (
+              'A file matching the ignored file regular expression was '
+              'uploaded to the ingestion bucket.'
+          ),
+          {ingest_const.LogKeywords.URI: storage_msg.uri},
+      )
+      storage_msg.ignore = True
+      self._move_file_to_ignore_bucket(storage_msg)
     elif len(file_parts) > 1:
       storage_msg.ignore = file_parts[0] in self._ingest_ignore_root_dirs
-    cloud_logging_client.logger().info(
+    cloud_logging_client.info(
         'Decoded cloud storage pub/sub msg.',
         {ingest_const.LogKeywords.URI: storage_msg.uri},
     )
@@ -362,7 +429,7 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
           f'Ingest {bucket_not_specified_msg} bucket(s) env variable and '
           'command line param not specified.'
       )
-      cloud_logging_client.logger().critical(msg)
+      cloud_logging_client.critical(msg)
       raise StorageBucketNotSpecifiedError(msg)
     return ingest_base.GcsIngestionBuckets(
         success_uri=ingest_succeeded_uri, failure_uri=ingest_failed_uri
@@ -390,7 +457,7 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
         FileNotFoundError,
         pydicom.errors.InvalidDicomError,
     ) as exp:
-      cloud_logging_client.logger().warning(
+      cloud_logging_client.warning(
           'Unable to read DICOM SOP class UID. Defaulting to non-WSI.', exp
       )
       return False
@@ -440,7 +507,7 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
     if self.decoded_file_ext in _WSI_INGEST_EXTENSIONS:
       return self._ingest_wsi_handler
     # Default file handler
-    cloud_logging_client.logger().warning(
+    cloud_logging_client.warning(
         f'Using default WSI file handler. Image format: {self.decoded_file_ext}'
     )
     return self._ingest_wsi_handler
@@ -483,7 +550,7 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
       additional_error_msg = 'Failed to delete from ingest bucket.'
     else:
       additional_error_msg = 'File moved to failure bucket.'
-    cloud_logging_client.logger().critical(
+    cloud_logging_client.critical(
         (
             'An unexpected exception occurred during GCS ingestion. '
             f'{additional_error_msg}'
@@ -523,7 +590,7 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
     ] = True
     pipeline_passthrough_params[
         ingest_const.OofPassThroughKeywords.DPAS_INGESTION_TRACE_ID
-    ] = cloud_logging_client.logger().log_signature.get(
+    ] = cloud_logging_client.get_log_signature().get(
         ingest_const.LogKeywords.DPAS_INGESTION_TRACE_ID,
         ingest_const.MISSING_INGESTION_TRACE_ID,
     )
@@ -588,7 +655,7 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
           ingested=[], previously_ingested=[]
       )
     else:
-      cloud_logging_client.logger().info(
+      cloud_logging_client.info(
           'Uploading main results.',
           {
               ingest_const.LogKeywords.MAIN_DICOM_STORE: (
@@ -620,7 +687,7 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
         # series uid in OOF images to match those in main store if series
         # instance uid were modified during ingestion into the store to merge
         # imaging into a pre-existing series.
-        cloud_logging_client.logger().info(
+        cloud_logging_client.info(
             'Uploading OOF results.',
             {
                 ingest_const.LogKeywords.MAIN_DICOM_STORE: (
@@ -649,7 +716,7 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
             )
         )
       if ingest_complete_oof_trigger_msg is None:
-        cloud_logging_client.logger().warning(
+        cloud_logging_client.warning(
             'OOF ingestion is enabled but no OOF pub/sub complete message was'
             ' generated.'
         )
@@ -674,23 +741,26 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
     ingest_file.generated_dicom_files = []
     handler = self._get_message_dicom_handler(ingest_file)
     handler.init_handler_for_ingestion()
-    cloud_logging_client.logger().info(
+    cloud_logging_client.info(
         'Processing ingestion with handler',
         {
-            'ingestion_handler': handler.name,
-            'file_ext': str(self._decoded_file_ext),
+            ingest_const.LogKeywords.INGESTION_HANDLER: handler.name,
+            ingest_const.LogKeywords.FILE_EXTENSION: str(
+                self._decoded_file_ext
+            ),
         },
     )
     try:
       handler.update_metadata()
     except metadata_storage_client.MetadataDownloadExceptionError as exp:
-      cloud_logging_client.logger().error('Error downloading metadata', exp)
+      cloud_logging_client.error('Error downloading metadata', exp)
       polling_client.nack()
       return abstract_dicom_generation.TransformationLock()
     self.current_handler = handler
     try:
       return abstract_dicom_generation.TransformationLock(
-          handler.get_slide_id(ingest_file, self)
+          ingest_const.RedisLockKeywords.GCS_TRIGGERED_INGESTION
+          % handler.get_slide_id(ingest_file, self)
       )
     except ingest_base.DetermineSlideIDError as exp:
       # Move files triggering ingestion to exp.dest_uri failure bucket.
@@ -729,7 +799,7 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
         polling_client.current_msg.message_id,
         self,
     )
-    cloud_logging_client.logger().info('DICOM generation complete.')
+    cloud_logging_client.info('DICOM generation complete.')
     dst_metadata = {
         'pubsub_message_id': str(polling_client.current_msg.message_id)
     }
@@ -783,7 +853,7 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
       )
       polling_client.ack()
     except gcs_storage_util.CloudStorageBlobMoveError as exp:
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           'Cloud storage blob move error',
           {
               'dest_uri': dicom.dest_uri,

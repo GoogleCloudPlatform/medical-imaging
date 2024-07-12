@@ -64,7 +64,7 @@ def _http_streaming_get(url: str, headers: Dict[str, Any], write_path: str):
             get_response.raise_for_status()
     except requests.HTTPError as exp:
       opt_quota_str = _get_quota_str(exp)
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           f'Error downloading DICOM instance from store{opt_quota_str}',
           {'dicom_store_web': url},
           exp,
@@ -407,13 +407,13 @@ def is_dpas_dicom_wsidcmref_in_list(
         or not existing_dicom.hash
         or not _is_dpas_generated_dicom(existing_dicom)
     ):
-      cloud_logging_client.logger().info(log_msg, struct_log)
+      cloud_logging_client.info(log_msg, struct_log)
       return True
     elif dcm_file.hash == existing_dicom.hash:
       # If testing against internally generated DICOM and hash test not disabled
       # require that hash values match indicating the images were generated from
       # the same source.
-      cloud_logging_client.logger().info(log_msg, struct_log)
+      cloud_logging_client.info(log_msg, struct_log)
       return True
   return False
 
@@ -466,7 +466,7 @@ def is_wsidcmref_in_list(
       dpas_generated_dicom_ref_list.append(existing_dicom)
       continue
     if dcm_file.equals(existing_dicom, ignore_tags=None, test_tags=test_tags):
-      cloud_logging_client.logger().info(
+      cloud_logging_client.info(
           'Removed duplicate DICOM instance.',
           {
               ingest_const.LogKeywords.TESTED_DICOM_INSTANCE: str(
@@ -525,7 +525,7 @@ def set_dicom_series_uid(
     if oldseries_uid == series_uid:
       continue
     with pydicom.dcmread(dcm_file) as dcm:
-      cloud_logging_client.logger().warning(
+      cloud_logging_client.warning(
           (
               'Merging with existing series; Changing SeriesInstanceUID old:'
               f'{oldseries_uid} new:{series_uid}'
@@ -641,14 +641,14 @@ class DicomStoreClient:
         dicom_json_util.MissingStudyUIDInMetadataError,
         json.JSONDecodeError,
     ) as exp:
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           'Exception decoding DICOM Store study search search response.',
           exp,
       )
       raise StudyInstanceUIDSearchError() from exp
     except requests.HTTPError as exp:
       opt_quota_str = _get_quota_str(exp)
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           'Exception decoding DICOM Store study search search response'
           f'{opt_quota_str}.',
           exp,
@@ -707,7 +707,7 @@ class DicomStoreClient:
       # Expected to return a List[Dict[str, Any]]
       return response.json()
     except json.JSONDecodeError as exp:
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           'Exception decoding DICOM instance metadata.',
           log,
           {ingest_const.LogKeywords.DICOMWEB_PATH: search_path},
@@ -716,7 +716,7 @@ class DicomStoreClient:
       raise
     except requests.HTTPError as exp:
       opt_quota_str = _get_quota_str(exp)
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           f'Exception searching for DICOM instance metadata{opt_quota_str}.',
           log,
           {ingest_const.LogKeywords.DICOMWEB_PATH: search_path},
@@ -805,7 +805,7 @@ class DicomStoreClient:
                 == dcm_ref.series_instance_uid
             ):
               dicom_path = local_file_ref.source
-              cloud_logging_client.logger().info(
+              cloud_logging_client.info(
                   (
                       'Skipping DICOM download from store. Generated DICOM in '
                       'container is same in Store.'
@@ -827,7 +827,7 @@ class DicomStoreClient:
                   dicom_path,
               )
             except requests.HTTPError as exp:
-              cloud_logging_client.logger().error(
+              cloud_logging_client.error(
                   (
                       'Error occurred downloading DICOM instance to container. '
                       'Instance will not be copied to GCS.'
@@ -856,7 +856,7 @@ class DicomStoreClient:
             additional_log=additional_log,
             dst_metadata=dst_metadata,
         ):
-          cloud_logging_client.logger().error(
+          cloud_logging_client.error(
               'Error occurred uploading DICOM to GCS bucket.',
               {'dicom_destination_bucket_uri': dest_uri},
               dcm_ref.dict(),
@@ -899,7 +899,7 @@ class DicomStoreClient:
         ]
         file_ref_str_lst.append('\n'.join(msg_str_lst))
 
-      cloud_logging_client.logger().info(
+      cloud_logging_client.info(
           'Study has existing files',
           {
               ingest_const.DICOMTagKeywords.STUDY_INSTANCE_UID: study_uid,
@@ -912,7 +912,7 @@ class DicomStoreClient:
         list_of_prexisting_dicoms.append(fref)
     if list_of_prexisting_dicoms:
       series_uid = list_of_prexisting_dicoms[0].series_instance_uid
-      cloud_logging_client.logger().info(
+      cloud_logging_client.info(
           'DICOM study has a prexisting series with images matching the hash',
           {
               ingest_const.DICOMTagKeywords.STUDY_INSTANCE_UID: study_uid,
@@ -921,7 +921,7 @@ class DicomStoreClient:
           },
       )
     else:
-      cloud_logging_client.logger().info(
+      cloud_logging_client.info(
           'DICOM study has no prexisting images matching hash',
           {
               ingest_const.DICOMTagKeywords.STUDY_INSTANCE_UID: study_uid,
@@ -957,7 +957,7 @@ class DicomStoreClient:
     dcm_file = wsi_dicom_file_ref.init_wsi_dicom_file_ref_from_file(
         dicom_file_path
     )
-    cloud_logging_client.logger().info(
+    cloud_logging_client.info(
         'Downloaded DICOM instance from store',
         {'dicom_file_path': dicom_file_path, 'dicom_store_web': uri},
         dcm_file.dict(),
@@ -1007,9 +1007,7 @@ class DicomStoreClient:
         dicom_paths[0]
     )
     if not dcm_file.hash:
-      cloud_logging_client.logger().error(
-          'DICOM HASH not initialized.', dcm_file.dict()
-      )
+      cloud_logging_client.error('DICOM HASH not initialized.', dcm_file.dict())
 
     # if a slide was already partially added we should add the same
     # to the existing series. Otherwise create a new series.
@@ -1063,7 +1061,7 @@ class DicomStoreClient:
     push_dicom_image = os.path.join(self.dicomweb_path, 'studies')
     dcm_file = wsi_dicom_file_ref.init_wsi_dicom_file_ref_from_file(fname)
     if existing_dicoms and is_wsidcmref_in_list(dcm_file, existing_dicoms):
-      cloud_logging_client.logger().warning(
+      cloud_logging_client.warning(
           'Images exists in DICOM Store, skipping ingest.',
           {
               ingest_const.LogKeywords.FILENAME: fname,
@@ -1079,7 +1077,7 @@ class DicomStoreClient:
         response.raise_for_status()
     except requests.HTTPError as exp:
       if exp.response.status_code == http.HTTPStatus.CONFLICT:
-        cloud_logging_client.logger().warning(
+        cloud_logging_client.warning(
             (
                 'Cannot upload DICOM. UID triple (StudyInstanceUID, '
                 'SeriesInstanceUID, SOPInstanceUID) already exists in store.'
@@ -1089,7 +1087,7 @@ class DicomStoreClient:
         )
         return DicomStoreFileSaveResult(dcm_file, True)
       opt_quota_str = _get_quota_str(exp)
-      cloud_logging_client.logger().error(
+      cloud_logging_client.error(
           f'Error uploading DICOM to DICOM store{opt_quota_str}',
           {
               ingest_const.LogKeywords.FILENAME: fname,
@@ -1099,7 +1097,7 @@ class DicomStoreClient:
           dcm_file.dict(),
       )
       raise
-    cloud_logging_client.logger().info(
+    cloud_logging_client.info(
         'Uploaded DICOM to DICOM store',
         {'dicom_file': fname, 'dicom_store_web': self.dicomweb_path},
         dcm_file.dict(),
@@ -1209,12 +1207,12 @@ class DicomStoreClient:
       response.raise_for_status()
       if success_msg is None:
         success_msg = f'Deleted resource {uri} from DICOM store.'
-      cloud_logging_client.logger().info(success_msg, log_struct)
+      cloud_logging_client.info(success_msg, log_struct)
       return True
     except requests.HTTPError as exc:
       if failed_msg is None:
         failed_msg = f'Failed to delete resource {uri} from DICOM store.'
-      cloud_logging_client.logger().error(failed_msg, log_struct, exc)
+      cloud_logging_client.error(failed_msg, log_struct, exc)
       return False
 
   def delete_series_from_dicom_store(
