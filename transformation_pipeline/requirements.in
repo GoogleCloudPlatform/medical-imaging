@@ -2,7 +2,7 @@
 # generate_requirements.sh to build requirements.txt from this file.
 # LINT.IfChange
 absl-py==2.1.0
-certifi==2024.6.2
+certifi==2024.7.4
 cryptography==42.0.8 # https://nvd.nist.gov/vuln/detail/CVE-2023-0286
 dataclasses-json==0.6.7
 google-api-python-client==2.135.0
