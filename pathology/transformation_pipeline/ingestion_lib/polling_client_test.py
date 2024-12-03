@@ -99,7 +99,7 @@ class PollingClientTest(parameterized.TestCase):
 
   @flagsaver.flagsaver(pod_hostname='test_pod')
   def _create_gcs_message(
-      self, gcs_file_path='gs://tst_bket/foo.svs'
+      self, gcs_file_path='gs://mybucket/foo.svs'
   ) -> gcs_file_msg.GCSFileMsg:
     return gcs_file_msg.GCSFileMsg(gcs_file_path)
 
