@@ -18,8 +18,8 @@ import os
 from absl.testing import absltest
 import pandas
 
-from transformation_pipeline.ingestion_lib import csv_util
-from transformation_pipeline.ingestion_lib import gen_test_util
+from pathology.transformation_pipeline.ingestion_lib import csv_util
+from pathology.transformation_pipeline.ingestion_lib import gen_test_util
 
 
 class CsvUtilTest(absltest.TestCase):

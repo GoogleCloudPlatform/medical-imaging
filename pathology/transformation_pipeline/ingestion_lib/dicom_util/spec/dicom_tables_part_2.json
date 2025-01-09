@@ -1,25 +1,7 @@
 {
-  "header" : {"dicom_standard_version": {"Version": "2023e"}},
+  "header" : {"dicom_standard_version": {"Version": "2024e"}},
 
   "dicom_tables_part_2": {
-     "C.8-71": {
-                 "table_name": "C.8-71",
-                 "table_caption": "DX Detector Module Attributes",
-                 "table_lines": [
-                   {"type": "LinkedObject", "prefix": "Include", "linked_resource": "table_C.8-71b", "usage":""},
-                   {"type": "InlineObject", "name": "Detector Active Time", "address": "0x00187014", "required":"3", "comment": "Time in mSec that the detector is active during acquisition of this image."},
-                   {"type": "InlineObject", "name": "Detector Activation Offset From Exposure", "address": "0x00187016", "required":"3", "comment": "Offset time in mSec that the detector becomes active after the X-Ray beam is turned on during acquisition of this image. May be negative."},
-                   {"type": "InlineObject", "name": "Field of View Shape", "address": "0x00181147", "required":"3", "comment": "Shape of the Field of View, that is the image pixels stored in Pixel Data (7FE0,0010)."},
-                   {"type": "InlineObject", "name": "Field of View Dimension(s)", "address": "0x00181149", "required":"3", "comment": "Dimensions in mm of the Field of View, that is the image pixels stored in Pixel Data (7FE0,0010). If Field of View Shape (0018,1147) is:\nRECTANGLE: row dimension followed by column.\nROUND: diameter.\nHEXAGONAL: diameter of a circumscribed circle."},
-                   {"type": "InlineObject", "name": "Field of View Origin", "address": "0x00187030", "required":"1C", "comment": "Offset of the TLHC of a rectangle circumscribing the Field of View, that is the image pixels stored in Pixel Data (7FE0,0010), before rotation or flipping, from the TLHC of the physical detector area measured in physical detector pixels as a row offset followed by a column offset.\nRequired if Field of View Rotation (0018,7032) or Field of View Horizontal Flip (0018,7034) is present.\nSee"},
-                   {"type": "InlineObject", "name": "Field of View Rotation", "address": "0x00187032", "required":"1C", "comment": "Clockwise rotation in degrees of Field of View, that is the image pixels stored in Pixel Data (7FE0,0010), relative to the physical detector.\nRequired if Field of View Horizontal Flip (0018,7034) is present.\nSee"},
-                   {"type": "InlineObject", "name": "Field of View Horizontal Flip", "address": "0x00187034", "required":"1C", "comment": "Whether or not a horizontal flip has been applied to the Field of View, that is the image pixels stored in Pixel Data (7FE0,0010), after rotation relative to the physical detector as described in Field of View Rotation (0018,7032).\nRequired if Field of View Rotation (0018,7032) is present.\nSee"},
-                   {"type": "InlineObject", "name": "Imager Pixel Spacing", "address": "0x00181164", "required":"1", "comment": "The value of this Attribute shall never be adjusted to account for correction for the effect of geometric magnification or calibration against an object of known size; Pixel Spacing (0028,0030) is specified for that purpose."},
-                   {"type": "LinkedObject", "prefix": "Include", "linked_resource": "table_10-10", "usage":""},
-                   {"type": "InlineObject", "name": "Cassette ID", "address": "0x00181007", "required":"3", "comment": "Identifier of the cassette that contains the photostimulable phosphor plate, for CR acquisitions."},
-                   {"type": "InlineObject", "name": "Plate ID", "address": "0x00181004", "required":"3", "comment": "Identifier of the photostimulable phosphor plate, for CR acquisitions."}
-                 ]
-               },
      "C.8-71b": {
                   "table_name": "C.8-71b",
                   "table_caption": "Digital X-Ray Detector Macro Attributes",
@@ -218,7 +200,7 @@
                        {"type": "InlineObject", "name": "Samples Per Pixel", "address": "0x00280002", "required":"1", "comment": "Number of samples (color planes) per frame in this image.\nSee"},
                        {"type": "InlineObject", "name": "Photometric Interpretation", "address": "0x00280004", "required":"1", "comment": "Specifies the intended interpretation of the pixel data.\nSee"},
                        {"type": "InlineObject", "name": "Planar Configuration", "address": "0x00280006", "required":"1C", "comment": "Indicates whether the pixel data are encoded color-by-plane or color-by-pixel. Required if Samples per Pixel (0028,0002) has a value greater than 1."},
-                       {"type": "InlineObject", "name": "Number of Frames", "address": "0x00280008", "required":"1", "comment": "Number of frames in a multi-frame image."},
+                       {"type": "InlineObject", "name": "Number of Frames", "address": "0x00280008", "required":"1", "comment": "Number of frames in a Multi-frame Image."},
                        {"type": "InlineObject", "name": "Bits Allocated", "address": "0x00280100", "required":"1", "comment": "Number of bits allocated for each pixel sample."},
                        {"type": "InlineObject", "name": "Bits Stored", "address": "0x00280101", "required":"1", "comment": "Number of bits stored for each pixel sample. Shall be equal to Bits Allocated (0028,0100)."},
                        {"type": "InlineObject", "name": "High Bit", "address": "0x00280102", "required":"1", "comment": "Most significant bit for pixel sample data. High Bit (0028,0102) shall be one less than Bits Stored (0028,0101)."},
@@ -499,7 +481,8 @@
                    {"type": "InlineObject", "name": "Presentation LUT Shape", "address": "0x20500020", "required":"1C", "comment": "Specifies an identity transformation for the Presentation LUT, such that the output of all grayscale transformations defined in the IOD containing this Module are defined to be P-Values.\nRequired if Photometric Interpretation (0028,0004) is MONOCHROME2."},
                    {"type": "InlineObject", "name": "Icon Image Sequence", "address": "0x00880200", "required":"3", "comment": "This icon image is representative of the Image.\nOnly a single Item is permitted in this Sequence."},
                    {"type": "LinkedObject", "prefix": ">Include", "linked_resource": "table_C.7-11b", "usage":"See"},
-                   {"type": "LinkedObject", "prefix": "Include", "linked_resource": "table_10-25", "usage":""}
+                   {"type": "LinkedObject", "prefix": "Include", "linked_resource": "table_10-25", "usage":""},
+                   {"type": "LinkedObject", "prefix": "Include", "linked_resource": "table_C.36.2.4.12-1", "usage":""}
                  ]
                },
      "C.8-83": {
@@ -909,8 +892,7 @@
                     {"type": "InlineObject", "name": "Icon Image Sequence", "address": "0x00880200", "required":"3", "comment": "This icon image is representative of the Image.\nOnly a single Item is permitted in this Sequence."},
                     {"type": "LinkedObject", "prefix": ">Include", "linked_resource": "table_C.7-11b", "usage":"See"},
                     {"type": "LinkedObject", "prefix": "Include", "linked_resource": "table_10-25", "usage":""},
-                    {"type": "InlineObject", "name": "Isocenter Position", "address": "0x300A012C", "required":"3", "comment": "Isocenter coordinates (x,y,z), in mm. Specifies the location of the machine isocenter in the Patient-Based Coordinate System associated with the Frame of Reference. It allows transformation from the Equipment-Based Coordinate System to the Patient-Based Coordinate System."},
-                    {"type": "LinkedObject", "prefix": "Include", "linked_resource": "table_10-27", "usage":""}
+                    {"type": "LinkedObject", "prefix": "Include", "linked_resource": "table_C.36.2.4.12-1", "usage":""}
                   ]
                 },
      "C.8-117": {
@@ -953,8 +935,8 @@
                   "table_caption": "CT Table Dynamics Macro Attributes",
                   "table_lines": [
                     {"type": "InlineObject", "name": "CT Table Dynamics Sequence", "address": "0x00189308", "required":"1", "comment": "Contains the Attributes defining the movement of the CT table.\nOnly a single Item shall be included in this Sequence."},
-                    {"type": "InlineObject", "name": ">Table Speed", "address": "0x00189309", "required":"1C", "comment": "The distance in mm that the table moves in one second during the gathering of data that resulted in this frame.\nRequired if Frame Type (0008,9007) Value 1 of this frame is ORIGINAL and Acquisition Type (0018,9302) is SPIRAL or CONSTANT_ANGLE.\nMay be present otherwise if Frame Type (0008,9007) Value 1 of this frame is DERIVED and Acquisition Type (0018,9302) is SPIRAL or CONSTANT_ANGLE."},
-                    {"type": "InlineObject", "name": ">Table Feed per Rotation", "address": "0x00189310", "required":"1C", "comment": "Motion of the table (in mm) during a complete revolution of the source around the gantry orbit.\nRequired if Frame Type (0008,9007) Value 1 of this frame is ORIGINAL and Acquisition Type (0018,9302) is SPIRAL.\nMay be present otherwise if Frame Type (0008,9007) Value 1 of this frame is DERIVED and Acquisition Type (0018,9302) is SPIRAL."},
+                    {"type": "InlineObject", "name": ">Table Speed", "address": "0x00189309", "required":"1C", "comment": "The distance in mm that the table moves in one second during the gathering of data that resulted in this frame.\n                                            Table motion is relative to the gantry frame of reference, thus if the gantry is moving, the distance value represents the net motion.\n                                            This Attribute also applies to patient support equipment other than tables.\nRequired if Frame Type (0008,9007) Value 1 of this frame is ORIGINAL and Acquisition Type (0018,9302) is SPIRAL or CONSTANT_ANGLE.\nMay be present otherwise if Frame Type (0008,9007) Value 1 of this frame is DERIVED and Acquisition Type (0018,9302) is SPIRAL or CONSTANT_ANGLE."},
+                    {"type": "InlineObject", "name": ">Table Feed per Rotation", "address": "0x00189310", "required":"1C", "comment": "Motion of the table (in mm) during a complete revolution of the source around the gantry orbit.\n                                            Table motion is relative to the gantry frame of reference, thus if the gantry is moving, the feed value represents the net motion.\n                                            This Attribute also applies to patient support equipment other than tables.\nRequired if Frame Type (0008,9007) Value 1 of this frame is ORIGINAL and Acquisition Type (0018,9302) is SPIRAL.\nMay be present otherwise if Frame Type (0008,9007) Value 1 of this frame is DERIVED and Acquisition Type (0018,9302) is SPIRAL."},
                     {"type": "InlineObject", "name": ">Spiral Pitch Factor", "address": "0x00189311", "required":"1C", "comment": "Ratio of the Table Feed per Rotation (0018,9310) to the Total Collimation Width (0018,9307).\nSee\nRequired if Frame Type (0008,9007) Value 1 of this frame is ORIGINAL and Acquisition Type (0018,9302) is SPIRAL.\nMay be present otherwise if Frame Type (0008,9007) Value 1 of this frame is DERIVED and Acquisition Type (0018,9302) is SPIRAL."}
                   ]
                 },
@@ -963,7 +945,7 @@
                   "table_caption": "CT Position Macro Attributes",
                   "table_lines": [
                     {"type": "InlineObject", "name": "CT Position Sequence", "address": "0x00189326", "required":"1", "comment": "Contains the Attributes defining the CT geometry.\nOnly a single Item shall be included in this Sequence."},
-                    {"type": "InlineObject", "name": ">Table Position", "address": "0x00189327", "required":"1C", "comment": "Relative longitudinal position of acquisition location of this frame in mm from an implementation specific reference point. Shall be relative to the same reference point for all frames in this SOP Instance, but may be different from the reference point in other SOP Instances. Positions as the table moves into the gantry viewed from the front are more negative.\nRequired if Frame Type (0008,9007) Value 1 of this frame is ORIGINAL. May be present otherwise."},
+                    {"type": "InlineObject", "name": ">Table Position", "address": "0x00189327", "required":"1C", "comment": "Relative longitudinal position of acquisition location of this frame in mm from an implementation specific reference point.\n                                            Shall be relative to the same reference point for all frames in this SOP Instance, but may be different from the reference point in other SOP Instances.\n                                            Positions as the table (or other patient support) moves into the gantry (or as the gantry moves toward the patient support) viewed from the front are more negative.\nRequired if Frame Type (0008,9007) Value 1 of this frame is ORIGINAL. May be present otherwise."},
                     {"type": "InlineObject", "name": ">Data Collection Center (Patient)", "address": "0x00189313", "required":"1C", "comment": "Required if Frame Type (0008,9007) Value 1 of this frame is ORIGINAL. May be present otherwise."},
                     {"type": "InlineObject", "name": ">Reconstruction Target Center (Patient)", "address": "0x00189318", "required":"1C", "comment": "Required if Frame Type (0008,9007) Value 1 of this frame is ORIGINAL. May be present otherwise."}
                   ]
@@ -1021,7 +1003,7 @@
                     {"type": "InlineObject", "name": ">KVP", "address": "0x00180060", "required":"1C", "comment": "Nominal peak kilo voltage output of the X-Ray generator used.\nIf Multi-energy Source Technique (0018,9368) in Multi-energy CT X-Ray Source Sequence (0018,9365) (of the referenced Multi-energy CT Path Index (0018,937A)) is \"SWITCHING_SOURCE\", this value is the nominal peak value for a switching phase. The switching phase is identified by the value of X-Ray Source Index (0018,9366) in the Multi-energy CT Path Sequence (0018,9379) corresponding to the value of Referenced Path Index (0018,9378) in this Sequence.\nDue to limitations of the generating hardware the actual voltage may not reach the nominal peak value.\nRequired if Frame Type (0008,9007) Value 1 of this frame is ORIGINAL or Image Type (0008,0008) Value 1 is ORIGINAL. May be present otherwise."},
                     {"type": "InlineObject", "name": ">Focal Spot(s)", "address": "0x00181190", "required":"1C", "comment": "Used nominal size of the focal spot in mm. The Attribute may only have one or two values, for devices with variable focal spot, small dimension followed by large dimension\nRequired if Frame Type (0008,9007) Value 1 of this frame is ORIGINAL or Image Type (0008,0008) Value 1 is ORIGINAL. May be present otherwise."},
                     {"type": "InlineObject", "name": ">Filter Type", "address": "0x00181160", "required":"1C", "comment": "Type of filter(s) inserted into the X-Ray beam.\nRequired if Frame Type (0008,9007) Value 1 of this frame is ORIGINAL or Image Type (0008,0008) Value 1 is ORIGINAL. May be present otherwise."},
-                    {"type": "InlineObject", "name": ">Filter Material", "address": "0x00187050", "required":"1C", "comment": "The X-Ray absorbing material used in the filter. May be multi-valued.\nRequired if Frame Type (0008,9007) Value 1 of this frame is ORIGINAL or Image Type (0008,0008) Value 1 is ORIGINAL, and the value of Filter Type (0018,1160) is other than NONE. May be present otherwise."},
+                    {"type": "InlineObject", "name": ">Filter Material", "address": "0x00187050", "required":"1C", "comment": "The X-Ray absorbing material used in the filter. May be multi-valued.\nSee\nRequired if Frame Type (0008,9007) Value 1 of this frame is ORIGINAL or Image Type (0008,0008) Value 1 is ORIGINAL, and the value of Filter Type (0018,1160) is other than NONE. May be present otherwise."},
                     {"type": "InlineObject", "name": ">Calcium Scoring Mass Factor Patient", "address": "0x00189351", "required":"3", "comment": "The calibration factor for the calcium mass score. These factors incorporate the effects of\nSee"},
                     {"type": "InlineObject", "name": ">Calcium Scoring Mass Factor Device", "address": "0x00189352", "required":"3", "comment": "The calibration factors for the calcium mass score of the device. These factors incorporate the effects of\nThis a multi-value Attribute, the first value specifies the mass factor for a small patient size, the second value for a medium patient size and the third value for a large patient size.\nSee"},
                     {"type": "InlineObject", "name": ">Energy Weighting Factor", "address": "0x00189353", "required":"1C", "comment": "The weighting factor of the data from this Sequence Item.\nRequired if Required if Frame Type (0008,9007) Value 4 of this frame is ENERGY_PROP_WT or Image Type (0008,0008) Value 4 is ENERGY_PROP_WT. May be present otherwise."}
@@ -1034,7 +1016,7 @@
                     {"type": "InlineObject", "name": "Pixel Value Transformation Sequence", "address": "0x00289145", "required":"1", "comment": "Contains the Attributes involved in the transformation of stored pixel values.\nOnly a single Item shall be included in this Sequence."},
                     {"type": "InlineObject", "name": ">Rescale Intercept", "address": "0x00281052", "required":"1", "comment": "The value b in relationship between stored values (SV) and the output units.\nOutput units = m*SV + b."},
                     {"type": "InlineObject", "name": ">Rescale Slope", "address": "0x00281053", "required":"1", "comment": "m in the equation specified by Rescale Intercept (0028,1052)."},
-                    {"type": "InlineObject", "name": ">Rescale Type", "address": "0x00281054", "required":"1", "comment": "Specifies the output units of Rescale Slope (0028,1053) and Rescale Intercept (0028,1052).\nSee\nIf Frame Type (0008,9007) Value 1 of this frame is ORIGINAL and Frame Type (0008,9007) Value 3 is not LOCALIZER, the value shall be HU (Hounsfield Units)."}
+                    {"type": "InlineObject", "name": ">Rescale Type", "address": "0x00281054", "required":"1", "comment": "Specifies the output units of Rescale Slope (0028,1053) and Rescale Intercept (0028,1052).\nSee\nIf Frame Type (0008,9007) Value 1 of this frame is ORIGINAL and Frame Type (0008,9007) Value 3 is not LOCALIZER and Multi-energy CT Acquisition (0018,9361) is either absent or NO, the value shall be HU (Hounsfield Units)."}
                   ]
                 },
      "C.8-126b": {
@@ -1047,7 +1029,7 @@
                      {"type": "InlineObject", "name": ">Data Collection Diameter", "address": "0x00180090", "required":"1", "comment": "The diameter in mm of the region over which data were collected."},
                      {"type": "InlineObject", "name": ">Focal Spot(s)", "address": "0x00181190", "required":"1", "comment": "Used nominal size of the focal spot in mm."},
                      {"type": "InlineObject", "name": ">Filter Type", "address": "0x00181160", "required":"1", "comment": "sect_C.8.15.3.9"},
-                     {"type": "InlineObject", "name": ">Filter Material", "address": "0x00187050", "required":"1", "comment": "The X-Ray absorbing material used in the filter."},
+                     {"type": "InlineObject", "name": ">Filter Material", "address": "0x00187050", "required":"1", "comment": "The X-Ray absorbing material used in the filter. May be multi-valued.\nSee"},
                      {"type": "InlineObject", "name": ">Exposure in mAs", "address": "0x00189332", "required":"1", "comment": "The exposure expressed in milliampere seconds, for example calculated from exposure time and X-Ray tube current."},
                      {"type": "InlineObject", "name": ">Energy Weighting Factor", "address": "0x00189353", "required":"1C", "comment": "The weighting factor of the data from this additional source in a multiple energy composition image. This factor incorporates the effects of\nRequired if Required if Frame Type (0008,9007) Value 4 of this frame is ENERGY_PROP_WT. May be present otherwise."}
                    ]
@@ -1079,6 +1061,14 @@
                           {"type": "InlineObject", "name": ">>Material Attenuation Sequence", "address": "0x00189382", "required":"3", "comment": "Attenuation curve of the material, defined as a set of points.\nTwo or more Items are permitted in this Sequence."},
                           {"type": "InlineObject", "name": ">>>Photon Energy", "address": "0x00189383", "required":"1", "comment": "Photon energy in keV."},
                           {"type": "InlineObject", "name": ">>>X-Ray Mass Attenuation Coefficient", "address": "0x00189384", "required":"1", "comment": "Attenuation of this material at the specific Photon Energy (0018,9383), normalized to material density."}
+                        ]
+                      },
+     "C.8.15.3.14-1": {
+                        "table_name": "C.8.15.3.14-1",
+                        "table_caption": "RT Cone-Beam Imaging Macro Attributes",
+                        "table_lines": [
+                          {"type": "InlineObject", "name": "RT Cone-Beam Imaging Geometry Sequence", "address": "0x30020136", "required":"1", "comment": "Geometric parameters used for radiotherapeutic Cone-beam CT Image acquisitions.\nOnly a single Item is permitted in this Sequence."},
+                          {"type": "LinkedObject", "prefix": ">Include", "linked_resource": "table_C.36.2.4.5-2", "usage":""}
                         ]
                       },
      "C.8.15.4-1": {
@@ -1174,11 +1164,17 @@
                      "table_caption": "Ocular Region Imaged Module Attributes",
                      "table_lines": [
                        {"type": "InlineObject", "name": "Image Laterality", "address": "0x00200062", "required":"1", "comment": "Laterality of object imaged (as described in Anatomic Region Sequence (0008,2218)) examined.\nShall be consistent with any laterality information contained in Primary Anatomic Structure Modifier Sequence (0008,2230), if present."},
-                       {"type": "InlineObject", "name": "Relative Image Position Code Sequence", "address": "0x0022001D", "required":"2C", "comment": "The position of this image on the retina (as defined by a specified nomenclature; the nomenclature is implicit in the code used).\nOnly a single Item is permitted in this Sequence.\nRequired if Ophthalmic Volumetric Properties Flag (0022,1622) is set to YES and Attributes Ophthalmic Anatomic Reference Point X-Coordinate (0022,1624) and Ophthalmic Anatomic Reference Point Y-Coordinate (0022,1626) do not contain a value. May be present otherwise."},
+                       {"type": "InlineObject", "name": "Relative Image Position Code Sequence", "address": "0x0022001D", "required":"2C", "comment": "The position of this image on the retina (as defined by a specified nomenclature; the nomenclature is implicit in the code used).\nOnly a single Item is permitted in this Sequence.\nRequired if Ophthalmic Volumetric Properties Flag (0022,1622) is set to YES and Ophthalmic Anatomic Reference Point X-Coordinate (0022,1624) and Ophthalmic Anatomic Reference Point Y-Coordinate (0022,1626) do not contain a value, or Ophthalmic Anatomic Reference Point Sequence (0022,1632) is not present. May be present otherwise."},
                        {"type": "LinkedObject", "prefix": ">Include", "linked_resource": "table_8.8-1", "usage":"B"},
-                       {"type": "InlineObject", "name": "Ophthalmic Anatomic Reference Point X-Coordinate", "address": "0x00221624", "required":"2C", "comment": "Required if Ophthalmic Volumetric Properties Flag (0022,1622) is set to YES. May be present otherwise."},
-                       {"type": "InlineObject", "name": "Ophthalmic Anatomic Reference Point Y-Coordinate", "address": "0x00221626", "required":"2C", "comment": "Required if Ophthalmic Volumetric Properties Flag (0022,1622) is set to YES. May be present otherwise."},
-                       {"type": "LinkedObject", "prefix": "Include", "linked_resource": "table_10-5", "usage":"D\n\nD\n\nIn this Module, Primary Anatomic Structure Sequence (0008,2228) is specialized to be Type 1C; required if Attributes Ophthalmic Anatomic Reference Point X-Coordinate (0022,0024) and Ophthalmic Anatomic Reference Point Y-Coordinate (0022,0026) contain a value; may be present otherwise."}
+                       {"type": "InlineObject", "name": "Ophthalmic Anatomic Reference Point X-Coordinate", "address": "0x00221624", "required":"2C", "comment": "Required if Ophthalmic Anatomic Reference Point Sequence (0022,1632) is not present and  Ophthalmic Volumetric Properties Flag (0022,1622) is set to YES. May be present otherwise."},
+                       {"type": "InlineObject", "name": "Ophthalmic Anatomic Reference Point Y-Coordinate", "address": "0x00221626", "required":"2C", "comment": "Required if Ophthalmic Anatomic Reference Point Sequence (0022,1632) is not present and Ophthalmic Volumetric Properties Flag (0022,1622) is set to YES. May be present otherwise."},
+                       {"type": "InlineObject", "name": "Ophthalmic Anatomic Reference Point Sequence", "address": "0x00221632", "required":"1C", "comment": "Locations of the anatomic reference points identified by Items in Primary Anatomic Structure Sequence (0008,2228).\nRequired if Ophthalmic Volumetric Properties Flag (0022,1622) is set to YES and SOP Instance is a Multi-frame Image, or if Primary Anatomic Structure Sequence (0008,2228) contains multiple Items. May be present otherwise.\nOne or more Items shall be included in this Sequence"},
+                       {"type": "InlineObject", "name": ">Primary Anatomic Structure Item Index", "address": "0x00221634", "required":"1", "comment": "Sequence Item index of the referenced Primary Anatomic Structure.\n                                        Value shall be in the range 1 to number of Items in Primary Anatomic Structure Sequence (0028,2228)."},
+                       {"type": "InlineObject", "name": ">Ophthalmic Anatomic Reference Point Localization Type", "address": "0x00221633", "required":"2", "comment": "Type of method used to localize the anatomic structure in the image."},
+                       {"type": "InlineObject", "name": ">Ophthalmic Anatomic Reference Point X-Coordinate", "address": "0x00221624", "required":"2", "comment": "sect_C.8.17.5.1figure_C.10.5-1"},
+                       {"type": "InlineObject", "name": ">Ophthalmic Anatomic Reference Point Y-Coordinate", "address": "0x00221626", "required":"2", "comment": "sect_C.8.17.5.1figure_C.10.5-1"},
+                       {"type": "InlineObject", "name": ">Ophthalmic Anatomic Reference Point Frame Coordinate", "address": "0x00221623", "required":"2C", "comment": "The frame number offset of the anatomic reference point identified by Primary Anatomic Structure Sequence (0008,2228).\nRequired if SOP Instance is a Multi-frame Image, and frames are parallel and equally spaced.\nImage relative position specified with sub-voxel resolution such that the middle position of the image plane of the first frame is 0.5 and the middle position of the image plane of the last frame is Number of Frames (0028,0008) - 0.5.\n                                        The value shall be within the range 0.0 to Number of Frames (0028,0008)."},
+                       {"type": "LinkedObject", "prefix": "Include", "linked_resource": "table_10-5", "usage":"D\n\nD\n\nIn this Module, Primary Anatomic Structure Sequence (0008,2228) is specialized to be Type 1C; required if Ophthalmic Anatomic Reference Point X-Coordinate (0022,0024) and Ophthalmic Anatomic Reference Point Y-Coordinate (0022,0026) contain a value, or Ophthalmic Anatomic Reference Point Sequence (0022,1632) is present; may be present otherwise."}
                      ]
                    },
      "C.8.17.6-1": {
@@ -1195,7 +1191,7 @@
                      "table_name": "C.8.17.7-1",
                      "table_caption": "Ophthalmic Tomography Image Module Attributes",
                      "table_lines": [
-                       {"type": "InlineObject", "name": "Ophthalmic Volumetric Properties Flag", "address": "0x00221622", "required":"1C", "comment": "Whether this SOP Instance is suitable for OCT volumetric processing.\nRequired if this SOP Instance is suitable for OCT volumetric processing. May be present otherwise."},
+                       {"type": "InlineObject", "name": "Ophthalmic Volumetric Properties Flag", "address": "0x00221622", "required":"1C", "comment": "Required if this SOP Instance is suitable for OCT volumetric processing. May be present otherwise."},
                        {"type": "InlineObject", "name": "Image Type", "address": "0x00080008", "required":"1", "comment": "sect_C.7.6.1.1.2"},
                        {"type": "InlineObject", "name": "Samples Per Pixel", "address": "0x00280002", "required":"1", "comment": "sect_C.7.6.3.1.1"},
                        {"type": "InlineObject", "name": "Acquisition DateTime", "address": "0x0008002A", "required":"1", "comment": "The date and time that the acquisition of data started."},
@@ -1212,7 +1208,7 @@
                        {"type": "InlineObject", "name": "Lossy Image Compression Method", "address": "0x00282114", "required":"1C", "comment": "A label for the lossy compression method(s) that have been applied to this image.\nSee\nRequired if Lossy Image Compression (0028,2110) is \"01\"."},
                        {"type": "InlineObject", "name": "Burned In Annotation", "address": "0x00280301", "required":"1", "comment": "Indicates whether or not image contains sufficient burned in annotation to identify the patient and date the image was acquired."},
                        {"type": "InlineObject", "name": "Recognizable Visual Features", "address": "0x00280302", "required":"3", "comment": "Indicates whether or not the image contains sufficiently recognizable visual features to allow the image or a reconstruction from a set of images to identify the patient.\nIf this Attribute is absent, then the image may or may not contain recognizable visual features."},
-                       {"type": "InlineObject", "name": "Concatenation Frame Offset Number", "address": "0x00209228", "required":"1", "comment": "Offset of the first frame in a multi-frame image of a concatenation."},
+                       {"type": "InlineObject", "name": "Concatenation Frame Offset Number", "address": "0x00209228", "required":"1", "comment": "Offset of the first frame in a Multi-frame Image of a concatenation."},
                        {"type": "InlineObject", "name": "In-concatenation Number", "address": "0x00209162", "required":"1", "comment": "Identifier for one SOP Instance belonging to a concatenation."},
                        {"type": "InlineObject", "name": "In-concatenation Total Number", "address": "0x00209163", "required":"1", "comment": "The number of SOP Instances sharing the same Concatenation UID (0020,9161).\nSee"},
                        {"type": "InlineObject", "name": "Image Comments", "address": "0x00204000", "required":"3", "comment": "User-defined comments about the image."}
@@ -1235,6 +1231,7 @@
                        {"type": "InlineObject", "name": ">Spherical Lens Power", "address": "0x00220007", "required":"1", "comment": "Sphere value in diopters."},
                        {"type": "InlineObject", "name": ">Cylinder Lens Power", "address": "0x00220008", "required":"1", "comment": "Cylinder value in diopters."},
                        {"type": "InlineObject", "name": ">Cylinder Axis", "address": "0x00220009", "required":"1", "comment": "Axis value in degrees."},
+                       {"type": "InlineObject", "name": ">Vertex Distance", "address": "0x0022000F", "required":"3", "comment": "The distance from the corneal vertex of the eye to the back of the corrective lens, in mm."},
                        {"type": "InlineObject", "name": "Emmetropic Magnification", "address": "0x0022000A", "required":"2", "comment": "Emmetropic magnification value (dimensionless). Zero length means the emmetropic magnification was not measured."},
                        {"type": "InlineObject", "name": "Intra Ocular Pressure", "address": "0x0022000B", "required":"2", "comment": "Value of intraocular pressure in mmHg.\nZero length means the pressure was not measured."},
                        {"type": "InlineObject", "name": "Pupil Dilated", "address": "0x0022000D", "required":"2", "comment": "Whether or not the patient's pupils were pharmacologically dilated for this acquisition.\nIf this Attribute is empty, no information is available."},
@@ -1340,6 +1337,10 @@
                         {"type": "InlineObject", "name": "Photometric Interpretation", "address": "0x00280004", "required":"1", "comment": "Specifies the intended interpretation of the pixel data.\nSee"},
                         {"type": "InlineObject", "name": "Pixel Representation", "address": "0x00280103", "required":"1", "comment": "Data representation of pixel samples."},
                         {"type": "InlineObject", "name": "Pixel Spacing", "address": "0x00280030", "required":"1", "comment": "Nominal physical distance at the focal plane (in the retina) between the center of each pixel, specified by a numeric pair - adjacent row spacing (delimiter) adjacent column spacing in mm. See Section 10.7.1.3for further explanation of the value order."},
+                        {"type": "InlineObject", "name": "Image Orientation (Patient)", "address": "0x00200037", "required":"1", "comment": "sect_C.7.6.2.1.1"},
+                        {"type": "InlineObject", "name": "Ophthalmic Frame Location Sequence", "address": "0x00220031", "required":"1", "comment": "Specifies the location of this image in terms of location on a referenced localizer image.\nOnly a single Item shall be included in this Sequence."},
+                        {"type": "LinkedObject", "prefix": ">Include", "linked_resource": "table_10-3", "usage":""},
+                        {"type": "InlineObject", "name": ">Reference Coordinates", "address": "0x00220032", "required":"1", "comment": "Image coordinates for the points on the referenced image that correspond to the Top Left Hand Corner (TLHC) and the Bottom Right Hand Corner (BRHC) of the En Face Image.\nExactly two pairs of values where the first value of each pair is the row (vertical) offset and the second value of each pair is the column (horizontal) offset.\nSpecified with sub-pixel resolution such that the origin at the Top Left Hand Corner (TLHC) of the TLHC pixel is 0.0\\0.0,\n                                        the Bottom Right Hand Corner (BRHC) of the TLHC pixel is 1.0\\1.0, and the BRHC of the BRHC pixel is Rows\\Columns\n                                        (see\nSee"},
                         {"type": "InlineObject", "name": "Content Time", "address": "0x00080033", "required":"1", "comment": "The time the image pixel data creation started."},
                         {"type": "InlineObject", "name": "Content Date", "address": "0x00080023", "required":"1", "comment": "The date the image pixel data creation started."},
                         {"type": "InlineObject", "name": "Source Image Sequence", "address": "0x00082112", "required":"1", "comment": "A Sequence that identifies the Images that were used to derive this Image.\nOne or more Items shall be included in this Sequence.\nSee"},
@@ -1354,12 +1355,16 @@
                         {"type": "InlineObject", "name": "Window Center", "address": "0x00281050", "required":"1", "comment": "Window Center for display.\nSee"},
                         {"type": "InlineObject", "name": "Window Width", "address": "0x00281051", "required":"1", "comment": "sect_C.11.2.1.2"},
                         {"type": "InlineObject", "name": "Ophthalmic FOV", "address": "0x00221517", "required":"3", "comment": "The horizontal field of view used to capture the ophthalmic image, in degrees. The field of view is the maximum image size displayed on the image plane, expressed as the angle subtended at the exit pupil of the eye by the maximum dimension 2r (where r equals the radius)."},
-                        {"type": "InlineObject", "name": "Referenced Surface Mesh Identification Sequence", "address": "0x00221620", "required":"1", "comment": "Reference to the surface mesh(s) used in the creation of this SOP Instance.\nOne or more Items shall be included in this Sequence.\nSee"},
-                        {"type": "InlineObject", "name": ">Referenced SOP Instance UID", "address": "0x00081155", "required":"1", "comment": "Referenced SOP Instance that contains the surface segmentation used in the creation of this SOP Instance."},
-                        {"type": "InlineObject", "name": ">Referenced Surface Number", "address": "0x0066002C", "required":"1", "comment": "Reference to a Surface Number (0066,0003) present in Surface Sequence (0066,0002)."},
-                        {"type": "InlineObject", "name": ">Segmented Property Type Code Sequence", "address": "0x0062000F", "required":"1", "comment": "Sequence defining the specific property the surface represents.\nOnly a single Item is permitted in this Sequence"},
-                        {"type": "LinkedObject", "prefix": ">>Include", "linked_resource": "table_8.8-1", "usage":"B"},
-                        {"type": "InlineObject", "name": ">Surface Mesh Z-Pixel Offset", "address": "0x00221658", "required":"1", "comment": "Offset in number of pixels along the z axis by which the mesh data has been shifted when generating this SOP Instance.\nThe mesh data is the Attribute Point Coordinates Data (0066,0016) of the surface mesh referenced by Attribute Referenced SOP Instance UID (0008,1155)."},
+                        {"type": "InlineObject", "name": "Ophthalmic En Face Volume Descriptor Sequence", "address": "0x00221627", "required":"1", "comment": "Description of the volume or boundary surfaces used to select the en face image data from the source image(s).\nOne or two Items shall be included in this Sequence.\nSee"},
+                        {"type": "InlineObject", "name": ">Ophthalmic En Face Volume Descriptor Scope", "address": "0x00221629", "required":"1", "comment": "Part of the en face volume described by this Item.\nIf value is ENTIRE, this Item shall be the only Item in the Ophthalmic En Face Volume Descriptor Sequence (0022,1627).\n                                            Otherwise, two Items shall be included in the Ophthalmic En Face Volume Descriptor Sequence (0022,1627),\n                                            one with value ANTERIOR and the other with value POSTERIOR."},
+                        {"type": "InlineObject", "name": ">Referenced Segmentation Sequence", "address": "0x0008114C", "required":"1C", "comment": "Reference to the segmentations used in the selection of the en face data.\nOne or more Items shall be included in this Sequence.\nRequired if segmentation is used to select the en face data volume or surface.\nSee"},
+                        {"type": "LinkedObject", "prefix": ">>Include", "linked_resource": "table_10-3", "usage":"Reference to a segmentation SOP Instance and one or more segments thereof in Referenced Segment Number (0062,000B).\n                                        Referenced Segment Number (0062,000B) shall be present, even if the referenced segmentation SOP Instance contains only a single segment."},
+                        {"type": "InlineObject", "name": ">>Segmented Property Type Code Sequence", "address": "0x0062000F", "required":"1", "comment": "Sequence defining the specific property the segmentation represents.\n                                        The Items in this Sequence shall be copied from the Segmented Property Type Code Sequence (0062,000F) of the referenced segmentation.\nThe number of Items in this Sequence shall equal the number of values in Referenced Segment Number (0062,000B)."},
+                        {"type": "LinkedObject", "prefix": ">>>Include", "linked_resource": "table_8.8-1", "usage":""},
+                        {"type": "InlineObject", "name": ">>>Segmented Property Type Modifier Code Sequence", "address": "0x00620011", "required":"3", "comment": "Sequence defining the modifier of the property type of this segment.\nOne or more Items are permitted in this Sequence"},
+                        {"type": "LinkedObject", "prefix": ">>>>Include", "linked_resource": "table_8.8-1", "usage":""},
+                        {"type": "InlineObject", "name": ">Surface Offset", "address": "0x00660005", "required":"1", "comment": "Offset in pixels from the referenced segmentation surface, in the direction from the top towards the bottom of the source image frames.\n                                        If no referenced segmentation surface is specified in this Item of Ophthalmic En Face Volume Descriptor Sequence (0022,1627),\n                                        the offset is from the top of the source image frames.\nIf no offset is used the value is set to 0.\nSee"},
+                        {"type": "InlineObject", "name": ">Surface Processing Description", "address": "0x0066000B", "required":"3", "comment": "A description of processing performed to construct the surface, such as interpolation between referenced segmented surfaces."},
                         {"type": "InlineObject", "name": "Ophthalmic Axial Length", "address": "0x00221019", "required":"3", "comment": "The axial length measurement, in mm."},
                         {"type": "InlineObject", "name": "Ophthalmic Axial Length Method", "address": "0x00221515", "required":"3", "comment": "The method used to obtain the Ophthalmic Axial Length."},
                         {"type": "InlineObject", "name": "Lossy Image Compression", "address": "0x00282110", "required":"1", "comment": "Specifies whether an Image has undergone lossy compression (at a point in its lifetime).\nOnce this value has been set to \"01\" it shall not be reset.\nSee"},
@@ -1413,7 +1418,7 @@
                         {"type": "InlineObject", "name": ">B-scan Cycle Time Vector", "address": "0x00221646", "required":"1C", "comment": "Required if B-scan Cycle Time (0022,1645) is absent."},
                         {"type": "InlineObject", "name": ">A-scan Rate", "address": "0x00221649", "required":"3", "comment": "Frequency, in kHz, of the A-scan used to acquire the raw image data."},
                         {"type": "InlineObject", "name": ">B-scan Rate", "address": "0x00221650", "required":"3", "comment": "Frequency, in Hz, of the B-scan used to acquire the raw image data."},
-                        {"type": "InlineObject", "name": "Concatenation Frame Offset Number", "address": "0x00209228", "required":"1", "comment": "Offset of the first frame in a multi-frame image of a concatenation."},
+                        {"type": "InlineObject", "name": "Concatenation Frame Offset Number", "address": "0x00209228", "required":"1", "comment": "Offset of the first frame in a Multi-frame Image of a concatenation."},
                         {"type": "InlineObject", "name": "In-concatenation Number", "address": "0x00209162", "required":"1", "comment": "Identifier for one SOP Instance belonging to a concatenation."},
                         {"type": "InlineObject", "name": "In-concatenation Total Number", "address": "0x00209163", "required":"1", "comment": "sect_C.8.17.16.3"},
                         {"type": "InlineObject", "name": "Image Comments", "address": "0x00204000", "required":"3", "comment": "User-defined comments about the image."}
@@ -1729,7 +1734,7 @@
                      "table_name": "C.8.19.7-1",
                      "table_caption": "XA/XRF Multi-frame Presentation Module Attributes",
                      "table_lines": [
-                       {"type": "InlineObject", "name": "Preferred Playback Sequencing", "address": "0x00181244", "required":"3", "comment": "Describes the preferred playback sequencing for a multi-frame image."},
+                       {"type": "InlineObject", "name": "Preferred Playback Sequencing", "address": "0x00181244", "required":"3", "comment": "Describes the preferred playback sequencing for a Multi-frame Image."},
                        {"type": "InlineObject", "name": "Frame Display Sequence", "address": "0x00089458", "required":"3", "comment": "Sequence that specifies the display frame rate of a selected set of frames. The Items are ordered in increasing frame number. The range of the frames may not overlap and the ranges shall be adjacent.\nOne or more Items are permitted in this Sequence."},
                        {"type": "InlineObject", "name": ">Start Trim", "address": "0x00082142", "required":"1", "comment": "The Frame Number of the first frame of the set of frames to be displayed in this Item."},
                        {"type": "InlineObject", "name": ">Stop Trim", "address": "0x00082143", "required":"1", "comment": "The Frame Number of the last frame of the set of frames to be displayed in this Item."},
@@ -1754,28 +1759,28 @@
                    "table_name": "C.8.20-2",
                    "table_caption": "Segmentation Image Module Attributes",
                    "table_lines": [
-                     {"type": "InlineObject", "name": "Image Type", "address": "0x00080008", "required":"1", "comment": "Value 1 shall be DERIVED. Value 2 shall be PRIMARY. No other values shall be present."},
+                     {"type": "InlineObject", "name": "Image Type", "address": "0x00080008", "required":"1", "comment": "Image identification characteristics.\nValue 1 shall be DERIVED. Value 2 shall be PRIMARY. No other values shall be present."},
                      {"type": "LinkedObject", "prefix": "Include", "linked_resource": "table_10-12", "usage":""},
-                     {"type": "InlineObject", "name": "Samples Per Pixel", "address": "0x00280002", "required":"1", "comment": ""},
-                     {"type": "InlineObject", "name": "Photometric Interpretation", "address": "0x00280004", "required":"1", "comment": ""},
-                     {"type": "InlineObject", "name": "Pixel Representation", "address": "0x00280103", "required":"1", "comment": ""},
-                     {"type": "InlineObject", "name": "Bits Allocated", "address": "0x00280100", "required":"1", "comment": "sect_C.8.20.2.1"},
-                     {"type": "InlineObject", "name": "Bits Stored", "address": "0x00280101", "required":"1", "comment": "sect_C.8.20.2.1"},
-                     {"type": "InlineObject", "name": "High Bit", "address": "0x00280102", "required":"1", "comment": "sect_C.8.20.2.1"},
+                     {"type": "InlineObject", "name": "Samples Per Pixel", "address": "0x00280002", "required":"1", "comment": "Number of samples (planes) in this image."},
+                     {"type": "InlineObject", "name": "Photometric Interpretation", "address": "0x00280004", "required":"1", "comment": "Specifies the intended interpretation of the pixel data."},
+                     {"type": "InlineObject", "name": "Pixel Representation", "address": "0x00280103", "required":"1", "comment": "Data representation of pixel samples."},
+                     {"type": "InlineObject", "name": "Bits Allocated", "address": "0x00280100", "required":"1", "comment": "Number of bits allocated for each pixel sample.\nSee"},
+                     {"type": "InlineObject", "name": "Bits Stored", "address": "0x00280101", "required":"1", "comment": "Number of bits stored for each pixel sample.\nSee"},
+                     {"type": "InlineObject", "name": "High Bit", "address": "0x00280102", "required":"1", "comment": "Most significant bit for pixel sample data.\nSee"},
                      {"type": "InlineObject", "name": "Lossy Image Compression", "address": "0x00282110", "required":"1", "comment": "Specifies whether an Image has undergone lossy compression (at a point in its lifetime), or is derived from lossy compressed images.\nOnce this value has been set to \"01\" it shall not be reset.\nSee"},
                      {"type": "InlineObject", "name": "Lossy Image Compression Ratio", "address": "0x00282112", "required":"1C", "comment": "Describes the approximate lossy compression ratio(s) that have been applied to this image.\nSee\nRequired if present in the source images or this IOD Instance has been compressed."},
                      {"type": "InlineObject", "name": "Lossy Image Compression Method", "address": "0x00282114", "required":"1C", "comment": "A label for the lossy compression method(s) that have been applied to this image.\nSee\nRequired if present in the source images or this IOD Instance has been compressed. See"},
                      {"type": "InlineObject", "name": "Segmentation Type", "address": "0x00620001", "required":"1", "comment": "The type of encoding used to indicate the presence of the segmented property at a pixel/voxel location.\nSee"},
                      {"type": "InlineObject", "name": "Segmentation Fractional Type", "address": "0x00620010", "required":"1C", "comment": "For fractional segmentation encoding, the meaning of the fractional value.\nRequired if Segmentation Type (0062,0001) is FRACTIONAL.\nSee"},
                      {"type": "InlineObject", "name": "Maximum Fractional Value", "address": "0x0062000E", "required":"1C", "comment": "Specifies the value that represents a probability of 1 or complete occupancy. There shall be no values in Pixel Data (7FE0,0010) greater than this value. Required if Segmentation Type (0062,0001) is FRACTIONAL."},
-                     {"type": "InlineObject", "name": "Segments Overlap", "address": "0x00620013", "required":"3", "comment": "Whether or not any segments in this Instance overlap. I.e., whether or not any pixel is or might be in more than one segment.\nSee"},
-                     {"type": "InlineObject", "name": "Segment Sequence", "address": "0x00620002", "required":"1", "comment": "Describes the segments that are contained within the data.\nOne or more Items shall be included in this Sequence."},
+                     {"type": "InlineObject", "name": "Segments Overlap", "address": "0x00620013", "required":"3", "comment": "Whether or not any Segments in this Instance overlap. I.e., whether or not any pixel is or might be in more than one Segment.\nSee\nIf present, shall be NO if Segmentation Type (0062,0001) is LABELMAP."},
+                     {"type": "InlineObject", "name": "Segment Sequence", "address": "0x00620002", "required":"1", "comment": "Describes the Segments that are contained within the data.\nOne or more Items shall be included in this Sequence."},
                      {"type": "LinkedObject", "prefix": ">Include", "linked_resource": "table_C.8.20-4", "usage":""},
-                     {"type": "InlineObject", "name": ">Segment Algorithm Name", "address": "0x00620009", "required":"1C", "comment": "The name(s) of algorithm(s) used to generate the segment. Required if Segment Algorithm Type (0062,0008) is not MANUAL."},
-                     {"type": "InlineObject", "name": ">Segmentation Algorithm Identification Sequence", "address": "0x00620007", "required":"3", "comment": "A description of how this segment was derived.\nAlgorithm Name (0066,0036) within this Sequence may be identical to Segment Algorithm Name (0062,0009).\nOne or more Items are permitted in this Sequence."},
+                     {"type": "InlineObject", "name": ">Segment Algorithm Name", "address": "0x00620009", "required":"1C", "comment": "The name(s) of algorithm(s) used to generate the Segment. Required if Segment Algorithm Type (0062,0008) is not MANUAL."},
+                     {"type": "InlineObject", "name": ">Segmentation Algorithm Identification Sequence", "address": "0x00620007", "required":"3", "comment": "A description of how this Segment was derived.\nAlgorithm Name (0066,0036) within this Sequence may be identical to Segment Algorithm Name (0062,0009).\nOne or more Items are permitted in this Sequence."},
                      {"type": "LinkedObject", "prefix": ">>Include", "linked_resource": "table_10-19", "usage":"B"},
-                     {"type": "InlineObject", "name": ">Recommended Display Grayscale Value", "address": "0x0062000C", "required":"3", "comment": "A default single gray unsigned value in which it is recommended that the maximum pixel value in this segment be rendered on a monochrome display. The units are specified in P-Values from a minimum of 0000H (black) up to a maximum of FFFFH (white)."},
-                     {"type": "InlineObject", "name": ">Recommended Display CIELab Value", "address": "0x0062000D", "required":"3", "comment": "sect_C.10.7.1.1"}
+                     {"type": "InlineObject", "name": ">Recommended Display Grayscale Value", "address": "0x0062000C", "required":"3", "comment": "A default single gray unsigned value in which it is recommended that the maximum pixel value in this Segment be rendered on a monochrome display. The units are specified in P-Values from a minimum of 0000H (black) up to a maximum of FFFFH (white)."},
+                     {"type": "InlineObject", "name": ">Recommended Display CIELab Value", "address": "0x0062000D", "required":"3", "comment": "Shall not be present if Segmentation Type (0062,0001) is LABELMAP and Photometric Interpretation (0028,0004) is PALETTE COLOR."}
                    ]
                  },
      "C.8.20-3": {
@@ -1783,7 +1788,7 @@
                    "table_caption": "Segmentation Macro Attributes",
                    "table_lines": [
                      {"type": "InlineObject", "name": "Segment Identification Sequence", "address": "0x0062000A", "required":"1", "comment": "Identifies the characteristics of this frame.\nOnly a single Item shall be included in this Sequence."},
-                     {"type": "InlineObject", "name": ">Referenced Segment Number", "address": "0x0062000B", "required":"1", "comment": "Uniquely identifies the segment described in Segment Sequence (0062,0002) by reference to Segment Number (0062,0004). Referenced Segment Number (0062,000B) shall not be multi-valued."}
+                     {"type": "InlineObject", "name": ">Referenced Segment Number", "address": "0x0062000B", "required":"1", "comment": "Uniquely identifies the Segment described in Segment Sequence (0062,0002) by reference to Segment Number (0062,0004). Referenced Segment Number (0062,000B) shall not be multi-valued."}
                    ]
                  },
      "C.8.20-4": {
@@ -1791,15 +1796,15 @@
                    "table_caption": "Segment Description Macro Attributes",
                    "table_lines": [
                      {"type": "InlineObject", "name": "Segment Number", "address": "0x00620004", "required":"1", "comment": "sect_C.8.20.2.4"},
-                     {"type": "InlineObject", "name": "Segment Label", "address": "0x00620005", "required":"1", "comment": "User-defined label identifying this segment. This may be the same as Code Meaning (0008,0104) of Segmented Property Type Code Sequence (0062,000F)."},
-                     {"type": "InlineObject", "name": "Segment Description", "address": "0x00620006", "required":"3", "comment": "User-defined description for this segment."},
-                     {"type": "InlineObject", "name": "Segment Algorithm Type", "address": "0x00620008", "required":"1", "comment": "Type of algorithm used to generate the segment."},
+                     {"type": "InlineObject", "name": "Segment Label", "address": "0x00620005", "required":"1", "comment": "User-defined label identifying this Segment. This may be the same as Code Meaning (0008,0104) of Segmented Property Type Code Sequence (0062,000F)."},
+                     {"type": "InlineObject", "name": "Segment Description", "address": "0x00620006", "required":"3", "comment": "User-defined description for this Segment."},
+                     {"type": "InlineObject", "name": "Segment Algorithm Type", "address": "0x00620008", "required":"1", "comment": "Type of algorithm used to generate the Segment."},
                      {"type": "LinkedObject", "prefix": "Include", "linked_resource": "table_10-7b", "usage":"May not be necessary if the anatomy is implicit in the Segmented Property Type Code Sequence.\n\nMore than one Item in Anatomic Region Sequence (0008,2218) may be used when a region of interest spans multiple anatomical locations and there is not a single pre-coordinated code describing the combination of locations. There is no requirement that the multiple locations be contiguous."},
-                     {"type": "InlineObject", "name": "Segmented Property Category Code Sequence", "address": "0x00620003", "required":"1", "comment": "Sequence defining the general category of the property the segment represents.\nOnly a single Item shall be included in this Sequence."},
+                     {"type": "InlineObject", "name": "Segmented Property Category Code Sequence", "address": "0x00620003", "required":"1", "comment": "Sequence defining the general category of the property the Segment represents.\nOnly a single Item shall be included in this Sequence."},
                      {"type": "LinkedObject", "prefix": ">Include", "linked_resource": "table_8.8-1", "usage":"B"},
-                     {"type": "InlineObject", "name": "Segmented Property Type Code Sequence", "address": "0x0062000F", "required":"1", "comment": "Sequence defining the specific property the segment represents.\nOnly a single Item shall be included in this Sequence."},
+                     {"type": "InlineObject", "name": "Segmented Property Type Code Sequence", "address": "0x0062000F", "required":"1", "comment": "Sequence defining the specific property the Segment represents.\nOnly a single Item shall be included in this Sequence."},
                      {"type": "LinkedObject", "prefix": ">Include", "linked_resource": "table_8.8-1", "usage":"B"},
-                     {"type": "InlineObject", "name": ">Segmented Property Type Modifier Code Sequence", "address": "0x00620011", "required":"3", "comment": "Sequence defining the modifier of the property type of this segment.\nOne or more Items are permitted in this Sequence."},
+                     {"type": "InlineObject", "name": ">Segmented Property Type Modifier Code Sequence", "address": "0x00620011", "required":"3", "comment": "Sequence defining the modifier of the property type of this Segment.\nOne or more Items are permitted in this Sequence."},
                      {"type": "LinkedObject", "prefix": ">>Include", "linked_resource": "table_8.8-1", "usage":"D"},
                      {"type": "InlineObject", "name": "Tracking ID", "address": "0x00620020", "required":"1C", "comment": "A text label used for tracking a finding or feature, potentially across multiple reporting objects, over time. This label shall be unique within the domain in which it is used.\nRequired if Tracking UID (0062,0021) is present."},
                      {"type": "InlineObject", "name": "Tracking UID", "address": "0x00620021", "required":"1C", "comment": "A unique identifier used for tracking a finding or feature, potentially across multiple reporting objects, over time.\nRequired if Tracking ID (0062,0020) is present."},
@@ -1807,6 +1812,26 @@
                      {"type": "LinkedObject", "prefix": ">Include", "linked_resource": "table_10-11", "usage":""},
                      {"type": "InlineObject", "name": ">Referenced ROI Number", "address": "0x30060084", "required":"1C", "comment": "The value of ROI Number (3006,0022) in the referenced SOP Instance that identifies the ROI that is the origin of the Segment information.\nRequired if Referenced SOP Class UID (0008,1150) is RT Structure Set Storage (\"1.2.840.10008.5.1.4.1.1.481.3\")."},
                      {"type": "LinkedObject", "prefix": "Include", "linked_resource": "table_10.9.3-1", "usage":""}
+                   ]
+                 },
+     "C.8.20-5": {
+                   "table_name": "C.8.20-5",
+                   "table_caption": "Height Map Segmentation Image Module Attributes",
+                   "table_lines": [
+                     {"type": "InlineObject", "name": "Image Type", "address": "0x00080008", "required":"1", "comment": "Image identification characteristics.\nValue 1 shall be DERIVED. Value 2 shall be PRIMARY. No other values shall be present."},
+                     {"type": "LinkedObject", "prefix": "Include", "linked_resource": "table_10-12", "usage":""},
+                     {"type": "InlineObject", "name": "Samples Per Pixel", "address": "0x00280002", "required":"1", "comment": "Number of samples (planes) in this image."},
+                     {"type": "InlineObject", "name": "Photometric Interpretation", "address": "0x00280004", "required":"1", "comment": "The intended interpretation of the pixel data."},
+                     {"type": "InlineObject", "name": "Rows", "address": "0x00280010", "required":"1", "comment": "sect_C.8.20.5.2"},
+                     {"type": "InlineObject", "name": "Columns", "address": "0x00280011", "required":"1", "comment": "sect_C.8.20.5.1"},
+                     {"type": "InlineObject", "name": "Segmentation Type", "address": "0x00620001", "required":"1", "comment": "sect_C.8.20.5.1"},
+                     {"type": "InlineObject", "name": "Segment Sequence", "address": "0x00620002", "required":"1", "comment": "Describes the segments that are contained within the data.\nOne or more Items shall be included in this Sequence."},
+                     {"type": "LinkedObject", "prefix": ">Include", "linked_resource": "table_C.8.20-4", "usage":""},
+                     {"type": "InlineObject", "name": ">Segment Algorithm Name", "address": "0x00620009", "required":"1C", "comment": "Name of algorithm used to generate the segment.\nRequired if Segment Algorithm Type (0062,0008) is not MANUAL."},
+                     {"type": "InlineObject", "name": ">Segmentation Algorithm Identification Sequence", "address": "0x00620007", "required":"1C", "comment": "A description of how this segment was derived.\nAlgorithm Name (0066,0036) within this Sequence may be identical to Segment Algorithm Name (0062,0009).\nRequired if Segment Algorithm Type (0062,0008) is not MANUAL.\nOnly a single Item shall be included in this Sequence."},
+                     {"type": "LinkedObject", "prefix": ">>Include", "linked_resource": "table_10-19", "usage":"B"},
+                     {"type": "InlineObject", "name": ">Recommended Display Grayscale Value", "address": "0x0062000C", "required":"3", "comment": "A default single gray unsigned value in which it is recommended that this segment be rendered on a monochrome display. The units are specified in P-Values from a minimum of 0000H (black) up to a maximum of FFFFH (white)."},
+                     {"type": "InlineObject", "name": ">Recommended Display CIELab Value", "address": "0x0062000D", "required":"3", "comment": "sect_C.10.7.1.1"}
                    ]
                  },
      "C.8.21.1-1": {
@@ -1940,7 +1965,7 @@
                          {"type": "InlineObject", "name": ">Distance Source to Isocenter", "address": "0x00189402", "required":"1C", "comment": "Distance from source to isocenter in mm.\nRequired if present and consistent in the contributing SOP Instances."},
                          {"type": "InlineObject", "name": ">Focal Spot(s)", "address": "0x00181190", "required":"1C", "comment": "Nominal focal spot size in mm used to acquire this image.\nRequired if present and consistent in the contributing SOP Instances."},
                          {"type": "InlineObject", "name": ">Filter Type", "address": "0x00181160", "required":"1C", "comment": "Required if present and consistent in the contributing SOP Instances."},
-                         {"type": "InlineObject", "name": ">Filter Material", "address": "0x00187050", "required":"1C", "comment": "Required if present and consistent in the contributing SOP Instances."},
+                         {"type": "InlineObject", "name": ">Filter Material", "address": "0x00187050", "required":"1C", "comment": "The X-Ray absorbing material used in the filter. May be multi-valued.\nSee\nRequired if present and consistent in the contributing SOP Instances."},
                          {"type": "InlineObject", "name": ">Filter Thickness Minimum", "address": "0x00187052", "required":"1C", "comment": "Required if present and consistent in the contributing SOP Instances."},
                          {"type": "InlineObject", "name": ">Filter Thickness Maximum", "address": "0x00187054", "required":"1C", "comment": "Required if present and consistent in the contributing SOP Instances."},
                          {"type": "InlineObject", "name": ">Filter Beam Path Length Minimum", "address": "0x00187056", "required":"1C", "comment": "Required if present and consistent in the contributing SOP Instances."},
@@ -1998,7 +2023,7 @@
                          {"type": "InlineObject", "name": ">Detector Binning", "address": "0x0018701A", "required":"1C", "comment": "Number of active detectors used to generate a single pixel. Specified as number of row detectors per pixel then column.\nRequired if detector binning was applied to the projection images."},
                          {"type": "InlineObject", "name": ">Detector Temperature", "address": "0x00187001", "required":"1", "comment": "Detector temperature during exposure in degrees Celsius."},
                          {"type": "InlineObject", "name": ">Filter Type", "address": "0x00181160", "required":"1", "comment": "sect_C.8.7.10"},
-                         {"type": "InlineObject", "name": ">Filter Material", "address": "0x00187050", "required":"1", "comment": "sect_C.8.7.10"},
+                         {"type": "InlineObject", "name": ">Filter Material", "address": "0x00187050", "required":"1", "comment": "The X-Ray absorbing material used in the filter. May be multi-valued.\nSee"},
                          {"type": "InlineObject", "name": ">Filter Thickness Minimum", "address": "0x00187052", "required":"3", "comment": "sect_C.8.7.10"},
                          {"type": "InlineObject", "name": ">Filter Thickness Maximum", "address": "0x00187054", "required":"3", "comment": "sect_C.8.7.10"},
                          {"type": "InlineObject", "name": ">Filter Beam Path Length Minimum", "address": "0x00187056", "required":"3", "comment": "sect_C.8.7.10"},
@@ -2115,6 +2140,7 @@
                      {"type": "InlineObject", "name": "Table Motion", "address": "0x00181134", "required":"1", "comment": ""},
                      {"type": "InlineObject", "name": "Time of Flight Information Used", "address": "0x00189755", "required":"1", "comment": "Specifies whether or not Time-of-Flight information was used in creation of the image."},
                      {"type": "LinkedObject", "prefix": "Include", "linked_resource": "table_10-24", "usage":""},
+                     {"type": "LinkedObject", "prefix": "Include", "linked_resource": "table_C.36.2.4.5-2", "usage":""},
                      {"type": "InlineObject", "name": "Isocenter Position", "address": "0x300A012C", "required":"3", "comment": "Isocenter coordinates (x,y,z), in mm. Specifies the location of the machine isocenter in the Patient-Based Coordinate System associated with the Frame of Reference. It allows transformation from the Equipment-Based Coordinate System to the Patient-Based Coordinate System."},
                      {"type": "InlineObject", "name": "Scan Progression Direction", "address": "0x00540501", "required":"3", "comment": "The anatomical order in which the slices were acquired."}
                    ]
@@ -2143,7 +2169,8 @@
                      {"type": "InlineObject", "name": "Lossy Image Compression Method", "address": "0x00282114", "required":"1C", "comment": "A label for the lossy compression method(s) that have been applied to this image.\nSee\nRequired if Lossy Image Compression (0028,2110) is \"01\"."},
                      {"type": "InlineObject", "name": "Presentation LUT Shape", "address": "0x20500020", "required":"1", "comment": "Specifies an identity transformation for the Presentation LUT, such that the output of all grayscale transformations defined in the IOD containing this Module are defined to be P-Values."},
                      {"type": "InlineObject", "name": "Icon Image Sequence", "address": "0x00880200", "required":"3", "comment": "This icon image is representative of the Image.\nOnly a single Item is permitted in this Sequence."},
-                     {"type": "LinkedObject", "prefix": ">Include", "linked_resource": "table_C.7-11b", "usage":"See"}
+                     {"type": "LinkedObject", "prefix": ">Include", "linked_resource": "table_C.7-11b", "usage":"See"},
+                     {"type": "LinkedObject", "prefix": "Include", "linked_resource": "table_C.36.2.4.12-1", "usage":""}
                    ]
                  },
      "C.8.22-9": {
@@ -2238,7 +2265,7 @@
                     "table_caption": "PET Table Dynamics Macro Attributes",
                     "table_lines": [
                       {"type": "InlineObject", "name": "PET Table Dynamics Sequence", "address": "0x00189734", "required":"1", "comment": "Contains the Attributes describing the movement of the PET Table.\nOnly a single Item shall be included in this Sequence."},
-                      {"type": "InlineObject", "name": ">Table Speed", "address": "0x00189309", "required":"1", "comment": "The distance in mm that the Table moves in one second during the gathering of data that resulted in this frame."}
+                      {"type": "InlineObject", "name": ">Table Speed", "address": "0x00189309", "required":"1", "comment": "The distance in mm that the Table moves in one second during the gathering of data that resulted in this frame.\n                                            Table motion is relative to the gantry frame of reference, thus if the gantry is moving, the distance value represents the net motion.\n                                            This Attribute also applies to patient support equipment other than tables."}
                     ]
                   },
      "C.8.22-19": {
@@ -2271,14 +2298,14 @@
                      {"type": "LinkedObject", "prefix": "Include", "linked_resource": "table_10-12", "usage":""},
                      {"type": "InlineObject", "name": "Content Date", "address": "0x00080023", "required":"1", "comment": "The date the content creation started."},
                      {"type": "InlineObject", "name": "Content Time", "address": "0x00080033", "required":"1", "comment": "The time the content creation started."},
-                     {"type": "InlineObject", "name": "Segment Sequence", "address": "0x00620002", "required":"1", "comment": "Describes the segments that are contained within the data.\nOne or more Items shall be included in this Sequence."},
+                     {"type": "InlineObject", "name": "Segment Sequence", "address": "0x00620002", "required":"1", "comment": "Describes the Segments that are contained within the data.\nOne or more Items shall be included in this Sequence."},
                      {"type": "LinkedObject", "prefix": ">Include", "linked_resource": "table_C.8.20-4", "usage":""},
-                     {"type": "InlineObject", "name": ">Surface Count", "address": "0x0066002A", "required":"1", "comment": "The number of surfaces that comprise this segment. Shall be greater than zero."},
-                     {"type": "InlineObject", "name": ">Referenced Surface Sequence", "address": "0x0066002B", "required":"1", "comment": "Sequence referencing the surfaces composed to construct this segment.\nOne or more Items shall be included in this Sequence.\nThe number of Items shall equal the value of Surface Count (0066,002A)."},
+                     {"type": "InlineObject", "name": ">Surface Count", "address": "0x0066002A", "required":"1", "comment": "The number of surfaces that comprise this Segment. Shall be greater than zero."},
+                     {"type": "InlineObject", "name": ">Referenced Surface Sequence", "address": "0x0066002B", "required":"1", "comment": "Sequence referencing the surfaces composed to construct this Segment.\nOne or more Items shall be included in this Sequence.\nThe number of Items shall equal the value of Surface Count (0066,002A)."},
                      {"type": "InlineObject", "name": ">>Referenced Surface Number", "address": "0x0066002C", "required":"1", "comment": "Identifies the Surface Number (0066,0003) within the Surface Sequence (0066,0002) to which this reference applies."},
-                     {"type": "InlineObject", "name": ">>Segment Surface Generation Algorithm Identification Sequence", "address": "0x0066002D", "required":"1", "comment": "A description of how this segment surface was derived.\nOne or more Items shall be included in this Sequence."},
+                     {"type": "InlineObject", "name": ">>Segment Surface Generation Algorithm Identification Sequence", "address": "0x0066002D", "required":"1", "comment": "A description of how this Segment surface was derived.\nOne or more Items shall be included in this Sequence."},
                      {"type": "LinkedObject", "prefix": ">>>Include", "linked_resource": "table_10-19", "usage":"For Algorithm Family Code Sequence (0066,002F) B"},
-                     {"type": "InlineObject", "name": ">>Segment Surface Source Instance Sequence", "address": "0x0066002E", "required":"2", "comment": "A Sequence that identifies the set of Instances by their SOP Class/Instance pair that were used to derive this segment surface.\nZero or more Items shall be included in this Sequence."},
+                     {"type": "InlineObject", "name": ">>Segment Surface Source Instance Sequence", "address": "0x0066002E", "required":"2", "comment": "A Sequence that identifies the set of Instances by their SOP Class/Instance pair that were used to derive this Segment surface.\nZero or more Items shall be included in this Sequence."},
                      {"type": "LinkedObject", "prefix": ">>>Include", "linked_resource": "table_10-3", "usage":""}
                    ]
                  },
@@ -2530,11 +2557,13 @@
                        {"type": "LinkedObject", "prefix": ">Include", "linked_resource": "table_C.8.25.6.1-1", "usage":""},
                        {"type": "InlineObject", "name": ">Pupil Size", "address": "0x00460044", "required":"3", "comment": "The horizontal diameter measurement of the pupil, in mm."},
                        {"type": "InlineObject", "name": ">Corneal Size", "address": "0x00460046", "required":"3", "comment": "The horizontal diameter measurement of the cornea, in mm."},
+                       {"type": "InlineObject", "name": ">Vertex Distance", "address": "0x0022000F", "required":"3", "comment": "The distance from the corneal vertex of the eye to the back of the corrective lens, in mm."},
                        {"type": "InlineObject", "name": "Autorefraction Left Eye Sequence", "address": "0x00460052", "required":"1C", "comment": "A Sequence that specifies refractive measurements of a patient's left eye.\nOnly a single Item shall be included in this Sequence.\nRequired if the left eye is measured."},
                        {"type": "InlineObject", "name": ">Sphere Power", "address": "0x00460146", "required":"1", "comment": "Refractive power of the eye that is the same in all meridians, measured at distance (optical infinity), in diopters."},
                        {"type": "LinkedObject", "prefix": ">Include", "linked_resource": "table_C.8.25.6.1-1", "usage":""},
                        {"type": "InlineObject", "name": ">Pupil Size", "address": "0x00460044", "required":"3", "comment": "The horizontal diameter measurement of the pupil, in mm."},
                        {"type": "InlineObject", "name": ">Corneal Size", "address": "0x00460046", "required":"3", "comment": "The horizontal diameter measurement of the cornea, in mm."},
+                       {"type": "InlineObject", "name": ">Vertex Distance", "address": "0x0022000F", "required":"3", "comment": "The distance from the corneal vertex of the eye to the back of the corrective lens, in mm."},
                        {"type": "InlineObject", "name": "Distance Pupillary Distance", "address": "0x00460060", "required":"3", "comment": "Distance in mm between the pupils when the patient's object of regard is in the distance, as measured by an autorefractor."},
                        {"type": "InlineObject", "name": "Near Pupillary Distance", "address": "0x00460062", "required":"3", "comment": "Distance in mm between the pupils when the patient's object of regard is at near, as measured by an autorefractor."}
                      ]
@@ -2584,6 +2613,7 @@
                         {"type": "InlineObject", "name": "Sphere Power", "address": "0x00460146", "required":"1", "comment": "Refractive power of the eye that is the same in all meridians, measured at distance (optical infinity), in diopters."},
                         {"type": "LinkedObject", "prefix": "Include", "linked_resource": "table_C.8.25.6.1-1", "usage":""},
                         {"type": "LinkedObject", "prefix": "Include", "linked_resource": "table_C.8.25.6.2-1", "usage":""},
+                        {"type": "InlineObject", "name": "Vertex Distance", "address": "0x0022000F", "required":"3", "comment": "The distance from the corneal vertex of the eye to the back of the corrective lens, in mm."},
                         {"type": "InlineObject", "name": "Add Near Sequence", "address": "0x00460100", "required":"1C", "comment": "A Sequence that specifies refractive measurements of the eye to correct for inability to focus at near while wearing the distance prescription.\nOnly a single Item shall be included in this Sequence.\nRequired if near point refraction is done."},
                         {"type": "InlineObject", "name": ">Add Power", "address": "0x00460104", "required":"1", "comment": "Additional power relative to the distance correction, expressed in diopters, that allows best corrected visual acuity at the defined viewing distance."},
                         {"type": "InlineObject", "name": ">Viewing Distance", "address": "0x00460106", "required":"3", "comment": "The distance, in cm, for testing visual acuity corresponding to the value of Add Power (0046,0104) in this Sequence."},
@@ -2810,6 +2840,7 @@
                         {"type": "InlineObject", "name": ">Spherical Lens Power", "address": "0x00220007", "required":"1", "comment": "Sphere value in diopters."},
                         {"type": "InlineObject", "name": ">Cylinder Lens Power", "address": "0x00220008", "required":"1", "comment": "Cylinder value in diopters."},
                         {"type": "InlineObject", "name": ">Cylinder Axis", "address": "0x00220009", "required":"1", "comment": "Axis value in degrees."},
+                        {"type": "InlineObject", "name": ">Vertex Distance", "address": "0x0022000F", "required":"3", "comment": "The distance from the corneal vertex of the eye to the back of the corrective lens, in mm."},
                         {"type": "InlineObject", "name": ">Source of Refractive Measurements Sequence", "address": "0x00221134", "required":"1", "comment": "Refractive measurements source.\nOnly a single Item shall be included in this Sequence."},
                         {"type": "InlineObject", "name": ">>Source of Refractive Measurements Code Sequence", "address": "0x00221135", "required":"1", "comment": "Source of values in Refractive State Sequence (0022,101B).\nOnly a single Item shall be included in this Sequence."},
                         {"type": "LinkedObject", "prefix": ">>>Include", "linked_resource": "table_8.8-1", "usage":"D"},
@@ -3099,6 +3130,7 @@
                        {"type": "InlineObject", "name": ">Spherical Lens Power", "address": "0x00220007", "required":"1", "comment": "Sphere value in diopters."},
                        {"type": "InlineObject", "name": ">Cylinder Lens Power", "address": "0x00220008", "required":"1", "comment": "Cylinder value in diopters."},
                        {"type": "InlineObject", "name": ">Cylinder Axis", "address": "0x00220009", "required":"1", "comment": "Axis value in degrees."},
+                       {"type": "InlineObject", "name": ">Vertex Distance", "address": "0x0022000F", "required":"3", "comment": "The distance from the corneal vertex of the eye to the back of the corrective lens, in mm."},
                        {"type": "InlineObject", "name": "Pupil Size", "address": "0x00460044", "required":"2", "comment": "The horizontal diameter measurement of the pupil, in mm."},
                        {"type": "InlineObject", "name": "Pupil Dilated", "address": "0x0022000D", "required":"2", "comment": "The patient's pupils were pharmacologically dilated for this acquisition.\nIf this Attribute is empty, no information is available."},
                        {"type": "InlineObject", "name": "Intra Ocular Pressure", "address": "0x0022000B", "required":"3", "comment": "Value of intraocular pressure in mmHg."},
@@ -3113,8 +3145,7 @@
                        {"type": "InlineObject", "name": "Modality", "address": "0x00080060", "required":"1", "comment": "Type of device, process or method that originally acquired the data used to create the images in this Series.\nSee"},
                        {"type": "InlineObject", "name": "Series Number", "address": "0x00200011", "required":"1", "comment": "A number that identifies this Series."},
                        {"type": "InlineObject", "name": "Referenced Performed Procedure Step Sequence", "address": "0x00081111", "required":"1C", "comment": "Uniquely identifies the Performed Procedure Step SOP Instance to which the Series is related.\nOnly a single Item shall be included in this Sequence.\nRequired if a Performed Procedure Step SOP Class was involved in the creation of this Series."},
-                       {"type": "InlineObject", "name": ">Referenced SOP Class UID", "address": "0x00081150", "required":"1", "comment": "Uniquely identifies the referenced SOP Class."},
-                       {"type": "InlineObject", "name": ">Referenced SOP Instance UID", "address": "0x00081155", "required":"1", "comment": "Uniquely identifies the referenced SOP Instance."},
+                       {"type": "LinkedObject", "prefix": ">Include", "linked_resource": "table_10-11", "usage":""},
                        {"type": "InlineObject", "name": "Presentation Intent Type", "address": "0x00080068", "required":"1", "comment": "Identifies the intent of the images that are contained within this Series."}
                      ]
                    },

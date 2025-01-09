@@ -1,5 +1,5 @@
 {
-  "header" : {"dicom_standard_version": {"Version": "2023e"}},
+  "header" : {"dicom_standard_version": {"Version": "2024e"}},
 
   "dicom_iod_func_groups": {
      "Multi-frame Grayscale Byte Secondary Capture Image IOD Modules": [
@@ -125,7 +125,8 @@
         {"name": "CT Additional X-Ray Source", "ref": "sect_C.8.15.3.11", "usage":"C"},
         {"name": "Multi-energy CT Processing", "ref": "sect_C.8.15.3.13", "usage":"C"},
         {"name": "Multi-energy CT Characteristics", "ref": "sect_C.8.15.3.12", "usage":"U"},
-        {"name": "Temporal Position", "ref": "sect_C.7.6.16.2.23", "usage":"U"}
+        {"name": "Temporal Position", "ref": "sect_C.7.6.16.2.23", "usage":"U"},
+        {"name": "RT Cone-Beam Imaging", "ref": "sect_C.8.15.3.14", "usage":"U"}
      ],
      "Enhanced XA Image IOD Modules": [
         {"name": "Frame Content", "ref": "sect_C.7.6.16.2.2", "usage":"M"},
@@ -189,8 +190,8 @@
         {"name": "Plane Orientation (Patient)", "ref": "sect_C.7.6.16.2.4", "usage":"sect_C.7.6.16.2.6"},
         {"name": "Plane Position (Slide)", "ref": "sect_C.8.12.6.1", "usage":"sect_C.7.6.16.2.6"},
         {"name": "Derivation Image", "ref": "sect_C.7.6.16.2.6", "usage":"sect_C.7.6.16.2.1"},
-        {"name": "Frame Content", "ref": "sect_C.7.6.16.2.2", "usage":"M"},
-        {"name": "Segmentation", "ref": "sect_C.8.20.3.1", "usage":"M"}
+        {"name": "Frame Content", "ref": "sect_C.7.6.16.2.2", "usage":"C"},
+        {"name": "Segmentation", "ref": "sect_C.8.20.3.1", "usage":"C"}
      ],
      "Ophthalmic Tomography Image IOD Modules": [
         {"name": "Pixel Measures", "ref": "sect_C.7.6.16.2.1", "usage":"M"},
@@ -498,6 +499,16 @@
         {"name": "Plane Position (Slide)", "ref": "sect_C.8.12.6.1", "usage":"C"},
         {"name": "Confocal Microscopy Image Frame Type", "ref": "sect_C.8.35.4.1", "usage":"M"},
         {"name": "Frame Anatomy", "ref": "sect_C.7.6.16.2.8", "usage":"M"}
+     ],
+     "Height Map Segmentation IOD Modules": [
+        {"name": "Pixel Measures", "ref": "sect_C.7.6.16.2.1", "usage":"M"},
+        {"name": "Frame Content", "ref": "sect_C.7.6.16.2.2", "usage":"M"},
+        {"name": "Plane Position (Patient)", "ref": "sect_C.7.6.16.2.3", "usage":"C"},
+        {"name": "Plane Orientation (Patient)", "ref": "sect_C.7.6.16.2.4", "usage":"C"},
+        {"name": "Referenced Image", "ref": "sect_C.7.6.16.2.5", "usage":"U"},
+        {"name": "Derivation Image", "ref": "sect_C.7.6.16.2.6", "usage":"M"},
+        {"name": "Real World Value Mapping", "ref": "sect_C.7.6.16.2.11", "usage":"M"},
+        {"name": "Segmentation", "ref": "sect_C.8.20.3.1", "usage":"M"}
      ]
   }
 }

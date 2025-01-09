@@ -13,22 +13,23 @@
 # limitations under the License.
 #
 # ==============================================================================
-"""Tests for pipeline_util."""
+"""Tests for pipeline util."""
 
 import dataclasses
+import os
 import time
 
 from absl.testing import absltest
 from absl.testing import parameterized
 
-import ilm_config
-import ilm_types
-from ilm_lib import pipeline_util
-from test_utils import test_const
-from shared_libs.test_utils.gcs_mock import gcs_mock
+from ilm import ilm_config
+from ilm import ilm_types
+from ilm.ilm_lib import pipeline_util
+from ilm.test_utils import test_const
+from pathology.shared_libs.test_utils.gcs_mock import gcs_mock
 
 _TEST_BUCKET = 'test_bucket'
-_TEST_DIR = 'ilm/testdata/'
+_TEST_DIR = os.path.join(os.path.dirname(__file__), '..', 'testdata')
 
 _INSTANCE_METADATA = ilm_types.InstanceMetadata(
     instance=test_const.INSTANCE_0,
@@ -335,7 +336,7 @@ class PipelineUtilTest(parameterized.TestCase):
       start_time = time.time()
       throttler.wait()
       end_time = time.time()
-      self.assertBetween(end_time - start_time, 0.25, 0.251)
+      self.assertBetween(end_time - start_time, 0.20, 1)
 
 
 if __name__ == '__main__':

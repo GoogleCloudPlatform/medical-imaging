@@ -22,9 +22,9 @@ from absl.testing import flagsaver
 from absl.testing import parameterized
 import redis
 
-from shared_libs.logging_lib import cloud_logging_client
-from transformation_pipeline.ingestion_lib import mock_redis_client
-from transformation_pipeline.ingestion_lib import redis_client
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.transformation_pipeline.ingestion_lib import mock_redis_client
+from pathology.transformation_pipeline.ingestion_lib import redis_client
 
 _REDIS_MOCK_IP = '1.3.4.5'
 _MOCK_LOCK_NAME = 'mock_lock'
@@ -39,6 +39,10 @@ class RedisClientTest(parameterized.TestCase):
     super().setUp()
     self.enter_context(mock_redis_client.MockRedisClient(_REDIS_MOCK_IP))
     self._context_block = self.enter_context(contextlib.ExitStack())
+
+  def tearDown(self):
+    redis_client.RedisClient._instance = None
+    super().tearDown()
 
   def test_redis_client_singleton(self):
     self.assertIs(redis_client.redis_client(), redis_client.redis_client())

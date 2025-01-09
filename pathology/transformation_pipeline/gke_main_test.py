@@ -12,20 +12,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Tests for gke_main."""
+"""Tests for gke main."""
 
 from unittest import mock
 
 from absl.testing import absltest
 from absl.testing import flagsaver
 
-from transformation_pipeline import gke_main
-from transformation_pipeline import ingest_flags
-from transformation_pipeline.ingestion_lib import polling_client
-from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
+from pathology.transformation_pipeline import gke_main
+from pathology.transformation_pipeline import ingest_flags
+from pathology.transformation_pipeline.ingestion_lib import polling_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
 
 
 class GkeMainTest(absltest.TestCase):
+
+  def setUp(self):
+    super().setUp()
+    self.enter_context(
+        flagsaver.flagsaver(
+            project_id='proj',
+            dicomweb_url='http://healthcare.mock/',
+            dicom_guid_prefix=uid_generator.TEST_UID_PREFIX,
+        )
+    )
 
   def test_run_oof_ingest_fails_missing_oof_subscription(self):
     with self.assertRaisesRegex(ValueError, 'Missing OOF subscription'):
@@ -131,9 +141,4 @@ class GkeMainTest(absltest.TestCase):
 
 
 if __name__ == '__main__':
-  with flagsaver.flagsaver(
-      project_id='proj',
-      dicomweb_url='http://healthcare.mock/',
-      dicom_guid_prefix=uid_generator.TEST_UID_PREFIX,
-  ):
-    absltest.main()
+  absltest.main()

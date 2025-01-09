@@ -15,8 +15,8 @@
 """Holds representation of DICOM files ingested for pyramid generation."""
 import pydicom
 
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_file_ref
-from transformation_pipeline.ingestion_lib.dicom_gen import wsi_dicom_file_ref
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_file_ref
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import wsi_dicom_file_ref
 
 
 class DicomIngestError(Exception):

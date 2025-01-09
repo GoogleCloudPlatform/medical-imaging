@@ -22,37 +22,34 @@ import shutil
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Set, Union
 from unittest import mock
 
-from absl import flags
 from absl.testing import absltest
 from absl.testing import flagsaver
 from absl.testing import parameterized
 import pydicom
 import requests
 
-from shared_libs.logging_lib import cloud_logging_client
-from shared_libs.test_utils.dicom_store_mock import dicom_store_mock
-from shared_libs.test_utils.gcs_mock import gcs_mock
-from transformation_pipeline import ingest_flags
-from transformation_pipeline.ingestion_lib import abstract_polling_client
-from transformation_pipeline.ingestion_lib import gen_test_util
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib import redis_client
-from transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_json_util
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_private_tag_generator
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
-from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_base
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.shared_libs.pydicom_version_util import pydicom_version_util
+from pathology.shared_libs.test_utils.dicom_store_mock import dicom_store_mock
+from pathology.shared_libs.test_utils.gcs_mock import gcs_mock
+from pathology.transformation_pipeline import ingest_flags
+from pathology.transformation_pipeline.ingestion_lib import abstract_polling_client
+from pathology.transformation_pipeline.ingestion_lib import gen_test_util
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib import redis_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_json_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_private_tag_generator
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_base
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
 
 
 _SCHEMA = {
     '0x00100010': {'Keyword': 'PatientName', 'Meta': 'Patient Name'},
     '0x00100020': {'Keyword': 'PatientID', 'Meta': 'Patient ID'},
 }
-
-_TEST_BUCKET_PATH = 'transformation_pipeline/testdata/bucket'
-
 
 _EXPECTED_DEFAULT_WSI2DCM_PARAMS = {
     '--tileHeight': '256',
@@ -76,7 +73,7 @@ def _schema_paths() -> List[str]:
 
 
 def _get_test_metadata_bucket(path: absltest._TempDir) -> absltest._TempDir:
-  metadata_path = os.path.join(flags.FLAGS.test_srcdir, _TEST_BUCKET_PATH)
+  metadata_path = gen_test_util.test_file_path('bucket')
   for fname in os.listdir(metadata_path):
     shutil.copyfile(
         os.path.join(metadata_path, fname), os.path.join(path, fname)
@@ -148,8 +145,7 @@ def _create_pydicom_file_dataset_from_json(
       file_meta=pydicom.dataset.FileMetaDataset(),
       preamble=b'\0' * 128,
   )
-  ds.is_little_endian = True
-  ds.is_implicit_VR = False
+  pydicom_version_util.set_little_endian_explicit_vr(ds)
   return ds
 
 

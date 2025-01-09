@@ -1,0 +1,94 @@
+// Copyright 2024 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package pathology.orchestrator.v1main;
+
+import "google/api/field_behavior.proto";
+import "google/api/resource.proto";
+
+option java_package = "com.pathology.orchestrator.v1main";
+option java_outer_classname = "SlidesProto";
+option java_multiple_files = true;
+
+// Representation of a slide.
+message PathologySlide {
+  option (google.api.resource) = {
+    type: "digitalpathology.googleapis.com/PathologySlide"
+    pattern: "pathologySlides/{pathology_slide}"
+  };
+
+  // Resource name for a slide. Empty when creating.
+  string name = 1 [
+    (google.api.resource_reference).type =
+        "digitalpathology.googleapis.com/PathologySlide",
+    (google.api.field_behavior) = OUTPUT_ONLY
+  ];
+
+  // Unique internal id for a scan. Empty when creating.
+  // The name ScanUniqueId is used to distinguish this id from 'SlideId' which
+  // represents the barcode in DPAS ingest pipeline and doesn't uniquely
+  // identify a scan.
+  string scan_unique_id = 2 [
+    (google.api.field_behavior) = OUTPUT_ONLY,
+    (google.api.field_behavior) = IMMUTABLE
+  ];
+
+  // Full Dicom path for a scan.
+  // Ex. projects/{projectId}/.../instances/{instanceId}
+  string dicom_uri = 3 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.field_behavior) = IMMUTABLE
+  ];
+}
+
+// Request for CreatePathologySlide rpc.
+// For this implementation, slides are top level fields so there is no parent.
+message CreatePathologySlideRequest {
+  // Slide to create.
+  PathologySlide pathology_slide = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// Request for GetPathologySlide rpc.
+message GetPathologySlideRequest {
+  // Resource name of slide to retrieve.
+  string name = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.resource_reference).type =
+        "digitalpathology.googleapis.com/PathologySlide"
+  ];
+}
+
+// Request for ListPathologySlides.
+message ListPathologySlidesRequest {
+  // Filters based on a subset of the DicomUri of slide.
+  // Ex. studies/.../series/.../instances/...
+  string filter = 1;
+
+  // Default is 20.
+  int32 page_size = 2;
+
+  // A page token, received from a ListPathologySlides call.
+  string page_token = 3;
+}
+
+// Response for ListPathologySlides.
+message ListPathologySlidesResponse {
+  // List of pathology slides.
+  repeated PathologySlide pathology_slides = 1;
+
+  // Token to get subsequent page if present.
+  string next_page_token = 2;
+}

@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Tests for dicom_file_ref."""
+"""Tests for dicom file ref."""
+
 import os
 import typing
 
@@ -20,10 +21,12 @@ from absl import flags
 from absl.testing import absltest
 import pydicom
 
-from shared_libs.test_utils.dicom_store_mock import dicom_store_mock_types
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_file_ref
-from transformation_pipeline.ingestion_lib.dicom_util import dicom_test_util
+from pathology.shared_libs.pydicom_version_util import pydicom_version_util
+from pathology.shared_libs.test_utils.dicom_store_mock import dicom_store_mock_types
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_file_ref
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_test_util
+
 
 _FLAGS = flags.FLAGS
 _OOF_SCORE = '0.1'
@@ -123,9 +126,8 @@ class DicomFileRefTest(absltest.TestCase):
             dcm_json=dicom_test_util.create_metadata_dict()
         ),
     )
-    ds.save_as(_FLAGS.test_tmpdir + '/test.dcm', write_like_original=False)
-
     filepath = os.path.join(_FLAGS.test_tmpdir, 'test.dcm')
+    pydicom_version_util.save_as_validated_dicom(ds, filepath)
     fref = dicom_file_ref.init_from_file(
         filepath, dicom_file_ref.DicomFileRef()
     )

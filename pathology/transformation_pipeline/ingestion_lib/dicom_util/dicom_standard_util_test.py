@@ -15,7 +15,7 @@
 from absl.testing import absltest
 from absl.testing import parameterized
 
-from transformation_pipeline.ingestion_lib.dicom_util import dicom_standard_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_standard_util
 
 _FUNCTIONAL_GROUP_MACRO_IODS = [
     'Breast Projection X-Ray Image Storage - For Presentation',
@@ -35,7 +35,9 @@ _FUNCTIONAL_GROUP_MACRO_IODS = [
         'Intravascular Optical Coherence Tomography Image Storage - For'
         ' Presentation'
     ),
+    'Height Map Segmentation Storage',
     'Intravascular Optical Coherence Tomography Image Storage - For Processing',
+    'Label Map Segmentation Storage',
     'Legacy Converted Enhanced CT Image Storage',
     'Legacy Converted Enhanced MR Image Storage',
     'Legacy Converted Enhanced PET Image Storage',
@@ -319,6 +321,8 @@ class DICOMStandardUtilTest(parameterized.TestCase):
     # If this test fails after updating the DICOM standard metadata then
     # json in "dicom_iod_module_map" likely needs to be updated to define
     # missing iod module mappings.
+    # see DICOM standard table:
+    # https://dicom.nema.org/medical/dicom/current/output/chtml/part04/sect_b.5.html
     standard_util = dicom_standard_util.DicomStandardIODUtil()
     self.assertEqual(
         set(standard_util._iod_uid), set(standard_util._iod_to_module_map)

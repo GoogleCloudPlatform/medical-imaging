@@ -18,8 +18,9 @@ from typing import List
 
 from absl import flags
 
-from transformation_pipeline.ingestion_lib.dicom_util import dicom_iod_util
-from transformation_pipeline.ingestion_lib.dicom_util import dicom_standard
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_iod_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_standard
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_standard_util
 
 
 DICOM_IOD_NAME_FLG = flags.DEFINE_string(
@@ -41,7 +42,9 @@ def _print_iod(
   Returns:
     None.
   """
-  dataset = dcm_util.get_iod_dicom_dataset(DICOM_IOD_NAME_FLG.value, path)
+  dataset = dcm_util.get_iod_dicom_dataset(
+      dicom_standard_util.IODName(DICOM_IOD_NAME_FLG.value), path
+  )
   if dataset is None:
     return
   prefix = '  ' * len(path)
@@ -55,7 +58,7 @@ def _print_iod(
       # Cyclic graph detected in IOD.
       tag = dicom_standard.dicom_standard_util().get_tag(tag_address)
       print(
-          f'{prefix}{tag} references {tag.keyword} [Cyclic graph detected in'
+          f'{prefix}{tag} references {tag.keyword} [Cyclic graph detected in'  # pytype: disable=attribute-error
           ' IOD sequence]'
       )
       continue

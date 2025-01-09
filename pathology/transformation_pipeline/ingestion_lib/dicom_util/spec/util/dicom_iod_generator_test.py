@@ -18,9 +18,9 @@ import os
 
 from absl.testing import absltest
 
-from transformation_pipeline.ingestion_lib.dicom_util.spec.util.lib import dicom_iod_uid_xml_parser
-from transformation_pipeline.ingestion_lib.dicom_util.spec.util.lib import dicom_iod_xml_parser
-from transformation_pipeline.ingestion_lib.dicom_util.spec.util.lib import dicom_tag_xml_parser
+from pathology.transformation_pipeline.ingestion_lib.dicom_util.spec.util.lib import dicom_iod_uid_xml_parser
+from pathology.transformation_pipeline.ingestion_lib.dicom_util.spec.util.lib import dicom_iod_xml_parser
+from pathology.transformation_pipeline.ingestion_lib.dicom_util.spec.util.lib import dicom_tag_xml_parser
 
 
 class UnitTests(absltest.TestCase):

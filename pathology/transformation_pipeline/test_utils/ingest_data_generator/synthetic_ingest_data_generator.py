@@ -172,11 +172,13 @@ import pandas
 import pydicom
 import requests
 
-from shared_libs.logging_lib import cloud_logging_client
-from transformation_pipeline.ingestion_lib import cloud_storage_client
-from transformation_pipeline.ingestion_lib import csv_util
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
-from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.shared_libs.pydicom_version_util import pydicom_version_util
+from pathology.transformation_pipeline.ingestion_lib import cloud_storage_client
+from pathology.transformation_pipeline.ingestion_lib import csv_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
+
 
 _DATA_DIR = os.path.dirname(__file__)
 
@@ -1220,7 +1222,7 @@ def download_and_update_dcms(
     else:
       sop_instance_uid = pydicom.uid.generate_uid()
     update_dcm(barcode, study_uid, series_uid, sop_instance_uid, dcm)
-    dcm.save_as(dicom_path, write_like_original=False)
+    pydicom_version_util.save_as_validated_dicom(dcm, dicom_path)
     dicom_paths.append(dicom_path)
   return dicom_paths
 

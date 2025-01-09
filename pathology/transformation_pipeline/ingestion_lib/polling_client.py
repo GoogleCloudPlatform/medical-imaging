@@ -20,15 +20,15 @@ from typing import Mapping, Optional
 from google.api_core import retry
 from google.cloud import pubsub_v1
 
-from shared_libs.logging_lib import cloud_logging_client
-from transformation_pipeline import ingest_flags
-from transformation_pipeline.ingestion_lib import abstract_polling_client
-from transformation_pipeline.ingestion_lib import abstract_pubsub_message_handler
-from transformation_pipeline.ingestion_lib import ack_timeout_monitor
-from transformation_pipeline.ingestion_lib import cloud_storage_client
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib.pubsub_msgs import abstract_pubsub_msg
-from transformation_pipeline.ingestion_lib.pubsub_msgs import gcs_file_msg
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.transformation_pipeline import ingest_flags
+from pathology.transformation_pipeline.ingestion_lib import abstract_polling_client
+from pathology.transformation_pipeline.ingestion_lib import abstract_pubsub_message_handler
+from pathology.transformation_pipeline.ingestion_lib import ack_timeout_monitor
+from pathology.transformation_pipeline.ingestion_lib import cloud_storage_client
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib.pubsub_msgs import abstract_pubsub_msg
+from pathology.transformation_pipeline.ingestion_lib.pubsub_msgs import gcs_file_msg
 
 
 NO_PUBSUB_MSG_LOG_INTERVAL_SECONDS = 600  # 10 min timeout interval for logging

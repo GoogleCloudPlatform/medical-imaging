@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Tests abstract_dicom_generation_test."""
+"""Tests abstract dicom generation test."""
+
 import os
 import typing
 from unittest import mock
@@ -22,18 +23,18 @@ from absl.testing import flagsaver
 from absl.testing import parameterized
 import pydicom
 
-from shared_libs.logging_lib import cloud_logging_client
-from transformation_pipeline import ingest_flags
-from transformation_pipeline.ingestion_lib import abstract_polling_client
-from transformation_pipeline.ingestion_lib import cloud_storage_client
-from transformation_pipeline.ingestion_lib import gen_test_util
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib import redis_client
-from transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
-from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
-from transformation_pipeline.ingestion_lib.dicom_gen import wsi_dicom_file_ref
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
-from transformation_pipeline.ingestion_lib.dicom_util import dicom_test_util
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.shared_libs.pydicom_version_util import pydicom_version_util
+from pathology.transformation_pipeline.ingestion_lib import abstract_polling_client
+from pathology.transformation_pipeline.ingestion_lib import cloud_storage_client
+from pathology.transformation_pipeline.ingestion_lib import gen_test_util
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib import redis_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import wsi_dicom_file_ref
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_test_util
 
 
 class AbstractDicomGenerationForTest(
@@ -67,13 +68,10 @@ class AbstractDicomGenerationTest(parameterized.TestCase):
 
   @mock.patch.object(
       dicom_util,
-      '_read_icc_profile',
-      autospec=True,
+      '_read_internal_icc_profile',
       side_effect=FileNotFoundError(),
   )
-  @flagsaver.flagsaver(
-      default_iccprofile=ingest_flags.DefaultIccProfile.ADOBERGB
-  )
+  @flagsaver.flagsaver(default_iccprofile=ingest_const.ICCProfile.ROMMRGB)
   def test_abstract_dicom_generation_constructor_raises_if_default_icc_profile_not_found(
       self, _
   ) -> None:
@@ -108,7 +106,7 @@ class AbstractDicomGenerationTest(parameterized.TestCase):
         ),
     )
     dcm_file_path = os.path.join(out_dir, 'test.dcm')
-    dcm.save_as(dcm_file_path, write_like_original=False)
+    pydicom_version_util.save_as_validated_dicom(dcm, dcm_file_path)
     hash_value = 'abcdef12345689'
     pubsub_msgid = 'TestPubSubMsgID_1234'
     gen_dicom = abstract_dicom_generation.GeneratedDicomFiles(
@@ -254,7 +252,7 @@ class AbstractDicomGenerationTest(parameterized.TestCase):
         ),
     )
     dcm_file_path = os.path.join(out_dir, 'test.dcm')
-    dcm.save_as(dcm_file_path, write_like_original=False)
+    pydicom_version_util.save_as_validated_dicom(dcm, dcm_file_path)
     hash_value = '123'
     pubsub_msgid = 'TestPubSubMsgID_1234'
     gen_dicom = abstract_dicom_generation.GeneratedDicomFiles('local.svs', '')
@@ -281,7 +279,7 @@ class AbstractDicomGenerationTest(parameterized.TestCase):
         ),
     )
     dcm_file_path = os.path.join(out_dir, 'test.dcm')
-    dcm.save_as(dcm_file_path, write_like_original=False)
+    pydicom_version_util.save_as_validated_dicom(dcm, dcm_file_path)
     hash_value = ''
     pubsub_msgid = 'TestPubSubMsgID_1234'
     gen_dicom = abstract_dicom_generation.GeneratedDicomFiles('local.svs', '')

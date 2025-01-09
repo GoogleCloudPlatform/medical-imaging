@@ -14,12 +14,12 @@
 # ==============================================================================
 """Tests for flag utils."""
 import os
+from unittest import mock
 
 from absl.testing import absltest
 from absl.testing import parameterized
-import mock
 
-from shared_libs.flags import flag_utils
+from pathology.shared_libs.flags import flag_utils
 
 # const
 _UNDEFINED_ENV_VAR_NAME = 'UNDEFINED'

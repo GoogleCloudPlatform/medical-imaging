@@ -12,14 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Tests for ingestion_complete_oof_trigger_pubsub_topic."""
+"""Tests for ingestion complete oof trigger pubsub topic."""
+from unittest import mock
+
 from absl.testing import absltest
 from google.api_core import exceptions as google_exceptions
 import google.auth
 from google.cloud import pubsub_v1
-import mock
-from shared_libs.logging_lib import cloud_logging_client
-from transformation_pipeline.ingestion_lib import pubsub_util
+
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.transformation_pipeline.ingestion_lib import pubsub_util
 
 
 class PubSubUtilTest(absltest.TestCase):

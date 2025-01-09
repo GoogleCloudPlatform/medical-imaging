@@ -20,9 +20,9 @@ from typing import Iterator, Optional, Union
 from google.api_core import exceptions
 import google.cloud.storage
 
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import client_mock
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_types
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_utils
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import client_mock
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_types
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_utils
 
 _VALID_BUCKET_NAME_START_END_CHAR_REGEX = re.compile('[0-9a-zA-Z]')
 

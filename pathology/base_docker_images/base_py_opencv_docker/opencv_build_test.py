@@ -28,11 +28,11 @@ except ImportError:
 
 # Const
 _EXPECTED_LIB_JPEG_TURBO = ' /opt/libjpeg-turbo/lib64/libjpeg.a (ver 62)'
-_EXPECTED_LIB_JPEG2000_DECODER = 'OpenJPEG (ver 2.5.2)'
+_EXPECTED_LIB_JPEG2000_DECODER = 'OpenJPEG (ver 2.5.3)'
 
 lib_jpeg_turbo_installed = None
 jpeg2000_decoder_installed = None
-build_info = cv2.getBuildInformation().split('\n')
+build_info = cv2.getBuildInformation().split('\n')  # pylint: disable=undefined-variable
 error_output = []
 success_output = []
 for line in build_info:
@@ -72,7 +72,7 @@ if not error_output:
   tst_img = np.zeros((500, 500, 3), dtype=np.uint8)
   with tempfile.TemporaryDirectory() as tmp:
     imgpth = os.path.join(tmp, 'test.jp2')
-    cv2.imwrite(imgpth, tst_img)
+    cv2.imwrite(imgpth, tst_img)  # pylint: disable=undefined-variable
     img = Image.open(imgpth)
     if img.format == 'JPEG2000':
       success_output.append('Test Passed: OpenCV write JPEG 2000 (jp2).')

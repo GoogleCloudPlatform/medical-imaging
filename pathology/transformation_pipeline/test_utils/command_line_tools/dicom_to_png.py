@@ -25,8 +25,10 @@ import cv2
 import numpy as np
 import pydicom
 
+from pathology.shared_libs.pydicom_version_util import pydicom_version_util
 
-def gen_dicom(filename: str):
+
+def gen_dicom(filename: str) -> None:
   """Generates a PNG of wsi-dicom image and saves to disk in working dir.
 
   Args:
@@ -46,7 +48,7 @@ def gen_dicom(filename: str):
       num_frames = 1
     else:
       num_frames = ds.NumberOfFrames
-    encoded_frames = pydicom.encaps.generate_pixel_data_frame(
+    encoded_frames = pydicom_version_util.generate_frames(
         ds.PixelData, num_frames
     )
     for pixel_data in encoded_frames:

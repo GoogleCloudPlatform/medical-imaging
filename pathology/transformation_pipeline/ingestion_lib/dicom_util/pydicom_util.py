@@ -20,9 +20,9 @@ from typing import List, Optional, Sequence, Set, Union
 
 import pydicom
 
-from shared_libs.logging_lib import cloud_logging_client
-from transformation_pipeline.ingestion_lib.dicom_util import dicom_iod_util
-from transformation_pipeline.ingestion_lib.dicom_util import dicom_standard
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_iod_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_standard
 
 
 class UndefinedIODError(Exception):

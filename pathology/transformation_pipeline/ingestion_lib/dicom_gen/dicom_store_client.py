@@ -28,12 +28,13 @@ import google.auth
 import pydicom
 import requests
 
-from shared_libs.logging_lib import cloud_logging_client
-from transformation_pipeline import ingest_flags
-from transformation_pipeline.ingestion_lib import cloud_storage_client
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_json_util
-from transformation_pipeline.ingestion_lib.dicom_gen import wsi_dicom_file_ref
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.shared_libs.pydicom_version_util import pydicom_version_util
+from pathology.transformation_pipeline import ingest_flags
+from pathology.transformation_pipeline.ingestion_lib import cloud_storage_client
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_json_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import wsi_dicom_file_ref
 
 
 def _get_quota_str(exp: requests.HTTPError) -> str:
@@ -538,7 +539,7 @@ def set_dicom_series_uid(
           },
       )
       dcm.SeriesInstanceUID = series_uid
-      dcm.save_as(dcm_file, write_like_original=False)
+      pydicom_version_util.save_as_validated_dicom(dcm, dcm_file)
       changed = True
   return changed
 

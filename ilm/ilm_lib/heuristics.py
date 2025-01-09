@@ -22,8 +22,8 @@ from typing import Any, Iterable, List, Optional, Set
 
 import apache_beam as beam
 
-import ilm_config
-import ilm_types
+from ilm import ilm_config
+from ilm import ilm_types
 
 
 def _convert_to_date(date_str: Optional[str]) -> Optional[datetime.date]:

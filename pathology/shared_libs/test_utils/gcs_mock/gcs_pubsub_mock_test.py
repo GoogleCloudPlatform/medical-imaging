@@ -22,7 +22,7 @@ from absl.testing import absltest
 from absl.testing import parameterized
 import google.cloud.pubsub_v1
 
-from shared_libs.test_utils.gcs_mock import gcs_pubsub_mock
+from pathology.shared_libs.test_utils.gcs_mock import gcs_pubsub_mock
 
 
 _PROJECT_ID = 'test-project'

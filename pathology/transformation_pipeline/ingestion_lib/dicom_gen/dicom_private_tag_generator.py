@@ -19,8 +19,8 @@ from typing import Any, List
 
 import pydicom
 
-from shared_libs.logging_lib import cloud_logging_client
-from transformation_pipeline.ingestion_lib import ingest_const
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
 
 
 @dataclasses.dataclass(frozen=True)
@@ -97,7 +97,7 @@ class DicomPrivateTagGenerator(object):
       DicomPrivateTagGenerator.add_dicom_private_tags(
           private_tags, dcm, log_action=False
       )
-      dcm.save_as(file_name, write_like_original=True)
+      dcm.save_as(file_name)
       cloud_logging_client.info(
           'Adding private tags to DICOM',
           {

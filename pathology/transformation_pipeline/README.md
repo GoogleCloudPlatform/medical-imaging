@@ -12,9 +12,9 @@ deployable to GCP hosted GKE containers.
 ## Getting Started
 
 * For a high level specification overview of the transformation pipeline,
-refer to the documentation [here](https://github.com/GoogleCloudPlatform/Cloud-Pathology/blob/main/transformation_pipeline/docs/digital_pathology_transformation_pipeline_to_dicom_spec.md)
+refer to the documentation [here](https://github.com/GoogleCloudPlatform/medical-imaging/blob/main/pathology/transformation_pipeline/docs/digital_pathology_transformation_pipeline_to_dicom_spec.md)
 * For a how to guide with picture walkthrough of the pipeline refer to documentation
-  [here](https://github.com/GoogleCloudPlatform/Cloud-Pathology/blob/main/transformation_pipeline/docs/digital_pathology_transformation_pipeline_to_dicom.md)
+  [here](https://github.com/GoogleCloudPlatform/medical-imaging/blob/main/pathology/transformation_pipeline/docs/digital_pathology_transformation_pipeline_to_dicom.md)
 
 ## Requirements
 
@@ -42,13 +42,13 @@ gcloud builds submit --config=./transformation_pipeline/cloudbuild.yaml \
 ## Deployment
 
 To deploy the container you built follow the deployment instructions in the IaC
-repository [here](https://github.com/GoogleCloudPlatform/cloud-pathology-iac/blob/main/README.md)
+directory [here](https://github.com/GoogleCloudPlatform/medical-imaging/blob/main/iac/README.md)
 .
 
 ## Test your deployment
 
 For a how to guide with a walkthrough of the pipeline refer to documentation
-  [here](https://github.com/GoogleCloudPlatform/Cloud-Pathology/blob/main/transformation_pipeline/docs/digital_pathology_transformation_pipeline_to_dicom.md)
+  [here](https://github.com/GoogleCloudPlatform/medical-imaging/blob/main/pathology/transformation_pipeline/docs/digital_pathology_transformation_pipeline_to_dicom.md)
 
 A tool to test transformation pipeline deployments is provided
-  [here](https://github.com/GoogleCloudPlatform/cloud-pathology/tree/main/transformation_pipeline/test_utils/ingest_data_generator). The tool simplifies triggering transformation pipeline execution by generating synthetic metadata for imaging and triggering the pipeline with the provided imaging and metadata. Among its uses the tool can be used to test imaging formats, GKE scaling configurations, and metadata generation.
+  [here](https://github.com/GoogleCloudPlatform/medical-imaging/blob/main/pathology/transformation_pipeline/test_utils/ingest_data_generator). The tool simplifies triggering transformation pipeline execution by generating synthetic metadata for imaging and triggering the pipeline with the provided imaging and metadata. Among its uses the tool can be used to test imaging formats, GKE scaling configurations, and metadata generation.

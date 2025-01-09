@@ -16,7 +16,7 @@ from absl.testing import absltest
 from absl.testing import flagsaver
 from absl.testing import parameterized
 
-from transformation_pipeline.ingestion_lib.dicom_gen import ingestion_dicom_store_urls
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import ingestion_dicom_store_urls
 
 _BASE_TEST_URL = (
     'https://healthcare.googleapis.com/v1/projects/foo/locations'

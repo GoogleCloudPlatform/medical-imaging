@@ -26,13 +26,13 @@ from absl import app
 from absl import flags
 from absl.testing import flagsaver
 
-from shared_libs.flags import flag_utils
-from shared_libs.logging_lib import cloud_logging_client
-from shared_libs.test_utils.dicom_store_mock import dicom_store_mock
-from shared_libs.test_utils.gcs_mock import gcs_mock
-from shared_libs.test_utils.gcs_mock import gcs_pubsub_mock
-from transformation_pipeline import gke_main
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
+from pathology.shared_libs.flags import flag_utils
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.shared_libs.test_utils.dicom_store_mock import dicom_store_mock
+from pathology.shared_libs.test_utils.gcs_mock import gcs_mock
+from pathology.shared_libs.test_utils.gcs_mock import gcs_pubsub_mock
+from pathology.transformation_pipeline import gke_main
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
 
 _CONTAINER_BASE_DIR = ''
 

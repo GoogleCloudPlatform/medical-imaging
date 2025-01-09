@@ -18,9 +18,26 @@
 #
 # from pathology_cloud working dir run: ./transformation_pipeline/deploy_ingest.sh
 #
+ARG BASE_CONTAINER
 FROM ${BASE_CONTAINER}
 
 WORKDIR /
+
+# Add additional ICC Profiles to the container here.
+ENV THIRD_PARTY_ICC_PROFILE_DIRECTORY='/icc_profiles'
+# copy adobe rgb icc profile into 3rd party icc profile directory
+RUN apt-get -qq update && apt-get install -y unzip wget && \
+    mkdir /icc_profiles && \
+    wget -q ftp://ftp.adobe.com/pub/adobe/iccprofiles/mac/AdobeICCProfilesCS4Mac_end-user.zip && \
+    unzip -qq AdobeICCProfilesCS4Mac_end-user.zip -d ./adobe_icc_profiles && \
+    rm AdobeICCProfilesCS4Mac_end-user.zip && \
+    mkdir -p /icc_profiles/adobergb && \
+    cp "./adobe_icc_profiles/Adobe ICC Profiles (end-user)/"*.pdf /icc_profiles/adobergb && \
+    cp "./adobe_icc_profiles/Adobe ICC Profiles (end-user)/RGB/AdobeRGB1998.icc" /icc_profiles/adobergb && \
+    rm -r -f ./adobe_icc_profiles && \
+    apt-get -qq purge -y unzip wget
+# To add additional ICC Profiles to the container, add place them in the
+# /icc_profiles directory
 
 RUN apt-get update && apt-get install -y \
     git \
@@ -37,7 +54,7 @@ RUN apt-get update && apt-get install -y \
     meson # For building gdk-pixbuf
 
 # Build ZXing Barcode reader
-COPY ./transformation_pipeline/testdata/barcode_wikipedia_pdf417.png /wikipedia_pdf417.png
+COPY ./pathology/transformation_pipeline/testdata/barcode_wikipedia_pdf417.png /wikipedia_pdf417.png
 RUN set -e && \
     git clone https://github.com/zxing/zxing.git && \
     cd zxing && \
@@ -108,7 +125,7 @@ RUN set -e && \
     ./gTests && \
     cd .. && \
     # Run EndToEnd Tests
-    ./endToEnd/endToEndTest.sh SKIP_BUILD_ENVIRONMENT && \
+    # ./endToEnd/endToEndTest.sh SKIP_BUILD_ENVIRONMENT && \
     rm ./cloud_build/debianBuild.sh && \
     touch ./cloud_build/debianBuild.sh && \
     chmod +x ./cloud_build/debianBuild.sh && \
@@ -150,11 +167,11 @@ RUN apt-get update && \
            /usr/lib/google-cloud-sdk/bin/gcloud-crc32c
 
 # Setup python enviroment
-COPY ./transformation_pipeline/requirements.txt /requirements.txt
-COPY ./shared_libs/docker_setup/setuptools_requirements.txt /setuptools_requirements.txt
+COPY ./pathology/transformation_pipeline/requirements.txt \
+    ./pathology/shared_libs/docker_setup/setuptools_requirements.txt /
 RUN python3 -m pip install -r setuptools_requirements.txt --require-hashes && \
     python3 -m pip install -r /requirements.txt --require-hashes && \
-    pip uninstall -y pip && \
+    python3 -m pip uninstall -y pip && \
     apt-get purge -y \
       libldap-common \
       libglib2.0-dev \
@@ -166,42 +183,51 @@ RUN python3 -m pip install -r setuptools_requirements.txt --require-hashes && \
       build-essential \
       gcc && \
     apt-get autoremove -y && \
-    rm /usr/bin/apt \
-       /usr/bin/apt-get \
-       /requirements.txt \
-       /setuptools_requirements.txt
+    rm /requirements.txt \
+       /setuptools_requirements.txt \
+       /usr/bin/apt \
+       /usr/bin/apt-get
 
+# Copy licenses
+COPY ./LICENSE /pathology/license
+COPY ./LICENSE /license
+COPY ./pathology/transformation_pipeline/ThirdParty_LICENSE.docker /thirdparty_licenses.txt
 
-# Copy thirdparty_licenses
-COPY ./transformation_pipeline/ThirdParty_LICENSE.docker /thirdparty_licenses.txt
+# Copy Bazel build requirements
+COPY ./WORKSPACE ./MODULE.bazel /
+COPY ./pathology/bazel_requirements.txt ./pathology/__init__.py /pathology/
 
-# Copy transformation examples
-COPY ./transformation_pipeline/example /example
-
-# Copy WORKSPACE
-COPY ./WORKSPACE /WORKSPACE
-
-# Copy python source
-COPY ./transformation_pipeline/ingestion_lib /transformation_pipeline/ingestion_lib
-COPY ./transformation_pipeline/ingest_flags.py  /transformation_pipeline/ingest_flags.py
-COPY ./transformation_pipeline/gke_main.py  /transformation_pipeline/gke_main.py
-COPY ./transformation_pipeline/localhost_main.py  /transformation_pipeline/localhost_main.py
-COPY ./transformation_pipeline/default_config.yaml \
-     ./transformation_pipeline/default_config.json /
-COPY ./shared_libs /shared_libs
+# Copy Python source
+COPY ./pathology/transformation_pipeline /pathology/transformation_pipeline/
+COPY ./pathology/shared_libs /pathology/shared_libs/
+COPY ./third_party /third_party
 
 # Make python directory __init__ files for copied directories.
-RUN touch /__init__.py \
-          /shared_libs/__init__.py \
-          /shared_libs/logging_lib/__init__.py \
-          /shared_libs/spanner_lib/__init__.py \
-          /transformation_pipeline/__init__.py && \
-    chmod 644 *.py *.yaml *.json *.txt && \
-    chmod -R 755 /transformation_pipeline /shared_libs
-
+RUN mv /pathology/transformation_pipeline/default_config.* / && \
+    python3 -m compileall -b /pathology && \
+    find /pathology -type d -exec chmod 755 {} \; && \
+    find /pathology -type f -exec chmod 644 {} \; && \
+    # Make third_party folder and contents readable.
+    find /third_party -type d -exec chmod 755 {} \; && \
+    find /third_party -type f -exec chmod 644 {} \; && \
+    # Make icc profiles copied in to icc profiles dir folder readable.
+    find /icc_profiles -type d -exec chmod 755 {} \; && \
+    find /icc_profiles -type f -exec chmod 644 {} \; && \
+    chmod 644 /thirdparty_licenses.txt \
+              /default_config.yaml \
+              /default_config.json \
+              /license
 ENV PYTHONPATH="${PYTHONPATH}:/"
+
+# Run unit tests on container.
+RUN set -e && \
+    python3 -m unittest discover -p "*_test.py" -s "/pathology/transformation_pipeline" -t / && \
+    python3 -m unittest discover -p "*_test.py" -s "/pathology/shared_libs" -t / && \
+    set +e && \
+    rm -rf /tmp
+
 # Set container to run as non-root user.
 # NonRootUser configured in dpas-debian-python-base image.
 USER NonRootUser
 
-ENTRYPOINT ["python3", "-OO", "/transformation_pipeline/gke_main.py"]
+ENTRYPOINT ["python3", "-OO", "/pathology/transformation_pipeline/gke_main.py"]

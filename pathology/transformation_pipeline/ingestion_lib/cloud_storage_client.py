@@ -21,9 +21,9 @@ from typing import Mapping, Optional
 import google.api_core
 from google.cloud import storage as cloud_storage
 
-from shared_libs.logging_lib import cloud_logging_client
-from transformation_pipeline.ingestion_lib import hash_util
-from transformation_pipeline.ingestion_lib import ingest_const
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.transformation_pipeline.ingestion_lib import hash_util
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
 
 
 @dataclasses.dataclass

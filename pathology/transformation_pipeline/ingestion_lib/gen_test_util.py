@@ -13,20 +13,27 @@
 # limitations under the License.
 # ==============================================================================
 """Helper functions for tests."""
+
+import io
 import os
 
-from absl import flags
+import numpy as np
+import PIL.Image
 import pydicom
 
-from transformation_pipeline.ingestion_lib import ingest_const
+from pathology.shared_libs.pydicom_version_util import pydicom_version_util
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
 
 
 def test_file_path(*path: str) -> str:
   """Returns path to file in unit test."""
   return os.path.join(
-      flags.FLAGS.test_srcdir,
-      'transformation_pipeline/testdata',
-      *path
+      os.path.dirname(__file__),
+      '..',
+      '..',
+      'transformation_pipeline',
+      'testdata',
+      *path,
   )
 
 
@@ -57,6 +64,18 @@ def create_mock_wsi_dicom_dataset(barcode_value: str = '') -> pydicom.Dataset:
   return ds
 
 
+def decode_image_from_bytes(image_bytes: bytes) -> np.ndarray:
+  """Returns image from bytes."""
+  with PIL.Image.open(io.BytesIO(image_bytes)) as image:
+    return np.asarray(image)
+
+
+def decode_image_from_file(path: str) -> np.ndarray:
+  """Returns image from bytes."""
+  with PIL.Image.open(path) as image:
+    return np.asarray(image)
+
+
 def write_test_dicom(path: str, base_ds: pydicom.Dataset):
   file_meta = pydicom.dataset.FileMetaDataset()
   file_meta.TransferSyntaxUID = (
@@ -65,6 +84,5 @@ def write_test_dicom(path: str, base_ds: pydicom.Dataset):
   ds = pydicom.dataset.FileDataset(
       '', base_ds, file_meta=file_meta, preamble=b'\0' * 128
   )
-  ds.is_little_endian = True
-  ds.is_implicit_VR = False
+  pydicom_version_util.set_little_endian_explicit_vr(ds)
   ds.save_as(path)

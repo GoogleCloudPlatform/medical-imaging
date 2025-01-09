@@ -17,8 +17,8 @@ import abc
 
 from google.cloud import pubsub_v1
 
-from transformation_pipeline.ingestion_lib import abstract_polling_client
-from transformation_pipeline.ingestion_lib.pubsub_msgs import abstract_pubsub_msg
+from pathology.transformation_pipeline.ingestion_lib import abstract_polling_client
+from pathology.transformation_pipeline.ingestion_lib.pubsub_msgs import abstract_pubsub_msg
 
 
 class AbstractPubSubMsgHandler(metaclass=abc.ABCMeta):

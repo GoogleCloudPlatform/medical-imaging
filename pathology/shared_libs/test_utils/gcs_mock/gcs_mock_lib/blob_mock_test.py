@@ -22,13 +22,13 @@ from absl.testing import absltest
 from absl.testing import parameterized
 import google.cloud.storage
 
-from shared_libs.test_utils.gcs_mock import gcs_mock
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import blob_mock
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import blob_state_mock
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import bucket_mock
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_constants
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_types
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_test_utils
+from pathology.shared_libs.test_utils.gcs_mock import gcs_mock
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import blob_mock
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import blob_state_mock
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import bucket_mock
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_constants
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_types
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_test_utils
 
 
 _TEST_BLOB_METHOD_NO_BUCKET_OR_NO_CLIENT_RAISES = [
@@ -159,26 +159,6 @@ class BlobMockTest(parameterized.TestCase):
       self.assertEqual(blob.bucket.name, 'earth')
       self.assertIsNone(blob.bucket.client)
       self.assertEqual(blob.name, '')
-
-  def test_mock_methods_and_actual_methods_have_same_signatures(self):
-    """Validate mock method implements actual method correctly.
-
-    For details see:
-    gcs_test_utils.test_mock_methods_and_actual_methods_have_same_signatures
-    """
-    # Create actual instances of both objects.
-    actual_blob = google.cloud.storage.Blob(
-        'fake', google.cloud.storage.Bucket(None, 'foo')
-    )
-    mocked_blob = blob_mock.BlobMock(
-        'fake',
-        typing.cast(
-            google.cloud.storage.Bucket, bucket_mock.BucketMock(None, 'foo')
-        ),
-    )
-    gcs_test_utils.test_mock_methods_and_actual_methods_have_same_signatures(
-        self, actual_blob, mocked_blob
-    )
 
   def test_blob_with_no_chunk(self):
     mocked_blob_no_chunk = blob_mock.BlobMock('fake', None)

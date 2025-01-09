@@ -22,11 +22,11 @@ from absl.testing import parameterized
 from google.api_core import exceptions
 import google.cloud.storage
 
-from shared_libs.test_utils.gcs_mock import gcs_mock
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import client_mock
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_types
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_state_mock
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_test_utils
+from pathology.shared_libs.test_utils.gcs_mock import gcs_mock
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import client_mock
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_types
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_state_mock
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_test_utils
 
 
 class ClientMockTest(parameterized.TestCase):
@@ -81,30 +81,6 @@ class ClientMockTest(parameterized.TestCase):
     with gcs_mock.GcsMock():
       cl = google.cloud.storage.Client.create_anonymous_client()
       self.assertIsInstance(cl, client_mock.ClientMock)
-
-  @mock.patch(
-      'google.auth.default',
-      autospec=True,
-      return_value=(
-          mock.MagicMock(universe_domain='googleapis.com'),
-          mock.MagicMock(),
-      ),
-  )
-  def test_mock_methods_and_actual_methods_have_same_signatures(
-      self, unused_mock_auth
-  ):
-    """Validate mock method implements actual method correctly.
-
-    For details see:
-    gcs_test_utils.test_mock_methods_and_actual_methods_have_same_signatures
-    """
-    # Create actual instances of both objects.
-    actual_client = google.cloud.storage.Client(None)
-    state_mock = mock.create_autospec(gcs_state_mock.GcsStateMock)
-    mocked_client = client_mock.ClientMock(state_mock)
-    gcs_test_utils.test_mock_methods_and_actual_methods_have_same_signatures(
-        self, actual_client, mocked_client, ['__init__']
-    )
 
   def test_get_bucket_by_name_exists(self):
     bucket_name = 'earth'

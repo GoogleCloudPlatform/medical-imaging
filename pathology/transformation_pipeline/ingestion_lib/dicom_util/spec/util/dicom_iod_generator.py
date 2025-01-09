@@ -30,10 +30,10 @@ from typing import Any, Dict, List, Optional, Union
 
 from absl import logging
 
-from transformation_pipeline.ingestion_lib.dicom_util.spec.util.lib import dicom_iod_uid_xml_parser
-from transformation_pipeline.ingestion_lib.dicom_util.spec.util.lib import dicom_iod_xml_parser
-from transformation_pipeline.ingestion_lib.dicom_util.spec.util.lib import dicom_tag_xml_parser
-from transformation_pipeline.ingestion_lib.dicom_util.spec.util.lib.util import dicom_iod_generator_exception
+from pathology.transformation_pipeline.ingestion_lib.dicom_util.spec.util.lib import dicom_iod_uid_xml_parser
+from pathology.transformation_pipeline.ingestion_lib.dicom_util.spec.util.lib import dicom_iod_xml_parser
+from pathology.transformation_pipeline.ingestion_lib.dicom_util.spec.util.lib import dicom_tag_xml_parser
+from pathology.transformation_pipeline.ingestion_lib.dicom_util.spec.util.lib.util import dicom_iod_generator_exception
 
 DicomIodGeneratorError = dicom_iod_generator_exception.DicomIodGeneratorError
 DicomStandardTags = dicom_tag_xml_parser.DicomStandardTags

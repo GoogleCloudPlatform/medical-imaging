@@ -21,9 +21,10 @@ from typing import Any, Mapping, MutableMapping, Optional, Union
 
 import pydicom
 
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib.dicom_gen import wsi_dicom_file_ref
-from transformation_pipeline.ingestion_lib.dicom_util import dicom_standard
+from pathology.shared_libs.pydicom_version_util import pydicom_version_util
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import wsi_dicom_file_ref
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_standard
 
 STUDY_UID = '1.2.3'
 SERIES_UID = '1.2.3.4'
@@ -232,9 +233,8 @@ def create_test_dicom_instance(
   dcm.SOPInstanceUID = sop_instance_uid
   if 'SOPClassUID' not in dcm:
     dcm.SOPClassUID = sop_class_uid
-  dcm.is_implicit_VR = False
-  dcm.is_little_endian = True
+  pydicom_version_util.set_little_endian_explicit_vr(dcm)
   if temp_dir or filepath:
-    dcm.save_as(filename, write_like_original=False)
+    pydicom_version_util.save_as_validated_dicom(dcm, filename)
     return filename
   return dcm

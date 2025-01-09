@@ -20,9 +20,9 @@ import threading
 import time
 from typing import Optional
 
-from shared_libs.logging_lib import cloud_logging_client
-from transformation_pipeline import ingest_flags
-from transformation_pipeline.ingestion_lib import ingest_const
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.transformation_pipeline import ingest_flags
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
 
 TEST_UID_PREFIX = f'{ingest_const.DPAS_UID_PREFIX}.0.0'
 MAX_LENGTH_OF_DICOM_UID = 64  # DICOM Specification

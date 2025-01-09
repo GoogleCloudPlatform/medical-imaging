@@ -22,12 +22,12 @@ from unittest import mock
 from absl.testing import absltest
 from absl.testing import flagsaver
 
-from transformation_pipeline import gke_main
-from transformation_pipeline import ingest_flags
-from transformation_pipeline import localhost_main
-from transformation_pipeline.ingestion_lib import gen_test_util
-from transformation_pipeline.ingestion_lib import redis_client
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
+from pathology.transformation_pipeline import gke_main
+from pathology.transformation_pipeline import ingest_flags
+from pathology.transformation_pipeline import localhost_main
+from pathology.transformation_pipeline.ingestion_lib import gen_test_util
+from pathology.transformation_pipeline.ingestion_lib import redis_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
 
 _CONTAINER_BASE_DIR = localhost_main._CONTAINER_BASE_DIR
 _EXAMPLE_METADATA_MAPPING_SCHEMA_PATH = (
@@ -86,7 +86,7 @@ class LocalhostMainTest(absltest.TestCase):
   @flagsaver.flagsaver(localhost_dicom_store='/mock/dicom_store')
   def test_cannot_read_write_metadata_dirs_raises(self):
     localhost_main._CONTAINER_BASE_DIR = gen_test_util.test_file_path(
-        'localhost'
+        'localhost_not_found'
     )
     with flagsaver.flagsaver(
         poll_image_ingestion_dir=False,

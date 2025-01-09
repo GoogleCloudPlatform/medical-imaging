@@ -15,8 +15,8 @@
 """GCS Storage utilitys used by WSI-to-DICOM."""
 from typing import Mapping, Optional
 
-from transformation_pipeline.ingestion_lib import cloud_storage_client
-from transformation_pipeline.ingestion_lib.pubsub_msgs import ingestion_complete_pubsub
+from pathology.transformation_pipeline.ingestion_lib import cloud_storage_client
+from pathology.transformation_pipeline.ingestion_lib.pubsub_msgs import ingestion_complete_pubsub
 
 
 class CloudStorageBlobMoveError(Exception):

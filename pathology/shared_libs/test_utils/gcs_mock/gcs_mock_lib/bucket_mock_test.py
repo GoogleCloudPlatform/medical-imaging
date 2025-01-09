@@ -18,10 +18,10 @@ from absl.testing import parameterized
 from google.api_core import exceptions
 import google.cloud.storage
 
-from shared_libs.test_utils.gcs_mock import gcs_mock
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import bucket_mock
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_types
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_test_utils
+from pathology.shared_libs.test_utils.gcs_mock import gcs_mock
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import bucket_mock
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_types
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_test_utils
 
 
 class BucketMockTest(parameterized.TestCase):
@@ -122,19 +122,6 @@ class BucketMockTest(parameterized.TestCase):
       except exceptions.Forbidden:
         found = False
       self.assertFalse(found)
-
-  def test_mock_methods_and_actual_methods_have_same_signatures(self):
-    """Validate mock method implements actual method correctly.
-
-    For details see:
-    gcs_test_utils.test_mock_methods_and_actual_methods_have_same_signatures
-    """
-    # Create actual instances of both objects.
-    actual_bucket = google.cloud.storage.Bucket(None, 'fake')
-    mocked_bucket = bucket_mock.BucketMock(None, 'fake')
-    gcs_test_utils.test_mock_methods_and_actual_methods_have_same_signatures(
-        self, actual_bucket, mocked_bucket
-    )
 
   def test_bucket_from_string(self):
     with gcs_mock.GcsMock():

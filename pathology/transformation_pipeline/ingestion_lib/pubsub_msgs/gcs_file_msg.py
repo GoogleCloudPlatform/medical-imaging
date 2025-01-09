@@ -21,9 +21,9 @@ import google.api_core
 from google.cloud import pubsub_v1
 from google.cloud import storage
 
-from transformation_pipeline.ingestion_lib import cloud_storage_client as cloud_storage
-from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
-from transformation_pipeline.ingestion_lib.pubsub_msgs import abstract_pubsub_msg
+from pathology.transformation_pipeline.ingestion_lib import cloud_storage_client as cloud_storage
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
+from pathology.transformation_pipeline.ingestion_lib.pubsub_msgs import abstract_pubsub_msg
 
 
 class GCSFileMsg(abstract_pubsub_msg.AbstractPubSubMsg):

@@ -16,8 +16,8 @@
 import mimetypes
 from typing import Optional, Tuple
 
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_constants
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_types
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_constants
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_types
 
 
 def get_bucket_blob_from_gs_uri(uri: str) -> Tuple[str, str]:

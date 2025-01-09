@@ -22,10 +22,10 @@ from absl.testing import absltest
 from absl.testing import flagsaver
 from absl.testing import parameterized
 
-from transformation_pipeline import ingest_flags
-from transformation_pipeline.ingestion_lib import csv_util
-from transformation_pipeline.ingestion_lib import gen_test_util
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_schema_util
+from pathology.transformation_pipeline import ingest_flags
+from pathology.transformation_pipeline.ingestion_lib import csv_util
+from pathology.transformation_pipeline.ingestion_lib import gen_test_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_schema_util
 
 FLAGS = flags.FLAGS
 

@@ -28,16 +28,16 @@ from absl.testing import parameterized
 from google.cloud import pubsub_v1
 import pydicom
 
-from shared_libs.test_utils.dicom_store_mock import dicom_store_mock
-from transformation_pipeline.ingestion_lib import cloud_storage_client
-from transformation_pipeline.ingestion_lib import gen_test_util
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib import mock_redis_client
-from transformation_pipeline.ingestion_lib import polling_client
-from transformation_pipeline.ingestion_lib import redis_client
-from transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
-from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
-from transformation_pipeline.ingestion_lib.dicom_gen.ai_to_dicom import png_to_dicom
+from pathology.shared_libs.test_utils.dicom_store_mock import dicom_store_mock
+from pathology.transformation_pipeline.ingestion_lib import cloud_storage_client
+from pathology.transformation_pipeline.ingestion_lib import gen_test_util
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib import mock_redis_client
+from pathology.transformation_pipeline.ingestion_lib import polling_client
+from pathology.transformation_pipeline.ingestion_lib import redis_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.ai_to_dicom import png_to_dicom
 
 _STUDY_UID = '1.2.3.4.5'
 _SERIES_UID = '1.2.3.4.5.6'
@@ -78,6 +78,10 @@ def _mock_inference_pubsub_msg(
 
 class AiPngtoDicomSecondaryCaptureTest(parameterized.TestCase):
   """Tests for PNG to DICOM conversion."""
+
+  def tearDown(self):
+    redis_client.RedisClient._instance = None
+    super().tearDown()
 
   @flagsaver.flagsaver(
       pod_hostname='1234', dicom_guid_prefix=uid_generator.TEST_UID_PREFIX

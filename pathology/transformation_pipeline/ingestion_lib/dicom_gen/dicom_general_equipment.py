@@ -15,9 +15,9 @@
 """Add transformation pipeline info to DICOM general equipment."""
 
 import pydicom
-from shared_libs.logging_lib import cloud_logging_client
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib.dicom_util import pydicom_util
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import pydicom_util
 
 _MAX_STRING_LENGTH_DICOM_SOFTWARE_VERSION_TAG = int(64)
 

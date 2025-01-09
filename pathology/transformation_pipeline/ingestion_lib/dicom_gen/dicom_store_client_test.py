@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Tests for dicom_store_client."""
+"""Tests for dicom store client."""
 
 import dataclasses
 import http
@@ -27,14 +27,15 @@ import pydicom
 import requests
 import requests_mock
 
-from shared_libs.flags import flag_utils
-from shared_libs.logging_lib import cloud_logging_client
-from shared_libs.test_utils.dicom_store_mock import dicom_store_mock
-from transformation_pipeline.ingestion_lib import gen_test_util
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
-from transformation_pipeline.ingestion_lib.dicom_gen import wsi_dicom_file_ref
-from transformation_pipeline.ingestion_lib.dicom_util import dicom_test_util
+from pathology.shared_libs.flags import flag_utils
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.shared_libs.pydicom_version_util import pydicom_version_util
+from pathology.shared_libs.test_utils.dicom_store_mock import dicom_store_mock
+from pathology.transformation_pipeline.ingestion_lib import gen_test_util
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import wsi_dicom_file_ref
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_test_util
 
 
 _PROJECT_ID = '123'
@@ -63,8 +64,7 @@ class MockInstance:
         file_meta=pydicom.dataset.FileMetaDataset(),
         preamble=b'\0' * 128,
     )
-    ds.is_little_endian = True
-    ds.is_implicit_VR = False
+    pydicom_version_util.set_little_endian_explicit_vr(ds)
     return ds
 
 

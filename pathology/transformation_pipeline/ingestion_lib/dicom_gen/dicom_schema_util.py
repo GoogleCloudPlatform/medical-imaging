@@ -24,11 +24,11 @@ from typing import Any, Dict, List, Mapping, MutableMapping, Optional, Set, Unio
 
 import pandas
 
-from shared_libs.logging_lib import cloud_logging_client
-from transformation_pipeline import ingest_flags
-from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
-from transformation_pipeline.ingestion_lib.dicom_util import dicom_standard
-from transformation_pipeline.ingestion_lib.dicom_util import dicomtag
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.transformation_pipeline import ingest_flags
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_standard
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicomtag
 
 
 _DICOM_TYPE_1_TAG = '1'

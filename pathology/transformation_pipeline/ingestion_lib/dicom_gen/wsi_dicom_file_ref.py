@@ -18,8 +18,8 @@ from typing import Any, List, Mapping
 
 import pydicom
 
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_file_ref
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_file_ref
 
 
 class WSIDicomFileRef(dicom_file_ref.DicomFileRef):

@@ -18,14 +18,15 @@ from __future__ import annotations
 import os
 import sys
 import threading
-from typing import Any, List, Mapping, Optional, Union
+from typing import Any, Mapping, Optional, Union
 
 from absl import flags
+from absl import logging
 import google.auth
 import psutil
 
-from shared_libs.flags import secret_flag_utils
-from shared_libs.logging_lib import cloud_logging_client_instance
+from pathology.shared_libs.flags import secret_flag_utils
+from pathology.shared_libs.logging_lib import cloud_logging_client_instance
 
 # name of cloud ops log
 CLOUD_OPS_LOG_NAME_FLG = flags.DEFINE_string(
@@ -49,16 +50,30 @@ POD_UID_FLG = flags.DEFINE_string(
     secret_flag_utils.get_secret_or_env('MY_POD_UID', None),
     'UID of GKE pod. Do not set unless in test.',
 )
-
-DISABLE_STRUCTURED_LOGGING_FLG = flags.DEFINE_boolean(
-    'disable_structured_logging',
-    secret_flag_utils.get_bool_secret_or_env('DISABLE_STRUCTURED_LOGGING'),
-    'Disable structured logging.',
+ENABLE_STRUCTURED_LOGGING_FLG = flags.DEFINE_boolean(
+    'enable_structured_logging',
+    secret_flag_utils.get_bool_secret_or_env(
+        'ENABLE_STRUCTURED_LOGGING',
+        not secret_flag_utils.get_bool_secret_or_env(
+            'DISABLE_STRUCTURED_LOGGING'
+        ),
+    ),
+    'Enable structured logging.',
+)
+ENABLE_LOGGING_FLG = flags.DEFINE_boolean(
+    'enable_logging',
+    secret_flag_utils.get_bool_secret_or_env('ENABLE_LOGGING_FLG', True),
+    'Enable logging.',
 )
 
 _DEBUG_LOGGING_USE_ABSL_LOGGING_FLG = flags.DEFINE_boolean(
     'debug_logging_use_absl_logging',
-    cloud_logging_client_instance.DEBUG_LOGGING_USE_ABSL_LOGGING,
+    # Confusing double negative is used to enable external env be a postive
+    # statement and override the existing default
+    not secret_flag_utils.get_bool_secret_or_env(
+        'ENABLE_CLOUD_LOGGING',
+        not cloud_logging_client_instance.DEBUG_LOGGING_USE_ABSL_LOGGING,
+    ),
     'Debug/testing option to logs to absl.logger. Automatically set when '
     'running unit tests.',
 )
@@ -85,51 +100,6 @@ def _are_flags_initialized() -> bool:
     return False
 
 
-def _check_param_sets_flag(param: str, flag_lst: List[str]) -> bool:
-  """Tests if parameter is the start of flag definition."""
-  for flag in flag_lst:
-    if param.startswith(f'--{flag}'):
-      return True
-    if param.startswith(f'-{flag}'):
-      return True
-  return False
-
-
-def _get_logger_flags(argv: List[str]) -> List[str]:
-  """Initalize logger with only flags required for logger initialization.
-
-     Workaround if application defines accepts additional flags not which
-     haven't been defined at the time the logger is initialized.
-
-  Args:
-    argv: Command line arguments.
-
-  Returns:
-    List of passed commandline arguments required for logger init.
-  """
-  if not argv:
-    return []
-  command_line_flags = [argv[0]]
-  flg_lst = [
-      CLOUD_OPS_LOG_NAME_FLG.name,
-      CLOUD_OPS_LOG_PROJECT_FLG.name,
-      POD_HOSTNAME_FLG.name,
-      POD_UID_FLG.name,
-      DISABLE_STRUCTURED_LOGGING_FLG.name,
-      LOG_ALL_PYTHON_LOGS_TO_CLOUD_FLG.name,
-      PER_THREAD_LOG_SIGNATURES_FLG.name,
-  ]
-  add_flg = False
-  for param in argv[1:]:
-    if _check_param_sets_flag(param, flg_lst):
-      add_flg = True
-    elif param.startswith('-'):
-      add_flg = False
-    if add_flg:
-      command_line_flags.append(param)
-  return command_line_flags
-
-
 def _get_flags() -> Mapping[str, str]:
   load_flags = {}
   unparsed_flags = []
@@ -148,7 +118,7 @@ def _default_gcp_project() -> str:
     _, project = google.auth.default(
         scopes=['https://www.googleapis.com/auth/cloud-platform']
     )
-    return project
+    return project if project is not None else ''
   except google.auth.exceptions.DefaultCredentialsError:
     return ''
 
@@ -178,15 +148,44 @@ class CloudLoggingClient(
     with cls._singleton_lock:
       cls._singleton_instance = None
 
+  @classmethod
+  def _set_absl_skip_frames(cls) -> None:
+    """Sets absl logging attribution to skip over internal logging frames."""
+    logging.ABSLLogger.register_frame_to_skip(
+        __file__,
+        function_name='debug',
+    )
+    logging.ABSLLogger.register_frame_to_skip(
+        __file__,
+        function_name='timed_debug',
+    )
+    logging.ABSLLogger.register_frame_to_skip(
+        __file__,
+        function_name='info',
+    )
+    logging.ABSLLogger.register_frame_to_skip(
+        __file__,
+        function_name='warning',
+    )
+    logging.ABSLLogger.register_frame_to_skip(
+        __file__,
+        function_name='error',
+    )
+    logging.ABSLLogger.register_frame_to_skip(
+        __file__,
+        function_name='critical',
+    )
+
   def __init__(self):
     with CloudLoggingClient._singleton_lock:
       if not _are_flags_initialized():
-        # if flags are not initalize then init logging flags
-        flags.FLAGS(_get_logger_flags(sys.argv))
+        # if flags are not initialize then init logging flags
+        flags.FLAGS(sys.argv, known_only=True)
       if CloudLoggingClient._singleton_instance is not None:
         raise cloud_logging_client_instance.CloudLoggerInstanceExceptionError(
             'Singleton already initialized.'
         )
+      CloudLoggingClient._set_absl_skip_frames()
       gcp_project = (
           _default_gcp_project()
           if CLOUD_OPS_LOG_PROJECT_FLG.value is None
@@ -202,10 +201,11 @@ class CloudLoggingClient(
           gcp_credentials=None,
           pod_hostname=pod_host_name,
           pod_uid=pod_uid,
-          disable_structured_logging=DISABLE_STRUCTURED_LOGGING_FLG.value,
+          enable_structured_logging=ENABLE_STRUCTURED_LOGGING_FLG.value,
           use_absl_logging=_DEBUG_LOGGING_USE_ABSL_LOGGING_FLG.value,
           log_all_python_logs_to_cloud=LOG_ALL_PYTHON_LOGS_TO_CLOUD_FLG.value,
           per_thread_log_signatures=PER_THREAD_LOG_SIGNATURES_FLG.value,
+          enabled=ENABLE_LOGGING_FLG.value,
       )
       CloudLoggingClient._singleton_instance = self
 
@@ -220,7 +220,9 @@ class CloudLoggingClient(
         'Container process started.',
         {'process_name': process_name, 'process_id': pid},
     )
-    self.debug('Container environmental variables.', os.environ)  # pytype: disable=wrong-arg-types  # kwargs-checking
+    self.debug(
+        'Container environmental variables.', os.environ
+    )  # pytype: disable=wrong-arg-types  # kwargs-checking
     vm = psutil.virtual_memory()
     self.debug(
         'Compute instance',
@@ -365,6 +367,10 @@ def get_build_version(clip_length: Optional[int] = None) -> str:
   if clip_length is not None and clip_length >= 0:
     return logger().build_version[:clip_length]
   return logger().build_version
+
+
+def set_build_version(build_version: str) -> None:
+  logger().build_version = build_version
 
 
 def set_log_trace_key(key: str) -> None:

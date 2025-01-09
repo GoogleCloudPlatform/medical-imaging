@@ -22,11 +22,11 @@ from typing import Any, List, Mapping, MutableMapping, NewType, Optional, Set, T
 import google.api_core
 from google.cloud import pubsub_v1
 
-from shared_libs.logging_lib import cloud_logging_client
-from shared_libs.ml.inference_pipeline import inference_pubsub_message
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib.dicom_gen import wsi_dicom_file_ref
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import types
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.shared_libs.ml.inference_pipeline import inference_pubsub_message
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import wsi_dicom_file_ref
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import transform_types
 
 PIXEL_SPACING_WIDTH = ingest_const.PubSubKeywords.PIXEL_SPACING_WIDTH
 STUDY_UID = ingest_const.DICOMTagKeywords.STUDY_INSTANCE_UID
@@ -70,7 +70,7 @@ def read_inference_pipeline_config_from_json(
   return config
 
 
-def validate_message(pubsub: types.IngestCompletePubSub):
+def validate_message(pubsub: transform_types.IngestCompletePubSub):
   """Validate Pub/Sub messages coming from Ingest pipeline."""
   for dicom_ref in pubsub.ingest_dicoms:
     for req_key in [STUDY_UID, SERIES_UID]:
@@ -182,7 +182,7 @@ def _create_oof_pipeline_pubsub_msg(
       bytes(
           json.dumps(
               dataclasses.asdict(
-                  types.IngestCompletePubSub(
+                  transform_types.IngestCompletePubSub(
                       ingest='success',
                       dicom_store=dicomstore_web_path,
                       ingest_dicoms=ingest_dicoms,
@@ -392,7 +392,7 @@ def publish_pubsubmsg(msg: PubSubMsg):
         'pubsub_message': msg.message,
     }
     try:
-      future = publisher.publish(msg.topic_name, msg.message)
+      future = publisher.publish(msg.topic_name, msg.message)  # pylint: disable=too-many-function-args
       msg_id = future.result()
       cloud_logging_client.info(
           f'DICOM ingest complete pub/sub msg {msg_id} published.',

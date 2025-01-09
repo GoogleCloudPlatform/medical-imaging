@@ -12,33 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Tests for decode_slideid."""
+"""Tests for decode slideid."""
 
 import os
 from unittest import mock
 
-from absl import flags
 from absl.testing import absltest
 from absl.testing import flagsaver
 from absl.testing import parameterized
 
-from transformation_pipeline import ingest_flags
-from transformation_pipeline.ingestion_lib import gen_test_util
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ancillary_image_extractor
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import barcode_reader
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import decode_slideid
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
+from pathology.transformation_pipeline import ingest_flags
+from pathology.transformation_pipeline.ingestion_lib import gen_test_util
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ancillary_image_extractor
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import barcode_reader
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import decode_slideid
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
 
-
-FLAGS = flags.FLAGS
 
 DEFAULT_SLIDE_ID_REGEX = '^[a-zA-Z0-9]+-[a-zA-Z0-9]+(-[a-zA-Z0-9]+)+'
-
-
-def _g3_zxing_cli_path() -> str:
-  return os.path.join(FLAGS.test_srcdir, 'third_party/zxing/zxing_cli')
 
 
 class DecodeSlideIdTest(parameterized.TestCase):
@@ -346,7 +339,11 @@ class DecodeSlideIdTest(parameterized.TestCase):
   @flagsaver.flagsaver(testing_disable_cloudvision=True)
   @flagsaver.flagsaver(wsi2dcm_filename_slideid_regex='^.*')
   def test_find_slide_id_in_barcode_in_metadata(self):
-    with flagsaver.flagsaver(zxing_cli=_g3_zxing_cli_path()):
+    with flagsaver.flagsaver(
+    ):
+      # only run test if zxing cli is available.
+      if not os.path.isfile(ingest_flags.ZXING_CLI_FLG.value):
+        return
       meta_client = metadata_storage_client.MetadataStorageClient()
       meta_client.set_debug_metadata(
           [gen_test_util.test_file_path('metadata_duplicate.csv')]
@@ -367,7 +364,11 @@ class DecodeSlideIdTest(parameterized.TestCase):
   @flagsaver.flagsaver(testing_disable_cloudvision=True)
   @flagsaver.flagsaver(wsi2dcm_filename_slideid_regex='^.*')
   def test_find_slide_id_in_barcode_not_in_metadata(self):
-    with flagsaver.flagsaver(zxing_cli=_g3_zxing_cli_path()):
+    with flagsaver.flagsaver(
+    ):
+      # only run test if zxing cli is available.
+      if not os.path.isfile(ingest_flags.ZXING_CLI_FLG.value):
+        return
       meta_client = metadata_storage_client.MetadataStorageClient()
       meta_client.set_debug_metadata(
           [gen_test_util.test_file_path('metadata_duplicate.csv')]
@@ -401,7 +402,8 @@ class DecodeSlideIdTest(parameterized.TestCase):
   @flagsaver.flagsaver(testing_disable_cloudvision=True)
   @flagsaver.flagsaver(wsi2dcm_filename_slideid_regex='^.*')
   def test_find_slide_id_in_barcode_cannot_read(self):
-    with flagsaver.flagsaver(zxing_cli=_g3_zxing_cli_path()):
+    with flagsaver.flagsaver(
+    ):
       meta_client = metadata_storage_client.MetadataStorageClient()
       meta_client.set_debug_metadata(
           [gen_test_util.test_file_path('metadata_duplicate.csv')]

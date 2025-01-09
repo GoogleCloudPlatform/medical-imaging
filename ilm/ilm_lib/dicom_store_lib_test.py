@@ -13,23 +13,23 @@
 # limitations under the License.
 #
 # ==============================================================================
-"""Tests for dicom_store_lib."""
+"""Tests for dicom store lib."""
 
 import dataclasses
 import datetime
 import time
+from unittest import mock
 import uuid
 
 from absl.testing import absltest
 from absl.testing import parameterized
 from google.cloud import bigquery
-import mock
 
-import ilm_config
-import ilm_types
-from ilm_lib import dicom_store_lib
-from ilm_lib import pipeline_util
-from test_utils import test_const
+from ilm import ilm_config
+from ilm import ilm_types
+from ilm.ilm_lib import dicom_store_lib
+from ilm.ilm_lib import pipeline_util
+from ilm.test_utils import test_const
 
 
 _DICOM_STORE_TABLE_RAW_METADATA = {

@@ -25,15 +25,16 @@ from absl.testing import flagsaver
 from absl.testing import parameterized
 import pydicom
 
-from shared_libs.logging_lib import cloud_logging_client
-from transformation_pipeline.ingestion_lib import gen_test_util
-from transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_general_equipment
-from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ancillary_dicom_gen
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ancillary_image_extractor
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
-from transformation_pipeline.ingestion_lib.dicom_util import dicom_test_util
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.shared_libs.pydicom_version_util import pydicom_version_util
+from pathology.transformation_pipeline.ingestion_lib import gen_test_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_general_equipment
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ancillary_dicom_gen
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ancillary_image_extractor
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_test_util
 
 
 class AncillaryDicomGenTest(parameterized.TestCase):
@@ -61,7 +62,7 @@ class AncillaryDicomGenTest(parameterized.TestCase):
     dcm.PatientName = 'test'
     dcm.SharedFunctionalGroupsSequence = []
     dcm_file_path = os.path.join(out_dir, 'test.dcm')
-    dcm.save_as(dcm_file_path, write_like_original=False)
+    pydicom_version_util.save_as_validated_dicom(dcm, dcm_file_path)
     test_img_path = gen_test_util.test_file_path('barcode_cant_read.jpg')
     test_img = os.path.join(out_dir, 'barcode_cant_read.jpg')
     shutil.copyfile(test_img_path, test_img)

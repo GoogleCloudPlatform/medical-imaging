@@ -1,0 +1,5 @@
+# Do not modify requirements.txt directly. Run
+# `pip-compile --generate-hashes requirements.in` to build requirements.txt from this file.
+# LINT.IfChange
+apache-beam[gcp]==2.60.0
+# LINT.ThenChange(//depot/pathology.transformation_pipeline/dataflow/requirements.txt)

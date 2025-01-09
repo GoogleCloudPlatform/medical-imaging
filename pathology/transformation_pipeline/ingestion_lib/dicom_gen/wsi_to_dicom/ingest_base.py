@@ -23,17 +23,17 @@ from typing import Any, Dict, List, Mapping, MutableMapping, Optional, Set, Unio
 import pydicom
 import requests
 
-from shared_libs.logging_lib import cloud_logging_client
-from transformation_pipeline import ingest_flags
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_json_util
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_schema_util
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
-from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import decode_slideid
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import wsi_pyramid_gen_config
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.transformation_pipeline import ingest_flags
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_json_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_schema_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import decode_slideid
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import wsi_pyramid_gen_config
 
 _DICOM_DOWNSAMPLE_FILE_NAME_REGEX = re.compile(r'downsample-(\d+)-')
 

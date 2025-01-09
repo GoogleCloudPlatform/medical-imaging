@@ -23,11 +23,11 @@ from unittest import mock
 from absl.testing import absltest
 import google.cloud.storage
 
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import blob_mock
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import bucket_mock
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import client_mock
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_types
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_state_mock
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import blob_mock
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import bucket_mock
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import client_mock
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_types
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_state_mock
 
 # Forward exception declare to enable users of lib to import.
 GcsMockError = gcs_mock_types.GcsMockError

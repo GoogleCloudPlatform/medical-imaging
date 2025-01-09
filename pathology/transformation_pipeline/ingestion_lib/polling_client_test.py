@@ -22,14 +22,14 @@ from absl.testing import flagsaver
 from absl.testing import parameterized
 from google.cloud import pubsub_v1
 
-from transformation_pipeline import ingest_flags
-from transformation_pipeline.ingestion_lib import ack_timeout_monitor
-from transformation_pipeline.ingestion_lib import polling_client
-from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_gcs_handler
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
-from transformation_pipeline.ingestion_lib.pubsub_msgs import cloud_storage_pubsub_msg
-from transformation_pipeline.ingestion_lib.pubsub_msgs import gcs_file_msg
+from pathology.transformation_pipeline import ingest_flags
+from pathology.transformation_pipeline.ingestion_lib import ack_timeout_monitor
+from pathology.transformation_pipeline.ingestion_lib import polling_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_gcs_handler
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
+from pathology.transformation_pipeline.ingestion_lib.pubsub_msgs import cloud_storage_pubsub_msg
+from pathology.transformation_pipeline.ingestion_lib.pubsub_msgs import gcs_file_msg
 
 
 class PollingClientTest(parameterized.TestCase):

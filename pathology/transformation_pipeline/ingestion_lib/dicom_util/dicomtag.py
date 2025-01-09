@@ -24,7 +24,7 @@ from __future__ import annotations
 import enum
 from typing import Dict, Optional, Set, Union
 
-from transformation_pipeline.ingestion_lib.dicom_util import dicom_standard
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_standard
 
 
 class DicomTag:

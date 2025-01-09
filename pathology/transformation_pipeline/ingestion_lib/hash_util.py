@@ -15,8 +15,8 @@
 """Hashing utility functions."""
 import hashlib
 from typing import Any, Mapping, Optional
-from shared_libs.logging_lib import cloud_logging_client
-from transformation_pipeline.ingestion_lib import ingest_const
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
 
 
 def _hash_file(path: str, hash_function: Any) -> str:

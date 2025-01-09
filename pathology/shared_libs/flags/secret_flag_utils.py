@@ -25,7 +25,7 @@ import cachetools
 import google.api_core
 from google.cloud import secretmanager
 
-from shared_libs.flags import flag_utils
+from pathology.shared_libs.flags import flag_utils
 
 _T = TypeVar('_T')
 

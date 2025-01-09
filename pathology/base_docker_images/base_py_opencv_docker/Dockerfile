@@ -15,6 +15,7 @@
 # The context must be set to the parent directory of the Dockerfile so files in
 # other orchestrator/ subdirectories can be used.
 # E.g. docker build ../ --file=./Dockerfile
+ARG BASE_CONTAINER
 FROM ${BASE_CONTAINER}
 
 RUN apt-get update && \
@@ -33,12 +34,12 @@ RUN rm -rf /usr/lib/google-cloud-sdk/bin/anthoscli \
 
 WORKDIR /
 
-#Install LibJpegTurbo 3.0.3
+#Install LibJpegTurbo 3.1.0
 RUN apt-get install -y nasm && \
-    wget -O libjpeg_turbo.zip https://github.com/libjpeg-turbo/libjpeg-turbo/archive/refs/tags/3.0.3.zip > /dev/null && \
+    wget -O libjpeg_turbo.zip https://github.com/libjpeg-turbo/libjpeg-turbo/archive/refs/tags/3.1.0.zip > /dev/null && \
     unzip libjpeg_turbo.zip > /dev/null && \
     rm libjpeg_turbo.zip && \
-    mv libjpeg-turbo-3.0.3 libjpeg-turbo && \
+    mv libjpeg-turbo-3.1.0 libjpeg-turbo && \
     mkdir -p /libjpeg-turbo/build && \
     cd /libjpeg-turbo/build && \
     cmake -G"Unix Makefiles" -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DBUILD_SHARED_LIBS:bool=on .. && \
@@ -46,19 +47,19 @@ RUN apt-get install -y nasm && \
     make install && \
     rm -rf /libjpeg-turbo
 
-#Install OpenJPEG 2.5.2
+#Install OpenJPEG 2.5.3
 RUN apt-get install -y liblcms2-dev libzstd-dev libwebp-dev && \
-    wget -O v2.5.2.zip  https://github.com/uclouvain/openjpeg/archive/v2.5.2.zip > /dev/null && \
-    unzip v2.5.2.zip > /dev/null && \
-    rm v2.5.2.zip && \
-    mkdir -p /openjpeg-2.5.2/build && \
-    cd /openjpeg-2.5.2/build && \
+    wget -O v2.5.3.zip  https://github.com/uclouvain/openjpeg/archive/refs/tags/v2.5.3.zip > /dev/null && \
+    unzip v2.5.3.zip > /dev/null && \
+    rm v2.5.3.zip && \
+    mkdir -p /openjpeg-2.5.3/build && \
+    cd /openjpeg-2.5.3/build && \
     cmake  -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS:bool=on -DCMAKE_INSTALL_PREFIX="/usr" .. && \
     make -j12 && \
     make install && \
     make clean && \
     cd / && \
-    rm -rf /openjpeg-2.5.2
+    rm -rf /openjpeg-2.5.3
 
 # Install libtiff from source with JPEG support
 # http://www.simplesystems.org/libtiff/build.html
@@ -69,9 +70,9 @@ RUN apt-get install -y liblcms2-dev libzstd-dev libwebp-dev && \
 # fixed in https://gitlab.com/libtiff/libtiff/-/commit/227500897dfb07fb7d27f7aa570050e62617e3be
 RUN git clone https://gitlab.com/libtiff/libtiff.git && \
   cd libtiff && \
-  # Last known commit with green pipeline as of 6/2023.  Version 4.6.0
-  # https://gitlab.com/libtiff/libtiff/-/commit/8b20804fc0ddeaa93667b799b5e1a2a7dc9e3fb2
-  git checkout 8b20804fc0ddeaa93667b799b5e1a2a7dc9e3fb2 && \
+  # Last known commit with green pipeline as of 9/2024.  Version 4.7.0
+  # https://gitlab.com/libtiff/libtiff/-/commit/9dff73bebc5661f2dace6f16e14cf9e857172f4e
+  git checkout 9dff73bebc5661f2dace6f16e14cf9e857172f4e && \
   cmake -Djpeg=ON -DJPEG_INCLUDE_DIR=/opt/libjpeg-turbo/include \
     -DJPEG_LIBRARY=/opt/libjpeg-turbo/lib64/libjpeg.a \
     # Blank DZSTD_LIBRARY= avoids linker errors later

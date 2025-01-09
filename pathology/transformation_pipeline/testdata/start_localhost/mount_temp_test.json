@@ -1,0 +1,7 @@
+{
+  "fake.json": "/.config/gcloud/application_default_credentials.json,readonly",
+  "tempdir/input_metadata": "/input_metadata",
+  "tempdir/input_imaging": "/input_imaging",
+  "tempdir/processed_imaging": "/processed_imaging",
+  "/transform/dicom_store": "/mock_dicom_store"
+}

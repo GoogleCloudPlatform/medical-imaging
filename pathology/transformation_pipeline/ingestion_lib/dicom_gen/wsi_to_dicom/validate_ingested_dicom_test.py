@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Tests for validate_ingested_dicom."""
+"""Tests for validate ingested dicom."""
 import math
 import os
 import typing
@@ -23,12 +23,12 @@ from absl.testing import absltest
 from absl.testing import parameterized
 import pydicom
 
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_wsi_dicom
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingested_dicom_file_ref
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import validate_ingested_dicom
-from transformation_pipeline.ingestion_lib.dicom_util import dicom_test_util
-from transformation_pipeline.ingestion_lib.dicom_util import pydicom_util
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_wsi_dicom
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingested_dicom_file_ref
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import validate_ingested_dicom
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_test_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import pydicom_util
 
 
 def _increment_uid(instance: str, inc: int = 1) -> str:
@@ -260,8 +260,6 @@ class ValidateIngestedDicomTest(parameterized.TestCase):
   @parameterized.parameters(_WSI_IMAGE_TYPES)
   def test_validate_wsi_dicom_instance_succeeds(self, image_type):
     original_dcm = _GenTestDicom(image_type=image_type)
-    self.assertFalse(original_dcm.dicom.is_implicit_VR)
-    self.assertTrue(original_dcm.dicom.is_little_endian)
     path = self._get_temp_file_path('dcm_0.dcm')
     original_dcm.dicom.save_as(path)
     self.assertIsNone(

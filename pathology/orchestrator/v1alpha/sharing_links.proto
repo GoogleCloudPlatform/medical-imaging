@@ -1,0 +1,193 @@
+// Copyright 2024 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package pathology.orchestrator.v1alpha;
+
+import "google/api/field_behavior.proto";
+import "google/api/resource.proto";
+import "google/protobuf/field_mask.proto";
+import "google/rpc/status.proto";
+
+option java_package = "com.pathology.orchestrator.v1alpha";
+option java_outer_classname = "SharingLinksProto";
+option java_multiple_files = true;
+
+// Sharing Link to grant privileges for a cohort.
+message PathologySharingLink {
+  option deprecated = true;
+  option (google.api.resource) = {
+    type: "digitalpathology.googleapis.com/PathologySharingLink"
+    pattern: "pathologySharingLinks/{pathology_sharing_link}"
+  };
+
+  // Resource name. Empty when creating.
+  string name = 1 [(google.api.resource_reference) = {
+    type: "digitalpathology.googleapis.com/PathologySharingLink"
+  }];
+
+  // Empty when creating.
+  string link_token = 2 [
+    (google.api.field_behavior) = OUTPUT_ONLY,
+    (google.api.field_behavior) = IMMUTABLE
+  ];
+
+  // Config read by DPAS WSI viewer.
+  string viewer_config = 3 [(google.api.field_behavior) = IMMUTABLE];
+
+  // List of cohort resource names that the link provides read only access on.
+  repeated string grants_view_on = 4
+      [(google.api.field_behavior) = UNORDERED_LIST];
+
+  // List of cohort resource names that the link provides read write access on.
+  repeated string grants_edit_on = 5
+      [(google.api.field_behavior) = UNORDERED_LIST];
+}
+
+// Request for CreatePathologySharingLink rpc.
+// SharingLink is a top level field so there is no parent field.
+message CreatePathologySharingLinkRequest {
+  option deprecated = true;
+
+  // SharingLink to create with permissions filled.
+  PathologySharingLink pathology_sharing_link = 1
+      [(google.api.field_behavior) = REQUIRED];
+}
+
+// Request for DeletePathologySharingLink rpc.
+message DeletePathologySharingLinkRequest {
+  option deprecated = true;
+
+  // Resource name of sharing link to delete.
+  string name = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.resource_reference) = {
+      type: "digitalpathology.googleapis.com/PathologySharingLink"
+    }
+  ];
+}
+
+// Request for GetPathologySharingLink rpc.
+message GetPathologySharingLinkRequest {
+  option deprecated = true;
+
+  // Resource name of sharing link to retrieve.
+  string name = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.resource_reference) = {
+      type: "digitalpathology.googleapis.com/PathologySharingLink"
+    }
+  ];
+}
+
+// Request for UpdatePathologySharingLink rpc.
+message UpdatePathologySharingLinkRequest {
+  option deprecated = true;
+
+  // Sharing Link to update.
+  PathologySharingLink pathology_sharing_link = 1
+      [(google.api.field_behavior) = REQUIRED];
+
+  // List of fields to update.
+  google.protobuf.FieldMask update_mask = 2;
+}
+
+// Request for SavePathologySharingLink rpc.
+message SavePathologySharingLinkRequest {
+  option deprecated = true;
+
+  // Resource name of SharingLink to save.
+  string name = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// Response for SavePathologySharingLink rpc.
+message SavePathologySharingLinkResponse {
+  option deprecated = true;
+
+  // Status of save.
+  optional google.rpc.Status status = 1;
+}
+
+// Request for UnsavePathologySharingLink rpc.
+message UnsavePathologySharingLinkRequest {
+  option deprecated = true;
+
+  // Resource name of SharingLink to unsave.
+  string name = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// Response for UnsavePathologySharingLink rpc.
+message UnsavePathologySharingLinkResponse {
+  option deprecated = true;
+
+  // Status of unsave.
+  optional google.rpc.Status status = 1;
+}
+
+// Request for ListOwnedPathologySharingLinks.
+// (-- api-linter: core::0132::request-parent-required=disabled
+//     aip.dev/not-precedent: Sharing Link is a top level field without a
+//     parent. --).
+message ListOwnedPathologySharingLinksRequest {
+  option deprecated = true;
+
+  // Default is 20.
+  int32 page_size = 1;
+
+  // A page token, received from a ListOwnedPathologySharingLinks call.
+  string page_token = 2;
+}
+
+// Response for ListOwnedPathologySharingLinks.
+// (-- api-linter: core::0132::response-unknown-fields=disabled
+//     aip.dev/not-precedent: The response returns the PathologySharingLinks
+//     owned by a user. --)
+message ListOwnedPathologySharingLinksResponse {
+  option deprecated = true;
+
+  // List of SharingLinks owned by user.
+  repeated PathologySharingLink pathology_sharing_links = 1;
+
+  // Token to get subsequent page if present.
+  string next_page_token = 2;
+}
+
+// Request for ListSavedPathologySharingLinks.
+// (-- api-linter: core::0132::request-parent-required=disabled
+//     aip.dev/not-precedent: Sharing Link is a top level field without a
+//     parent. --).
+message ListSavedPathologySharingLinksRequest {
+  option deprecated = true;
+
+  // Default is 20.
+  int32 page_size = 1;
+
+  // A page token, received from a ListSavedPathologySharingLinks call.
+  string page_token = 2;
+}
+
+// Response for ListSavedPathologySharingLinks.
+// (-- api-linter: core::0132::response-unknown-fields=disabled
+//     aip.dev/not-precedent: The response returns the PathologySharingLinks
+//     saved by a user. --)
+message ListSavedPathologySharingLinksResponse {
+  option deprecated = true;
+
+  // List of SharingLinks owned by user.
+  repeated PathologySharingLink saved_pathology_sharing_links = 1;
+
+  // Token to get subsequent page if present.
+  string next_page_token = 2;
+}

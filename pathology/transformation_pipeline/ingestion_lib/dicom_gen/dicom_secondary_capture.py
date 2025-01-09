@@ -24,9 +24,10 @@ import numpy as np
 import PIL.Image
 import pydicom
 
-from shared_libs.logging_lib import cloud_logging_client
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_private_tag_generator
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.shared_libs.pydicom_version_util import pydicom_version_util
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_private_tag_generator
 
 
 @dataclasses.dataclass(frozen=True)
@@ -162,8 +163,7 @@ def _build_dicom_instance(
   fd = pydicom.dataset.FileDataset(
       '', ds, file_meta=file_meta, preamble=b'\0' * 128
   )
-  fd.is_little_endian = True
-  fd.is_implicit_VR = False
+  pydicom_version_util.set_little_endian_explicit_vr(fd)
   return fd
 
 

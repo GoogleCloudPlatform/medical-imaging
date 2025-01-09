@@ -2,4 +2,4 @@
 # generate_requirements.sh to build requirements.txt from this file.
 # LINT.IfChange
 pip-tools==7.4.1
-# LINT.ThenChange(//depot/base_docker_images/base_py_opencv_docker/pip_tools_requirements.txt)
+# LINT.ThenChange(//depot/pathology.base_docker_images/base_py_opencv_docker/pip_tools_requirements.txt)

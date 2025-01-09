@@ -22,11 +22,11 @@ from typing import BinaryIO, List, Mapping, Optional, Tuple, Union
 
 import google.cloud.storage
 
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import blob_state_mock
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import client_mock
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_constants
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_types
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_utils
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import blob_state_mock
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import client_mock
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_constants
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_types
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_utils
 
 
 class BlobMock:

@@ -13,13 +13,16 @@
 # limitations under the License.
 # ==============================================================================
 """Utility functions supporting DICOM construction from SVS and DICOM files."""
+
 from __future__ import annotations
 
 import copy
 import datetime
+import importlib.resources
 import io
 import itertools
 import os
+import re
 from typing import Any, List, Mapping, MutableMapping, Optional, Sequence, Union
 
 import openslide
@@ -27,75 +30,140 @@ from PIL import ImageCms
 import PIL.Image
 import pydicom
 
-from shared_libs.logging_lib import cloud_logging_client
-from transformation_pipeline import ingest_flags
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_general_equipment
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_json_util
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_private_tag_generator
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
-from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
-from transformation_pipeline.ingestion_lib.dicom_gen import wsi_dicom_file_ref
-from transformation_pipeline.ingestion_lib.dicom_util import pydicom_util
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.shared_libs.pydicom_version_util import pydicom_version_util
+from pathology.transformation_pipeline import ingest_flags
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_general_equipment
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_json_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_private_tag_generator
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import wsi_dicom_file_ref
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import pydicom_util
+
 
 _UM_IN_MM = 1000.0  # Number of micrometers in 1 milimeter.
 _MAX_PIXEL_DATA_SIZE_FOR_BASIC_OFFSET_TABLE = 0xFFFFFFFF
 _SRGB = 'sRGB'
+_INVALID_CS_VR_TYPE_CHAR = re.compile('[^A-Z0-9 _]')
+_EMPTY_BYTES = b''
 
 
 class InvalidICCProfileError(Exception):
   pass
 
 
-def _read_icc_profile(filename: str) -> bytes:
-  with open(
-      os.path.join(
-          os.path.dirname(__file__),
-          f'../../../../../pathology_cloud_icc_profile/icc_profile/{filename}',
-      ),
-      'rb',
-  ) as infile:
-    return infile.read()
+def _read_icc_profile_file(*file_parts: str) -> bytes:
+  with open(os.path.join(*file_parts), 'rb') as f:
+    return f.read()
+
+
+def _read_file_resource(package: str, resource: str) -> bytes:
+  return importlib.resources.files(package).joinpath(resource).read_bytes()
+
+
+def _read_internal_icc_profile(dirname: str, filename: str) -> bytes:
+  try:
+    module_name = f'third_party.{dirname}'
+    return _read_file_resource(module_name, filename)
+  except ModuleNotFoundError as err:
+    raise FileNotFoundError(str(err)) from err
+
+
+def _does_icc_profile_file_name_match(file_name: str, search_name: str) -> bool:
+  fname, ext = os.path.splitext(file_name.lower())
+  return fname == search_name and ext == '.icc'
+
+
+def _read_dir_icc_profile(dir_path: str) -> bytes:
+  with os.scandir(dir_path) as sdir:
+    for entry in sdir:
+      if not entry.is_file():
+        continue
+      entry_name = entry.name.lower()
+      if entry_name.endswith('.icc'):
+        return _read_icc_profile_file(dir_path, entry.name)
+    return _EMPTY_BYTES
+
+
+def _read_icc_profile_plugin_file(name: str) -> bytes:
+  """Returns ICC Profile bytes read from plugin directory."""
+  icc_profile_plugin_dir = (
+      ingest_flags.THIRD_PARTY_ICC_PROFILE_DICRECTORY_FLG.value
+  )
+  if not icc_profile_plugin_dir:
+    return _EMPTY_BYTES
+  name = name.lower()
+  try:
+    file_list = os.scandir(icc_profile_plugin_dir)
+  except FileNotFoundError:
+    return _EMPTY_BYTES
+  profile = _EMPTY_BYTES
+  for entry in file_list:
+    if entry.is_file() and _does_icc_profile_file_name_match(entry.name, name):
+      profile = _read_icc_profile_file(icc_profile_plugin_dir, entry.name)
+    elif entry.is_dir() and entry.name.lower() == name:
+      profile = _read_dir_icc_profile(
+          os.path.join(icc_profile_plugin_dir, entry.name)
+      )
+    if profile:
+      return profile
+  return _EMPTY_BYTES
 
 
 def _get_srgb_iccprofile() -> bytes:
+  profile = _read_icc_profile_plugin_file('srgb')
+  if profile:
+    return profile
   try:
-    return _read_icc_profile('sRGB_v4_ICC_preference.icc')
+    return _read_internal_icc_profile('srgb', 'sRGB_v4_ICC_preference.icc')
   except FileNotFoundError:
     return ImageCms.ImageCmsProfile(ImageCms.createProfile(_SRGB)).tobytes()
 
 
 def _get_adobergb_iccprofile() -> bytes:
-  return _read_icc_profile('AdobeRGB1998.icc')
+  for filename in ('adobergb1998', 'adobergb'):
+    profile = _read_icc_profile_plugin_file(filename)
+    if profile:
+      return profile
+  return _read_internal_icc_profile('adobergb1998', 'AdobeRGB1998.icc')
 
 
 def _get_rommrgb_iccprofile() -> bytes:
-  return _read_icc_profile('ISO22028-2_ROMM-RGB.icc')
+  profile = _read_icc_profile_plugin_file('rommrgb')
+  if profile:
+    return profile
+  return _read_internal_icc_profile('rommrgb', 'ISO22028-2_ROMM-RGB.icc')
 
 
 def get_default_icc_profile_color() -> Optional[bytes]:
   """Returns default ICC profile to that should be used if none is provided."""
-  default_icc_profile = ingest_flags.DEFAULT_ICCPROFILE_FLG.value
+  default_icc_profile = ingest_flags.DEFAULT_ICC_PROFILE_FLG.value
+  if default_icc_profile is None:
+    return None
+  default_icc_profile = default_icc_profile.upper()
   try:
-    if default_icc_profile == ingest_flags.DefaultIccProfile.SRGB:
+    if default_icc_profile == ingest_const.ICCProfile.SRGB:
       profile = _get_srgb_iccprofile()
-    elif default_icc_profile == ingest_flags.DefaultIccProfile.ADOBERGB:
+    elif default_icc_profile == ingest_const.ICCProfile.ADOBERGB:
       profile = _get_adobergb_iccprofile()
-    elif default_icc_profile == ingest_flags.DefaultIccProfile.ROMMRGB:
+    elif default_icc_profile == ingest_const.ICCProfile.ROMMRGB:
       profile = _get_rommrgb_iccprofile()
-    elif default_icc_profile == ingest_flags.DefaultIccProfile.NONE:
+    elif default_icc_profile == ingest_const.ICCProfile.NONE:
       # Not recommended, ICC Profile are required for all WSI imaging that
       # do not encode monochrome imaging.
-      profile = None
+      return None
     else:
+      profile = _read_icc_profile_plugin_file(default_icc_profile)
+    if not profile:
       raise ValueError(
-          f'Unrecognized default ICC profile: {default_icc_profile}'
+          f'Error occured loading ICC profile: {default_icc_profile}'
       )
-    if default_icc_profile != ingest_flags.DefaultIccProfile.NONE:
-      cloud_logging_client.info(
-          'ICC profile missing from source imaging; embedding default profile:'
-          f' {default_icc_profile.name} in DICOM.'
-      )
+    cloud_logging_client.info(
+        'ICC profile missing from source imaging; embedding default profile:'
+        f' {default_icc_profile} in DICOM.'
+    )
     return profile
   except FileNotFoundError as exp:
     cloud_logging_client.error('Could not load default ICC Profile.', exp)
@@ -214,7 +282,7 @@ def _add_background_color(
   )
   im = PIL.Image.new('RGB', (1, 1), f'#{background_color}')
   lab_image = ImageCms.applyTransform(im, rgb2lab)
-  l, a, b = lab_image.split()
+  l, a, b = lab_image.split()  # pylint: disable=attribute-error
   l = int(0xFFFF * l[0, 0] / 100.0)
   a = int(0xFFFF * (a[0, 0] + 128.0) / 0xFF)
   b = int(0xFFFF * (b[0, 0] + 128.0) / 0xFF)
@@ -542,6 +610,14 @@ def _get_colorspace_description_from_iccprofile_bytes(
     ) from exp
 
 
+def _format_str_as_cs_vr_type(value: str) -> str:
+  color_space = value.strip().upper()
+  for ch in set(color_space):
+    if _INVALID_CS_VR_TYPE_CHAR.match(ch) is not None:
+      color_space = color_space.replace(ch, '')
+  return color_space[:16]
+
+
 def add_icc_colorspace_to_dicom(ds: pydicom.dataset.Dataset) -> None:
   """Adds ICC profile color space to DICOM.
 
@@ -562,11 +638,13 @@ def add_icc_colorspace_to_dicom(ds: pydicom.dataset.Dataset) -> None:
   # removed spaces and new line per CS text definitions.
   # https://dicom.nema.org/medical/dicom/current/output/chtml/part05/sect_6.2.html
   if description:
-    ds.ColorSpace = description.replace('\n', '').strip().upper()[:16]
+    color_space = _format_str_as_cs_vr_type(description)
+    ds.ColorSpace = color_space
     cloud_logging_client.info(
         'Adding ICC profile color space description DICOM',
         {
             'ICC_Profile_ColorSpace': description,
+            'DICOM_Tag_Value_ColorSpace': color_space,
         },
     )
 
@@ -644,7 +722,7 @@ def set_content_date_time_to_now(dcm_file: pydicom.Dataset) -> None:
     dcm_file: Pydicom file to set content date time tags in.
   """
   # Initialize content date time
-  content_datetime = datetime.datetime.now(datetime.timezone.utc)
+  content_datetime = _get_datetime_now()
   dcm_file.ContentTime = _dicom_formatted_time(content_datetime)
   dcm_file.ContentDate = _dicom_formatted_date(content_datetime)
 
@@ -748,6 +826,10 @@ def _pad_time(time_str: str) -> str:
   return f'{time_str}{pad}'
 
 
+def _get_datetime_now() -> datetime.datetime:
+  return datetime.datetime.now(datetime.timezone.utc)
+
+
 def _init_acquision_date_time_if_undefined(dcm_file: pydicom.Dataset) -> None:
   """Inits acquision date time if undefined (Required for WSI DICOM).
 
@@ -766,7 +848,7 @@ def _init_acquision_date_time_if_undefined(dcm_file: pydicom.Dataset) -> None:
   """
   if ingest_const.DICOMTagKeywords.ACQUISITION_DATE_TIME in dcm_file:
     return
-  datetime_now = datetime.datetime.now(datetime.timezone.utc)
+  datetime_now = _get_datetime_now()
 
   acquision_date = ''
   acquision_time = '000000'
@@ -810,11 +892,11 @@ def init_undefined_wsi_imaging_type1_tags(dcm_file: pydicom.Dataset) -> None:
   """
   if ingest_const.DICOMTagKeywords.EXTENDED_DEPTH_OF_FIELD not in dcm_file:
     dcm_file.ExtendedDepthOfField = (
-        ingest_flags.WSI_DICOM_EXTENDED_DEPTH_OF_FIELD_DEFAULT_VALUE_FLG.value.name
+        ingest_flags.WSI_DICOM_EXTENDED_DEPTH_OF_FIELD_DEFAULT_VALUE_FLG.value.name  # pytype: disable=attribute-error
     )
   if ingest_const.DICOMTagKeywords.FOCUS_METHOD not in dcm_file:
     dcm_file.FocusMethod = (
-        ingest_flags.WSI_DICOM_FOCUS_METHOD_DEFAULT_VALUE_FLG.value.name
+        ingest_flags.WSI_DICOM_FOCUS_METHOD_DEFAULT_VALUE_FLG.value.name  # pytype: disable=attribute-error
     )
   _init_slice_thickness_metadata_if_undefined(dcm_file)
   try:
@@ -1066,10 +1148,7 @@ def _has_offset_table(dcm: pydicom.Dataset) -> bool:
   """Returns True if DICOM instance has basic offset table."""
   if 'ExtendedOffsetTable' in dcm:
     return True
-  file_like = pydicom.filebase.DicomFileLike(io.BytesIO(dcm.PixelData))
-  file_like.is_little_endian = True
-  has_offset_table, _ = pydicom.encaps.get_frame_offsets(file_like)
-  return has_offset_table
+  return pydicom_version_util.has_basic_offset_table(dcm)
 
 
 def if_missing_create_encapsulated_frame_offset_table(
@@ -1086,8 +1165,8 @@ def if_missing_create_encapsulated_frame_offset_table(
     return
   # Offset table is needd, generate the offset table.
   frames = [
-      fd[0]
-      for fd in pydicom.encaps.generate_pixel_data(
+      fd
+      for fd in pydicom_version_util.generate_frames(
           dcm_file.PixelData,
           dcm_file.NumberOfFrames,
       )

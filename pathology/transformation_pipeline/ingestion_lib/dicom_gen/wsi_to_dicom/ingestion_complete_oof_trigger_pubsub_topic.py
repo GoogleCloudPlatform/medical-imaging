@@ -14,8 +14,8 @@
 # ==============================================================================
 """Accessor for OOF pub/sub topic."""
 
-from transformation_pipeline import ingest_flags
-from transformation_pipeline.ingestion_lib import pubsub_util
+from pathology.transformation_pipeline import ingest_flags
+from pathology.transformation_pipeline.ingestion_lib import pubsub_util
 
 
 def get_oof_trigger_pubsub_topic() -> str:

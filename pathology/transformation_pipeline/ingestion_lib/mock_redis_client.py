@@ -24,7 +24,7 @@ import uuid
 from absl.testing import flagsaver
 import redis
 
-from transformation_pipeline.ingestion_lib import redis_client
+from pathology.transformation_pipeline.ingestion_lib import redis_client
 
 
 @dataclasses.dataclass

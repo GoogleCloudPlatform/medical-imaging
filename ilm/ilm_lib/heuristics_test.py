@@ -18,15 +18,15 @@
 import dataclasses
 import datetime
 import logging
+from unittest import mock
 
 from absl.testing import absltest
 from absl.testing import parameterized
-import mock
 
-import ilm_config
-import ilm_types
-from ilm_lib import heuristics
-from test_utils import test_const
+from ilm import ilm_config
+from ilm import ilm_types
+from ilm.ilm_lib import heuristics
+from ilm.test_utils import test_const
 
 
 _UPGRADE_MOVE_RULE = ilm_config.MoveRule(

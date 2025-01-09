@@ -1,0 +1,496 @@
+{
+  "DICOMSchemaDef": {
+    "SOPClassUID_Name": "VL Whole Slide Microscopy Image Storage"
+  },
+  "0x00100010": {
+    "Keyword": "PatientName",
+    "Meta": "Patient Name"
+  },
+  "0x00100020": {
+    "Keyword": "PatientID",
+    "Meta": "Patient ID"
+  },
+  "0x00100030": {
+    "Keyword": "PatientBirthDate",
+    "Meta": "Patient DOB"
+  },
+  "0x00100040": {
+    "Keyword": "PatientSex",
+    "Meta": "Patient Sex"
+  },
+  "0x00080020": {
+    "Keyword": "StudyDate",
+    "Meta": "SpecimenCollectionDate"
+  },
+  "0x00080030": {
+    "Keyword": "StudyTime",
+    "Meta": "SpecimenCollectionTime"
+  },
+  "0x00080021": {
+    "Keyword": "SeriesDate",
+    "Meta": "SpecimenCollectionDate"
+  },
+  "0x00080031": {
+    "Keyword": "SeriesTime",
+    "Meta": "SpecimenCollectionTime"
+  },
+  "0x00101010": {
+    "Keyword": "PatientAge",
+    "Meta": "Patient Age on Collection Date"
+  },
+  "0x00400512": {
+    "Keyword": "ContainerIdentifier",
+    "Meta": "Slide ID"
+  },
+  "0x00081030": {
+    "Keyword": "StudyDescription",
+    "Meta": ["Test ID", "Test Name"],
+    "Meta_Join": "-"
+  },
+  "0x00080080": {
+    "Keyword": "InstitutionName",
+    "Meta": "Institution Name"
+  },
+  "0x00081040": {
+    "Keyword": "InstitutionalDepartmentName",
+    "Meta": "Department"
+  },
+  "0x00080090": {
+    "Keyword": "ReferringPhysicianName",
+    "Meta": "Requesting Physician"
+  },
+  "0x00400560": {
+    "Keyword": "SpecimenDescriptionSequence",
+    "SQ": [
+      {
+        "0x00400551": {
+          "Keyword": "SpecimenIdentifier",
+          "Meta": "Material ID"
+        },
+        "0x00400554": {
+          "Keyword": "SpecimenUID",
+          "Meta": "Specimen UID"
+        },
+        "0x00400600": {
+          "Keyword": "SpecimenShortDescription",
+          "Meta": "Specimen Description"
+        },
+        "0x00400602": {
+          "Keyword": "SpecimenDetailedDescription",
+          "Meta": "Specimen Modifier"
+        },
+        "0x00400610": {
+          "Keyword": "SpecimenPreparationSequence",
+          "SQ": [
+            {
+              "0x00400612": {
+                "Keyword": "SpecimenPreparationStepContentItemSequence",
+                "SQ": [
+                  {
+                    "0x0040A160": {
+                      "Keyword": "TextValue",
+                      "Meta": "Material Type"
+                    },
+                    "0x0040A040": {
+                      "Keyword": "ValueType",
+                      "Static_Value": "TEXT",
+                      "Conditional_On": "Material Type"
+                    },
+                    "0x0040A043": {
+                      "Keyword": "ConceptNameCodeSequence",
+                      "SEQ": {
+                        "0x00080100": {
+                          "Keyword": "CodeValue",
+                          "VALUE_CHAR_LIMIT": "<=16",
+                          "Meta": "Material Type"
+                        },
+                        "0x00080119": {
+                          "Keyword": "LongCodeValue",
+                          "VALUE_CHAR_LIMIT": ">16",
+                          "Meta": "Material Type"
+                        },
+                        "0x00080102": {
+                          "Keyword": "CodingSchemeDesignator",
+                          "Static_Value": "99_WHO",
+                          "Conditional_On": "Material Type"
+                        },
+                        "0x00080104": {
+                          "Keyword": "CodeMeaning",
+                          "Static_Value": "Material Type",
+                          "Conditional_On": "Material Type"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "0x0040A160": {
+                      "Keyword": "TextValue",
+                      "Meta": "Specimen Type"
+                    },
+                    "0x0040A040": {
+                      "Keyword": "ValueType",
+                      "Static_Value": "TEXT",
+                      "Conditional_On": "Specimen Type"
+                    },
+                    "0x0040A043": {
+                      "Keyword": "ConceptNameCodeSequence",
+                      "SEQ": {
+                        "0x00080100": {
+                          "Keyword": "CodeValue",
+                          "VALUE_CHAR_LIMIT": "<=16",
+                          "Meta": "Specimen Type"
+                        },
+                        "0x00080119": {
+                          "Keyword": "LongCodeValue",
+                          "VALUE_CHAR_LIMIT": ">16",
+                          "Meta": "Specimen Type"
+                        },
+                        "0x00080102": {
+                          "Keyword": "CodingSchemeDesignator",
+                          "Static_Value": "99_WHO",
+                          "Conditional_On": "Specimen Type"
+                        },
+                        "0x00080104": {
+                          "Keyword": "CodeMeaning",
+                          "Static_Value": "Specimen Type",
+                          "Conditional_On": "Specimen Type"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "0x0040A160": {
+                      "Keyword": "TextValue",
+                      "Meta": "Stain"
+                    },
+                    "0x0040A040": {
+                      "Keyword": "ValueType",
+                      "Static_Value": "TEXT",
+                      "Conditional_On": "Stain"
+                    },
+                    "0x0040A043": {
+                      "Keyword": "ConceptNameCodeSequence",
+                      "SEQ": {
+                        "0x00080100": {
+                          "Keyword": "CodeValue",
+                          "VALUE_CHAR_LIMIT": "<=16",
+                          "Meta": "Stain"
+                        },
+                        "0x00080119": {
+                          "Keyword": "LongCodeValue",
+                          "VALUE_CHAR_LIMIT": ">16",
+                          "Meta": "Stain"
+                        },
+                        "0x00080102": {
+                          "Keyword": "CodingSchemeDesignator",
+                          "Static_Value": "99_WHO",
+                          "Conditional_On": "Stain"
+                        },
+                        "0x00080104": {
+                          "Keyword": "CodeMeaning",
+                          "Static_Value": "Stain",
+                          "Conditional_On": "Stain"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "0x0040A160": {
+                      "Keyword": "TextValue",
+                      "Meta": "Block Code"
+                    },
+                    "0x0040A040": {
+                      "Keyword": "ValueType",
+                      "Static_Value": "TEXT",
+                      "Conditional_On": "Block Code"
+                    },
+                    "0x0040A043": {
+                      "Keyword": "ConceptNameCodeSequence",
+                      "SEQ": {
+                        "0x00080100": {
+                          "Keyword": "CodeValue",
+                          "VALUE_CHAR_LIMIT": "<=16",
+                          "Meta": "Block Code"
+                        },
+                        "0x00080119": {
+                          "Keyword": "LongCodeValue",
+                          "VALUE_CHAR_LIMIT": ">16",
+                          "Meta": "Block Code"
+                        },
+                        "0x00080102": {
+                          "Keyword": "CodingSchemeDesignator",
+                          "Static_Value": "99_WHO",
+                          "Conditional_On": "Block Code"
+                        },
+                        "0x00080104": {
+                          "Keyword": "CodeMeaning",
+                          "Static_Value": "Block Code",
+                          "Conditional_On": "Block Code"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "0x0040A160": {
+                      "Keyword": "TextValue",
+                      "Meta": "Specimen Code"
+                    },
+                    "0x0040A040": {
+                      "Keyword": "ValueType",
+                      "Static_Value": "TEXT",
+                      "Conditional_On": "Specimen Code"
+                    },
+                    "0x0040A043": {
+                      "Keyword": "ConceptNameCodeSequence",
+                      "SEQ": {
+                        "0x00080100": {
+                          "Keyword": "CodeValue",
+                          "VALUE_CHAR_LIMIT": "<=16",
+                          "Meta": "Specimen Code"
+                        },
+                        "0x00080119": {
+                          "Keyword": "LongCodeValue",
+                          "VALUE_CHAR_LIMIT": ">16",
+                          "Meta": "Specimen Code"
+                        },
+                        "0x00080102": {
+                          "Keyword": "CodingSchemeDesignator",
+                          "Static_Value": "99_WHO",
+                          "Conditional_On": "Specimen Code"
+                        },
+                        "0x00080104": {
+                          "Keyword": "CodeMeaning",
+                          "Static_Value": "Specimen Code",
+                          "Conditional_On": "Specimen Code"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "0x00080050": {
+    "Keyword": "AccessionNumber",
+    "Meta": "Case ID"
+  },
+  "0x00080051": {
+    "Keyword": "IssuerOfAccessionNumberSequence",
+    "SQ": {
+      "0x00400031": {
+        "Keyword": "LocalNamespaceEntityID",
+        "Static_Value": "Example Hospital"
+      },
+      "0x00400032": {
+        "Keyword": "UniversalEntityID",
+        "Static_Value": "www.ExampleHospital.org"
+      },
+      "0x00400033": {
+        "Keyword": "UniversalEntityIDType",
+        "Static_Value": "DNS"
+      }
+    }
+  },
+  "0x0020000E": {
+    "Keyword": "SeriesInstanceUID",
+    "Meta": "SeriesInstanceUID"
+  },
+  "0x0020000D": {
+    "Keyword": "StudyInstanceUID",
+    "Meta": "StudyInstanceUID"
+  },
+  "0x22000005": {
+    "Keyword": "BarcodeValue",
+    "Meta": "Bar Code Value"
+  },
+  "0x0008103E": {
+    "Keyword": "SeriesDescription",
+    "Meta": ["Stain", "Specimen Modifier"],
+    "Meta_Join": "-"
+  },
+  "0x00081084": {
+    "Keyword": "AdmittingDiagnosesCodeSequence",
+    "SQ": [
+      {
+        "0x00080100": {
+          "Keyword": "CodeValue",
+          "VALUE_CHAR_LIMIT": "<=16",
+          "Meta": "DIAGNOSIS_CODE1"
+        },
+        "0x00080119": {
+          "Keyword": "LongCodeValue",
+          "VALUE_CHAR_LIMIT": ">16",
+          "Meta": "DIAGNOSIS_CODE1"
+        },
+        "0x00080102": {
+          "Keyword": "CodingSchemeDesignator",
+          "Meta": "ICD VERSION",
+          "Conditional_On": "DIAGNOSIS_CODE1"
+        },
+        "0x00080104": {
+          "Keyword": "CodeMeaning",
+          "Meta": "DIAGNOSIS_NAME1",
+          "Conditional_On": "DIAGNOSIS_CODE1"
+        }
+      },
+      {
+        "0x00080100": {
+          "Keyword": "CodeValue",
+          "VALUE_CHAR_LIMIT": "<=16",
+          "Meta": "DIAGNOSIS_CODE2"
+        },
+        "0x00080119": {
+          "Keyword": "LongCodeValue",
+          "VALUE_CHAR_LIMIT": ">16",
+          "Meta": "DIAGNOSIS_CODE2"
+        },
+        "0x00080102": {
+          "Keyword": "CodingSchemeDesignator",
+          "Meta": "ICD VERSION",
+          "Conditional_On": "DIAGNOSIS_CODE2"
+        },
+        "0x00080104": {
+          "Keyword": "CodeMeaning",
+          "Meta": "DIAGNOSIS_NAME2",
+          "Conditional_On": "DIAGNOSIS_CODE2"
+        }
+      },
+      {
+        "0x00080100": {
+          "Keyword": "CodeValue",
+          "VALUE_CHAR_LIMIT": "<=16",
+          "Meta": "DIAGNOSIS_CODE3"
+        },
+        "0x00080119": {
+          "Keyword": "LongCodeValue",
+          "VALUE_CHAR_LIMIT": ">16",
+          "Meta": "DIAGNOSIS_CODE3"
+        },
+        "0x00080102": {
+          "Keyword": "CodingSchemeDesignator",
+          "Meta": "ICD VERSION",
+          "Conditional_On": "DIAGNOSIS_CODE3"
+        },
+        "0x00080104": {
+          "Keyword": "CodeMeaning",
+          "Meta": "DIAGNOSIS_NAME3",
+          "Conditional_On": "DIAGNOSIS_CODE3"
+        }
+      },
+      {
+        "0x00080100": {
+          "Keyword": "CodeValue",
+          "VALUE_CHAR_LIMIT": "<=16",
+          "Meta": "DIAGNOSIS_CODE4"
+        },
+        "0x00080119": {
+          "Keyword": "LongCodeValue",
+          "VALUE_CHAR_LIMIT": ">16",
+          "Meta": "DIAGNOSIS_CODE4"
+        },
+        "0x00080102": {
+          "Keyword": "CodingSchemeDesignator",
+          "Meta": "ICD VERSION",
+          "Conditional_On": "DIAGNOSIS_CODE4"
+        },
+        "0x00080104": {
+          "Keyword": "CodeMeaning",
+          "Meta": "DIAGNOSIS_NAME4",
+          "Conditional_On": "DIAGNOSIS_CODE4"
+        }
+      },
+      {
+        "0x00080100": {
+          "Keyword": "CodeValue",
+          "VALUE_CHAR_LIMIT": "<=16",
+          "Meta": "SNOMED_CODE1"
+        },
+        "0x00080119": {
+          "Keyword": "LongCodeValue",
+          "VALUE_CHAR_LIMIT": ">16",
+          "Meta": "SNOMED_CODE1"
+        },
+        "0x00080102": {
+          "Keyword": "CodingSchemeDesignator",
+          "Meta": "SNOMED_VERSION",
+          "Conditional_On": "SNOMED_CODE1"
+        },
+        "0x00080104": {
+          "Keyword": "CodeMeaning",
+          "Meta": "SNOMED_DESCRIPTION1",
+          "Conditional_On": "SNOMED_CODE1"
+        }
+      },
+      {
+        "0x00080100": {
+          "Keyword": "CodeValue",
+          "VALUE_CHAR_LIMIT": "<=16",
+          "Meta": "SNOMED_CODE2"
+        },
+        "0x00080119": {
+          "Keyword": "LongCodeValue",
+          "VALUE_CHAR_LIMIT": ">16",
+          "Meta": "SNOMED_CODE2"
+        },
+        "0x00080102": {
+          "Keyword": "CodingSchemeDesignator",
+          "Meta": "SNOMED_VERSION",
+          "Conditional_On": "SNOMED_CODE2"
+        },
+        "0x00080104": {
+          "Keyword": "CodeMeaning",
+          "Meta": "SNOMED_DESCRIPTION2",
+          "Conditional_On": "SNOMED_CODE2"
+        }
+      },
+      {
+        "0x00080100": {
+          "Keyword": "CodeValue",
+          "VALUE_CHAR_LIMIT": "<=16",
+          "Meta": "SNOMED_CODE3"
+        },
+        "0x00080119": {
+          "Keyword": "LongCodeValue",
+          "VALUE_CHAR_LIMIT": ">16",
+          "Meta": "SNOMED_CODE3"
+        },
+        "0x00080102": {
+          "Keyword": "CodingSchemeDesignator",
+          "Meta": "SNOMED_VERSION",
+          "Conditional_On": "SNOMED_CODE3"
+        },
+        "0x00080104": {
+          "Keyword": "CodeMeaning",
+          "Meta": "SNOMED_DESCRIPTION3",
+          "Conditional_On": "SNOMED_CODE3"
+        }
+      },
+      {
+        "0x00080100": {
+          "Keyword": "CodeValue",
+          "VALUE_CHAR_LIMIT": "<=16",
+          "Meta": "SNOMED_CODE4"
+        },
+        "0x00080119": {
+          "Keyword": "LongCodeValue",
+          "VALUE_CHAR_LIMIT": ">16",
+          "Meta": "SNOMED_CODE4"
+        },
+        "0x00080102": {
+          "Keyword": "CodingSchemeDesignator",
+          "Meta": "SNOMED_VERSION",
+          "Conditional_On": "SNOMED_CODE4"
+        },
+        "0x00080104": {
+          "Keyword": "CodeMeaning",
+          "Meta": "SNOMED_DESCRIPTION4",
+          "Conditional_On": "SNOMED_CODE4"
+        }
+      }
+    ]
+  }
+}

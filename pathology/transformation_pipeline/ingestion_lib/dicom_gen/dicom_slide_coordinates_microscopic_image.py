@@ -26,12 +26,13 @@ import PIL
 import pydicom
 import tifffile
 
-from shared_libs.logging_lib import cloud_logging_client
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_json_util
-from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ancillary_image_extractor
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.shared_libs.pydicom_version_util import pydicom_version_util
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_json_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ancillary_image_extractor
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
 
 _MAX_IMAGE_SIZE = 65535
 _SUPPORTED_IMAGE_FORMATS = frozenset(['JPEG', 'PNG', 'TIFF'])
@@ -100,12 +101,14 @@ def _convert_resolution_to_spacing(
   """
   if len(resolution) != 2:  # Invalid resolution value.
     return None
+  # pytype: disable=attribute-error
   if resolution_unit == tifffile.TIFF.RESUNIT.CENTIMETER:
     unit_to_mm = 10
   elif resolution_unit == tifffile.TIFF.RESUNIT.INCH:
     unit_to_mm = 25.4
   else:  # Resolution unit unspecified.
     return None
+  # pytype: enable=attribute-error
   return resolution[1] * unit_to_mm / resolution[0]
 
 
@@ -264,7 +267,7 @@ def _create_image_dicom_metadata(image_path: str) -> _ImageDicomMetadata:
       )
   )
 
-  return _ImageDicomMetadata(
+  return _ImageDicomMetadata(  # pytype: disable=wrong-arg-types  # pillow-102-upgrade
       image_bytes,
       img.width,
       img.height,
@@ -319,8 +322,7 @@ def _create_dicom(
       file_meta=file_meta,
       preamble=b'\0' * 128,
   )
-  ds.is_little_endian = True
-  ds.is_implicit_VR = False
+  pydicom_version_util.set_little_endian_explicit_vr(ds)
   if (
       metadata.transfer_syntax
       == ingest_const.DicomImageTransferSyntax.JPEG_LOSSY

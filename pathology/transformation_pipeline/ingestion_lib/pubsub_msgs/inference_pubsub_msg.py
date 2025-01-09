@@ -19,11 +19,11 @@ from typing import Any, List, Mapping
 
 from google.cloud import pubsub_v1
 
-from shared_libs.logging_lib import cloud_logging_client
-from shared_libs.ml.inference_pipeline import inference_pubsub_message
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_secondary_capture
-from transformation_pipeline.ingestion_lib.pubsub_msgs import abstract_pubsub_msg
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.shared_libs.ml.inference_pipeline import inference_pubsub_message
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_secondary_capture
+from pathology.transformation_pipeline.ingestion_lib.pubsub_msgs import abstract_pubsub_msg
 
 
 class _PubSubMsgParsingError(Exception):

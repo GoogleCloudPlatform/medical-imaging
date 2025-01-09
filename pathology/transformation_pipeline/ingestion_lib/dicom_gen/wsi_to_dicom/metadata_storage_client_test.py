@@ -21,14 +21,14 @@ from absl.testing import absltest
 from absl.testing import flagsaver
 from absl.testing import parameterized
 
-from transformation_pipeline.ingestion_lib import csv_util
-from transformation_pipeline.ingestion_lib import gen_test_util
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_schema_util
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
+from pathology.transformation_pipeline.ingestion_lib import csv_util
+from pathology.transformation_pipeline.ingestion_lib import gen_test_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_schema_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
 
 
 TESTDATA_DIR = (
-    'transformation_pipeline/testdata'
+    'pathology.transformation_pipeline/testdata'
 )
 
 

@@ -16,7 +16,7 @@
 
 import dataclasses
 import os
-from typing import Any, Generator, List, Optional
+from typing import Iterator, List, Optional
 
 import cv2
 import numpy as np
@@ -25,10 +25,11 @@ import PIL
 import pydicom
 import tifffile
 
-from shared_libs.logging_lib import cloud_logging_client
-from transformation_pipeline import ingest_flags
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingested_dicom_file_ref
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.shared_libs.pydicom_version_util import pydicom_version_util
+from pathology.transformation_pipeline import ingest_flags
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingested_dicom_file_ref
 
 
 # Setting JPG quality to 95 for thumbnail, label, macro images
@@ -102,7 +103,7 @@ def _get_icc_tag(
         series_name = tiff.series[0].name
       for series in tiff.series:
         if series.name == series_name and series.pages:
-          for tg in series.pages[0].tags:
+          for tg in series.pages[0].tags:  # pytype: disable=attribute-error
             if tg.name == 'InterColorProfile':
               return tg.value
           return None
@@ -137,13 +138,13 @@ def _extract_jpeg_directly(
   """
   cloud_logging_client.info(f'Extracting  {image.path} without decompression.')
   page = series.pages[0]
-  offset = page.dataoffsets[0]
-  bytecount = page.databytecounts[0]
+  offset = page.dataoffsets[0]  # pytype: disable=attribute-error
+  bytecount = page.databytecounts[0]  # pytype: disable=attribute-error
   fh = tiff.filehandle
   fh.seek(offset)
   with open(image.path, 'wb') as outfile:
     outfile.write(bytearray(fh.read(bytecount)))
-  if page.photometric.value == _TIFF_RGB_PHOTOMETRIC:
+  if page.photometric.value == _TIFF_RGB_PHOTOMETRIC:  # pytype: disable=attribute-error
     image.photometric_interpretation = _RGB
   else:
     image.photometric_interpretation = _YBR_FULL_422
@@ -279,8 +280,8 @@ def extract_jpg_image(
           continue
         if (
             len(series.pages) == 1
-            and series.pages[0].compression.value == _TIFF_JPEG_COMPRESSION
-            and series.pages[0].jpegtables is None
+            and series.pages[0].compression.value == _TIFF_JPEG_COMPRESSION  # pytype: disable=attribute-error
+            and series.pages[0].jpegtables is None  # pytype: disable=attribute-error
         ):
           # If image is JPEG encoded and defined without external JPEG
           # table decode. If JPEG table is present, then
@@ -431,7 +432,7 @@ def get_ancillary_images_from_svs(
 
 
 def _get_first_encapsulated_frame(
-    encapsulated_frames: Generator[bytes, Any, None], image_type: str
+    encapsulated_frames: Iterator[bytes], image_type: str
 ) -> bytes:
   """Return first element in frame generator or throw.
 
@@ -490,7 +491,7 @@ def _extract_ancillary_dicom_image(
         number_of_frames = ds.NumberOfFrames
       except AttributeError:
         number_of_frames = 1
-      encoded_frames = pydicom.encaps.generate_pixel_data_frame(
+      encoded_frames = pydicom_version_util.generate_frames(
           ds.PixelData, number_of_frames
       )
     encoded_frame = _get_first_encapsulated_frame(

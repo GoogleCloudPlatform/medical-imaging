@@ -1,0 +1,19 @@
+{
+  "dry_run": true,
+  "dicom_store_config": {
+    "dicom_store_path": "projects/my-proj/locations/my-location/datasets/my-ds-dataset/dicomStores/my-dicom-store",
+    "dicom_store_bigquery_table": "my-proj.my_ds_dataset.my-ds-table"
+  },
+  "logs_config": {
+    "logs_bigquery_table": "my-proj.my_log_dataset.my_log_tables*"
+  },
+  "instances_disallow_list": [],
+  "storage_class_config": {
+    "move_rules": []
+  },
+  "tmp_gcs_uri": "gs://my-proj/tmp/",
+  "report_config": {
+    "summarized_results_report_gcs_uri": "gs://my-proj/results-{}.txt",
+    "detailed_results_report_gcs_uri": "gs://my-proj/detailed-results-{}.txt"
+  }
+}

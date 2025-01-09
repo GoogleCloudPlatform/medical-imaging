@@ -19,8 +19,8 @@ import sys
 from absl import flags
 import pydicom
 
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib.dicom_util import dicom_test_util
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_test_util
 
 ANNOTATOR_EMAIL = flags.DEFINE_string(
     'annotator_email',

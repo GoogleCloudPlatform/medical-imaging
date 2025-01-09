@@ -15,8 +15,8 @@
 from absl.testing import absltest
 from absl.testing import parameterized
 
-from transformation_pipeline.ingestion_lib.dicom_util import dicom_iod_util
-from transformation_pipeline.ingestion_lib.dicom_util import dicom_standard_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_iod_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_standard_util
 
 
 class DICOMIODUtilTest(parameterized.TestCase):

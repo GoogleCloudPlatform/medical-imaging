@@ -1,0 +1,9 @@
+# Do not modify requirements.txt directly. Run
+# generate_requirements.sh to build requirements.txt from this file.
+# LINT.IfChange
+absl-py==2.1.0
+google-cloud-logging==3.11.0
+googleapis-common-protos==1.65.0
+grpcio==1.65.1
+grpcio-tools==1.65.1
+# LINT.ThenChange(//depot/pathology.orchestrator/grpc/endpoints/requirements.txt)

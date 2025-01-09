@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """Unit tests for IngestDICOM."""
+
 from __future__ import annotations
 
 import contextlib
@@ -29,33 +30,32 @@ from typing import Any, Dict, List, Mapping, Set, Tuple
 from unittest import mock
 import zipfile
 
-from absl import flags
 from absl.testing import absltest
 from absl.testing import flagsaver
 from absl.testing import parameterized
 import pydicom
 
-from shared_libs.logging_lib import cloud_logging_client
-from shared_libs.test_utils.dicom_store_mock import dicom_store_mock
-from shared_libs.test_utils.gcs_mock import gcs_mock
-from transformation_pipeline import ingest_flags
-from transformation_pipeline.ingestion_lib import gen_test_util
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_file_ref
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_schema_util
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
-from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_base
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_gcs_handler
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_wsi_dicom
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingested_dicom_file_ref
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
-from transformation_pipeline.ingestion_lib.dicom_util import dicom_test_util
-from transformation_pipeline.ingestion_lib.dicom_util import pydicom_util
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.shared_libs.pydicom_version_util import pydicom_version_util
+from pathology.shared_libs.test_utils.dicom_store_mock import dicom_store_mock
+from pathology.shared_libs.test_utils.gcs_mock import gcs_mock
+from pathology.transformation_pipeline import ingest_flags
+from pathology.transformation_pipeline.ingestion_lib import gen_test_util
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_file_ref
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_schema_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_base
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_gcs_handler
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_wsi_dicom
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingested_dicom_file_ref
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_test_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import pydicom_util
 
-FLAGS = flags.FLAGS
 
 _TEST_ZIP_FILE_NAME = 'test_file.zip'
 _TEST_INGEST_FILENAME_WITH_SLIDEID = 'MD-01-1-A1-1_ingest.zip'
@@ -341,7 +341,9 @@ class IngestWsiDicomTest(parameterized.TestCase):
 
   def setUp(self):
     super().setUp()
-    self.enter_context(flagsaver.flagsaver(metadata_bucket='metadata'))
+    self.enter_context(
+        flagsaver.flagsaver(metadata_bucket='metadata', redis_server_ip=None)
+    )
     self.enter_context(
         mock.patch.object(
             dicom_util,
@@ -622,10 +624,10 @@ class IngestWsiDicomTest(parameterized.TestCase):
     ingested_dicom_path = os.path.join(temp_dir, 'test1.dcm')
     ds.SOPClassUID = ingest_const.DicomSopClasses.WHOLE_SLIDE_IMAGE.uid
     ds.SOPInstanceUID = f'{ingest_const.DPAS_UID_PREFIX}.31234'
-    ds.save_as(ingested_dicom_path, write_like_original=False)
+    pydicom_version_util.save_as_validated_dicom(ds, ingested_dicom_path)
     ds.AccessionNumber = 'C1234'
     test_dicom_path = [os.path.join(temp_dir, 'test2.dcm')]
-    ds.save_as(test_dicom_path[0], write_like_original=False)
+    pydicom_version_util.save_as_validated_dicom(ds, test_dicom_path[0])
     dcm_ref = ingested_dicom_file_ref.load_ingest_dicom_fileref(
         ingested_dicom_path
     )
@@ -651,14 +653,14 @@ class IngestWsiDicomTest(parameterized.TestCase):
     ingested_dicom_path = os.path.join(temp_dir, 'test1.dcm')
     ds.SOPClassUID = ingest_const.DicomSopClasses.WHOLE_SLIDE_IMAGE.uid
     ds.SOPInstanceUID = f'{ingest_const.DPAS_UID_PREFIX}.31234'
-    ds.save_as(ingested_dicom_path, write_like_original=False)
+    pydicom_version_util.save_as_validated_dicom(ds, ingested_dicom_path)
     test_dicom_path = [os.path.join(temp_dir, 'test2.dcm')]
     # SOPINSTANCEUID should not start with DPAS UID Prefix.
     ds.SOPInstanceUID = '1.2.3.4.31234'
     if ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG in ds:
       # If has hash tag.  Remove it.
       del ds[ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG]
-    ds.save_as(test_dicom_path[0], write_like_original=False)
+    pydicom_version_util.save_as_validated_dicom(ds, test_dicom_path[0])
     dcm_ref = ingested_dicom_file_ref.load_ingest_dicom_fileref(
         ingested_dicom_path
     )
@@ -687,7 +689,7 @@ class IngestWsiDicomTest(parameterized.TestCase):
     ds.StudyInstanceUID = '1.2.3.4'
     ds.SOPClassUID = ingest_const.DicomSopClasses.WHOLE_SLIDE_IMAGE.uid
     ds.SOPInstanceUID = f'{ingest_const.DPAS_UID_PREFIX}.31234'
-    ds.save_as(ingested_dicom_path, write_like_original=False)
+    pydicom_version_util.save_as_validated_dicom(ds, ingested_dicom_path)
     test_dicom_path = [os.path.join(temp_dir, 'test2.dcm')]
     # SOPINSTANCEUID should not start with DPAS UID Prefix.
     ds.SOPInstanceUID = '1.2.3.4.31234'
@@ -695,7 +697,7 @@ class IngestWsiDicomTest(parameterized.TestCase):
     if ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG in ds:
       # If tag has hash code.  Remove it.
       del ds[ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG]
-    ds.save_as(test_dicom_path[0], write_like_original=False)
+    pydicom_version_util.save_as_validated_dicom(ds, test_dicom_path[0])
     dcm_ref = ingested_dicom_file_ref.load_ingest_dicom_fileref(
         ingested_dicom_path
     )
@@ -813,10 +815,10 @@ class IngestWsiDicomTest(parameterized.TestCase):
   @flagsaver.flagsaver(testing_disable_cloudvision=True)
   def test_get_slide_id_from_image(self):
     with flagsaver.flagsaver(
-        zxing_cli=os.path.join(
-            FLAGS.test_srcdir, 'third_party/zxing/zxing_cli'
-        )
     ):
+      # Skip test if zxing cli is not available.
+      if not os.path.isfile(ingest_flags.ZXING_CLI_FLG.value):
+        return
       # Create two images and zip images togeather. ID determined from
       # zipped label images.
       temp_dir = self.create_tempdir()
@@ -868,9 +870,6 @@ class IngestWsiDicomTest(parameterized.TestCase):
   @flagsaver.flagsaver(testing_disable_cloudvision=True)
   def test_get_slide_id_cannot_determine_slide_id_raises(self):
     with flagsaver.flagsaver(
-        zxing_cli=os.path.join(
-            FLAGS.test_srcdir, 'third_party/zxing/zxing_cli'
-        )
     ):
       # Create two images and zip images togeather. ID determined from
       # zipped label images.
@@ -933,9 +932,6 @@ class IngestWsiDicomTest(parameterized.TestCase):
       self,
   ):
     with flagsaver.flagsaver(
-        zxing_cli=os.path.join(
-            FLAGS.test_srcdir, 'third_party/zxing/zxing_cli'
-        )
     ):
       # Create two images and zip images togeather. ID determined from
       # zipped label images.
@@ -1219,10 +1215,10 @@ class IngestWsiDicomTest(parameterized.TestCase):
     ingested_dicom_path = os.path.join(temp_dir, 'test1.dcm')
     ds.SOPClassUID = ingest_const.DicomSopClasses.WHOLE_SLIDE_IMAGE.uid
     ds.SOPInstanceUID = f'{ingest_const.DPAS_UID_PREFIX}.31234'
-    ds.save_as(ingested_dicom_path, write_like_original=False)
+    pydicom_version_util.save_as_validated_dicom(ds, ingested_dicom_path)
     test_dicom_path = [os.path.join(temp_dir, 'test2.dcm')]
     pydicom_util.set_dataset_tag_value(ds, tag_keyword, '0')
-    ds.save_as(test_dicom_path[0], write_like_original=False)
+    pydicom_version_util.save_as_validated_dicom(ds, test_dicom_path[0])
     dcm_ref = ingested_dicom_file_ref.load_ingest_dicom_fileref(
         ingested_dicom_path
     )
@@ -1250,10 +1246,10 @@ class IngestWsiDicomTest(parameterized.TestCase):
     ingested_dicom_path = os.path.join(temp_dir, 'test1.dcm')
     ds.SOPClassUID = ingest_const.DicomSopClasses.WHOLE_SLIDE_IMAGE.uid
     ds.SOPInstanceUID = f'{ingest_const.DPAS_UID_PREFIX}.31234'
-    ds.save_as(ingested_dicom_path, write_like_original=False)
+    pydicom_version_util.save_as_validated_dicom(ds, ingested_dicom_path)
     test_dicom_path = [os.path.join(temp_dir, 'test2.dcm')]
     pydicom_util.set_dataset_tag_value(ds, tag_keyword, '0')
-    ds.save_as(test_dicom_path[0], write_like_original=False)
+    pydicom_version_util.save_as_validated_dicom(ds, test_dicom_path[0])
     dcm_ref = ingested_dicom_file_ref.load_ingest_dicom_fileref(
         ingested_dicom_path
     )
@@ -1265,7 +1261,8 @@ class IngestWsiDicomTest(parameterized.TestCase):
 
   def test_get_additional_tag_keywords_to_copy(self):
     with open(
-        gen_test_util.test_file_path('root_level_vl_wsi_tags_to_copy.txt'), 'rt'
+        gen_test_util.test_file_path('root_level_vl_wsi_tags_to_copy.json'),
+        'rt',
     ) as infile:
       tags = sorted(json.load(infile))
     self.assertEqual(
@@ -1288,17 +1285,17 @@ class IngestWsiDicomTest(parameterized.TestCase):
   @parameterized.named_parameters([
       dict(
           testcase_name='original_main_image',
-          image_type='ORIGINAL\\PRIMARY\\VOLUME',
+          image_type='ORIGINAL\\PRIMARY\\VOLUME\\NONE',
           override_study_uid_with_metadata=False,
       ),
       dict(
           testcase_name='derived_main_image',
-          image_type='DERIVED\\PRIMARY\\VOLUME',
+          image_type='DERIVED\\PRIMARY\\VOLUME\\NONE',
           override_study_uid_with_metadata=False,
       ),
       dict(
           testcase_name='derived_main_image_metadata_study_uid_source',
-          image_type='DERIVED\\PRIMARY\\VOLUME',
+          image_type='DERIVED\\PRIMARY\\VOLUME\\NONE',
           override_study_uid_with_metadata=True,
       ),
   ])
@@ -1351,17 +1348,17 @@ class IngestWsiDicomTest(parameterized.TestCase):
   @parameterized.named_parameters([
       dict(
           testcase_name='original_main_image',
-          image_type='ORIGINAL\\PRIMARY\\VOLUME',
+          image_type='ORIGINAL\\PRIMARY\\VOLUME\\NONE',
           override_study_uid_with_metadata=False,
       ),
       dict(
           testcase_name='derived_main_image',
-          image_type='DERIVED\\PRIMARY\\VOLUME',
+          image_type='DERIVED\\PRIMARY\\VOLUME\\NONE',
           override_study_uid_with_metadata=False,
       ),
       dict(
           testcase_name='derived_main_image_metadata_study_uid_source',
-          image_type='DERIVED\\PRIMARY\\VOLUME',
+          image_type='DERIVED\\PRIMARY\\VOLUME\\NONE',
           override_study_uid_with_metadata=True,
       ),
   ])
@@ -1426,7 +1423,7 @@ class IngestWsiDicomTest(parameterized.TestCase):
   def test_generate_dicom_wsi_image_metadata_free_studyinstance_uid(
       self, override_with_metadata, *unused_mocks
   ):
-    image_type = 'ORIGINAL\\PRIMARY\\VOLUME'
+    image_type = 'ORIGINAL\\PRIMARY\\VOLUME\\NONE'
     sop_class_uid = ingest_const.DicomSopClasses.WHOLE_SLIDE_IMAGE.uid
     modality = 'SM'
     input_filepath = gen_test_util.test_file_path('test_wikipedia.dcm')
@@ -1464,7 +1461,7 @@ class IngestWsiDicomTest(parameterized.TestCase):
   def test_generate_dicom_wsi_image_init_series_from_metadata(
       self, *unused_mocks
   ):
-    image_type = 'ORIGINAL\\PRIMARY\\VOLUME'
+    image_type = 'ORIGINAL\\PRIMARY\\VOLUME\\NONE'
     sop_class_uid = ingest_const.DicomSopClasses.WHOLE_SLIDE_IMAGE.uid
     modality = 'SM'
     input_filepath = gen_test_util.test_file_path('test_wikipedia.dcm')
@@ -1494,7 +1491,7 @@ class IngestWsiDicomTest(parameterized.TestCase):
   def test_generate_dicom_wsi_image_init_series_undefined_from_metadata_error(
       self, *unused_mocks
   ):
-    image_type = 'ORIGINAL\\PRIMARY\\VOLUME'
+    image_type = 'ORIGINAL\\PRIMARY\\VOLUME\\NONE'
     sop_class_uid = ingest_const.DicomSopClasses.WHOLE_SLIDE_IMAGE.uid
     modality = 'SM'
     input_filepath = gen_test_util.test_file_path('test_wikipedia.dcm')
@@ -1566,7 +1563,7 @@ class IngestWsiDicomTest(parameterized.TestCase):
       self, *unused_mocks, override_with_metadata, expected_study_instance_uid
   ):
     slide_id = 'MD-05-3-A1-2'
-    image_type = 'ORIGINAL\\PRIMARY\\VOLUME'
+    image_type = 'ORIGINAL\\PRIMARY\\VOLUME\\NONE'
     sop_class_uid = ingest_const.DicomSopClasses.WHOLE_SLIDE_IMAGE.uid
     modality = 'SM'
     input_filepath = gen_test_util.test_file_path('test_wikipedia.dcm')
@@ -1594,17 +1591,17 @@ class IngestWsiDicomTest(parameterized.TestCase):
   @parameterized.named_parameters([
       dict(
           testcase_name='original_ancillary_image',
-          image_type='ORIGINAL\\PRIMARY\\THUMBNAIL',
+          image_type='ORIGINAL\\PRIMARY\\THUMBNAIL\\NONE',
           override_study_uid_with_metadata=False,
       ),
       dict(
           testcase_name='derived_ancillary_image',
-          image_type='DERIVED\\PRIMARY\\THUMBNAIL',
+          image_type='DERIVED\\PRIMARY\\THUMBNAIL\\NONE',
           override_study_uid_with_metadata=False,
       ),
       dict(
           testcase_name='derived_ancillary_image_metadata_study_instance_uid',
-          image_type='DERIVED\\PRIMARY\\THUMBNAIL',
+          image_type='DERIVED\\PRIMARY\\THUMBNAIL\\NONE',
           override_study_uid_with_metadata=True,
       ),
   ])
@@ -1848,7 +1845,7 @@ class IngestWsiDicomTest(parameterized.TestCase):
   ])
   def test_set_study_instance_uid_from_metadata(
       self, override_study_uid_with_metadata, is_metadata_free, expected
-  ) -> bool:
+  ):
     dicom_store_url = 'https://mock.dicom.store.com/dicomWeb'
     input_filepath = gen_test_util.test_file_path('test_wikipedia.dcm')
     dcm = pydicom.dcmread(input_filepath)
@@ -1906,7 +1903,7 @@ class IngestWsiDicomTest(parameterized.TestCase):
   )
   def test_set_series_instance_uid_from_metadata(
       self, init_series_from_metadata, is_metadata_free, expected
-  ) -> bool:
+  ):
     dicom_store_url = 'https://mock.dicom.store.com/dicomWeb'
     input_filepath = gen_test_util.test_file_path('test_wikipedia.dcm')
     dcm = pydicom.dcmread(input_filepath)
@@ -1927,6 +1924,134 @@ class IngestWsiDicomTest(parameterized.TestCase):
         self.assertEqual(
             ingest._set_series_instance_uid_from_metadata(), expected
         )
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='original_volume',
+          image_type_input='ORIGINAL\\PRIMARY\\VOLUME',
+          expected_image_type=['ORIGINAL', 'PRIMARY', 'VOLUME', 'NONE'],
+      ),
+      dict(
+          testcase_name='derived_volume',
+          image_type_input='DERIVED\\PRIMARY\\VOLUME',
+          expected_image_type=['DERIVED', 'PRIMARY', 'VOLUME', 'NONE'],
+      ),
+      dict(
+          testcase_name='original_label',
+          image_type_input='ORIGINAL\\PRIMARY\\LABEL',
+          expected_image_type=['ORIGINAL', 'PRIMARY', 'LABEL', 'NONE'],
+      ),
+      dict(
+          testcase_name='derived_label',
+          image_type_input='DERIVED\\PRIMARY\\LABEL',
+          expected_image_type=['DERIVED', 'PRIMARY', 'LABEL', 'NONE'],
+      ),
+      dict(
+          testcase_name='original_overview',
+          image_type_input='ORIGINAL\\PRIMARY\\OVERVIEW',
+          expected_image_type=['ORIGINAL', 'PRIMARY', 'OVERVIEW', 'NONE'],
+      ),
+      dict(
+          testcase_name='derived_overview',
+          image_type_input='DERIVED\\PRIMARY\\OVERVIEW',
+          expected_image_type=['DERIVED', 'PRIMARY', 'OVERVIEW', 'NONE'],
+      ),
+      dict(
+          testcase_name='original_thumbnail',
+          image_type_input='ORIGINAL\\PRIMARY\\THUMBNAIL',
+          expected_image_type=['ORIGINAL', 'PRIMARY', 'THUMBNAIL', 'NONE'],
+      ),
+      dict(
+          testcase_name='derived_thumbnail',
+          image_type_input='DERIVED\\PRIMARY\\THUMBNAIL',
+          expected_image_type=['DERIVED', 'PRIMARY', 'THUMBNAIL', 'NONE'],
+      ),
+      dict(
+          testcase_name='original_volume_resampled',
+          image_type_input='ORIGINAL\\PRIMARY\\VOLUME\\RESAMPLED',
+          expected_image_type=['ORIGINAL', 'PRIMARY', 'VOLUME', 'RESAMPLED'],
+      ),
+      dict(
+          testcase_name='derived_volume_resampled',
+          image_type_input='DERIVED\\PRIMARY\\VOLUME\\RESAMPLED',
+          expected_image_type=['DERIVED', 'PRIMARY', 'VOLUME', 'RESAMPLED'],
+      ),
+      dict(
+          testcase_name='original_label_resampled',
+          image_type_input='ORIGINAL\\PRIMARY\\LABEL\\RESAMPLED',
+          expected_image_type=['ORIGINAL', 'PRIMARY', 'LABEL', 'RESAMPLED'],
+      ),
+      dict(
+          testcase_name='derived_label_resampled',
+          image_type_input='DERIVED\\PRIMARY\\LABEL\\RESAMPLED',
+          expected_image_type=['DERIVED', 'PRIMARY', 'LABEL', 'RESAMPLED'],
+      ),
+      dict(
+          testcase_name='original_overview_resampled',
+          image_type_input='ORIGINAL\\PRIMARY\\OVERVIEW\\RESAMPLED',
+          expected_image_type=['ORIGINAL', 'PRIMARY', 'OVERVIEW', 'RESAMPLED'],
+      ),
+      dict(
+          testcase_name='derived_overview_resampled',
+          image_type_input='DERIVED\\PRIMARY\\OVERVIEW\\RESAMPLED',
+          expected_image_type=['DERIVED', 'PRIMARY', 'OVERVIEW', 'RESAMPLED'],
+      ),
+      dict(
+          testcase_name='original_thumbnail_resampled',
+          image_type_input='ORIGINAL\\PRIMARY\\THUMBNAIL\\RESAMPLED',
+          expected_image_type=['ORIGINAL', 'PRIMARY', 'THUMBNAIL', 'RESAMPLED'],
+      ),
+      dict(
+          testcase_name='derived_thumbnail_resampled',
+          image_type_input='DERIVED\\PRIMARY\\THUMBNAIL\\RESAMPLED',
+          expected_image_type=['DERIVED', 'PRIMARY', 'THUMBNAIL', 'RESAMPLED'],
+      ),
+      dict(
+          testcase_name='short',
+          image_type_input='DERIVED\\PRIMARY',
+          expected_image_type=['DERIVED', 'PRIMARY'],
+      ),
+      dict(
+          testcase_name='unrecognized_second_keyword',
+          image_type_input='DERIVED\\SECONDARY\\THUMBNAIL',
+          expected_image_type=['DERIVED', 'SECONDARY', 'THUMBNAIL'],
+      ),
+      dict(
+          testcase_name='unrecognized_first_keyword',
+          image_type_input='MAGIC\\PRIMARY\\THUMBNAIL',
+          expected_image_type=['MAGIC', 'PRIMARY', 'THUMBNAIL'],
+      ),
+      dict(
+          testcase_name='unrecognized_third_keyword',
+          image_type_input='DERIVED\\PRIMARY\\MAGIC',
+          expected_image_type=['DERIVED', 'PRIMARY', 'MAGIC'],
+      ),
+  ])
+  def test_correct_dicom_image_type(
+      self, image_type_input: str, expected_image_type: str
+  ):
+    input_filepath = gen_test_util.test_file_path('test_wikipedia.dcm')
+    td = self.create_tempdir()
+    dcm_path = os.path.join(td.full_path, 'test.dcm')
+    shutil.copyfile(input_filepath, dcm_path)
+    with pydicom.dcmread(dcm_path) as dcm:
+      dcm.ImageType = image_type_input
+      dcm.save_as(dcm_path)
+    ingest_wsi_dicom._correct_dicom_image_type(dcm_path)
+    with pydicom.dcmread(dcm_path) as dcm:
+      self.assertEqual(dcm.ImageType, expected_image_type)
+
+  def test_correct_dicom_image_type_missing_image_type(self):
+    input_filepath = gen_test_util.test_file_path('test_wikipedia.dcm')
+    td = self.create_tempdir()
+    dcm_path = os.path.join(td.full_path, 'test.dcm')
+    shutil.copyfile(input_filepath, dcm_path)
+    with pydicom.dcmread(dcm_path) as dcm:
+      del dcm['ImageType']
+      dcm.save_as(dcm_path)
+    ingest_wsi_dicom._correct_dicom_image_type(dcm_path)
+    with pydicom.dcmread(dcm_path) as dcm:
+      self.assertNotIn('ImageType', dcm)
 
 
 if __name__ == '__main__':

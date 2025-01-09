@@ -59,7 +59,7 @@ import copy
 import dataclasses
 from typing import Any, Iterator, List, NewType, Optional, Sequence, Set, Tuple, Union
 
-from transformation_pipeline.ingestion_lib.dicom_util import dicom_standard_util as dcm_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_standard_util as dcm_util
 
 _DicomTableTagRequirement = dcm_util.DicomTableTagRequirement
 DicomModuleUsageRequirement = NewType('DicomModuleUsageRequirement', str)

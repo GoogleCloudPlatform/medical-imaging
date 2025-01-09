@@ -22,10 +22,10 @@ import logging
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
 
-from ilm_lib import dicom_store_lib
-from ilm_lib import heuristics
-from ilm_lib import logs_lib
-from ilm_lib import pipeline_util
+from ilm.ilm_lib import dicom_store_lib
+from ilm.ilm_lib import heuristics
+from ilm.ilm_lib import logs_lib
+from ilm.ilm_lib import pipeline_util
 
 
 def parse_args():

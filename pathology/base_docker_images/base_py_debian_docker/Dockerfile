@@ -14,21 +14,16 @@
 # ==============================================================================
 # Base Debian Docker container for wsi image ingestion
 #
-# Debian 12.6-slim + Python 3.12.4
+# Debian 12.8-slim + Python 3.13.1
 #
-FROM debian:12.6-slim
+FROM debian:12.8-slim
 
-# Start Python 3.12.4 install.
-# docker install code from offical python 3.12.4 DOCKER image.
-# https://github.com/docker-library/python/blob/b968d488efc09fd34672fc6238182e1222ae005e/3.12/slim-bookworm/Dockerfile
+# Start Python 3.13.1 install.
+# docker install code from offical python 3.13.1 DOCKER image.
+# https://github.com/docker-library/python/blob/da7ef3c71d3ecd87a43018a372b3e3590d88dd98/3.13/slim-bookworm/Dockerfile
 
 # ensure local python is preferred over distribution python
 ENV PATH /usr/local/bin:$PATH
-
-# cannot remove LANG even though https://bugs.python.org/issue19846 is fixed
-# last attempted removal of LANG broke many users:
-# https://github.com/docker-library/python/pull/570
-ENV LANG C.UTF-8
 
 # runtime dependencies
 RUN set -eux; \
@@ -41,7 +36,8 @@ RUN set -eux; \
   rm -rf /var/lib/apt/lists/*
 
 ENV GPG_KEY 7169605F62C751356D054A26A821E680E5FA6305
-ENV PYTHON_VERSION 3.12.4
+ENV PYTHON_VERSION 3.13.1
+ENV PYTHON_SHA256 9cf9427bee9e2242e3877dd0f6b641c1853ca461f39d6503ce260a59c80bf0d9
 
 RUN set -eux; \
   \
@@ -55,7 +51,6 @@ RUN set -eux; \
     libbz2-dev \
     libc6-dev \
     libdb-dev \
-    libexpat1-dev \
     libffi-dev \
     libgdbm-dev \
     liblzma-dev \
@@ -71,8 +66,9 @@ RUN set -eux; \
     zlib1g-dev \
   ; \
   \
-  wget -O python.tar.xz "https://www.python.org/ftp/python/3.12.4/Python-3.12.4.tar.xz"; \
-  wget -O python.tar.xz.asc "https://www.python.org/ftp/python/3.12.4/Python-3.12.4.tar.xz.asc"; \
+  wget -O python.tar.xz "https://www.python.org/ftp/python/3.13.1/Python-3.13.1.tar.xz"; \
+  echo "$PYTHON_SHA256 *python.tar.xz" | sha256sum -c -; \
+  wget -O python.tar.xz.asc "https://www.python.org/ftp/python/3.13.1/Python-3.13.1.tar.xz.asc"; \
   GNUPGHOME="$(mktemp -d)"; export GNUPGHOME; \
   gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys "$GPG_KEY"; \
   gpg --batch --verify python.tar.xz.asc python.tar.xz; \
@@ -91,8 +87,7 @@ RUN set -eux; \
     --enable-option-checking=fatal \
     --enable-shared \
     --with-lto \
-    --with-system-expat \
-    --without-ensurepip \
+    --with-ensurepip \
   ; \
   nproc="$(nproc)"; \
   EXTRA_CFLAGS="$(dpkg-buildflags --get CFLAGS)"; \
@@ -101,7 +96,6 @@ RUN set -eux; \
   make -j "$nproc" \
     "EXTRA_CFLAGS=${EXTRA_CFLAGS:-}" \
     "LDFLAGS=${LDFLAGS:-}" \
-    "PROFILE_TASK=${PROFILE_TASK:-}" \
   ; \
 # https://github.com/docker-library/python/issues/784
 # prevent accidental usage of a system installed libpython of the same version
@@ -109,7 +103,6 @@ RUN set -eux; \
   make -j "$nproc" \
     "EXTRA_CFLAGS=${EXTRA_CFLAGS:-}" \
     "LDFLAGS=${LDFLAGS:--Wl},-rpath='\$\$ORIGIN/../lib'" \
-    "PROFILE_TASK=${PROFILE_TASK:-}" \
     python \
   ; \
   make install; \
@@ -128,50 +121,19 @@ RUN set -eux; \
   apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
   rm -rf /var/lib/apt/lists/*; \
   \
-  python3 --version
+  export PYTHONDONTWRITEBYTECODE=1; \
+  python3 --version; \
+  pip3 --version
 
 # make some useful symlinks that are expected to exist ("/usr/local/bin/python" and friends)
 RUN set -eux; \
-  for src in idle3 pydoc3 python3 python3-config; do \
+  for src in idle3 pip3 pydoc3 python3 python3-config; do \
     dst="$(echo "$src" | tr -d 3)"; \
     [ -s "/usr/local/bin/$src" ]; \
     [ ! -e "/usr/local/bin/$dst" ]; \
     ln -svT "$src" "/usr/local/bin/$dst"; \
   done
-
-# if this is called "PIP_VERSION", pip explodes with "ValueError: invalid truth value '<VERSION>'"
-ENV PYTHON_PIP_VERSION 24.0
-# https://github.com/pypa/get-pip
-ENV PYTHON_GET_PIP_URL https://github.com/pypa/get-pip/raw/dbf0c85f76fb6e1ab42aa672ffca6f0a675d9ee4/public/get-pip.py
-ENV PYTHON_GET_PIP_SHA256 dfe9fd5c28dc98b5ac17979a953ea550cec37ae1b47a5116007395bfacff2ab9
-
-RUN set -eux; \
-  \
-  savedAptMark="$(apt-mark showmanual)"; \
-  apt-get update; \
-  apt-get install -y --no-install-recommends wget; \
-  \
-  wget -O get-pip.py "$PYTHON_GET_PIP_URL"; \
-  echo "$PYTHON_GET_PIP_SHA256 *get-pip.py" | sha256sum -c -; \
-  \
-  apt-mark auto '.*' > /dev/null; \
-  [ -z "$savedAptMark" ] || apt-mark manual $savedAptMark > /dev/null; \
-  apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
-  rm -rf /var/lib/apt/lists/*; \
-  \
-  export PYTHONDONTWRITEBYTECODE=1; \
-  \
-  python get-pip.py \
-    --disable-pip-version-check \
-    --no-cache-dir \
-    --no-compile \
-    "pip==$PYTHON_PIP_VERSION" \
-  ; \
-  rm -f get-pip.py; \
-  \
-  pip --version
-
-# End Python 3.12.4 install
+# End Python 3.13.1 install
 
 # Add gcloud to base container
 # Add public key for gcloud

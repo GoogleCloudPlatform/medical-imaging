@@ -16,8 +16,8 @@
 
 from absl.testing import absltest
 import pydicom
-from shared_libs.logging_lib import cloud_logging_client
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_general_equipment
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_general_equipment
 
 
 class DicomGeneralEquipmentTest(absltest.TestCase):

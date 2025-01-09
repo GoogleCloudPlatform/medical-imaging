@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Tests for dicom_util."""
+"""Tests for dicom util."""
 
 import binascii
 import datetime
@@ -29,14 +29,14 @@ import numpy as np
 import openslide
 import pydicom
 
-from shared_libs.test_utils.dicom_store_mock import dicom_store_mock
-from transformation_pipeline import ingest_flags
-from transformation_pipeline.ingestion_lib import gen_test_util
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
-from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
-from transformation_pipeline.ingestion_lib.dicom_gen import wsi_dicom_file_ref
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
+from pathology.shared_libs.pydicom_version_util import pydicom_version_util
+from pathology.shared_libs.test_utils.dicom_store_mock import dicom_store_mock
+from pathology.transformation_pipeline.ingestion_lib import gen_test_util
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import wsi_dicom_file_ref
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
 
 
 _WIKIPEDIA_DCM_FILENAME = 'test_wikipedia.dcm'
@@ -65,48 +65,86 @@ def icc_bytes() -> bytes:
 
 class DicomUtilTest(parameterized.TestCase):
 
-  @parameterized.named_parameters([
-      dict(
-          testcase_name='srgb',
-          icc_profile_color=ingest_flags.DefaultIccProfile.SRGB,
-          expected_len=60960,
-      ),
-      dict(
-          testcase_name='adobergb',
-          icc_profile_color=ingest_flags.DefaultIccProfile.ADOBERGB,
-          expected_len=560,
-      ),
-      dict(
-          testcase_name='rommrgb',
-          icc_profile_color=ingest_flags.DefaultIccProfile.ROMMRGB,
-          expected_len=864,
-      ),
-  ])
-  def test_get_default_icc_profile_color(self, icc_profile_color, expected_len):
-    with flagsaver.flagsaver(default_iccprofile=icc_profile_color):
-      self.assertLen(dicom_util.get_default_icc_profile_color(), expected_len)
+  @flagsaver.flagsaver(default_iccprofile=ingest_const.ICCProfile.SRGB)
+  def test_get_srgb_icc_profile_color(self):
+    self.assertLen(dicom_util.get_default_icc_profile_color(), 60960)
 
-  @flagsaver.flagsaver(default_iccprofile=ingest_flags.DefaultIccProfile.NONE)
+  @flagsaver.flagsaver(default_iccprofile=ingest_const.ICCProfile.ROMMRGB)
+  def test_get_rommrgb_icc_profile_color(self):
+    self.assertLen(dicom_util.get_default_icc_profile_color(), 864)
+
+  @flagsaver.flagsaver(default_iccprofile=ingest_const.ICCProfile.NONE)
   def test_get_default_icc_profile_color_none_returns_none(self):
     self.assertIsNone(dicom_util.get_default_icc_profile_color())
 
-  @flagsaver.flagsaver(default_iccprofile=10)
-  def test_get_default_icc_profile_color_unexpected_enum_value_raises(self):
+  def test_unable_to_load_icc_profile_raises(self):
+    with self.assertRaises(FileNotFoundError):
+      dicom_util._read_internal_icc_profile('srgb', 'file_not_found.icc')
+
+  @flagsaver.flagsaver(default_iccprofile='foo')
+  def test_get_default_icc_profile_color_cannot_load_icc_profile(self):
     with self.assertRaises(ValueError):
       dicom_util.get_default_icc_profile_color()
 
-  def test_unable_to_load_icc_profile_raises(self):
-    with self.assertRaises(FileNotFoundError):
-      dicom_util._read_icc_profile('file_not_found.icc')
+  @parameterized.parameters([
+      'srgb',
+      'adobergb',
+      'adobergb1998',
+      'rommrgb',
+      'foo',
+  ])
+  def test_get_plugin_icc_profile(self, name):
+    expected_value = b'test'
+    tdir = self.create_tempdir()
+    with open(os.path.join(tdir, f'{name}.icc'), 'wb') as tfile:
+      tfile.write(expected_value)
+    with flagsaver.flagsaver(third_party_icc_profile_directory=tdir):
+      with flagsaver.flagsaver(default_iccprofile=name):
+        self.assertEqual(
+            expected_value, dicom_util.get_default_icc_profile_color()
+        )
 
   @parameterized.parameters([
-      ingest_flags.DefaultIccProfile.ADOBERGB,
-      ingest_flags.DefaultIccProfile.ROMMRGB,
+      'srgb',
+      'adobergb',
+      'adobergb1998',
+      'rommrgb',
+      'foo',
+  ])
+  def test_get_plugin_icc_profile_dir(self, name):
+    expected_value = b'test'
+    tdir = self.create_tempdir()
+    profile_dir = os.path.join(tdir, name)
+    os.mkdir(profile_dir)
+    with open(os.path.join(profile_dir, 'foo.icc'), 'wb') as tfile:
+      tfile.write(expected_value)
+    with flagsaver.flagsaver(third_party_icc_profile_directory=tdir):
+      with flagsaver.flagsaver(default_iccprofile=name):
+        self.assertEqual(
+            expected_value, dicom_util.get_default_icc_profile_color()
+        )
+
+  @flagsaver.flagsaver(
+      third_party_icc_profile_directory='/foo/bar/does/not/exist'
+  )
+  def test_read_icc_profile_returns_empty_if_icc_profile_plugin_dir_not_found(
+      self,
+  ):
+    self.assertEqual(dicom_util._read_icc_profile_plugin_file('foo'), b'')
+
+  def test_unable_to_find_icc_profile_in_dir_returns_empty_bytes(self):
+    t_dir = self.create_tempdir()
+    os.mkdir(os.path.join(t_dir, 'foo'))
+    os.mkdir(os.path.join(t_dir, 'foo', 'foo'))
+    with flagsaver.flagsaver(third_party_icc_profile_directory=t_dir.full_path):
+      self.assertEqual(dicom_util._read_icc_profile_plugin_file('foo'), b'')
+
+  @parameterized.parameters([
+      ingest_const.ICCProfile.ROMMRGB,
   ])
   @mock.patch.object(
       dicom_util,
-      '_read_icc_profile',
-      autospec=True,
+      '_read_internal_icc_profile',
       side_effect=FileNotFoundError(),
   )
   def test_get_default_icc_profile_color_unable_to_load_profile_raises_file_not_found(
@@ -118,11 +156,11 @@ class DicomUtilTest(parameterized.TestCase):
 
   @mock.patch.object(
       dicom_util,
-      '_read_icc_profile',
+      '_read_internal_icc_profile',
       autospec=True,
       side_effect=FileNotFoundError(),
   )
-  @flagsaver.flagsaver(default_iccprofile=ingest_flags.DefaultIccProfile.SRGB)
+  @flagsaver.flagsaver(default_iccprofile=ingest_const.ICCProfile.SRGB)
   def test_get_default_srgb_icc_profile_color_unable_to_load_profile_returns_pill_version_if_file_not_found(
       self, _
   ):
@@ -139,6 +177,10 @@ class DicomUtilTest(parameterized.TestCase):
     ds = pydicom.Dataset()
     dicom_util.add_default_optical_path_sequence(ds, None)
     path = gen_test_util.test_file_path('ndpi_test.ndpi')
+    if not os.path.exists(path):
+      # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
+      # file is not available.
+      return
     dicom_util.add_openslide_dicom_properties(ds, path)
     self.assertEqual(ds.OpticalPathSequence[0].ObjectiveLensPower, '20')
     self.assertNotIn('RecommendedAbsentPixelCIELabValue', ds)
@@ -160,6 +202,10 @@ class DicomUtilTest(parameterized.TestCase):
     dicom_util.add_default_optical_path_sequence(ds, None)
     dicom_util.add_default_total_pixel_matrix_origin_sequence_if_not_defined(ds)
     path = gen_test_util.test_file_path('ndpi_test.ndpi')
+    if not os.path.exists(path):
+      # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
+      # file is not available.
+      return
     del ds[sq_name]
     with self.assertRaises(ValueError):
       dicom_util.add_openslide_dicom_properties(ds, path)
@@ -480,11 +526,9 @@ class DicomUtilTest(parameterized.TestCase):
     dt = datetime.datetime(
         2022, 5, 2, 21, 57, 39, 338663, tzinfo=datetime.timezone.utc
     )
-    save_func = datetime.datetime.strftime
-    with mock.patch('datetime.datetime') as mk:
-      mk.now = mock.Mock(return_value=dt)
-      mk.strftime = save_func
-
+    with mock.patch.object(
+        dicom_util, '_get_datetime_now', autospec=True, return_value=dt
+    ):
       dicom_util.set_content_date_time_to_now(ds)
 
     self.assertEqual(ds.ContentTime, '215739.338663')
@@ -1009,11 +1053,8 @@ class DicomUtilTest(parameterized.TestCase):
     dicom_util.if_missing_create_encapsulated_frame_offset_table(ds)
 
     # test basic offset table points to Frame Data.
-    file_like = pydicom.filebase.DicomFileLike(io.BytesIO(ds.PixelData))
-    file_like.is_little_endian = True
-    has_basic_offset_table, offset_table = pydicom.encaps.get_frame_offsets(
-        file_like
-    )
+    has_basic_offset_table = pydicom_version_util.has_basic_offset_table(ds)
+    offset_table = pydicom_version_util.get_frame_offset_table(ds)
     self.assertTrue(has_basic_offset_table)
     self.assertNotIn('ExtendedOffsetTable', ds)
     self.assertNotIn('ExtendedOffsetTableLengths', ds)
@@ -1076,9 +1117,7 @@ class DicomUtilTest(parameterized.TestCase):
           original_max_pixel_data_size
       )
     # test basic offset table points to Frame Data.
-    file_like = pydicom.filebase.DicomFileLike(io.BytesIO(ds.PixelData))
-    file_like.is_little_endian = True
-    has_basic_offset_table, _ = pydicom.encaps.get_frame_offsets(file_like)
+    has_basic_offset_table = pydicom_version_util.has_basic_offset_table(ds)
     self.assertFalse(has_basic_offset_table)
     extended_offset_table = np.frombuffer(
         ds.ExtendedOffsetTable, dtype=np.uint64
@@ -1173,6 +1212,31 @@ class DicomUtilTest(parameterized.TestCase):
       dicom_util.if_missing_create_encapsulated_frame_offset_table(ds)
       mock_encapsulate.assert_not_called()
     self.assertNotIn('ExtendedOffsetTableLengths', ds)
+
+  @parameterized.named_parameters(
+      dict(
+          testcase_name='valid_color_space',
+          in_str='sRGB',
+          expected='SRGB',
+      ),
+      dict(
+          testcase_name='invalid_characters',
+          in_str='sRGB -1@2(34_',
+          expected='SRGB 1234_',
+      ),
+      dict(
+          testcase_name='too_long',
+          in_str='0123456789ABCDEFGHIJK',
+          expected='0123456789ABCDEF',
+      ),
+      dict(
+          testcase_name='all_invalid',
+          in_str='@#$@#$',
+          expected='',
+      ),
+  )
+  def test_format_str_as_cs_vr_type(self, in_str, expected):
+    self.assertEqual(dicom_util._format_str_as_cs_vr_type(in_str), expected)
 
 
 if __name__ == '__main__':

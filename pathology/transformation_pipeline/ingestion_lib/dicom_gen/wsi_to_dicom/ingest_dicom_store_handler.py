@@ -21,18 +21,18 @@ from typing import Mapping, Optional
 from google.cloud import pubsub_v1
 import requests
 
-from shared_libs.logging_lib import cloud_logging_client
-from transformation_pipeline import ingest_flags
-from transformation_pipeline.ingestion_lib import abstract_polling_client
-from transformation_pipeline.ingestion_lib import cloud_storage_client
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_base
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_dicom
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
-from transformation_pipeline.ingestion_lib.pubsub_msgs import abstract_pubsub_msg
-from transformation_pipeline.ingestion_lib.pubsub_msgs import dicom_store_pubsub_msg
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.transformation_pipeline import ingest_flags
+from pathology.transformation_pipeline.ingestion_lib import abstract_polling_client
+from pathology.transformation_pipeline.ingestion_lib import cloud_storage_client
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_base
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_dicom
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
+from pathology.transformation_pipeline.ingestion_lib.pubsub_msgs import abstract_pubsub_msg
+from pathology.transformation_pipeline.ingestion_lib.pubsub_msgs import dicom_store_pubsub_msg
 
 
 _DICOM_STORE_INSTANCE_PATTERN = re.compile(

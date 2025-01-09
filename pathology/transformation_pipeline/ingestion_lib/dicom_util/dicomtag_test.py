@@ -15,7 +15,7 @@
 """Tests for dicomtag."""
 
 from absl.testing import absltest
-from transformation_pipeline.ingestion_lib.dicom_util import dicomtag
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicomtag
 
 DicomTag = dicomtag.DicomTag
 

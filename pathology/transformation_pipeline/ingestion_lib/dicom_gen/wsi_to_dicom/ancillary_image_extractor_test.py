@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Tests for ancillary_image_extractor."""
+"""Tests for ancillary image extractor."""
 
-import filecmp
 import os
 from typing import Optional
 from unittest import mock
@@ -28,9 +27,10 @@ import PIL.Image
 import pydicom
 import tifffile
 
-from transformation_pipeline.ingestion_lib import gen_test_util
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ancillary_image_extractor
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingested_dicom_file_ref
+from pathology.shared_libs.pydicom_version_util import pydicom_version_util
+from pathology.transformation_pipeline.ingestion_lib import gen_test_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ancillary_image_extractor
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingested_dicom_file_ref
 
 
 class AncillaryImageExtractorTest(parameterized.TestCase):
@@ -117,9 +117,7 @@ class AncillaryImageExtractorTest(parameterized.TestCase):
     mock_frames = pydicom.encaps.encapsulate([b'123'] * number_of_frames)
     with self.assertRaises(ValueError):
       ancillary_image_extractor._get_first_encapsulated_frame(
-          pydicom.encaps.generate_pixel_data_frame(
-              mock_frames, number_of_frames
-          ),
+          pydicom_version_util.generate_frames(mock_frames, number_of_frames),
           'image_type',
       )
 
@@ -129,6 +127,11 @@ class AncillaryImageExtractorTest(parameterized.TestCase):
   def test_extract_ancillary_image_with_openslide_return_false_invalid_img_mode(
       self, openslide_mock_poperty
   ):
+    ndpi_path = gen_test_util.test_file_path('ndpi_test.ndpi')
+    if not os.path.exists(ndpi_path):
+      # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
+      # file is not available.
+      return
     mock_pil_image = mock.create_autospec(PIL.Image, instance=True)
     mock_pil_image.mode = 'invalid_image_mode'
     mock_pil_image.size = (5, 5)
@@ -137,7 +140,7 @@ class AncillaryImageExtractorTest(parameterized.TestCase):
     image = ancillary_image_extractor.AncillaryImage(path=output_path)
     self.assertFalse(
         ancillary_image_extractor._extract_ancillary_image_with_openslide(
-            gen_test_util.test_file_path('ndpi_test.ndpi'),
+            ndpi_path,
             image,
             'macro',
         )
@@ -154,6 +157,11 @@ class AncillaryImageExtractorTest(parameterized.TestCase):
   def test_extract_ancillary_image_with_openslide_valid_img_mode_succeed(
       self, openslide_mock_poperty, filename
   ):
+    ndpi_path = gen_test_util.test_file_path('ndpi_test.ndpi')
+    if not os.path.exists(ndpi_path):
+      # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
+      # file is not available.
+      return
     test_file_path = gen_test_util.test_file_path(filename)
     with PIL.Image.open(test_file_path) as pil_image:
       openslide_mock_poperty.return_value = {'macro': pil_image}
@@ -161,7 +169,7 @@ class AncillaryImageExtractorTest(parameterized.TestCase):
       image = ancillary_image_extractor.AncillaryImage(path=output_path)
       self.assertTrue(
           ancillary_image_extractor._extract_ancillary_image_with_openslide(
-              gen_test_util.test_file_path('ndpi_test.ndpi'),
+              ndpi_path,
               image,
               'macro',
           )
@@ -190,17 +198,27 @@ class AncillaryImageExtractorTest(parameterized.TestCase):
     )
 
   def test_extract_ancillary_image_with_openslide_invalid_openslide_key(self):
+    ndpi_path = gen_test_util.test_file_path('ndpi_test.ndpi')
+    if not os.path.exists(ndpi_path):
+      # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
+      # file is not available.
+      return
     output_path = os.path.join(self.create_tempdir(), 'temp.jpg')
     image = ancillary_image_extractor.AncillaryImage(path=output_path)
     self.assertFalse(
         ancillary_image_extractor._extract_ancillary_image_with_openslide(
-            gen_test_util.test_file_path('ndpi_test.ndpi'),
+            ndpi_path,
             image,
             'thumbnail',
         )
     )
 
   def test_extract_ancillary_image_with_openslide(self):
+    ndpi_path = gen_test_util.test_file_path('ndpi_test.ndpi')
+    if not os.path.exists(ndpi_path):
+      # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
+      # file is not available.
+      return
     expected_img_path = gen_test_util.test_file_path('ndpi_macro.jpg')
     output_path = os.path.join(self.create_tempdir(), 'temp.jpg')
     image = ancillary_image_extractor.AncillaryImage(path=output_path)
@@ -208,7 +226,7 @@ class AncillaryImageExtractorTest(parameterized.TestCase):
       data_bytes = expected_bytes.read()
     self.assertTrue(
         ancillary_image_extractor._extract_ancillary_image_with_openslide(
-            gen_test_util.test_file_path('ndpi_test.ndpi'),
+            ndpi_path,
             image,
             openslide_key='macro',
         )
@@ -220,6 +238,11 @@ class AncillaryImageExtractorTest(parameterized.TestCase):
       self.assertEqual(output_bytes.read(), data_bytes)
 
   def test_macro_image_succeeds(self):
+    ndpi_path = gen_test_util.test_file_path('ndpi_test.ndpi')
+    if not os.path.exists(ndpi_path):
+      # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
+      # file is not available.
+      return
     expected_img_path = gen_test_util.test_file_path(
         'ndpi_jpeg_pixel_equal_extraction_macro.jpg'
     )
@@ -227,11 +250,7 @@ class AncillaryImageExtractorTest(parameterized.TestCase):
     image = ancillary_image_extractor.AncillaryImage(path=output_path)
     with open(expected_img_path, 'rb') as expected_bytes:
       data_bytes = expected_bytes.read()
-    self.assertTrue(
-        ancillary_image_extractor.macro_image(
-            gen_test_util.test_file_path('ndpi_test.ndpi'), image
-        )
-    )
+    self.assertTrue(ancillary_image_extractor.macro_image(ndpi_path, image))
     self.assertEqual(os.path.basename(image.path), 'temp.jpg')
     self.assertEqual(image.photometric_interpretation, 'YBR_FULL_422')
     self.assertEqual(image.extracted_without_decompression, True)
@@ -341,8 +360,11 @@ class AncillaryImageExtractorTest(parameterized.TestCase):
     test_filename = 'google_logo_extracted_from_tiff_file.jpg'
     test_path = os.path.join(temp_dir, test_filename)
     os.rename(output_path, test_path)
-    self.assertTrue(
-        filecmp.cmp(test_path, gen_test_util.test_file_path(test_filename))
+    np.testing.assert_array_almost_equal(
+        gen_test_util.decode_image_from_file(test_path),
+        gen_test_util.decode_image_from_file(
+            gen_test_util.test_file_path(test_filename)
+        ),
     )
 
   def test_extract_jpeg_2000_image(self):
@@ -356,10 +378,11 @@ class AncillaryImageExtractorTest(parameterized.TestCase):
             convert_to_jpeg_2000=True,
         )
     )
-    self.assertTrue(
-        filecmp.cmp(
-            modified_output_path, gen_test_util.test_file_path('google.jp2')
-        )
+    np.testing.assert_array_almost_equal(
+        gen_test_util.decode_image_from_file(modified_output_path),
+        gen_test_util.decode_image_from_file(
+            gen_test_util.test_file_path('google.jp2')
+        ),
     )
 
   def test_extract_jpg_image_raises_if_not_jpeg(self):

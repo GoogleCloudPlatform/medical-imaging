@@ -1,0 +1,7 @@
+{
+  "/fake/config.json": "/config.json,readonly",
+  "/localhost/input_imaging": "/input_imaging",
+  "http://dicom_store": "/mock_dicom_store",
+  "localhost/input_metadata": "/input_metadata",
+  "localhost/processed_imaging": "/processed_imaging"
+}

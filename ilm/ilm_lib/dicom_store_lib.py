@@ -33,9 +33,9 @@ from google.cloud import bigquery
 from google.cloud import storage
 import requests
 
-import ilm_config
-import ilm_types
-from ilm_lib import pipeline_util
+from ilm import ilm_config
+from ilm import ilm_types
+from ilm.ilm_lib import pipeline_util
 
 
 # Required DICOM Store BigQuery table columns.

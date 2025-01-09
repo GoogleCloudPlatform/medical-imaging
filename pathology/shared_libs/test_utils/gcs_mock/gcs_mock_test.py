@@ -18,7 +18,7 @@ import os
 from absl.testing import absltest
 import google.cloud.storage
 
-from shared_libs.test_utils.gcs_mock import gcs_mock
+from pathology.shared_libs.test_utils.gcs_mock import gcs_mock
 
 
 class GcsMockTest(absltest.TestCase):

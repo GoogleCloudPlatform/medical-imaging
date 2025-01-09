@@ -35,23 +35,24 @@ from absl.testing import parameterized
 import pydicom
 import requests
 
-from shared_libs.logging_lib import cloud_logging_client
-from shared_libs.test_utils.dicom_store_mock import dicom_store_mock
-from shared_libs.test_utils.gcs_mock import gcs_mock
-from transformation_pipeline import ingest_flags
-from transformation_pipeline.ingestion_lib import gen_test_util
-from transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_general_equipment
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
-from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ancillary_image_extractor
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import barcode_reader
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_base
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_gcs_handler
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_svs
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
-from transformation_pipeline.ingestion_lib.dicom_util import dicom_test_util
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.shared_libs.pydicom_version_util import pydicom_version_util
+from pathology.shared_libs.test_utils.dicom_store_mock import dicom_store_mock
+from pathology.shared_libs.test_utils.gcs_mock import gcs_mock
+from pathology.transformation_pipeline import ingest_flags
+from pathology.transformation_pipeline.ingestion_lib import gen_test_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_general_equipment
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ancillary_image_extractor
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import barcode_reader
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_base
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_gcs_handler
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_svs
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_test_util
 
 
 _METADATA_PATH = 'metadata.csv'
@@ -204,6 +205,10 @@ def _get_instances_json(dicom_paths: Set[str]) -> List[Dict[str, Any]]:
 class IngestSVSTest(parameterized.TestCase):
   """Tests IngestSVS."""
 
+  def setUp(self):
+    super().setUp()
+    self.enter_context(flagsaver.flagsaver(redis_server_ip=None))
+
   def test_add_burned_in_annotation_and_spec_label_already_defined(self):
     dcm = pydicom.Dataset()
     dcm.BurnedInAnnotation = 'YES'
@@ -271,11 +276,13 @@ class IngestSVSTest(parameterized.TestCase):
     )
     dcm_file_path = os.path.join(out_dir, 'test.dcm')
     dcm.ImageType = 'test_dicom'
-    dcm.save_as(dcm_file_path, write_like_original=False)
-
-    dcm_gen = abstract_dicom_generation.GeneratedDicomFiles(
-        gen_test_util.test_file_path('ndpi_test.ndpi'), None
-    )
+    pydicom_version_util.save_as_validated_dicom(dcm, dcm_file_path)
+    ndpi_path = gen_test_util.test_file_path('ndpi_test.ndpi')
+    if not os.path.exists(ndpi_path):
+      # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
+      # file is not available.
+      return
+    dcm_gen = abstract_dicom_generation.GeneratedDicomFiles(ndpi_path, None)
     dcm_gen.generated_dicom_files = [dcm_file_path]
     svs_metadata = {}
     scan_datetime = datetime.datetime.now(datetime.timezone.utc)
@@ -289,10 +296,9 @@ class IngestSVSTest(parameterized.TestCase):
     additional_metadata = pydicom.Dataset()
     additional_metadata.FrameOfReferenceUID = '1.2.3'
     additional_metadata.PositionReferenceIndicator = 'Side'
-    save_func = datetime.datetime.strftime
-    with mock.patch('datetime.datetime') as mk:
-      mk.now = mock.Mock(return_value=dt)
-      mk.strftime = save_func
+    with mock.patch.object(
+        dicom_util, '_get_datetime_now', autospec=True, return_value=dt
+    ):
       ingest_svs.add_metadata_to_wsi_dicom_files(
           dcm_gen,
           [],
@@ -523,6 +529,10 @@ class IngestSVSTest(parameterized.TestCase):
       self, *unused_mocks, slide_id, flags, expected_output
   ):
     path = gen_test_util.test_file_path('ndpi_test.ndpi')
+    if not os.path.exists(path):
+      # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
+      # file is not available.
+      return
     mock_dicom = pydicom.dcmread(
         gen_test_util.test_file_path('test_wikipedia.dcm')
     )
@@ -558,6 +568,10 @@ class IngestSVSTest(parameterized.TestCase):
   def test_generate_dicom_missing_study_instance_uid(self, *unused_mocks):
     slide_id = 'MD-05-3-A1-2'
     path = gen_test_util.test_file_path('ndpi_test.ndpi')
+    if not os.path.exists(path):
+      # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
+      # file is not available.
+      return
     mock_dicom = pydicom.dcmread(
         gen_test_util.test_file_path('test_wikipedia.dcm')
     )
@@ -607,6 +621,10 @@ class IngestSVSTest(parameterized.TestCase):
       dest,
   ):
     path = gen_test_util.test_file_path('ndpi_test.ndpi')
+    if not os.path.exists(path):
+      # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
+      # file is not available.
+      return
     mock_dicom = pydicom.dcmread(
         gen_test_util.test_file_path('test_wikipedia.dcm')
     )
@@ -623,6 +641,10 @@ class IngestSVSTest(parameterized.TestCase):
       *unused_mocks,
   ):
     path = gen_test_util.test_file_path('ndpi_test.ndpi')
+    if not os.path.exists(path):
+      # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
+      # file is not available.
+      return
     mock_dicom = pydicom.dcmread(
         gen_test_util.test_file_path('test_wikipedia.dcm')
     )
@@ -674,6 +696,10 @@ class IngestSVSTest(parameterized.TestCase):
       expected_series_uid,
   ):
     path = gen_test_util.test_file_path('ndpi_test.ndpi')
+    if not os.path.exists(path):
+      # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
+      # file is not available.
+      return
     mock_dicom = pydicom.dcmread(
         gen_test_util.test_file_path('test_wikipedia.dcm')
     )
@@ -712,6 +738,10 @@ class IngestSVSTest(parameterized.TestCase):
       self, *unused_mocks, slide_id, flags
   ):
     path = gen_test_util.test_file_path('ndpi_test.ndpi')
+    if not os.path.exists(path):
+      # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
+      # file is not available.
+      return
     mock_dicom = pydicom.dcmread(
         gen_test_util.test_file_path('test_wikipedia.dcm')
     )
@@ -731,6 +761,10 @@ class IngestSVSTest(parameterized.TestCase):
       *unused_mocks,
   ):
     path = gen_test_util.test_file_path('ndpi_test.ndpi')
+    if not os.path.exists(path):
+      # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
+      # file is not available.
+      return
     mock_dicom = pydicom.dcmread(
         gen_test_util.test_file_path('test_wikipedia.dcm')
     )
@@ -741,9 +775,14 @@ class IngestSVSTest(parameterized.TestCase):
 
   @flagsaver.flagsaver(metadata_bucket='metadata')
   def test_generate_dicom_raises_if_slide_id_not_set(self):
+    ndpi_path = gen_test_util.test_file_path('ndpi_test.ndpi')
+    if not os.path.exists(ndpi_path):
+      # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
+      # file is not available.
+      return
     with _IngestOpenslideTest(
         self,
-        gen_test_util.test_file_path('ndpi_test.ndpi'),
+        ndpi_path,
         'ingest_filename',
         metadata='metadata.csv',
     ) as ingest_test:
@@ -763,9 +802,14 @@ class IngestSVSTest(parameterized.TestCase):
 
   @flagsaver.flagsaver(metadata_bucket='metadata')
   def test_generate_dicom_generates_bad_dicom_errors(self):
+    ndpi_path = gen_test_util.test_file_path('ndpi_test.ndpi')
+    if not os.path.exists(ndpi_path):
+      # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
+      # file is not available.
+      return
     with _IngestOpenslideTest(
         self,
-        gen_test_util.test_file_path('ndpi_test.ndpi'),
+        ndpi_path,
         'MD-04-3-A1-2_ndpi_test.ndpi',
         metadata='metadata.csv',
     ) as ingest_test:
@@ -806,10 +850,15 @@ class IngestSVSTest(parameterized.TestCase):
       return_value=_MOCK_DICOM_GEN_UID,
   )
   def test_generate_metadata_free_slide_metadata(self, *unused_mocks):
+    ndpi_path = gen_test_util.test_file_path('ndpi_test.ndpi')
+    if not os.path.exists(ndpi_path):
+      # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
+      # file is not available.
+      return
     dicom_store_url = 'https://mock.dicom.store.com/dicomWeb'
     with _IngestOpenslideTest(
         self,
-        gen_test_util.test_file_path('ndpi_test.ndpi'),
+        ndpi_path,
         'MD-04-3-A1-2_ndpi_test.ndpi',
         metadata='metadata.csv',
         dicom_store_url=dicom_store_url,
@@ -862,9 +911,14 @@ class IngestSVSTest(parameterized.TestCase):
   def test_init_series_instance_uid_from_metadata(
       self, is_metadata_free, init_series_from_metadata, expected
   ):
+    ndpi_path = gen_test_util.test_file_path('ndpi_test.ndpi')
+    if not os.path.exists(ndpi_path):
+      # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
+      # file is not available.
+      return
     with _IngestOpenslideTest(
         self,
-        gen_test_util.test_file_path('ndpi_test.ndpi'),
+        ndpi_path,
         'MD-04-3-A1-2_ndpi_test.ndpi',
         metadata='metadata.csv',
     ) as ingest_test:

@@ -15,14 +15,14 @@
 """Tests for secret_flag_utils."""
 import os
 from typing import Any, List
+from unittest import mock
 
 from absl.testing import absltest
 from absl.testing import parameterized
 import google.api_core
 from google.cloud import secretmanager
-import mock
 
-from shared_libs.flags import secret_flag_utils
+from pathology.shared_libs.flags import secret_flag_utils
 
 _MOCK_SECRET = 'projects/test-project/secrets/test-secret'
 

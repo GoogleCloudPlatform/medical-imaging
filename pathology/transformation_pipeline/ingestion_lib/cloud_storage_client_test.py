@@ -21,7 +21,7 @@ from absl.testing import parameterized
 import google.api_core
 from google.cloud import storage
 
-from transformation_pipeline.ingestion_lib import cloud_storage_client
+from pathology.transformation_pipeline.ingestion_lib import cloud_storage_client
 
 
 class CloudStorageClientTest(parameterized.TestCase):

@@ -21,7 +21,7 @@ steps:
   # https://github.com/GoogleContainerTools/kaniko/issues/1669
   - --compressed-caching=false
   - --cache-ttl=336h
-  - --dockerfile=./transformation_pipeline/Dockerfile
+  - --dockerfile=./pathology/transformation_pipeline/Dockerfile
   - --build-arg=BASE_CONTAINER=$_BASE_CONTAINER
   - --context=.
 timeout: 86400s

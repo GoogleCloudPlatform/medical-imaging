@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Tests for barcode_reader."""
+"""Tests for barcode reader."""
 
 import os
 from unittest import mock
@@ -24,8 +24,9 @@ import cv2
 # cloud.vision not available in third_party/py/google/cloud/
 from googleapiclient import discovery as cloud_discovery
 
-from transformation_pipeline.ingestion_lib import gen_test_util
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import barcode_reader
+from pathology.transformation_pipeline import ingest_flags
+from pathology.transformation_pipeline.ingestion_lib import gen_test_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import barcode_reader
 
 
 FLAGS = flags.FLAGS
@@ -35,20 +36,23 @@ class BarcodeReaderTest(absltest.TestCase):
 
   def setUp(self):
     super().setUp()
-    FLAGS.zxing_cli = os.path.join(
-        FLAGS.test_srcdir, 'third_party/zxing/zxing_cli'
-    )
 
   def test_file_not_exist(self):
     with self.assertRaisesRegex(ValueError, 'Loading "invalid_path" failed'):
       barcode_reader._zxing_read_barcode('invalid_path')
 
   def test_barcode_cant_read(self):
+    # Skip test if zxing cli is not available.
+    if not os.path.isfile(ingest_flags.ZXING_CLI_FLG.value):
+      return
     with self.assertRaisesRegex(ValueError, 'decoding failed'):
       barcode_cant_read = gen_test_util.test_file_path('barcode_cant_read.jpg')
       barcode_reader._zxing_read_barcode(barcode_cant_read)
 
   def test_barcode_try_harder(self):
+    # Skip test if zxing cli is not available.
+    if not os.path.isfile(ingest_flags.ZXING_CLI_FLG.value):
+      return
     barcode_cant_read = gen_test_util.test_file_path('barcode_cant_read.jpg')
     barcode = barcode_reader._zxing_read_barcode(
         barcode_cant_read, try_harder=True
@@ -56,6 +60,9 @@ class BarcodeReaderTest(absltest.TestCase):
     self.assertEqual(barcode, '4210201129820')
 
   def test_read_barcode_zxing(self):
+    # Skip test if zxing cli is not available.
+    if not os.path.isfile(ingest_flags.ZXING_CLI_FLG.value):
+      return
     wikipedia_pdf417 = gen_test_util.test_file_path(
         'barcode_wikipedia_pdf417.png'
     )
@@ -78,6 +85,9 @@ class BarcodeReaderTest(absltest.TestCase):
 
   @mock.patch.object(cloud_discovery, 'build', autospec=True, spec_set=True)
   def test_read_barcode_in_files(self, mock_build):
+    # Skip test if zxing cli is not available.
+    if not os.path.isfile(ingest_flags.ZXING_CLI_FLG.value):
+      return
     wikipedia_pdf417 = gen_test_util.test_file_path(
         'barcode_wikipedia_pdf417.png'
     )

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Tests dicom_store_mock."""
+"""Tests dicom store mock."""
 import http.client
 import io
 import json
@@ -22,7 +22,6 @@ import tempfile
 from typing import Mapping
 from unittest import mock
 
-from absl import flags
 from absl.testing import absltest
 from absl.testing import parameterized
 import google_auth_httplib2
@@ -30,20 +29,14 @@ import pydicom
 import requests
 import requests_toolbelt
 
-from shared_libs.test_utils.dicom_store_mock import dicom_store_mock
-from shared_libs.test_utils.dicom_store_mock import dicom_store_mock_types
+from pathology.shared_libs.test_utils.dicom_store_mock import dicom_store_mock
+from pathology.shared_libs.test_utils.dicom_store_mock import dicom_store_mock_types
 
 _MOCK_STORE_URL = 'http://mock.dicom.store1.com/dicomweb'
 
 
 def _test_file_path() -> str:
-  return os.path.join(
-      flags.FLAGS.test_srcdir,
-      (
-          'shared_libs/test_utils/'
-          'dicom_store_mock/testdata/test_wsi.dcm'
-      ),
-  )
+  return os.path.join(os.path.dirname(__file__), 'testdata', 'test_wsi.dcm')
 
 
 class _MockGetDicomUidTripleInterface(
@@ -457,9 +450,7 @@ class DicomStoreMockTest(parameterized.TestCase):
     test_dicom_path = _test_file_path()
     dcm = pydicom.dcmread(test_dicom_path)
     expected_frame_data = list(
-        pydicom.encaps.generate_pixel_data_frame(
-            dcm.PixelData, dcm.NumberOfFrames
-        )
+        dicom_store_mock._generate_frames(dcm.PixelData, dcm.NumberOfFrames)
     )
     studyuid = dcm.StudyInstanceUID
     seriesuid = dcm.SeriesInstanceUID
@@ -725,7 +716,7 @@ class DicomStoreMockTest(parameterized.TestCase):
       dcm = pydicom.dcmread(source_file)
       dcm.ImageType = 'FOO'
       with io.BytesIO() as data:
-        dcm.save_as(data)
+        dicom_store_mock._save_as(dcm, data)
         data.seek(0)
         result = requests.post(
             f'{_MOCK_STORE_URL}/studies', data=data, headers=headers

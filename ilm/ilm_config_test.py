@@ -20,7 +20,7 @@ import dataclasses
 from absl.testing import absltest
 from absl.testing import parameterized
 
-import ilm_config
+from ilm import ilm_config
 
 _ACCESS_COUNT = ilm_config.AccessCount(count=3, num_days=10)
 _MOVE_RULE_DOWNGRADE = ilm_config.MoveRule(

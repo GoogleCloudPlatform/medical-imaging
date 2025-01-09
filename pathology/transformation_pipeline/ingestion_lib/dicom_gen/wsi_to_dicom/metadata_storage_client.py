@@ -16,10 +16,8 @@
 
 from __future__ import annotations
 
-from concurrent import futures
 import copy
 import dataclasses
-import functools
 import json
 import os
 import tempfile
@@ -33,15 +31,13 @@ from google.cloud import bigquery
 from google.cloud import storage as cloud_storage
 import pandas
 
-from shared_libs.logging_lib import cloud_logging_client
-from transformation_pipeline import ingest_flags
-from transformation_pipeline.ingestion_lib import csv_util
-from transformation_pipeline.ingestion_lib import hash_util
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_schema_util
-from transformation_pipeline.ingestion_lib.dicom_util import dicom_standard
-
-_METADATA_DOWNLOAD_THREAD_COUNT = 2
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.transformation_pipeline import ingest_flags
+from pathology.transformation_pipeline.ingestion_lib import csv_util
+from pathology.transformation_pipeline.ingestion_lib import hash_util
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_schema_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_standard
 
 
 class MetadataNotFoundExceptionError(Exception):
@@ -381,18 +377,15 @@ class MetadataStorageClient:
         self._working_root_metadata_dir.cleanup()
       self._working_root_metadata_dir = tempfile.TemporaryDirectory('metadata')
       start_time = time.time()
-      download_blob_partial = functools.partial(
-          _download_blob,
-          storage_client,
-          self._working_root_metadata_dir.name,
-          self._metadata_ingest_storage_bucket,
-      )
-      with futures.ThreadPoolExecutor(
-          max_workers=_METADATA_DOWNLOAD_THREAD_COUNT
-      ) as th_pool:
-        downloaded_metadata_list = [
-            log for log in th_pool.map(download_blob_partial, metadata_blobs)
-        ]
+      downloaded_metadata_list = [
+          _download_blob(
+              storage_client,
+              self._working_root_metadata_dir.name,
+              self._metadata_ingest_storage_bucket,
+              blob,
+          )
+          for blob in metadata_blobs
+      ]
       cloud_logging_client.info(
           'Downloaded metadata',
           {

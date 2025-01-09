@@ -17,10 +17,10 @@
 import json
 from absl.testing import absltest
 from google.cloud import pubsub_v1
-from shared_libs.ml.inference_pipeline import inference_pubsub_message
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_secondary_capture
-from transformation_pipeline.ingestion_lib.pubsub_msgs import inference_pubsub_msg
+from pathology.shared_libs.ml.inference_pipeline import inference_pubsub_message
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_secondary_capture
+from pathology.transformation_pipeline.ingestion_lib.pubsub_msgs import inference_pubsub_msg
 
 
 _DICOM_STORE_PATH = 'dicom_store_path'

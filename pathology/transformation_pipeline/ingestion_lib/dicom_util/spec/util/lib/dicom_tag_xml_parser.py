@@ -19,9 +19,9 @@ from typing import Optional
 
 from absl import logging
 
-from transformation_pipeline.ingestion_lib.dicom_util.spec.util.lib.util import dicom_abstract_xml_parser
-from transformation_pipeline.ingestion_lib.dicom_util.spec.util.lib.util import dicom_iod_generator_exception
-from transformation_pipeline.ingestion_lib.dicom_util.spec.util.lib.util import dicom_xml_core_parser
+from pathology.transformation_pipeline.ingestion_lib.dicom_util.spec.util.lib.util import dicom_abstract_xml_parser
+from pathology.transformation_pipeline.ingestion_lib.dicom_util.spec.util.lib.util import dicom_iod_generator_exception
+from pathology.transformation_pipeline.ingestion_lib.dicom_util.spec.util.lib.util import dicom_xml_core_parser
 
 DicomIodGeneratorError = dicom_iod_generator_exception.DicomIodGeneratorError
 ParsedTableRow = dicom_xml_core_parser.ParsedTableRow

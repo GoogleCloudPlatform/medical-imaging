@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Tests for ingest_dicom."""
+"""Tests for ingest dicom."""
 
 import os
 from unittest import mock
@@ -23,16 +23,16 @@ from absl.testing import flagsaver
 from absl.testing import parameterized
 import pydicom
 
-from shared_libs.test_utils.dicom_store_mock import dicom_store_mock
-from transformation_pipeline.ingestion_lib import gen_test_util
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import decode_slideid
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_base
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_dicom
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
-from transformation_pipeline.ingestion_lib.dicom_util import dicom_test_util
+from pathology.shared_libs.test_utils.dicom_store_mock import dicom_store_mock
+from pathology.transformation_pipeline.ingestion_lib import gen_test_util
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import decode_slideid
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_base
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_dicom
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_test_util
 
 
 FLAGS = flags.FLAGS
@@ -63,6 +63,7 @@ class IngestDicomTest(parameterized.TestCase):
     super().setUp()
     self.enter_context(flagsaver.flagsaver(metadata_bucket='test'))
     self.metadata_client = self._create_metadata_client()
+    self.enter_context(flagsaver.flagsaver(redis_server_ip=None))
 
   def _get_mock_dicom_handler(
       self,
@@ -645,7 +646,7 @@ class IngestDicomTest(parameterized.TestCase):
       is_metadata_free,
       dicom_store_triggered_ingest,
       expected,
-  ) -> bool:
+  ):
     ingest = ingest_dicom.IngestDicom(
         dicom_store_triggered_ingest=dicom_store_triggered_ingest,
         override_study_uid_with_metadata=override_study_uid_with_metadata,
@@ -704,7 +705,7 @@ class IngestDicomTest(parameterized.TestCase):
       is_metadata_free,
       dicom_store_triggered_ingest,
       expected,
-  ) -> bool:
+  ):
     ingest = ingest_dicom.IngestDicom(
         dicom_store_triggered_ingest=dicom_store_triggered_ingest,
         override_study_uid_with_metadata=False,

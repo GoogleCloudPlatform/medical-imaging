@@ -28,7 +28,7 @@ import xml.etree.ElementTree as ET
 
 from absl import logging
 
-from transformation_pipeline.ingestion_lib.dicom_util.spec.util.lib.util import dicom_iod_generator_exception
+from pathology.transformation_pipeline.ingestion_lib.dicom_util.spec.util.lib.util import dicom_iod_generator_exception
 
 DicomIodGeneratorError = dicom_iod_generator_exception.DicomIodGeneratorError
 

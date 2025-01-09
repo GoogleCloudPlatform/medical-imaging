@@ -16,18 +16,19 @@
 
 import os
 
-from shared_libs.logging_lib import cloud_logging_client
-from transformation_pipeline import ingest_flags
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_private_tag_generator
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_slide_coordinates_microscopic_image
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
-from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import decode_slideid
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_base
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.shared_libs.pydicom_version_util import pydicom_version_util
+from pathology.transformation_pipeline import ingest_flags
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_private_tag_generator
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_slide_coordinates_microscopic_image
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import decode_slideid
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_base
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
 
 
 _OUTPUT_DICOM_FILENAME = 'output.dcm'
@@ -182,7 +183,7 @@ class IngestFlatImage(ingest_base.IngestBase):
 
       generated_dicom_path = os.path.join(dicom_gen_dir, _OUTPUT_DICOM_FILENAME)
       dicom_util.add_missing_type2_dicom_metadata(dcm)
-      dcm.save_as(generated_dicom_path, write_like_original=False)
+      pydicom_version_util.save_as_validated_dicom(dcm, generated_dicom_path)
       dicom_gen.generated_dicom_files = [generated_dicom_path]
       upload_file_list = dicom_gen.generated_dicom_files
       dest_uri = self.ingest_succeeded_uri

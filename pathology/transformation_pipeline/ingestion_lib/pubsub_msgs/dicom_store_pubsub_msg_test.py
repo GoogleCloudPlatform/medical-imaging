@@ -17,7 +17,7 @@
 from absl.testing import absltest
 from google.cloud import pubsub_v1
 
-from transformation_pipeline.ingestion_lib.pubsub_msgs import dicom_store_pubsub_msg
+from pathology.transformation_pipeline.ingestion_lib.pubsub_msgs import dicom_store_pubsub_msg
 
 
 class DicomStorePubsubMsgTest(absltest.TestCase):

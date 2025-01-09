@@ -1,0 +1,45 @@
+{
+  "preprocessing_config": {
+    "patch_config": {
+      "magnification": "20X",
+      "patch_size": 107,
+      "stride_size": 128,
+      "num_patches_per_set": 1
+    },
+    "patch_transform_config": {
+      "pre_norm_center": null,
+      "normalization": null,
+      "post_norm_center": null,
+      "add_batch_dim": true,
+      "tensor_dtype": "FLOAT32"
+    },
+    "tissue_mask_config": {
+      "brightfield_luminance_threshold": 0.8,
+      "magnification": "1.25X"
+    }
+  },
+  "model_config": {
+    "gcs_path": "",
+    "endpoint": "oof_softmax",
+    "name": "oof-model",
+    "version": "v0",
+    "signature": "serving_default"
+  },
+  "postprocessing_config": {
+    "completeness_threshold": 1.0,
+    "slide_score_config": null,
+    "normalize_heatmap_by_num_classes": false
+  },
+  "output_config": {
+    "predictions": {
+      "tfrecord_gcs_config": {
+        "output_bucket": "fake-output-bucket",
+        "output_dir": "fake-output-dir"
+      },
+      "dimensions_first": true
+    },
+    "heatmap_image": null,
+    "pubsub": null
+  },
+  "cache_config": null
+}

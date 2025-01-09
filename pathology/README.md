@@ -30,6 +30,7 @@ standards oriented approach.
 
 
 ## Getting Started
+
 To get started, clone the repository:
 
   1. Run the following commands to make an installation directory for
@@ -44,25 +45,20 @@ To get started, clone the repository:
   2. Clone Cloud pathology into the directory you just created:
 
   ```shell
-    git clone https://github.com/GoogleCloudPlatform/cloud-pathology.git $CLOUD_PATH
+    git clone https://github.com/GoogleCloudPlatform/medical-imaging.git $CLOUD_PATH
   ```
 
 ## Applications
 
+### DICOM proxy
+
+Get started [here](https://github.com/GoogleCloudPlatform/medical-imaging/blob/main/pathology/dicom_proxy/README.md)
+
 ### Transformation Pipeline
 
-Get started [here](https://github.com/GoogleCloudPlatform/Cloud-Pathology/blob/main/transformation_pipeline/README.md)
-
+Get started [here](https://github.com/GoogleCloudPlatform/medical-imaging/blob/main/pathology/transformation_pipeline/README.md)
 
 ## Deploying
 
-For more information on deploying our applications see our IaC repository
-(Coming Soon!).
-
-## Contributing
-
-See [`CONTRIBUTING.md`](CONTRIBUTING.md) for details.
-
-## License
-
-See [`LICENSE`](LICENSE) for details.
+For more information on deploying our applications see the IaC directory
+[here](https://github.com/GoogleCloudPlatform/medical-imaging/blob/main/iac/README.md).

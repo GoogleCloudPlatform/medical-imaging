@@ -14,9 +14,9 @@
 # ==============================================================================
 """Structure to hold DICOM store pub/sub message."""
 from google.cloud import pubsub_v1
-from shared_libs.logging_lib import cloud_logging_client
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib.pubsub_msgs import abstract_pubsub_msg
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib.pubsub_msgs import abstract_pubsub_msg
 
 
 class DicomStorePubSubMsg(abstract_pubsub_msg.AbstractPubSubMsg):

@@ -31,10 +31,10 @@ import uuid
 from google.api_core import exceptions
 import google.cloud.storage
 
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import blob_state_mock
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_constants
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_types
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_utils
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import blob_state_mock
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_constants
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_types
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_utils
 
 
 class ContextManagerState(enum.Enum):

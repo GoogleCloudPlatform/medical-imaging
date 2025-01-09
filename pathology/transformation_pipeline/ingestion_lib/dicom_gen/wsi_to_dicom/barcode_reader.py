@@ -27,8 +27,8 @@ from googleapiclient import discovery as cloud_discovery
 from googleapiclient import errors as google_api_errors
 import numpy as np
 
-from shared_libs.logging_lib import cloud_logging_client
-from transformation_pipeline import ingest_flags
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.transformation_pipeline import ingest_flags
 
 
 class CloudVisionHttpError(Exception):
@@ -144,6 +144,9 @@ def _zxing_read_barcode(image_path: str, try_harder: bool = False) -> str:
   if not os.path.isfile(image_path):
     raise ValueError(f'Loading "{image_path}" failed')
 
+  if not os.path.isfile(ingest_flags.ZXING_CLI_FLG.value):
+    raise ValueError('ZXING_CLI not installed.')
+
   cli_params = (
       [ingest_flags.ZXING_CLI_FLG.value, '--try-harder', image_path]
       if try_harder
@@ -162,7 +165,6 @@ def _zxing_read_barcode(image_path: str, try_harder: bool = False) -> str:
   # The zxing cli always returns 0, detect error by stderr.
   if result.stderr or result.stdout == 'decoding failed\n':
     raise ValueError(f'{image_path} barcode decoding failed {result.stderr}')
-
   # Output of zxing contains new lines.
   return result.stdout.strip('\n')
 

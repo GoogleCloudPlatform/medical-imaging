@@ -33,7 +33,7 @@ from absl.testing import absltest
 import google.api_core
 import google.cloud.pubsub_v1
 
-from shared_libs.logging_lib import cloud_logging_client
+from pathology.shared_libs.logging_lib import cloud_logging_client
 
 
 _DEFAULT_VALUE = google.api_core.gapic_v1.method._MethodDefault._DEFAULT_VALUE  # pylint: disable=protected-access

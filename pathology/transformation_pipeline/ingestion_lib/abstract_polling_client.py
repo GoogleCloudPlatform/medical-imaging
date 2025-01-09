@@ -16,7 +16,7 @@
 import abc
 from typing import Optional
 
-from transformation_pipeline.ingestion_lib.pubsub_msgs import abstract_pubsub_msg
+from pathology.transformation_pipeline.ingestion_lib.pubsub_msgs import abstract_pubsub_msg
 
 
 class AbstractPollingClient(metaclass=abc.ABCMeta):

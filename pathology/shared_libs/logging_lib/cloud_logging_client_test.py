@@ -22,20 +22,18 @@ import re
 import threading
 import time
 import traceback
+from unittest import mock
 
-from absl import flags
 from absl import logging as absl_logging
 from absl.testing import absltest
 from absl.testing import flagsaver
 from absl.testing import parameterized
 import google.auth
 from google.cloud import logging as cloud_logging
-import mock
 
-from shared_libs.logging_lib import cloud_logging_client
-from shared_libs.logging_lib import cloud_logging_client_instance
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.shared_libs.logging_lib import cloud_logging_client_instance
 
-# const
 _MOCK_BUILD_VERSION = {'BUILD_VERSION': 'MOCK_UNIT_TEST'}
 
 
@@ -63,6 +61,10 @@ class CloudLoggingTest(parameterized.TestCase):
     cloud_logging_client_instance.CloudLoggingClientInstance._cloud_logging_handler = (
         None
     )
+    cloud_logging_client_instance.CloudLoggingClientInstance._per_thread_log_signatures = (
+        True
+    )
+    self.enter_context(flagsaver.flagsaver(ops_log_project='TEST_PROJECT'))
 
   def tearDown(self):
     # force cloud logger to re-initalize for each unit test.
@@ -75,26 +77,17 @@ class CloudLoggingTest(parameterized.TestCase):
     self.assertIn('source_location', location)
     self.assertIn('file', location['source_location'])
     self.assertEndsWith(
-        location['source_location']['file'],
-        (
-            '/shared_libs/logging_lib/'
-            'cloud_logging_client_test.py'
-        ),
+        location['source_location']['file'], 'cloud_logging_client_test.py'
     )
-    location['source_location']['file'] = (
-        '/shared_libs/'
-        'logging_lib/cloud_logging_client_test.py'
+    self.assertEqual(
+        location['source_location']['function'],
+        'test_get_source_location_to_log',
     )
-    expected = {}
-    expected['source_location'] = dict(
-        file=(
-            '/shared_libs/logging_lib/'
-            'cloud_logging_client_test.py'
-        ),
-        function='test_get_source_location_to_log',
-        line=73,
-    )  # test will fail if source code line # changes.
-    self.assertEqual(location, expected)
+    # Test line number of function call was within a range.
+    # test will fail if line number of function call changes dramatically.
+    line_number = location['source_location']['line']
+    self.assertGreater(line_number, 10)
+    self.assertLess(line_number, 250)
 
   @parameterized.parameters([
       ('error', cloud_logging_client_instance._LogSeverity.ERROR),
@@ -125,65 +118,6 @@ class CloudLoggingTest(parameterized.TestCase):
       cloud_logging_client_instance._py_log(
           logging.getLogger(), 'test', {'foo': 'bar'}, 99999
       )  # pytype: disable=wrong-arg-types
-
-  def test_does_param_define_flag_true(self):
-    self.assertTrue(
-        cloud_logging_client._check_param_sets_flag('--foo', ['foo'])
-    )
-    self.assertTrue(
-        cloud_logging_client._check_param_sets_flag('-foo', ['foo'])
-    )
-
-  def test_does_param_define_flag_false(self):
-    self.assertFalse(
-        cloud_logging_client._check_param_sets_flag('foo', ['foo'])
-    )
-    self.assertFalse(
-        cloud_logging_client._check_param_sets_flag('bar', ['foo'])
-    )
-    self.assertFalse(
-        cloud_logging_client._check_param_sets_flag('--bar', ['foo'])
-    )
-
-  def test_get_logger_flags(self):
-    log_name_flg = cloud_logging_client.CLOUD_OPS_LOG_NAME_FLG.name
-    project_flg = cloud_logging_client.CLOUD_OPS_LOG_PROJECT_FLG.name
-    host_flg = cloud_logging_client.POD_HOSTNAME_FLG.name
-    uid_flg = cloud_logging_client.POD_UID_FLG.name
-    disable_log_flg = cloud_logging_client.DISABLE_STRUCTURED_LOGGING_FLG.name
-    cmdline_param = [
-        'foo',
-        f'--{log_name_flg}="bar"',
-        '--skip=none',
-        f'-{project_flg}',
-        '=',
-        '123',
-        '-skip2',
-        f'-{host_flg}',
-        '--skip3',
-        '=',
-        '45',
-        f'--{uid_flg}="1.2.3.5"',
-        f'--{disable_log_flg}',
-        '--skip6="5324"',
-    ]
-
-    cmdline_param = cloud_logging_client._get_logger_flags(cmdline_param)
-
-    self.assertEqual([], cloud_logging_client._get_logger_flags([]))
-    self.assertEqual(
-        cmdline_param,
-        [
-            'foo',
-            f'--{log_name_flg}="bar"',
-            f'-{project_flg}',
-            '=',
-            '123',
-            f'-{host_flg}',
-            f'--{uid_flg}="1.2.3.5"',
-            f'--{disable_log_flg}',
-        ],
-    )
 
   def test_get_source_location_to_log_with_stack_frames_back_beyond_stack(self):
     with self.assertRaises(ValueError):
@@ -234,8 +168,8 @@ class CloudLoggingTest(parameterized.TestCase):
                 'foo': 'bar',
                 'HOSTNAME': 'test_pod',
                 'POD_UID': '123',
-                'BUILD_VERSION': 'MOCK_UNIT_TEST',
                 'THREAD_ID': mock.ANY,
+                'BUILD_VERSION': 'MOCK_UNIT_TEST',
             },
             'source_location': {
                 'file': mock.ANY,
@@ -290,8 +224,8 @@ class CloudLoggingTest(parameterized.TestCase):
             'json_fields': collections.OrderedDict([
                 ('HOSTNAME', 'test_pod'),
                 ('POD_UID', '123'),
-                ('BUILD_VERSION', 'MOCK_UNIT_TEST'),
                 ('THREAD_ID', mock.ANY),
+                ('BUILD_VERSION', 'MOCK_UNIT_TEST'),
             ]),
             'source_location': {
                 'file': mock.ANY,
@@ -303,7 +237,7 @@ class CloudLoggingTest(parameterized.TestCase):
     )
 
   @flagsaver.flagsaver(
-      pod_hostname='test_pod', pod_uid='123', disable_structured_logging=True
+      pod_hostname='test_pod', pod_uid='123', enable_structured_logging=False
   )
   @mock.patch.object(absl_logging, 'info', autospec=True)
   def test_log_absl(self, mock_func):
@@ -318,14 +252,15 @@ class CloudLoggingTest(parameterized.TestCase):
           ({'abc': 123},),
       )
     mock_func.assert_called_once_with(
-        'test; abc: 123; HOSTNAME: test_pod; POD_UID: 123; BUILD_VERSION: '
-        f'MOCK_UNIT_TEST; THREAD_ID: {threading.get_native_id()}'
+        'test; abc: 123; HOSTNAME: test_pod; POD_UID: 123; THREAD_ID:'
+        f' {threading.get_native_id()}; BUILD_VERSION: MOCK_UNIT_TEST'
     )
 
   @flagsaver.flagsaver(ops_log_project='test')
   def test_flags_initialized(self):
     self.assertTrue(cloud_logging_client._are_flags_initialized())
 
+  @flagsaver.flagsaver(ops_log_project=None)
   def test_flags_not_initialized(self):
     self.assertFalse(cloud_logging_client._are_flags_initialized())
 
@@ -428,7 +363,6 @@ class CloudLoggingTest(parameterized.TestCase):
     """Test merge logging signature with empt message structure."""
     cl = cloud_logging_client.logger()
     default_tags = cl._merge_signature(None)
-    del default_tags['BUILD_VERSION']
     self.assertEqual(
         {
             'HOSTNAME': 'test_pod',
@@ -443,7 +377,6 @@ class CloudLoggingTest(parameterized.TestCase):
     """Test merge logging signature with empt message structure."""
     cl = cloud_logging_client.logger()
     default_tags = cl._merge_signature({'test': 'test_val'})
-    del default_tags['BUILD_VERSION']
     self.assertEqual(
         {
             'test': 'test_val',
@@ -461,7 +394,6 @@ class CloudLoggingTest(parameterized.TestCase):
     default_tags = cl._merge_signature(None)
     # Remove build version from signature dictionary to make test robust.
     # Build version is automatically generated for each build.
-    del default_tags['BUILD_VERSION']
     self.assertEqual(
         {
             'HOSTNAME': 'test_pod',
@@ -518,7 +450,6 @@ class CloudLoggingTest(parameterized.TestCase):
     cl = cloud_logging_client.logger()
     cl.log_signature = {'test': 'test_val'}
     log_sig = cl.log_signature
-    del log_sig['BUILD_VERSION']
     self.assertEqual(
         log_sig,
         {
@@ -536,7 +467,6 @@ class CloudLoggingTest(parameterized.TestCase):
     cl.log_signature = {'test': 'test_val'}
     cl.clear_log_signature()
     log_sig = cl.log_signature
-    del log_sig['BUILD_VERSION']
     self.assertEqual(
         log_sig,
         {
@@ -557,17 +487,6 @@ class CloudLoggingTest(parameterized.TestCase):
     """Test merge logging signature with empt message structure."""
     cl = cloud_logging_client.logger()
     self.assertEqual(cl.pod_uid, '123')
-
-  @flagsaver.flagsaver(pod_hostname='test_pod', pod_uid='123')
-  def test_build_version_loads(self):
-    """Test build version loads."""
-    cl = cloud_logging_client.logger()
-    cl.clear_log_signature()
-    log_sig = cl.log_signature
-    self.assertNotEqual(
-        log_sig['BUILD_VERSION'],  # pytype: disable=unsupported-operands
-        'Error_could_not_retrieve_build_version',
-    )
 
   @mock.patch.object(absl_logging, 'info', autospec=True)
   def test_absl_info_log(self, mocked_method):
@@ -753,8 +672,8 @@ class CloudLoggingTest(parameterized.TestCase):
                 ('exception', 'something bad\nUnitTestStackTrace'),
                 ('HOSTNAME', 'test_pod'),
                 ('POD_UID', '123'),
-                ('BUILD_VERSION', 'MOCK_UNIT_TEST'),
                 ('THREAD_ID', mock.ANY),
+                ('BUILD_VERSION', 'MOCK_UNIT_TEST'),
             ]),
             'source_location': {
                 'file': mock.ANY,
@@ -851,7 +770,7 @@ class CloudLoggingTest(parameterized.TestCase):
       mock_log.assert_called_once_with(
           (
               f'main_test_start;{expected_txt} HOSTNAME: test_pod;'
-              f' BUILD_VERSION: MOCK_UNIT_TEST; THREAD_ID: {thread_id}'
+              f' THREAD_ID: {thread_id}; BUILD_VERSION: MOCK_UNIT_TEST'
           ),
           severity=cloud_logging_client_instance._LogSeverity.INFO,
       )
@@ -1057,23 +976,6 @@ class CloudLoggingTest(parameterized.TestCase):
     test_value = cloud_logging_client_instance._LogSeverity.DEBUG.value + 5
     logger.log_error_level = test_value
     self.assertEqual(logger.log_error_level, test_value)
-
-  def test_load_build_version(self):
-    path = os.path.join(
-        flags.FLAGS.test_srcdir,
-        'shared_libs/build_version/build_version.txt',
-    )
-    with open(path, 'rt') as infile:
-      self.assertEqual(
-          cloud_logging_client_instance.BUILD_VERSION, infile.read()
-      )
-
-  def test_cannot_load_build_version(self):
-    with mock.patch.object(os.path, 'split', side_effect=FileNotFoundError()):
-      self.assertEqual(
-          cloud_logging_client_instance._load_build_version(),
-          cloud_logging_client_instance._ERROR_COULD_NOT_RETRIEVE_BUILD_VERSION,
-      )
 
   @flagsaver.flagsaver(debug_logging_use_absl_logging=False)
   @mock.patch.object(
@@ -1330,21 +1232,21 @@ class CloudLoggingTest(parameterized.TestCase):
           use_absl_logging=False,
       )
 
-  def test_disable_structured_logging_default(self):
+  def test_enable_e_structured_logging_default(self):
     instance = cloud_logging_client_instance.CloudLoggingClientInstance()
-    self.assertFalse(instance.disable_structured_logging)
+    self.assertTrue(instance.enable_structured_logging)
 
-  def test_disable_structured_logging_init(self):
+  def test_enable__structured_logging_init(self):
     instance = cloud_logging_client_instance.CloudLoggingClientInstance(
-        disable_structured_logging=True
+        enable_structured_logging=False
     )
-    self.assertTrue(instance.disable_structured_logging)
+    self.assertFalse(instance.enable_structured_logging)
 
-  def test_disable_structured_logging_setter(self):
+  def test_enable_structured_logging_setter(self):
     instance = cloud_logging_client_instance.CloudLoggingClientInstance()
-    set_val = not instance.disable_structured_logging
-    instance.disable_structured_logging = set_val
-    self.assertEqual(instance.disable_structured_logging, set_val)
+    set_val = not instance.enable_structured_logging
+    instance.enable_structured_logging = set_val
+    self.assertEqual(instance.enable_structured_logging, set_val)
 
   def test_default_gcp_project_name(self):
     instance = cloud_logging_client_instance.CloudLoggingClientInstance()
@@ -1380,6 +1282,7 @@ class CloudLoggingTest(parameterized.TestCase):
           log_name='', use_absl_logging=False
       )
 
+  @mock.patch.dict(os.environ, {'GOOGLE_CLOUD_PROJECT': 'TEST_PROJECT'})
   def test_undefined_pod_uid_raises(self):
     with self.assertRaises(ValueError):
       instance = cloud_logging_client_instance.CloudLoggingClientInstance(
@@ -1530,6 +1433,7 @@ class CloudLoggingTest(parameterized.TestCase):
         'test_project',
     )
 
+  @flagsaver.flagsaver(ops_log_project=None)
   @mock.patch.object(
       google.auth,
       'default',

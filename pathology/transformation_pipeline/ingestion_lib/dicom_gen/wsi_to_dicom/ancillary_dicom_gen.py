@@ -20,13 +20,14 @@ from typing import Any, Dict, List, Mapping, Optional
 import cv2
 import pydicom
 
-from shared_libs.logging_lib import cloud_logging_client
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_private_tag_generator
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ancillary_image_extractor
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
-from transformation_pipeline.ingestion_lib.dicom_util import dicom_standard
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.shared_libs.pydicom_version_util import pydicom_version_util
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_private_tag_generator
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ancillary_image_extractor
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_standard
 
 
 AncillaryImage = ancillary_image_extractor.AncillaryImage
@@ -82,10 +83,10 @@ def _gen_ancillary_dicom_instance(
   ds.SOPClassUID = sop_class_id
   ds.InstanceNumber = instance_number
 
-  # define additional image tags
-  ds.is_little_endian = True
-  ds.is_implicit_VR = False  # Required for correct handling of private tags
+  # Required when using pydicom version 2 for correct handling of private tags
+  pydicom_version_util.set_little_endian_explicit_vr(ds)
 
+  # define additional image tags
   rows, columns = image_shape
   # Compute effective compression ratio.
   ds.LossyImageCompressionRatio = str(
@@ -144,7 +145,7 @@ def _gen_ancillary_dicom_instance(
   )
   dicom_util.add_missing_type2_dicom_metadata(ds)
   filename = f'{image_path}.dcm'
-  ds.save_as(filename, write_like_original=False)
+  pydicom_version_util.save_as_validated_dicom(ds, filename)
   return filename
 
 

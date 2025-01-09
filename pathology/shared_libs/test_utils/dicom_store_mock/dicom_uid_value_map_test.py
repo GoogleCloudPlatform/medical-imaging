@@ -17,7 +17,7 @@
 from absl.testing import absltest
 from absl.testing import parameterized
 
-from shared_libs.test_utils.dicom_store_mock import dicom_uid_value_map
+from pathology.shared_libs.test_utils.dicom_store_mock import dicom_uid_value_map
 
 
 class DicomUidValueMapTest(parameterized.TestCase):

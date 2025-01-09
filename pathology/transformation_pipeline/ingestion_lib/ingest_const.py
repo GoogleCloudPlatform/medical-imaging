@@ -201,6 +201,15 @@ class DicomSopClasses:
   )
 
 
+class ICCProfile:
+  """ICC Profiles."""
+
+  ADOBERGB = 'ADOBERGB'
+  ROMMRGB = 'ROMMRGB'
+  NONE = 'NONE'
+  SRGB = 'SRGB'
+
+
 class DicomImageTransferSyntax:
   """DICOM Transfer Syntaxs."""
 

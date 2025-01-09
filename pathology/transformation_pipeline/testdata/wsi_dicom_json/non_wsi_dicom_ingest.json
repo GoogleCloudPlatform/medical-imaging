@@ -1,0 +1,303 @@
+[
+  {
+    "00080008": { "vr": "CS", "Value": ["CT"] },
+    "00080016": { "vr": "UI", "Value": ["1.2.840.10008.5.1.4.1.1.2"] },
+    "00080018": {
+      "vr": "UI",
+      "Value": ["1.2.276.0.7230010.3.1.4.296485376.46.1648688993.578032"]
+    },
+    "00080020": { "vr": "DA", "Value": ["19340704"] },
+    "00080021": { "vr": "DA", "Value": ["19340704"] },
+    "00080023": { "vr": "DA", "Value": ["20220331"] },
+    "00080030": { "vr": "TM", "Value": ["120100"] },
+    "00080031": { "vr": "TM", "Value": ["120100"] },
+    "00080033": { "vr": "TM", "Value": ["010953"] },
+    "00080050": { "vr": "SH", "Value": ["MD-03-3"] },
+    "00080051": {
+      "vr": "SQ",
+      "Value": [
+        {
+          "00400031": { "vr": "UT", "Value": ["Example Hospital"] },
+          "00400032": { "vr": "UT", "Value": ["www.ExampleHospital.org"] },
+          "00400033": { "vr": "CS", "Value": ["DNS"] }
+        }
+      ]
+    },
+    "00080060": { "vr": "CS", "Value": ["CT"] },
+    "00080070": { "vr": "LO", "Value": ["GOOGLE"] },
+    "00080080": { "vr": "LO", "Value": ["Example Hospital"] },
+    "00080090": { "vr": "PN", "Value": [{ "Alphabetic": "Lovelace^Ada" }] },
+    "00081030": { "vr": "LO", "Value": ["INDP-Surgical Pathology"] },
+    "0008103E": {
+      "vr": "LO",
+      "Value": ["BOB1 uA-Colon, left, polyp, endoscopic biopsy"]
+    },
+    "00081040": { "vr": "LO", "Value": ["MCR GENERAL AP PATHDX"] },
+    "00081084": {
+      "vr": "SQ",
+      "Value": [
+        {
+          "00080100": { "vr": "SH", "Value": ["Z12.83"] },
+          "00080102": { "vr": "SH", "Value": ["ICD 10"] },
+          "00080104": {
+            "vr": "LO",
+            "Value": ["Encounter for screening for malignant neoplasm of skin"]
+          }
+        },
+        {
+          "00080100": { "vr": "SH", "Value": ["Z85.820"] },
+          "00080102": { "vr": "SH", "Value": ["ICD 10"] },
+          "00080104": {
+            "vr": "LO",
+            "Value": ["Personal history of malignant melanoma of skin"]
+          }
+        },
+        {
+          "00080100": { "vr": "SH", "Value": ["R23.8"] },
+          "00080102": { "vr": "SH", "Value": ["ICD 10"] },
+          "00080104": { "vr": "LO", "Value": ["Other skin changes"] }
+        },
+        {
+          "00080100": { "vr": "SH", "Value": ["L82.1"] },
+          "00080102": { "vr": "SH", "Value": ["ICD 10"] },
+          "00080104": { "vr": "LO", "Value": ["Other seborrheic keratosis"] }
+        },
+        {
+          "00080100": { "vr": "SH", "Value": ["M-80702"] },
+          "00080102": { "vr": "SH", "Value": ["SNOMED CT"] },
+          "00080104": {
+            "vr": "LO",
+            "Value": ["IEC - Intraepidermal carcinoma"]
+          }
+        },
+        {
+          "00080100": { "vr": "SH", "Value": ["M-87422"] },
+          "00080102": { "vr": "SH", "Value": ["SNOMED CT"] },
+          "00080104": {
+            "vr": "LO",
+            "Value": ["Hutchinson's melanotic freckle, NOS"]
+          }
+        },
+        {
+          "00080100": { "vr": "SH", "Value": ["T-02007"] },
+          "00080102": { "vr": "SH", "Value": ["SNOMED CT"] },
+          "00080104": { "vr": "LO", "Value": ["Skin of thigh"] }
+        },
+        {
+          "00080100": { "vr": "SH", "Value": ["T-02121"] },
+          "00080102": { "vr": "SH", "Value": ["SNOMED CT"] },
+          "00080104": { "vr": "LO", "Value": ["Skin structure of cheek"] }
+        }
+      ]
+    },
+    "00081090": { "vr": "LO", "Value": ["DPAS_transformation_pipeline"] },
+    "00082111": {
+      "vr": "ST",
+      "Value": [
+        "Image frames generated from  values extracted from un-tiled image (wikipedia.png) and embedded as encapsulated JPEG compressed (quality: 80); Imaging bytes re-compressed once."
+      ]
+    },
+    "00100010": { "vr": "PN", "Value": [{ "Alphabetic": "Test^Person" }] },
+    "00100020": { "vr": "LO", "Value": ["R01238"] },
+    "00100030": { "vr": "DA", "Value": ["18671107"] },
+    "00100040": { "vr": "CS", "Value": ["F"] },
+    "00101010": { "vr": "AS", "Value": ["066Y"] },
+    "00180050": { "vr": "DS" },
+    "00180060": { "vr": "DS" },
+    "00181000": { "vr": "LO", "Value": ["Build_Version:123"] },
+    "00181020": { "vr": "LO", "Value": ["Build_Version:123"] },
+    "0020000D": {
+      "vr": "UI",
+      "Value": ["1.2.840.5555.184555.9588327844440923"]
+    },
+    "0020000E": {
+      "vr": "UI",
+      "Value": ["1.2.276.0.7230010.3.1.3.296485376.46.1648688993.578031"]
+    },
+    "00200010": { "vr": "SH" },
+    "00200011": { "vr": "IS" },
+    "00200012": { "vr": "IS" },
+    "00200013": { "vr": "IS", "Value": [2] },
+    "00200052": {
+      "vr": "UI",
+      "Value": ["1.2.276.0.7230010.3.1.3.296485376.46.1648688993.578031.1"]
+    },
+    "00201040": { "vr": "LO" },
+    "00209221": {
+      "vr": "SQ",
+      "Value": [
+        {
+          "00209164": {
+            "vr": "UI",
+            "Value": ["1.2.276.0.7230010.3.1.2.296485376.46.1648688993.578033"]
+          }
+        }
+      ]
+    },
+    "00209222": {
+      "vr": "SQ",
+      "Value": [
+        {
+          "00209164": {
+            "vr": "UI",
+            "Value": ["1.2.276.0.7230010.3.1.2.296485376.46.1648688993.578033"]
+          },
+          "00209165": { "vr": "AT", "Value": ["0048021E"] },
+          "00209167": { "vr": "AT", "Value": ["0048021A"] }
+        },
+        {
+          "00209164": {
+            "vr": "UI",
+            "Value": ["1.2.276.0.7230010.3.1.2.296485376.46.1648688993.578033"]
+          },
+          "00209165": { "vr": "AT", "Value": ["0048021E"] },
+          "00209167": { "vr": "AT", "Value": ["0048021A"] }
+        }
+      ]
+    },
+    "00209311": { "vr": "CS", "Value": ["TILED_FULL"] },
+    "00280002": { "vr": "US", "Value": [3] },
+    "00280004": { "vr": "CS", "Value": ["YBR_FULL_422"] },
+    "00280006": { "vr": "US", "Value": [0] },
+    "00280008": { "vr": "IS", "Value": [1] },
+    "00280010": { "vr": "US", "Value": [117] },
+    "00280011": { "vr": "US", "Value": [234] },
+    "00280100": { "vr": "US", "Value": [8] },
+    "00280101": { "vr": "US", "Value": [8] },
+    "00280102": { "vr": "US", "Value": [7] },
+    "00280103": { "vr": "US", "Value": [0] },
+    "00280301": { "vr": "CS", "Value": ["NO"] },
+    "00282110": { "vr": "CS", "Value": ["01"] },
+    "00282112": { "vr": "DS", "Value": [7.271713] },
+    "00282114": { "vr": "CS", "Value": ["ISO_10918_1"] },
+    "00286010": { "vr": "US", "Value": [1] },
+    "00400512": { "vr": "LO", "Value": ["MD-03-3-A1-2"] },
+    "00400560": {
+      "vr": "SQ",
+      "Value": [
+        {
+          "00400551": { "vr": "LO", "Value": ["MD-03-3-A1"] },
+          "00400554": {
+            "vr": "UI",
+            "Value": ["1.2.840.940053236774333434930073"]
+          },
+          "00400600": { "vr": "LO", "Value": ["Colon biopsy"] },
+          "00400602": {
+            "vr": "UT",
+            "Value": ["Colon, left, polyp, endoscopic biopsy"]
+          },
+          "00400610": {
+            "vr": "SQ",
+            "Value": [
+              {
+                "00400612": {
+                  "vr": "SQ",
+                  "Value": [
+                    {
+                      "0040A040": { "vr": "CS", "Value": ["TEXT"] },
+                      "0040A043": {
+                        "vr": "SQ",
+                        "Value": [
+                          {
+                            "00080100": { "vr": "SH", "Value": ["PBLOCK"] },
+                            "00080102": { "vr": "SH", "Value": ["99_WHO"] },
+                            "00080104": {
+                              "vr": "LO",
+                              "Value": ["Material Type"]
+                            }
+                          }
+                        ]
+                      },
+                      "0040A160": { "vr": "UT", "Value": ["PBLOCK"] }
+                    },
+                    {
+                      "0040A040": { "vr": "CS", "Value": ["TEXT"] },
+                      "0040A043": {
+                        "vr": "SQ",
+                        "Value": [
+                          {
+                            "00080100": { "vr": "SH", "Value": ["COLON1"] },
+                            "00080102": { "vr": "SH", "Value": ["99_WHO"] },
+                            "00080104": {
+                              "vr": "LO",
+                              "Value": ["Specimen Type"]
+                            }
+                          }
+                        ]
+                      },
+                      "0040A160": { "vr": "UT", "Value": ["COLON1"] }
+                    },
+                    {
+                      "0040A040": { "vr": "CS", "Value": ["TEXT"] },
+                      "0040A043": {
+                        "vr": "SQ",
+                        "Value": [
+                          {
+                            "00080100": { "vr": "SH", "Value": ["BOB1 uA"] },
+                            "00080102": { "vr": "SH", "Value": ["99_WHO"] },
+                            "00080104": { "vr": "LO", "Value": ["Stain"] }
+                          }
+                        ]
+                      },
+                      "0040A160": { "vr": "UT", "Value": ["BOB1 uA"] }
+                    },
+                    {
+                      "0040A040": { "vr": "CS", "Value": ["TEXT"] },
+                      "0040A043": {
+                        "vr": "SQ",
+                        "Value": [
+                          {
+                            "00080100": { "vr": "SH", "Value": ["A1"] },
+                            "00080102": { "vr": "SH", "Value": ["99_WHO"] },
+                            "00080104": { "vr": "LO", "Value": ["Block Code"] }
+                          }
+                        ]
+                      },
+                      "0040A160": { "vr": "UT", "Value": ["A1"] }
+                    },
+                    {
+                      "0040A040": { "vr": "CS", "Value": ["TEXT"] },
+                      "0040A043": {
+                        "vr": "SQ",
+                        "Value": [
+                          {
+                            "00080100": { "vr": "SH", "Value": ["A"] },
+                            "00080102": { "vr": "SH", "Value": ["99_WHO"] },
+                            "00080104": {
+                              "vr": "LO",
+                              "Value": ["Specimen Code"]
+                            }
+                          }
+                        ]
+                      },
+                      "0040A160": { "vr": "UT", "Value": ["A"] }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "00480006": { "vr": "UL", "Value": [234] },
+    "00480007": { "vr": "UL", "Value": [117] },
+    "00480010": { "vr": "CS", "Value": ["NO"] },
+    "00480102": { "vr": "DS", "Value": [0.0, -1.0, 0.0, -1.0, 0.0, 0.0] },
+    "22000005": { "vr": "LT", "Value": ["MD-04-3-A1-2"] },
+    "30210010": { "vr": "LO", "Value": ["GOOGLE"] },
+    "30211003": { "vr": "LT", "Value": ["mock_pubsub_msg_id"] },
+    "30211004": { "vr": "LT", "Value": ["MD-04-3-A1-2_test_wikipedia.dcm"] },
+    "52009229": {
+      "vr": "SQ",
+      "Value": [
+        {
+          "00289110": {
+            "vr": "SQ",
+            "Value": [{ "00280030": { "vr": "DS", "Value": [0.1, 0.1] } }]
+          }
+        }
+      ]
+    }
+  }
+]

@@ -23,8 +23,8 @@ from typing import Any, Iterable, Iterator, Optional, Tuple
 
 from google.cloud import storage
 
-import ilm_config
-import ilm_types
+from ilm import ilm_config
+from ilm import ilm_types
 
 
 def read_gcs_file(gcs_uri: str) -> str:

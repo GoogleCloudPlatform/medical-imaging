@@ -74,7 +74,7 @@ GCR_DESTINATION_WORKER=<set me>
 gcloud builds submit --config=./deployment/cloudbuild.yaml \
 --substitutions=_REPO_NAME=${GCR_DESTINATION_LAUNCHER},_DOCKERFILE=./deployment/dataflow_launcher.Dockerfile
 
-cloud builds submit --config=./deployment/cloudbuild.yaml \
+gcloud builds submit --config=./deployment/cloudbuild.yaml \
 --substitutions=_REPO_NAME=${GCR_DESTINATION_WORKER},_DOCKERFILE=./deployment/dataflow_worker.Dockerfile
 ```
 

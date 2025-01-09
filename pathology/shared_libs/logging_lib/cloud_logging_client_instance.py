@@ -42,10 +42,6 @@ DEBUG_LOGGING_USE_ABSL_LOGGING = bool(
     'UNITTEST_ON_FORGE' in os.environ or 'unittest' in sys.modules
 )
 
-_ERROR_COULD_NOT_RETRIEVE_BUILD_VERSION = (
-    'Error_could_not_retrieve_build_version'
-)
-
 
 class _LogSeverity(enum.Enum):
   CRITICAL = logging.CRITICAL
@@ -54,19 +50,6 @@ class _LogSeverity(enum.Enum):
   INFO = logging.INFO
   DEBUG = logging.DEBUG
 
-
-def _load_build_version() -> str:
-  try:
-    dir_name, _ = os.path.split(__file__)
-    with open(
-        os.path.join(dir_name, '..', 'build_version', 'build_version.txt'), 'rt'
-    ) as infile:
-      return infile.read()
-  except FileNotFoundError:
-    return _ERROR_COULD_NOT_RETRIEVE_BUILD_VERSION
-
-
-BUILD_VERSION = _load_build_version()
 
 MAX_LOG_SIZE = 246000
 
@@ -172,7 +155,7 @@ def _get_source_location_to_log(stack_frames_back: int) -> Mapping[str, Any]:
   current_frame = inspect.currentframe()
   for _ in range(stack_frames_back + 1):
     if current_frame is None:
-      raise ValueError('Cannot get stack frame for for specified position.')
+      raise ValueError('Cannot get stack frame for specified position.')
     current_frame = current_frame.f_back
   try:
     frame_info = inspect.getframeinfo(current_frame)
@@ -204,7 +187,7 @@ class CloudLoggingClientInstance:
   Automatically adds signature to structured logs to make traceable.
   """
 
-  # global state to prevent duplicate initalization of cloud logging interfaces
+  # global state to prevent duplicate initialization of cloud logging interfaces
   # within a process.
   _global_lock = threading.Lock()
   # Cloud logging handler init at process level.
@@ -231,6 +214,42 @@ class CloudLoggingClientInstance:
       handler.close()
       cls._cloud_logging_handler = None
 
+  @classmethod
+  def _set_absl_skip_frames(cls) -> None:
+    """Sets absl logging attribution to skip over internal logging frames."""
+    absl_logging.ABSLLogger.register_frame_to_skip(
+        __file__,
+        function_name='_log',
+    )
+    absl_logging.ABSLLogger.register_frame_to_skip(
+        __file__,
+        function_name='_absl_log',
+    )
+    absl_logging.ABSLLogger.register_frame_to_skip(
+        __file__,
+        function_name='debug',
+    )
+    absl_logging.ABSLLogger.register_frame_to_skip(
+        __file__,
+        function_name='timed_debug',
+    )
+    absl_logging.ABSLLogger.register_frame_to_skip(
+        __file__,
+        function_name='info',
+    )
+    absl_logging.ABSLLogger.register_frame_to_skip(
+        __file__,
+        function_name='warning',
+    )
+    absl_logging.ABSLLogger.register_frame_to_skip(
+        __file__,
+        function_name='error',
+    )
+    absl_logging.ABSLLogger.register_frame_to_skip(
+        __file__,
+        function_name='critical',
+    )
+
   def __init__(
       self,
       log_name: str = 'python',
@@ -238,13 +257,14 @@ class CloudLoggingClientInstance:
       gcp_credentials: Optional[google.auth.credentials.Credentials] = None,
       pod_hostname: str = '',
       pod_uid: str = '',
-      disable_structured_logging: bool = False,
+      enable_structured_logging: bool = True,
       use_absl_logging: bool = DEBUG_LOGGING_USE_ABSL_LOGGING,
       log_all_python_logs_to_cloud: bool = False,
       enabled: bool = True,
       log_error_level: int = _LogSeverity.DEBUG.value,
       per_thread_log_signatures: bool = True,
       trace_key: str = '',
+      build_version: str = '',
   ):
     """Constructor.
 
@@ -256,17 +276,20 @@ class CloudLoggingClientInstance:
         (None=default).
       pod_hostname: Host name of GKE pod. Should be empty if not running in GKE.
       pod_uid: UID of GKE pod. Should be empty if not running in GKE.
-      disable_structured_logging: Disable structured logging.
+      enable_structured_logging: Enable structured logging.
       use_absl_logging: Send logs to absl logging instead of cloud_logging.
       log_all_python_logs_to_cloud: Logs everything to cloud.
-      enabled: If disabled, logging is not initalized and logging operations are
-        nops.
+      enabled: If disabled, logging is not initialized and logging operations
+        are nops.
       log_error_level: Error level at which logger will log.
       per_thread_log_signatures: Log signatures reported per thread.
       trace_key: Log key value which contains a trace id value.
+      build_version: Build version to embedd in logs container.
     """
     # lock for log makes access to singleton
     # safe across threads. Logging used in main thread and ack_timeout_mon
+    CloudLoggingClientInstance._set_absl_skip_frames()
+    self._build_version = build_version
     self._enabled = enabled
     self._trace_key = trace_key
     self._log_error_level = log_error_level
@@ -277,7 +300,7 @@ class CloudLoggingClientInstance:
     self._per_thread_log_signatures = per_thread_log_signatures
     self._thread_local_storage = threading.local()
     self._shared_log_signature = self._signature_defaults(0)
-    self._disable_structured_logging = disable_structured_logging
+    self._enable_structured_logging = enable_structured_logging
     self._debug_log_time = time.time()
     self._gcp_project_name = gcp_project_to_write_logs_to.strip()
     self._use_absl_logging = use_absl_logging
@@ -323,7 +346,7 @@ class CloudLoggingClientInstance:
     )
 
   def _init_cloud_handler(self) -> logging.Logger:
-    """Initalizes cloud logging handler and returns python logger."""
+    """Initializes cloud logging handler and returns python logger."""
     # Instantiates a cloud logging client to generate text logs for cloud
     # operations
     with CloudLoggingClientInstance._global_lock:
@@ -373,11 +396,13 @@ class CloudLoggingClientInstance:
             else logging.INFO,
         )
         dpas_python_logger = logging.getLogger(self._get_python_logger_name())
-        dpas_python_logger.setLevel(logging.DEBUG)  # pytype: disable=attribute-error
+        dpas_python_logger.setLevel(
+            logging.DEBUG
+        )  # pytype: disable=attribute-error
         return dpas_python_logger
       except google.auth.exceptions.DefaultCredentialsError as exp:
         self._use_absl_logging = True
-        self.error('Error initalizing logging.', struct_log, exp)
+        self.error('Error initializing logging.', struct_log, exp)
         return logging.getLogger()
       except Exception as exp:
         self._use_absl_logging = True
@@ -404,13 +429,22 @@ class CloudLoggingClientInstance:
     return self._use_absl_logging
 
   @property
-  def disable_structured_logging(self) -> bool:
-    return self._disable_structured_logging
+  def enable_structured_logging(self) -> bool:
+    return self._enable_structured_logging
 
-  @disable_structured_logging.setter
-  def disable_structured_logging(self, val: bool) -> None:
+  @enable_structured_logging.setter
+  def enable_structured_logging(self, val: bool) -> None:
     with self._log_lock:
-      self._disable_structured_logging = val
+      self._enable_structured_logging = val
+
+  @property
+  def enable(self) -> bool:
+    return self._enabled
+
+  @enable.setter
+  def enable(self, val: bool) -> None:
+    with self._log_lock:
+      self._enabled = val
 
   @property
   def gcp_project_name(self) -> str:
@@ -431,7 +465,25 @@ class CloudLoggingClientInstance:
   @property
   def build_version(self) -> str:
     """Returns build version # for container."""
-    return BUILD_VERSION
+    return self._build_version
+
+  @build_version.setter
+  def build_version(self, version: str) -> None:
+    """Returns build version # for container."""
+    self._build_version = version
+    with self._log_lock:
+      if self._per_thread_log_signatures:
+        if not hasattr(self._thread_local_storage, 'signature'):
+          self._thread_local_storage.signature = self._signature_defaults(
+              threading.get_native_id()
+          )
+        log_sig = self._thread_local_storage.signature
+      else:
+        log_sig = self._shared_log_signature
+      if not version and 'BUILD_VERSION' in log_sig:
+        del log_sig['BUILD_VERSION']
+      else:
+        log_sig['BUILD_VERSION'] = str(version)
 
   @property
   def pod_uid(self) -> str:
@@ -465,7 +517,7 @@ class CloudLoggingClientInstance:
       log_signature['HOSTNAME'] = str(self._pod_hostname)
     if self._pod_uid:
       log_signature['POD_UID'] = str(self._pod_uid)
-    if self.build_version is not None:
+    if self.build_version:
       log_signature['BUILD_VERSION'] = str(self.build_version)
     if self._per_thread_log_signatures:
       log_signature['THREAD_ID'] = str(thread_id)
@@ -551,7 +603,7 @@ class CloudLoggingClientInstance:
     excluded_key_msg_value_length = 0
     excluded_keys = list(self._get_thread_signature())
     excluded_keys.append('message')
-    for excluded_key in excluded_keys:  # pytype: disable=wrong-arg-types  # dynamic-method-lookup
+    for excluded_key in excluded_keys:
       if excluded_key not in log_keys:
         continue
       value_len = len(str(log[excluded_key]))
@@ -642,7 +694,7 @@ class CloudLoggingClientInstance:
       if severity.value < self._log_error_level:
         return
       struct = self._merge_signature(_merge_struct(struct))
-      if not self.use_absl_logging() and not self._disable_structured_logging:
+      if not self.use_absl_logging() and self._enable_structured_logging:
         # Log using structured logs
         source_location = _get_source_location_to_log(stack_frames_back + 1)
         trace = _add_trace_to_log(
@@ -769,13 +821,13 @@ class CloudLoggingClientInstance:
 
 # Logging interfaces are used from processes which are forked (gunicorn,
 # DICOM Proxy, Orchestrator, Refresher). In Python, forked processes do not
-# copy threads running within parent processes or re-initalize global/module
+# copy threads running within parent processes or re-initialize global/module
 # state. This can result in forked modules being executed with invalid global
 # state, e.g., acquired locks that will not release or references to invalid
 # state. The cloud logging library utilizes a background thread transporting
-# logs to cloud. The background threading is not compatiable with forking and
-# will seg-fault (python queue wait). This  can be avoided, by stoping and
-# the background transport prior to forking and then restarting the transport
+# logs to cloud. The background threading is not compatible with forking and
+# will seg-fault (python queue wait). This can be avoided, by stopping the
+# background transport prior to forking and then restarting the transport
 # following the fork.
 os.register_at_fork(
     before=CloudLoggingClientInstance.fork_shutdown,  # pylint: disable=protected-access

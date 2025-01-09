@@ -18,8 +18,8 @@ from unittest import mock
 from absl.testing import absltest
 from absl.testing import flagsaver
 
-from transformation_pipeline.ingestion_lib import pubsub_util
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingestion_complete_oof_trigger_pubsub_topic
+from pathology.transformation_pipeline.ingestion_lib import pubsub_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingestion_complete_oof_trigger_pubsub_topic
 
 
 class IngestCompletePubSubTopicTest(absltest.TestCase):

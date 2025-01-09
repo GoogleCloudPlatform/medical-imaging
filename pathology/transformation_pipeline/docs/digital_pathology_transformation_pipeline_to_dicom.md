@@ -10,9 +10,9 @@ pipeline's capabilities.
 
 ## Background
 
-![alt text](https://github.com/GoogleCloudPlatform/Cloud-Pathology/blob/main/transformation_pipeline/docs/images/graphical_overview_1.png?raw=true)
+![alt text](https://github.com/GoogleCloudPlatform/medical-imaging/blob/main/pathology/transformation_pipeline/docs/images/graphical_overview_1.png?raw=true)
 
-![alt text](https://github.com/GoogleCloudPlatform/Cloud-Pathology/blob/main/transformation_pipeline/docs/images/graphical_overview_2.png?raw=true)
+![alt text](https://github.com/GoogleCloudPlatform/medical-imaging/blob/main/pathology/transformation_pipeline/docs/images/graphical_overview_2.png?raw=true)
 
 Figure 1: A graphical overview of the digital pathology pipeline
 The process of transforming an input Whole Slide Imaging (WSI) file into DICOM
@@ -49,14 +49,13 @@ format in a destination DICOM store consists of the following steps:
     Terraform or other equivalent methods. The workload's settings are
     controlled by environment variables, which can be configured using the
     Terraform scripts or through a YAML file specifically designed for GKE
-    configuration [[1]](https://github.com/GoogleCloudPlatform/cloud-pathology-iac/blob/main/readme.md).
+    configuration [[1]](https://github.com/GoogleCloudPlatform/medical-imaging/blob/main/iac/README.md).
 
     Pipeline configuration in [GKE](https://cloud.google.com/kubernetes-engine)
     (Auto configuration by IaC):
 
-    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;In brief, the Digital Pathology
-    Transformation pipeline is
-    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;configured by IaC to:
+    In brief, the Digital Pathology Transformation pipeline is configured by
+    IaC to:
 
     -  Execute using
         [C2-Standard 30](https://cloud.google.com/compute/docs/compute-optimized-machines)
@@ -92,7 +91,7 @@ format in a destination DICOM store consists of the following steps:
 2. **Slide Metadata**
 
     Pipeline requires a metadata definition for all slides. Slide metadata
-    configuration described in document [[2]](https://github.com/GoogleCloudPlatform/cloud-pathology/blob/main/transformation_pipeline/docs/transform_pipeline_metadata_values_and_schema.md).
+    configuration described in document [[2]](https://github.com/GoogleCloudPlatform/medical-imaging/blob/main/pathology/transformation_pipeline/docs/transform_pipeline_metadata_values_and_schema.md).
     Metadata files should be uploaded to the IaC created metadata ingestion
     bucket.
 
@@ -108,13 +107,13 @@ format in a destination DICOM store consists of the following steps:
         project, Dataset, and table name the Big Query Table resides in. The
         transformation pipeline service account must be given IAM read/write
         permissions to the table. When enabled the pipeline will not import
-        metadata from CSV files. See [[2]](https://github.com/GoogleCloudPlatform/cloud-pathology/blob/main/transformation_pipeline/docs/transform_pipeline_metadata_values_and_schema.md) for more
+        metadata from CSV files. See [[2]](https://github.com/GoogleCloudPlatform/medical-imaging/blob/main/pathology/transformation_pipeline/docs/transform_pipeline_metadata_values_and_schema.md) for more
         information.
 
     -  `METADATA_PRIMARY_KEY_COLUMN_NAME`: Defines metadata value table column
         that contains the primary key value used to match imaging with metadata;
         default value "BarCode Value". Metadata primary key column is required to
-        be defined in the metadata value table. See [[2]](https://github.com/GoogleCloudPlatform/cloud-pathology/blob/main/transformation_pipeline/docs/transform_pipeline_metadata_values_and_schema.md)
+        be defined in the metadata value table. See [[2]](https://github.com/GoogleCloudPlatform/medical-imaging/blob/main/pathology/transformation_pipeline/docs/transform_pipeline_metadata_values_and_schema.md)
         for more information.
 
     -  `GCS_INGEST_STUDY_INSTANCE_UID_SOURCE`: Applies Only to DICOM instances
@@ -136,10 +135,10 @@ format in a destination DICOM store consists of the following steps:
         trigger full transformation pipeline action when imaging is added to the
         image ingestion bucket. All imaging is required to have metadata defined
         in the metadata value table
-        (See [[2]](https://github.com/GoogleCloudPlatform/cloud-pathology/blob/main/transformation_pipeline/docs/transform_pipeline_metadata_values_and_schema.md)
+        (See [[2]](https://github.com/GoogleCloudPlatform/medical-imaging/blob/main/pathology/transformation_pipeline/docs/transform_pipeline_metadata_values_and_schema.md)
         ). The specific imaging formats and the process through which the images
         are joined with the metadata value table is (described in
-        [[3]](https://github.com/GoogleCloudPlatform/cloud-pathology/blob/main/transformation_pipeline/docs/joining_wsi_imaging_with_metadata.md)
+        [[3]](https://github.com/GoogleCloudPlatform/medical-imaging/blob/main/pathology/transformation_pipeline/docs/joining_wsi_imaging_with_metadata.md)
         ). In brief, the triggering imaging is transformed as needed to DICOM,
         metadata is merged with the generated DICOM, and the generated DICOM is
         uploaded to the DICOM store.
@@ -149,7 +148,7 @@ format in a destination DICOM store consists of the following steps:
         perform a metadata merge with the newly added DICOM instance. In brief,
         a metadata merge is performed by determining if metadata is defined in
         the metadata value table
-        [[2]](https://github.com/GoogleCloudPlatform/cloud-pathology/blob/main/transformation_pipeline/docs/transform_pipeline_metadata_values_and_schema.md)
+        [[2]](https://github.com/GoogleCloudPlatform/medical-imaging/blob/main/pathology/transformation_pipeline/docs/transform_pipeline_metadata_values_and_schema.md)
         for the DICOM instance by comparing the Barcode Value in the added
         DICOM with the metadata primary key in the metadata value table. If
         metadata exists then the DICOM in the store is updated to contain the
@@ -178,16 +177,16 @@ format in a destination DICOM store consists of the following steps:
         extensions which should be ignored if uploaded GCS. Not defined by default
         IaC. Example, excludes json, text, and files without extensions:  `.json,
         .txt, ""`
-    -  `SLIDEID_REGEX`: Described in [[3]](https://github.com/GoogleCloudPlatform/cloud-pathology/blob/main/transformation_pipeline/docs/joining_wsi_imaging_with_metadata.md).
-    -  `FILENAME_SLIDEID_SPLIT_STR`: Described in [[3]](https://github.com/GoogleCloudPlatform/cloud-pathology/blob/main/transformation_pipeline/docs/joining_wsi_imaging_with_metadata.md).
+    -  `SLIDEID_REGEX`: Described in [[3]](https://github.com/GoogleCloudPlatform/medical-imaging/blob/main/pathology/transformation_pipeline/docs/joining_wsi_imaging_with_metadata.md).
+    -  `FILENAME_SLIDEID_SPLIT_STR`: Described in [[3]](https://github.com/GoogleCloudPlatform/medical-imaging/blob/main/pathology/transformation_pipeline/docs/joining_wsi_imaging_with_metadata.md).
     -  `TEST_WHOLE_FILENAME_AS_SLIDEID`: Described in
-        [[3]](https://github.com/GoogleCloudPlatform/cloud-pathology/blob/main/transformation_pipeline/docs/joining_wsi_imaging_with_metadata.md).
-    -  `DISABLE_BARCODE_DECODER`: Described in [[3]](https://github.com/GoogleCloudPlatform/cloud-pathology/blob/main/transformation_pipeline/docs/joining_wsi_imaging_with_metadata.md).
+        [[3]](https://github.com/GoogleCloudPlatform/medical-imaging/blob/main/pathology/transformation_pipeline/docs/joining_wsi_imaging_with_metadata.md).
+    -  `DISABLE_BARCODE_DECODER`: Described in [[3]](https://github.com/GoogleCloudPlatform/medical-imaging/blob/main/pathology/transformation_pipeline/docs/joining_wsi_imaging_with_metadata.md).
 
 4. **Transforming Metadata to DICOM**
 
     Slide imaging metadata defined within the metadata value table
-    [[2]](https://github.com/GoogleCloudPlatform/cloud-pathology/blob/main/transformation_pipeline/docs/transform_pipeline_metadata_values_and_schema.md)
+    [[2]](https://github.com/GoogleCloudPlatform/medical-imaging/blob/main/pathology/transformation_pipeline/docs/transform_pipeline_metadata_values_and_schema.md)
     is transformed to JSON formatted DICOM and then merged with the DICOM images
     generated in Step 5.
 
@@ -199,7 +198,7 @@ format in a destination DICOM store consists of the following steps:
         `ENABLE_CREATE_MISSING_STUDY_INSTANCE_UID `to True will configure the
         pipeline to generate StudyInstanceUID for metadata that does not define the
         StudyInstanceUID. Pipeline generated Study Instance UID requires that the
-        metadata define Accession Number. See [[2]](https://github.com/GoogleCloudPlatform/cloud-pathology/blob/main/transformation_pipeline/docs/transform_pipeline_metadata_values_and_schema.md)
+        metadata define Accession Number. See [[2]](https://github.com/GoogleCloudPlatform/medical-imaging/blob/main/pathology/transformation_pipeline/docs/transform_pipeline_metadata_values_and_schema.md)
         for more information.
 
     -  `REQUIRE_TYPE1_DICOM_TAG_METADATA_IS_DEFINED`: By default metadata
@@ -208,7 +207,7 @@ format in a destination DICOM store consists of the following steps:
         the Transformation Pipeline environmental variable
         `REQUIRE_TYPE1_DICOM_TAG_METADATA_IS_DEFINED: True`. Refer to Transform
         Pipeline DICOM Metadata Values and Schema document
-        [[2]](https://github.com/GoogleCloudPlatform/cloud-pathology/blob/main/transformation_pipeline/docs/transform_pipeline_metadata_values_and_schema.md)
+        [[2]](https://github.com/GoogleCloudPlatform/medical-imaging/blob/main/pathology/transformation_pipeline/docs/transform_pipeline_metadata_values_and_schema.md)
         for more information.
 
 5. **Transformation of Slide Imaging to DICOM**
@@ -225,7 +224,7 @@ format in a destination DICOM store consists of the following steps:
 
     -  `INGESTION_PYRAMID_LAYER_GENERATION_CONFIG_PATH`: Defines pyramid
         imaging transformation command line parameters. Refer to:
-        [WSI Pyramid Downsampling Config](https://github.com/GoogleCloudPlatform/cloud-pathology/blob/main/transformation_pipeline/docs/wsi_pyramid_downsampling_configuration.md).
+        [WSI Pyramid Downsampling Config](https://github.com/GoogleCloudPlatform/medical-imaging/blob/main/pathology/transformation_pipeline/docs/wsi_pyramid_downsampling_configuration.md).
 
     -  `DICOM_FRAME_HEIGHT`: Defines height of DICOM frames in pixels. Default
         value: 256, Recommended value range (256 - 512) and recommended that frame
@@ -326,8 +325,8 @@ DICOM store. For Convenience DICOM instances may also be copied to GCS.
 
 ## References
 
-* [1] [HowTo: Setting up a Cloud Pathology Preview Deployment](https://github.com/GoogleCloudPlatform/cloud-pathology-iac/blob/main/README.md)
+* [1] [HowTo: Setting up a Cloud Pathology Preview Deployment](https://github.com/GoogleCloudPlatform/medical-imaging/blob/main/iac/README.md)
 
-* [2] [HowTo: Transform Pipeline DICOM Metadata Values and Schema](https://github.com/GoogleCloudPlatform/cloud-pathology/blob/main/transformation_pipeline/docs/transform_pipeline_metadata_values_and_schema.md)
+* [2] [HowTo: Transform Pipeline DICOM Metadata Values and Schema](https://github.com/GoogleCloudPlatform/medical-imaging/blob/main/pathology/transformation_pipeline/docs/transform_pipeline_metadata_values_and_schema.md)
 
-* [3] [Joining WSI Imaging with Metadata](https://github.com/GoogleCloudPlatform/cloud-pathology/blob/main/transformation_pipeline/docs/joining_wsi_imaging_with_metadata.md)
+* [3] [Joining WSI Imaging with Metadata](https://github.com/GoogleCloudPlatform/medical-imaging/blob/main/pathology/transformation_pipeline/docs/joining_wsi_imaging_with_metadata.md)

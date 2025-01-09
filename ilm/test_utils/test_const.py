@@ -18,8 +18,8 @@
 import dataclasses
 import datetime
 
-import ilm_config
-import ilm_types
+from ilm import ilm_config
+from ilm import ilm_types
 
 INSTANCE_0 = 'studies/1.22.333/series/1.44.555/instances/6.77.888'
 INSTANCE_1 = 'studies/1.22.333/series/1.44.555/instances/6.77.999'

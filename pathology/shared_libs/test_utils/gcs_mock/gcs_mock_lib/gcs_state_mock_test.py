@@ -26,10 +26,10 @@ from absl.testing import parameterized
 from google.api_core import exceptions
 import google.cloud.storage
 
-from shared_libs.test_utils.gcs_mock import gcs_mock
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_types
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_state_mock
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_test_utils
+from pathology.shared_libs.test_utils.gcs_mock import gcs_mock
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_types
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_state_mock
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_test_utils
 
 
 def _get_client_mock_state(

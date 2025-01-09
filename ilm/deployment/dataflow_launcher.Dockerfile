@@ -17,10 +17,10 @@
 #
 # We need to pass Beam SDK as a local file to workers due to private VPC
 # requirements, so we copy from a SDK image (see go/beam-sdk-containers).
-FROM gcr.io/cloud-dataflow/v1beta3/beam_python3.11_sdk:2.57.0 AS beam_sdk
+FROM gcr.io/cloud-dataflow/v1beta3/beam_python3.12_sdk:2.61.0 AS beam_sdk
 
 # See go/beam-sdk-containers#python-sdk-images for more info about base images.
-FROM gcr.io/dataflow-templates-base/python311-template-launcher-base:20240506-rc00
+FROM gcr.io/dataflow-templates-base/python312-template-launcher-base:20241127-rc00
 
 ARG WORKDIR=/dataflow/template
 
@@ -53,10 +53,22 @@ RUN apt-get purge -y \
     libtiff-dev && \
     apt-get autoremove -y
 
-RUN pip uninstall -y pip
+RUN python3 -m pip uninstall -y pip
 
 COPY --from=beam_sdk /opt/apache/beam/tars/apache-beam.tar.gz apache-beam.tar.gz
 
-COPY ilm/ .
+COPY ./pathology/__init__.py /pathology/
+COPY ./pathology/shared_libs/__init__.py /pathology/shared_libs/
+COPY ./pathology/shared_libs/test_utils/__init__.py /pathology/shared_libs/test_utils/
+COPY ./pathology/shared_libs/test_utils/gcs_mock /pathology/shared_libs/test_utils/gcs_mock/
+COPY ilm/ ilm/
+COPY ilm/batch_pipeline_main.py .
+
+# Run unit tests on the launcher.
+ENV PYTHONPATH="${PYTHONPATH}:/"
+RUN set -e && \
+    python3 -m unittest discover -p "*_test.py" && \
+    set +e && \
+    rm -rf /tmp
 
 ENV FLEX_TEMPLATE_PYTHON_PY_FILE="${WORKDIR}/batch_pipeline_main.py"

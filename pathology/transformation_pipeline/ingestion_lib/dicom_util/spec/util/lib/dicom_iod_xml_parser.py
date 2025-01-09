@@ -19,9 +19,9 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from absl import logging
 
-from transformation_pipeline.ingestion_lib.dicom_util.spec.util.lib.util import dicom_abstract_xml_parser
-from transformation_pipeline.ingestion_lib.dicom_util.spec.util.lib.util import dicom_iod_generator_exception
-from transformation_pipeline.ingestion_lib.dicom_util.spec.util.lib.util import dicom_xml_core_parser
+from pathology.transformation_pipeline.ingestion_lib.dicom_util.spec.util.lib.util import dicom_abstract_xml_parser
+from pathology.transformation_pipeline.ingestion_lib.dicom_util.spec.util.lib.util import dicom_iod_generator_exception
+from pathology.transformation_pipeline.ingestion_lib.dicom_util.spec.util.lib.util import dicom_xml_core_parser
 
 DicomIodGeneratorError = dicom_iod_generator_exception.DicomIodGeneratorError
 unicode_check = dicom_abstract_xml_parser.DicomAbstractXmlParser.unicode_check

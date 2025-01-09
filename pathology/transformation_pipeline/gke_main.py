@@ -32,17 +32,18 @@ from typing import Mapping, Optional
 
 from absl import app
 
-from shared_libs.logging_lib import cloud_logging_client
-from transformation_pipeline import ingest_flags
-from transformation_pipeline.ingestion_lib import abstract_pubsub_message_handler
-from transformation_pipeline.ingestion_lib import polling_client
-from transformation_pipeline.ingestion_lib import redis_client
-from transformation_pipeline.ingestion_lib.dicom_gen import ingestion_dicom_store_urls
-from transformation_pipeline.ingestion_lib.dicom_gen.ai_to_dicom import png_to_dicom
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_dicom_store_handler
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_gcs_handler
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingestion_complete_oof_trigger_pubsub_topic
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
+from pathology.shared_libs.build_version import build_version
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.transformation_pipeline import ingest_flags
+from pathology.transformation_pipeline.ingestion_lib import abstract_pubsub_message_handler
+from pathology.transformation_pipeline.ingestion_lib import polling_client
+from pathology.transformation_pipeline.ingestion_lib import redis_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import ingestion_dicom_store_urls
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.ai_to_dicom import png_to_dicom
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_dicom_store_handler
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_gcs_handler
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingestion_complete_oof_trigger_pubsub_topic
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
 
 _LICENSE_FILE_PATH = './thirdparty_licenses.txt'
 
@@ -181,6 +182,7 @@ def main(unused_argv):
       'You  may not copy, modify, or distribute this software except as '
       'permitted under your agreement with Google.'
   )
+  build_version.init_cloud_logging_build_version()
   cloud_logging_client.info(copyright_notification)
   try:
     with open(_LICENSE_FILE_PATH, 'rt') as infile:

@@ -17,8 +17,8 @@ from typing import Any, Mapping, MutableMapping, Optional
 
 import pydicom
 
-from shared_libs.logging_lib import cloud_logging_client
-from transformation_pipeline.ingestion_lib import ingest_const
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
 
 UID_TRIPLE_TAGS = frozenset([
     pydicom.tag.Tag(ingest_const.DICOMTagKeywords.STUDY_INSTANCE_UID),

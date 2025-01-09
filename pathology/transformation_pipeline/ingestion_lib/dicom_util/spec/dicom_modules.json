@@ -1,5 +1,5 @@
 {
-  "header" : {"dicom_standard_version": {"Version": "2023e"}},
+  "header" : {"dicom_standard_version": {"Version": "2024e"}},
 
   "dicom_modules": {
      "C.2.1": [
@@ -280,6 +280,9 @@
      ],
      "C.7.6.29": [
         {"name": "C.7.6.29-1", "caption": "Sparse Multi-frame Functional Groups Module Attributes"}
+     ],
+     "C.7.6.30": [
+        {"name": "C.7.6.30-1", "caption": "Enhanced Patient Orientation Module Attributes"}
      ],
      "C.7.9": [
         {"name": "C.7-22", "caption": "Palette Color Lookup Table Module Attributes"}
@@ -692,6 +695,9 @@
      "C.8.15.3.13": [
         {"name": "C.8.15.3.13-1", "caption": "Multi-energy CT Processing Macro Attributes"}
      ],
+     "C.8.15.3.14": [
+        {"name": "C.8.15.3.14-1", "caption": "RT Cone-Beam Imaging Macro Attributes"}
+     ],
      "C.8.15.4": [
         {"name": "C.8.15.4-1", "caption": "Enhanced Multi-energy CT Acquisition Module Attributes"}
      ],
@@ -829,6 +835,9 @@
      ],
      "C.8.20.4.1": [
         {"name": "C.8.20-4", "caption": "Segment Description Macro Attributes"}
+     ],
+     "C.8.20.5": [
+        {"name": "C.8.20-5", "caption": "Height Map Segmentation Image Module Attributes"}
      ],
      "C.8.21.1": [
         {"name": "C.8.21.1-1", "caption": "X-Ray 3D Image Module Attributes"}
@@ -1727,6 +1736,9 @@
      "C.36.2.3.3": [
         {"name": "C.36.2.3.3-1", "caption": "RT Patient Position Scope With Legacy Support Macro Attributes"}
      ],
+     "C.36.2.3.4": [
+        {"name": "C.36.2.3.4-1", "caption": "RT Patient Treatment Preparation Macro Attributes"}
+     ],
      "C.36.2.4.1": [
         {"name": "C.36.2.4.1-1", "caption": "RT Projection Imaging Request Geometry Macro Attributes"}
      ],
@@ -1759,6 +1771,9 @@
      ],
      "C.36.2.4.11": [
         {"name": "C.36.2.4.11-1", "caption": "RT Image Frame Context Macro Attributes"}
+     ],
+     "C.36.2.4.12": [
+        {"name": "C.36.2.4.12-1", "caption": "RT Equipment Mapping and Plan Reference Macro Attributes"}
      ],
      "C.36.3": [
         {"name": "C.36.3-1", "caption": "Enhanced RT Series Module Attributes"}

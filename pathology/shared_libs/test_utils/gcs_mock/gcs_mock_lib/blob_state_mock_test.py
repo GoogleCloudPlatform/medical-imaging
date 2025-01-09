@@ -19,7 +19,7 @@ import datetime
 
 from absl.testing import absltest
 
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import blob_state_mock
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import blob_state_mock
 
 
 class BlobMockStateTest(absltest.TestCase):

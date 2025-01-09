@@ -31,8 +31,8 @@ from __future__ import annotations
 
 from typing import Optional
 
-from transformation_pipeline.ingestion_lib.dicom_util import dicom_iod_util
-from transformation_pipeline.ingestion_lib.dicom_util import dicom_standard_util as dcm_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_iod_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_standard_util as dcm_util
 
 DicomVRCode = dcm_util.DicomVRCode
 IODName = dcm_util.IODName

@@ -23,11 +23,11 @@ from absl.testing import flagsaver
 from absl.testing import parameterized
 from google.cloud import pubsub_v1
 
-from transformation_pipeline.ingestion_lib import ack_timeout_monitor
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib import mock_redis_client
-from transformation_pipeline.ingestion_lib import redis_client
-from transformation_pipeline.ingestion_lib.pubsub_msgs import cloud_storage_pubsub_msg
+from pathology.transformation_pipeline.ingestion_lib import ack_timeout_monitor
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib import mock_redis_client
+from pathology.transformation_pipeline.ingestion_lib import redis_client
+from pathology.transformation_pipeline.ingestion_lib.pubsub_msgs import cloud_storage_pubsub_msg
 
 _PROJECT_ID = '123'
 

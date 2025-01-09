@@ -27,9 +27,9 @@ from typing import Any, Callable, List, Mapping, MutableMapping, Optional, TypeV
 
 import pydicom
 
-from shared_libs.test_utils.dicom_store_mock import dicom_store_mock_types
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib.dicom_util import dicom_standard
+from pathology.shared_libs.test_utils.dicom_store_mock import dicom_store_mock_types
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_standard
 
 
 @dataclasses.dataclass(frozen=False)

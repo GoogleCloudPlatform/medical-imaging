@@ -1,0 +1,3 @@
+Folder for Kubernetes configuration (currently with kustomize)
+
+See https://cloud.google.com/anthos-config-management/docs/concepts/kustomize

@@ -25,20 +25,20 @@ from typing import List, Optional
 from google.cloud import pubsub_v1
 import requests
 
-from shared_libs.logging_lib import cloud_logging_client
-from transformation_pipeline import ingest_flags
-from transformation_pipeline.ingestion_lib import abstract_polling_client
-from transformation_pipeline.ingestion_lib import abstract_pubsub_message_handler
-from transformation_pipeline.ingestion_lib import cloud_storage_client
-from transformation_pipeline.ingestion_lib import hash_util
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib import redis_client
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_private_tag_generator
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
-from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
-from transformation_pipeline.ingestion_lib.dicom_gen import wsi_dicom_file_ref
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
-from transformation_pipeline.ingestion_lib.pubsub_msgs import abstract_pubsub_msg
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.transformation_pipeline import ingest_flags
+from pathology.transformation_pipeline.ingestion_lib import abstract_polling_client
+from pathology.transformation_pipeline.ingestion_lib import abstract_pubsub_message_handler
+from pathology.transformation_pipeline.ingestion_lib import cloud_storage_client
+from pathology.transformation_pipeline.ingestion_lib import hash_util
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib import redis_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_private_tag_generator
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import wsi_dicom_file_ref
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
+from pathology.transformation_pipeline.ingestion_lib.pubsub_msgs import abstract_pubsub_msg
 
 # Regular expression concatenation of three byte arrays. First starts regex
 # second defines list of excluded bytes
@@ -516,10 +516,10 @@ class AbstractDicomGeneration(
 
         # Download to local filename excluding any subfolders in direct path.
         download_filepath = self._get_download_filepath(
-            polling_client.current_msg.filename
+            polling_client.current_msg.filename  # pytype: disable=attribute-error
         )
         ingest_file = self.get_pubsub_file(
-            polling_client.current_msg.uri, download_filepath
+            polling_client.current_msg.uri, download_filepath  # pytype: disable=attribute-error
         )
 
         ingest_file.hash = hash_util.sha512hash(
@@ -550,9 +550,9 @@ class AbstractDicomGeneration(
           {
               ingest_const.LogKeywords.INVALID_CHARACTER: exp.invalid_char,
               ingest_const.LogKeywords.FILENAME: os.path.basename(
-                  polling_client.current_msg.filename
+                  polling_client.current_msg.filename  # pytype: disable=attribute-error
               ),
-              ingest_const.LogKeywords.URI: polling_client.current_msg.uri,
+              ingest_const.LogKeywords.URI: polling_client.current_msg.uri,  # pytype: disable=attribute-error
           },
       )
       polling_client.ack()
@@ -564,9 +564,9 @@ class AbstractDicomGeneration(
           exp,
           {
               ingest_const.LogKeywords.FILENAME: os.path.basename(
-                  polling_client.current_msg.filename
+                  polling_client.current_msg.filename  # pytype: disable=attribute-error
               ),
-              ingest_const.LogKeywords.URI: polling_client.current_msg.uri,
+              ingest_const.LogKeywords.URI: polling_client.current_msg.uri,  # pytype: disable=attribute-error
           },
       )
       polling_client.ack()

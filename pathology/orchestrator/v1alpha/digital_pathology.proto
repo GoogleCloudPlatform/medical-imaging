@@ -1,0 +1,332 @@
+// Copyright 2024 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package pathology.orchestrator.v1alpha;
+
+import "google/api/annotations.proto";
+import "google/api/client.proto";
+import "google/longrunning/operations.proto";
+import "google/protobuf/empty.proto";
+import "pathology/orchestrator/v1alpha/cohorts.proto";
+import "pathology/orchestrator/v1alpha/sharing_links.proto";
+import "pathology/orchestrator/v1alpha/slides.proto";
+import "pathology/orchestrator/v1alpha/users.proto";
+
+option java_package = "com.pathology.orchestrator.v1alpha";
+option java_outer_classname = "DigitalPathologyProto";
+option java_multiple_files = true;
+
+
+// Provides rpc methods for DPAS Orchestrator.
+service DigitalPathology {
+  // (-- Pathology Cohorts. --)
+
+  // Creates a PathologyCohort.
+  rpc CreatePathologyCohort(CreatePathologyCohortRequest)
+      returns (PathologyCohort) {
+    option (google.api.method_signature) = "parent,pathology_cohort";
+    option (google.api.http) = {
+      post: "/v1alpha/{parent=pathologyUsers/*}/pathologyCohorts"
+      body: "pathology_cohort"
+    };
+  }
+
+  // Deletes (hides) a PathologyCohort.
+  rpc DeletePathologyCohort(DeletePathologyCohortRequest)
+      returns (PathologyCohort) {
+    option (google.api.method_signature) = "name";
+    option (google.api.http) = {
+      delete: "/v1alpha/{name=pathologyUsers/*/pathologyCohorts/*}"
+    };
+  }
+
+  // Gets a PathologyCohort.
+  rpc GetPathologyCohort(GetPathologyCohortRequest) returns (PathologyCohort) {
+    option (google.api.method_signature) = "name";
+    option (google.api.http) = {
+      get: "/v1alpha/{name=pathologyUsers/*/pathologyCohorts/*}"
+    };
+  }
+
+  // Lists PathologyCohorts according to filter.
+  // By default returns owned cohorts.
+  rpc ListPathologyCohorts(ListPathologyCohortsRequest)
+      returns (ListPathologyCohortsResponse) {
+    option (google.api.method_signature) = "parent";
+    option (google.api.http) = {
+      get: "/v1alpha/{parent=pathologyUsers/*}/pathologyCohorts"
+    };
+  }
+
+  // Updates a PathologyCohort.
+  rpc UpdatePathologyCohort(UpdatePathologyCohortRequest)
+      returns (PathologyCohort) {
+    option (google.api.method_signature) = "pathology_cohort,update_mask";
+    option (google.api.http) = {
+      patch: "/v1alpha/{pathology_cohort.name=pathologyUsers/*/pathologyCohorts/*}"
+      body: "pathology_cohort"
+    };
+  }
+
+  // Undeletes (unhides) a PathologyCohort.
+  rpc UndeletePathologyCohort(UndeletePathologyCohortRequest)
+      returns (PathologyCohort) {
+    option (google.api.method_signature) = "name";
+    option (google.api.http) = {
+      post: "/v1alpha/{name=pathologyUsers/*/pathologyCohorts/*}:undelete"
+      body: "*"
+    };
+  }
+
+  // Transfers a PathologyCohort the De-Id Dicom Store.
+  rpc TransferDeIdPathologyCohort(TransferDeIdPathologyCohortRequest)
+      returns (google.longrunning.Operation) {
+    option (google.longrunning.operation_info) = {
+      response_type: "TransferDeIdPathologyCohortResponse"
+      metadata_type: "pathology.orchestrator.v1alpha.PathologyOperationMetadata"
+    };
+    option (google.api.method_signature) =
+        "name,dest_dicom_images,display_name_transferred";
+    option (google.api.http) = {
+      post: "/v1alpha/{name=pathologyUsers/*/pathologyCohorts/*}:transfer"
+      body: "*"
+    };
+  }
+
+  // Exports a PathologyCohort to a Cloud Storage bucket.
+  rpc ExportPathologyCohort(ExportPathologyCohortRequest)
+      returns (google.longrunning.Operation) {
+    option (google.longrunning.operation_info) = {
+      response_type: "ExportPathologyCohortResponse"
+      metadata_type: "pathology.orchestrator.v1alpha.PathologyOperationMetadata"
+    };
+    option (google.api.method_signature) = "name,gcs_dest_path";
+    option (google.api.http) = {
+      post: "/v1alpha/{name=pathologyUsers/*/pathologyCohorts/*}:export"
+      body: "*"
+    };
+  }
+
+  // Copies a PathologyCohort.
+  rpc CopyPathologyCohort(CopyPathologyCohortRequest)
+      returns (PathologyCohort) {
+    option (google.api.method_signature) = "name, display_name_copied";
+    option (google.api.http) = {
+      post: "/v1alpha/{name=pathologyUsers/*/pathologyCohorts/*}:copy"
+      body: "*"
+    };
+  }
+
+  // Saves a shared cohort to the current user's dashboard.
+  rpc SavePathologyCohort(SavePathologyCohortRequest)
+      returns (SavePathologyCohortResponse) {
+    option (google.api.method_signature) = "name";
+    option (google.api.http) = {
+      post: "/v1alpha/{name=pathologyUsers/*/pathologyCohorts/*}:save"
+      body: "*"
+    };
+  }
+
+  // Update the users that have access permissions to a cohort.
+  // User must have owner or admin role for cohort to update access.
+  rpc SharePathologyCohort(SharePathologyCohortRequest)
+      returns (PathologyCohort) {
+    option (google.api.method_signature) = "name,user_access";
+    option (google.api.http) = {
+      post: "/v1alpha/{name=pathologyUsers/*/pathologyCohorts/*}:share"
+      body: "*"
+    };
+  }
+
+  // Unsaves a shared cohort and removes from the user's dashboard.
+  rpc UnsavePathologyCohort(UnsavePathologyCohortRequest)
+      returns (UnsavePathologyCohortResponse) {
+    option (google.api.method_signature) = "name";
+    option (google.api.http) = {
+      post: "/v1alpha/{name=pathologyUsers/*/pathologyCohorts/*}:unsave"
+      body: "*"
+    };
+  }
+
+  // Creates a PathologySlide.
+  rpc CreatePathologySlide(CreatePathologySlideRequest)
+      returns (PathologySlide) {
+    option (google.api.method_signature) = "pathology_slide";
+    option (google.api.http) = {
+      post: "/v1alpha/pathologySlides"
+      body: "pathology_slide"
+    };
+  }
+
+  // Gets a PathologySlide.
+  rpc GetPathologySlide(GetPathologySlideRequest) returns (PathologySlide) {
+    option (google.api.method_signature) = "name";
+    option (google.api.http) = {
+      get: "/v1alpha/{name=pathologySlides/*}"
+    };
+  }
+
+  // Lists PathologySlides with an optional filter on DicomUri.
+  rpc ListPathologySlides(ListPathologySlidesRequest)
+      returns (ListPathologySlidesResponse) {
+    option (google.api.method_signature) = "filter";
+    option (google.api.http) = {
+      get: "/v1alpha/pathologySlides"
+    };
+  }
+
+  // (-- Pathology Users. --)
+
+  // Identifies the current PathologyUser by alias from rpc context.
+  rpc IdentifyCurrentUser(IdentifyCurrentUserRequest) returns (PathologyUser) {
+    option (google.api.http) = {
+      post: "/v1alpha:identifyCurrentUser"
+      body: "*"
+    };
+  }
+
+  // TODO: Delete deprecated messages after all refs are removed.
+  // Deprecated. (-- Pathology SharingLinks. --)
+
+  // Creates a PathologySharingLink.
+  rpc CreatePathologySharingLink(CreatePathologySharingLinkRequest)
+      returns (PathologySharingLink) {
+    option deprecated = true;
+    option (google.api.method_signature) = "pathology_sharing_link";
+    option (google.api.http) = {
+      post: "/v1alpha/pathologySharingLinks"
+      body: "pathology_sharing_link"
+    };
+  }
+
+  // Deletes a PathologySharingLink.
+  rpc DeletePathologySharingLink(DeletePathologySharingLinkRequest)
+      returns (google.protobuf.Empty) {
+    option deprecated = true;
+    option (google.api.method_signature) = "name";
+    option (google.api.http) = {
+      delete: "/v1alpha/{name=pathologySharingLinks/*}"
+    };
+  }
+
+  // Gets a PathologySharingLink.
+  rpc GetPathologySharingLink(GetPathologySharingLinkRequest)
+      returns (PathologySharingLink) {
+    option deprecated = true;
+    option (google.api.method_signature) = "name";
+    option (google.api.http) = {
+      get: "/v1alpha/{name=pathologySharingLinks/*}"
+    };
+  }
+
+  // Update a PathologySharingLink.
+  rpc UpdatePathologySharingLink(UpdatePathologySharingLinkRequest)
+      returns (PathologySharingLink) {
+    option deprecated = true;
+    option (google.api.method_signature) = "pathology_sharing_link,update_mask";
+    option (google.api.http) = {
+      patch: "/v1alpha/{pathology_sharing_link.name=pathologySharingLinks/*}"
+      body: "pathology_sharing_link"
+    };
+  }
+
+  // Saves a PathologySharingLink.
+  rpc SavePathologySharingLink(SavePathologySharingLinkRequest)
+      returns (SavePathologySharingLinkResponse) {
+    option deprecated = true;
+    option (google.api.method_signature) = "name";
+    option (google.api.http) = {
+      post: "/v1alpha/{name=pathologySharingLinks/*}:save"
+      body: "*"
+    };
+  }
+
+  // Unsaves a PathologySharingLink.
+  rpc UnsavePathologySharingLink(UnsavePathologySharingLinkRequest)
+      returns (UnsavePathologySharingLinkResponse) {
+    option deprecated = true;
+    option (google.api.method_signature) = "name";
+    option (google.api.http) = {
+      post: "/v1alpha/{name=pathologySharingLinks/*}:unsave"
+      body: "*"
+    };
+  }
+
+  // Lists the PathologySharingLinks owned by a user.
+  // (-- api-linter: core::0132::method-signature=disabled
+  //     aip.dev/not-precedent: SharingLinks are a top level resource so there
+  //     are no params in the list method signature. --)
+  // (-- api-linter: core::0132::http-uri-parent=disabled
+  //     aip.dev/not-precedent: SharingLinks are a top level resource so there
+  //     is no parent. --)
+  rpc ListOwnedPathologySharingLinks(ListOwnedPathologySharingLinksRequest)
+      returns (ListOwnedPathologySharingLinksResponse) {
+    option deprecated = true;
+    option (google.api.http) = {
+      get: "/v1alpha/pathologySharingLinks"
+    };
+  }
+
+  // Lists the PathologySharingLinks saved by a user.
+  // (-- api-linter: core::0132::method-signature=disabled
+  //     aip.dev/not-precedent: SharingLinks are a top level resource so there
+  //     are no params in the list method signature. --)
+  // (-- api-linter: core::0132::http-uri-parent=disabled
+  //     aip.dev/not-precedent: SharingLinks are a top level resource so there
+  //     is no parent. --)
+  // (-- api-linter: core::0136::http-uri-suffix=disabled
+  //     aip.dev/not-precedent: Verb and noun are needed in uri suffix to
+  //     distinguish from list owned sharing links which is a separate method.
+  //     --)
+  rpc ListSavedPathologySharingLinks(ListSavedPathologySharingLinksRequest)
+      returns (ListSavedPathologySharingLinksResponse) {
+    option deprecated = true;
+    option (google.api.http) = {
+      get: "/v1alpha/pathologySharingLinks:listSaved"
+    };
+  }
+}
+
+// (-- Shared resource definitions. --)
+
+// PathologyOperationMetadata provides details of the operation's execution.
+// Returned in the long-running operation's metadata field.
+message PathologyOperationMetadata {
+  oneof metadata {
+    // TransferDeid operation metadata.
+    TransferDeidOperationMetadata transfer_deid_metadata = 1;
+
+    // Export operation metadata.
+    ExportOperationMetadata export_metadata = 2;
+  }
+
+  // Path in Cloud Storage where filter file is stored.
+  string filter_file_path = 3;
+}
+
+// TransferDeidOperationMetadata provides details of a running
+// TransferDeidPathologyCohort operation.
+message TransferDeidOperationMetadata {
+  // Resource name of new cohort generated.
+  string resource_name_transferred = 1;
+}
+
+// ExportOperationMetadata provides details of a running
+// ExportPathologyCohort operation.
+message ExportOperationMetadata {
+  // Cloud Storage bucket that data was exported to.
+  string gcs_dest_path = 2;
+}

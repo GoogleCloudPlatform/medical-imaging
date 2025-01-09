@@ -535,7 +535,7 @@ validate pipeline output.
 ## References
 
 [1]
-[Joining WSI Imaging with Metadata](https://github.com/GoogleCloudPlatform/cloud-pathology/blob/main/transformation_pipeline/docs/joining_wsi_imaging_with_metadata.md)
+[Joining WSI Imaging with Metadata](https://github.com/GoogleCloudPlatform/medical-imaging/blob/main/pathology/transformation_pipeline/docs/joining_wsi_imaging_with_metadata.md)
 
 ## Appendix 1: Example of Metadata Value Table
 

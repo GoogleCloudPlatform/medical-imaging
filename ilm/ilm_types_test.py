@@ -17,8 +17,8 @@
 
 from absl.testing import absltest
 
-import ilm_config
-import ilm_types
+from ilm import ilm_config
+from ilm import ilm_types
 
 
 class IlmTypesTest(absltest.TestCase):

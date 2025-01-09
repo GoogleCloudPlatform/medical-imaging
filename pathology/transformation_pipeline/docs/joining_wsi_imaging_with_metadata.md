@@ -32,7 +32,7 @@ Failed ingestions can be retried after the conditions causing the failure have
 been corrected by moving the imaging from the failure bucket back into the
 ingestion bucket.
 
-![alt text](https://github.com/GoogleCloudPlatform/Cloud-Pathology/blob/main/transformation_pipeline/docs/images/flowchart.png?raw=true)
+![alt text](https://github.com/GoogleCloudPlatform/medical-imaging/blob/main/pathology/transformation_pipeline/docs/images/flowchart.png?raw=true)
 
 ## Image File Primary Key Detection
 
@@ -107,4 +107,4 @@ The Barcode Value tag in DICOM instances is tested as a metadata primary key.
 
 ## References
 
-[1] [HowTo: Transform Pipeline DICOM Metadata Values and Schema](https://github.com/GoogleCloudPlatform/Cloud-Pathology/blob/main/transformation_pipeline/docs/transform_pipeline_metadata_values_and_schema.md)
+[1] [HowTo: Transform Pipeline DICOM Metadata Values and Schema](https://github.com/GoogleCloudPlatform/medical-imaging/blob/main/pathology/transformation_pipeline/docs/transform_pipeline_metadata_values_and_schema.md)

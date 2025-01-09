@@ -19,6 +19,7 @@ Limitations:
   regardless of query.
   https://cloud.google.com/healthcare-api/docs/how-tos/dicomweb#searching_using_dicom_tags
 """
+
 from __future__ import annotations
 
 import abc
@@ -32,7 +33,7 @@ import io
 import json
 import os
 import re
-from typing import Any, Iterator, List, Mapping, Match, MutableMapping, NewType, Optional, Set, Tuple, Union
+from typing import Any, BinaryIO, Iterator, List, Mapping, Match, MutableMapping, NewType, Optional, Set, Tuple, Union
 from unittest import mock
 
 from absl.testing import absltest
@@ -46,8 +47,8 @@ import requests
 import requests_mock
 import requests_toolbelt
 
-from shared_libs.test_utils.dicom_store_mock import dicom_store_mock_types
-from shared_libs.test_utils.dicom_store_mock import dicom_uid_value_map
+from pathology.shared_libs.test_utils.dicom_store_mock import dicom_store_mock_types
+from pathology.shared_libs.test_utils.dicom_store_mock import dicom_uid_value_map
 
 
 _MAX_FRAME_CACHE_INSTANCE_SIZE = 10
@@ -70,6 +71,7 @@ _VR = 'vr'
 _GET_REQUESTED_TRANSFER_SYNTAX = re.compile(
     r'.*;[ ]+transfer-syntax=(.*)', re.IGNORECASE
 )
+_MOCK_TOKEN = 'MOCK_BEARER_TOKEN'
 
 _DicomUidTriple = dicom_store_mock_types.DicomUidTriple
 
@@ -92,7 +94,7 @@ class RequestMethod(enum.Enum):
 CustomContentType = NewType('CustomContentType', str)
 _GET_DICOM_INSTANCE_BASE_CONTENT = 'application/dicom; transfer-syntax='
 
-# Mime type mapping assoicated for DICOM transfer syntax uid.
+# Mime type mapping associated for DICOM transfer syntax uid.
 # https://cloud.google.com/healthcare-api/docs/dicom#json_metadata_and_bulk_data_requests
 _DICOM_TRANSFER_SYNTAX_TO_MIME_TYPE = collections.defaultdict(
     lambda: 'application/octet-stream',
@@ -141,6 +143,50 @@ class MockHttpResponse:
   http_content_type: Union[ContentType, CustomContentType] = (
       ContentType.TEXT_PLAIN
   )
+
+
+# pydicom version 3 is deprecating some pydicom v2 functionality.
+# This code duplicates code in pydicom_version_util.py to avoid dependency.
+
+# TODO: b/373988830 - Remove when pydicom version 2 is no longer used.
+
+_PYDICOM_MAJOR_VERSION = int((pydicom.__version__).split('.')[0])
+
+
+def _generate_frames(buffer: bytes, number_of_frames: int) -> Iterator[bytes]:
+  number_of_frames = int(number_of_frames)
+  # pytype: disable=module-attr
+  if _PYDICOM_MAJOR_VERSION <= 2:
+    return pydicom.encaps.generate_pixel_data_frame(buffer, number_of_frames)
+  return pydicom.encaps.generate_frames(
+      buffer, number_of_frames=number_of_frames
+  )
+  # pytype: enable=module-attr
+
+
+def _set_little_endian_explicit_vr(dcm: pydicom.FileDataset) -> None:
+  if _PYDICOM_MAJOR_VERSION > 2:
+    return
+  dcm.is_little_endian = True
+  dcm.is_implicit_VR = False
+
+
+def _save_as(dcm: pydicom.FileDataset, filename: Union[str, BinaryIO]) -> None:
+  if _PYDICOM_MAJOR_VERSION <= 2:
+    dcm.save_as(filename)
+  else:
+    # pylint: disable=unexpected-keyword-arg
+    # pytype: disable=wrong-keyword-args
+    dcm.save_as(
+        filename,
+        little_endian=dcm.file_meta.TransferSyntaxUID != '1.2.840.10008.1.2.2',
+        implicit_vr=dcm.file_meta.TransferSyntaxUID == '1.2.840.10008.1.2',
+    )
+    # pytype: enable=wrong-keyword-args
+    # pylint: enable=unexpected-keyword-arg
+
+
+# End code duplicates code in pydicom_version_util.py to avoid dependency.
 
 
 def _is_iterator_empty(itr: Iterator[Any]) -> bool:
@@ -201,7 +247,7 @@ def _pydicom_file_dataset_to_json(
 
   Args:
     dcm: Pydicom file dataset.
-    operation: Operation to perfrom on binary tags.
+    operation: Operation to perform on binary tags.
     dicomweb_path: Dicom web path to DICOM store.
 
   Returns:
@@ -234,7 +280,7 @@ class _MockDicomStoreAbstractStorage(metaclass=abc.ABCMeta):
     # The cache is initialized for a DICOM instance on the first frame request.
     # PyDICOM uses a generator style interface to access blob bytes stored
     # within encapsulated frames. Without the cache this makes repeated random
-    # access using to frame bytes inefficent.
+    # access using to frame bytes inefficient.
     self._frame_cache = cachetools.LRUCache(
         maxsize=_MAX_FRAME_CACHE_INSTANCE_SIZE
     )
@@ -485,7 +531,7 @@ class _MockDicomStoreFileSystemStorage(_MockDicomStoreAbstractStorage):
   def _create_dicom(self, file_dataset: pydicom.FileDataset, path: str) -> bool:
     try:
       os.makedirs(os.path.dirname(path), exist_ok=True)
-      file_dataset.save_as(path)
+      _save_as(file_dataset, path)
       return True
     except (
         OSError,
@@ -493,6 +539,7 @@ class _MockDicomStoreFileSystemStorage(_MockDicomStoreAbstractStorage):
         pydicom.errors.InvalidDicomError,
     ):
       self._remove_file_path(path)
+      return False
 
   def _create_instance_file_path(
       self, file_dataset: pydicom.FileDataset
@@ -677,9 +724,8 @@ def _convert_to_pydicom_file_dataset(
       'mock_file.dcm',
       dataset=pydicom.Dataset.from_json(main_body),
       file_meta=file_meta,
-      is_implicit_VR=False,
-      is_little_endian=True,
   )
+  _set_little_endian_explicit_vr(dicom_instance)
   dicom_instance.file_meta.MediaStorageSOPClassUID = dicom_instance.SOPClassUID
   dicom_instance.file_meta.MediaStorageSOPInstanceUID = (
       dicom_instance.SOPInstanceUID
@@ -689,7 +735,7 @@ def _convert_to_pydicom_file_dataset(
 
 def _pydicom_file_dataset_to_bytes(dcm: pydicom.FileDataset) -> bytes:
   instance_bytes = io.BytesIO()
-  dcm.save_as(instance_bytes, write_like_original=True)
+  _save_as(dcm, instance_bytes)
   return instance_bytes.getvalue()
 
 
@@ -751,7 +797,7 @@ def _build_pydicom_dicom_from_request_json(
   """Converts DICOM store formatted json into PyDicom FileDataset.
 
   Args:
-    content: bytes recieved in multipart DICOM json data.
+    content: bytes received in multipart DICOM json data.
     content_location_map: Mapping of content-locations to bytes for data in
       multi-part related request.
 
@@ -795,6 +841,12 @@ def _decode_pydicom(data: bytes) -> pydicom.FileDataset:
     return pydicom.dcmread(instance_bytes)
 
 
+def _mock_apply_credentials(
+    headers: MutableMapping[Any, Any], token: Optional[str] = None
+) -> None:
+  headers['authorization'] = 'Bearer {}'.format(token or _MOCK_TOKEN)
+
+
 class MockDicomStoreClient(contextlib.ContextDecorator):
   """Context manager mocks individual DICOM Store."""
 
@@ -821,6 +873,10 @@ class MockDicomStoreClient(contextlib.ContextDecorator):
       credentials_mock = mock.create_autospec(
           google.auth.credentials.Credentials, instance=True
       )
+      type(credentials_mock).token = mock.PropertyMock(return_value=_MOCK_TOKEN)
+      type(credentials_mock).valid = mock.PropertyMock(return_value='True')
+      type(credentials_mock).expired = mock.PropertyMock(return_value='False')
+      credentials_mock.apply.side_effect = _mock_apply_credentials
       self._credentials_mock = mock.patch(
           'google.auth.default',
           return_value=(credentials_mock, mock_credential_project),
@@ -915,6 +971,17 @@ class MockDicomStoreClient(contextlib.ContextDecorator):
         _convert_to_pydicom_file_dataset(instance_data)
     )
 
+  def remove_instance(
+      self, instance_data: Union[str, Mapping[str, Any], pydicom.FileDataset]
+  ) -> bool:
+    """Adds an instance to the mocked store."""
+    instance = _convert_to_pydicom_file_dataset(instance_data)
+    return self._dicom_storage.remove_instance(
+        instance.StudyInstanceUID,
+        instance.SeriesInstanceUID,
+        instance.SOPInstanceUID,
+    )
+
   def __enter__(self) -> MockDicomStoreClient:
     if self._context_manager_entered:
       raise ValueError('Context manager has already been entered')
@@ -994,11 +1061,7 @@ class MockDicomStoreClient(contextlib.ContextDecorator):
           for fnum in range(number_of_frames)
       ]
     else:
-      frame_bytes = list(
-          pydicom.encaps.generate_pixel_data_frame(
-              dcm.PixelData, dcm.NumberOfFrames
-          )
-      )
+      frame_bytes = list(_generate_frames(dcm.PixelData, dcm.NumberOfFrames))
     self._dicom_storage.set_instance_frame_bytes(dcm, frame_bytes)
     return frame_bytes[index]
 
@@ -1938,7 +2001,7 @@ class MockDicomStores(contextlib.ExitStack):
       write_auth_bearer_tokens: Optional list of bearer tokens which can write
         to mock store.
       real_http: If true pass unhandled http requests through to server,
-        real_http is not compatiable with httplib2 mock and disables the mock
+        real_http is not compatible with httplib2 mock and disables the mock
         support for httplib2 mediated transactions.
       bulkdata_uri_enabled: If True store will encode and support binary data
         bulkdata uri.

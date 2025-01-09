@@ -17,7 +17,7 @@
 from absl.testing import absltest
 import pydicom
 
-from transformation_pipeline.ingestion_lib.dicom_util import dicom_test_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_test_util
 
 
 class DicomTestUtilTest(absltest.TestCase):

@@ -29,8 +29,8 @@ from typing import Any, List, Optional, Union
 
 from absl import flags
 
-from shared_libs.flags import secret_flag_utils
-from transformation_pipeline.ingestion_lib import ingest_const
+from pathology.shared_libs.flags import secret_flag_utils
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
 
 
 def _load_multi_string(val: Optional[str]) -> Optional[Union[List[str], str]]:
@@ -61,13 +61,6 @@ def get_value(
   ):
     default_value = test_default_value
   return secret_flag_utils.get_secret_or_env(env_var, default_value)
-
-
-class DefaultIccProfile(enum.Enum):
-  NONE = 'NONE'
-  SRGB = 'SRGB'
-  ADOBERGB = 'ADOBERGB'
-  ROMMRGB = 'ROMMRGB'
 
 
 class MetadataUidValidation(enum.Enum):
@@ -473,15 +466,22 @@ METADATA_PRIMARY_KEY_COLUMN_NAME_FLG = flags.DEFINE_string(
 
 # Undefined Metadata default values
 
-DEFAULT_ICCPROFILE_FLG = flags.DEFINE_enum_class(
+DEFAULT_ICC_PROFILE_FLG = flags.DEFINE_string(
     'default_iccprofile',
     get_value(
         env_var='DEFAULT_ICCPROFILE',
-        default_value=DefaultIccProfile.SRGB.name,
+        default_value=ingest_const.ICCProfile.SRGB,
     ),
-    DefaultIccProfile,
     '[optional|default] ICC Profile to embedd in wsi imaging that does not '
     'provide an ICCColor profile.',
+)
+
+THIRD_PARTY_ICC_PROFILE_DICRECTORY_FLG = flags.DEFINE_string(
+    'third_party_icc_profile_directory',
+    secret_flag_utils.get_secret_or_env(
+        'THIRD_PARTY_ICC_PROFILE_DIRECTORY', ''
+    ),
+    'Directory that contains third party icc profiles.',
 )
 
 WSI_DICOM_EXTENDED_DEPTH_OF_FIELD_DEFAULT_VALUE_FLG = flags.DEFINE_enum_class(

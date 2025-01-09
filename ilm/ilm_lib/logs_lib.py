@@ -24,10 +24,10 @@ from typing import Any, Iterable, Iterator, List, Mapping, Tuple
 
 import apache_beam as beam
 
-import ilm_config
-import ilm_types
-from ilm_lib import dicom_store_lib
-from ilm_lib import pipeline_util
+from ilm import ilm_config
+from ilm import ilm_types
+from ilm.ilm_lib import dicom_store_lib
+from ilm.ilm_lib import pipeline_util
 
 
 # Audit log entry columns

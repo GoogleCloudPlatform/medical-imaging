@@ -23,8 +23,8 @@ from google.cloud import spanner
 from google.cloud.spanner_v1 import database
 from google.cloud.spanner_v1 import streamed
 
-from shared_libs.flags import secret_flag_utils
-from shared_libs.logging_lib import cloud_logging_client
+from pathology.shared_libs.flags import secret_flag_utils
+from pathology.shared_libs.logging_lib import cloud_logging_client
 
 INSTANCE_ID_FLG = flags.DEFINE_string(
     'instance_id',

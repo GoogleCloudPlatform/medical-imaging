@@ -18,6 +18,8 @@ import logging
 from absl import flags
 import pydicom
 
+from pathology.shared_libs.pydicom_version_util import pydicom_version_util
+
 
 SOURCE_DICOM_INSTANCE_FLG = flags.DEFINE_string(
     'source_dicom_instance', None, 'File path to DICOM instance to read.'
@@ -145,7 +147,7 @@ def _crop_dicom_to_frame_edge(
         new_height,
     )
     # Iterate over frames in DICOM, assume full tiling.
-    for dicom_frame in pydicom.encaps.generate_pixel_data_frame(
+    for dicom_frame in pydicom_version_util.generate_frames(
         ds.PixelData, num_frames
     ):
       # Add frame to cropped dicom if frame at pixel coordinate px (column),

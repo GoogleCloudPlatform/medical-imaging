@@ -24,14 +24,16 @@ from unittest import mock
 from absl import logging
 from absl.testing import absltest
 from absl.testing import parameterized
+import numpy as np
 import PIL
 import pydicom
 
-from transformation_pipeline.ingestion_lib import gen_test_util
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_slide_coordinates_microscopic_image
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ancillary_image_extractor
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
+from pathology.shared_libs.pydicom_version_util import pydicom_version_util
+from pathology.transformation_pipeline.ingestion_lib import gen_test_util
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_slide_coordinates_microscopic_image
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ancillary_image_extractor
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
 
 
 _STUDY_UID = '1.2.3.4.5'
@@ -187,7 +189,7 @@ class DicomSlideCoordinatesMicroscopicImageTest(parameterized.TestCase):
     # Saves DICOM file locally and read it.
     dcm_filename = os.path.splitext(input_image)[0]
     dcm_tmp_filepath = os.path.join(temp_dir, dcm_filename)
-    dcm.save_as(dcm_tmp_filepath, write_like_original=False)
+    pydicom_version_util.save_as_validated_dicom(dcm, dcm_tmp_filepath)
     saved_dcm = pydicom.dcmread(dcm_tmp_filepath)
     logging.info(saved_dcm)
     self.assertEqual(saved_dcm.NumberOfFrames, 1)
@@ -204,12 +206,15 @@ class DicomSlideCoordinatesMicroscopicImageTest(parameterized.TestCase):
     self.assertEqual(
         saved_dcm.file_meta.TransferSyntaxUID, expected_transfer_syntax
     )
-
-    output_image_path = gen_test_util.test_file_path(output_image)
-    with open(output_image_path, 'rb') as img:
-      img_bytes = img.read()
-    self.assertEqual(
-        saved_dcm.PixelData, pydicom.encaps.encapsulate([img_bytes])
+    gen_bytes = np.frombuffer(
+        list(pydicom_version_util.generate_frames(saved_dcm.PixelData, 1))[0],
+        dtype=np.uint8,
+    )
+    np.testing.assert_array_almost_equal(
+        gen_test_util.decode_image_from_bytes(gen_bytes),
+        gen_test_util.decode_image_from_file(
+            gen_test_util.test_file_path(output_image)
+        ),
     )
 
   @mock.patch.object(
@@ -231,7 +236,7 @@ class DicomSlideCoordinatesMicroscopicImageTest(parameterized.TestCase):
 
     # Saves DICOM file locally and read it.
     dcm_tmp_filepath = os.path.join(self.create_tempdir(), 'test_jpg_tags.dcm')
-    dcm.save_as(dcm_tmp_filepath, write_like_original=False)
+    pydicom_version_util.save_as_validated_dicom(dcm, dcm_tmp_filepath)
     saved_dcm = pydicom.dcmread(dcm_tmp_filepath)
     logging.info(saved_dcm)
 
@@ -264,7 +269,7 @@ class DicomSlideCoordinatesMicroscopicImageTest(parameterized.TestCase):
 
     # Saves DICOM file locally and read it.
     dcm_tmp_filepath = os.path.join(self.create_tempdir(), 'test_jpg_gray.dcm')
-    dcm.save_as(dcm_tmp_filepath, write_like_original=False)
+    pydicom_version_util.save_as_validated_dicom(dcm, dcm_tmp_filepath)
     saved_dcm = pydicom.dcmread(dcm_tmp_filepath)
     logging.info(saved_dcm)
 
@@ -307,7 +312,7 @@ class DicomSlideCoordinatesMicroscopicImageTest(parameterized.TestCase):
 
     # Saves DICOM file locally and read it.
     dcm_tmp_filepath = os.path.join(temp_dir, 'logo_tags.dcm')
-    dcm.save_as(dcm_tmp_filepath, write_like_original=False)
+    pydicom_version_util.save_as_validated_dicom(dcm, dcm_tmp_filepath)
     saved_dcm = pydicom.dcmread(dcm_tmp_filepath)
     logging.info(saved_dcm)
 
@@ -324,13 +329,15 @@ class DicomSlideCoordinatesMicroscopicImageTest(parameterized.TestCase):
     self.assertEqual(saved_dcm.PixelSpacing, [0.254, 0.635])
     self.assertIn('OpticalPathSequence', saved_dcm)
 
-    output_image_path = gen_test_util.test_file_path(
-        'logo_tags_tif_converted.jp2'
+    gen_bytes = np.frombuffer(
+        list(pydicom_version_util.generate_frames(saved_dcm.PixelData, 1))[0],
+        dtype=np.uint8,
     )
-    with open(output_image_path, 'rb') as img:
-      img_bytes = img.read()
-    self.assertEqual(
-        saved_dcm.PixelData, pydicom.encaps.encapsulate([img_bytes])
+    np.testing.assert_array_almost_equal(
+        gen_test_util.decode_image_from_bytes(gen_bytes),
+        gen_test_util.decode_image_from_file(
+            gen_test_util.test_file_path('logo_tags_tif_converted.jp2')
+        ),
     )
 
   @mock.patch.object(
@@ -359,7 +366,7 @@ class DicomSlideCoordinatesMicroscopicImageTest(parameterized.TestCase):
 
     # Saves DICOM file locally and read it.
     dcm_tmp_filepath = os.path.join(temp_dir, 'logo_tags.dcm')
-    dcm.save_as(dcm_tmp_filepath, write_like_original=False)
+    pydicom_version_util.save_as_validated_dicom(dcm, dcm_tmp_filepath)
     saved_dcm = pydicom.dcmread(dcm_tmp_filepath)
     logging.info(saved_dcm)
 
@@ -376,13 +383,15 @@ class DicomSlideCoordinatesMicroscopicImageTest(parameterized.TestCase):
     self.assertEqual(saved_dcm.PixelSpacing, [0.254, 0.635])
     self.assertIn('OpticalPathSequence', saved_dcm)
 
-    output_image_path = gen_test_util.test_file_path(
-        'logo_tags_tif_converted.jp2'
+    gen_bytes = np.frombuffer(
+        list(pydicom_version_util.generate_frames(saved_dcm.PixelData, 1))[0],
+        dtype=np.uint8,
     )
-    with open(output_image_path, 'rb') as img:
-      img_bytes = img.read()
-    self.assertEqual(
-        saved_dcm.PixelData, pydicom.encaps.encapsulate([img_bytes])
+    np.testing.assert_array_almost_equal(
+        gen_test_util.decode_image_from_bytes(gen_bytes),
+        gen_test_util.decode_image_from_file(
+            gen_test_util.test_file_path('logo_tags_tif_converted.jp2')
+        ),
     )
 
 

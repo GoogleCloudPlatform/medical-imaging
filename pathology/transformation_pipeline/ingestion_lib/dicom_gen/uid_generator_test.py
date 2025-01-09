@@ -20,8 +20,8 @@ from absl.testing import absltest
 from absl.testing import flagsaver
 from absl.testing import parameterized
 
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
 
 
 def _get_uid_gen_state() -> uid_generator._UIDGeneratorState:

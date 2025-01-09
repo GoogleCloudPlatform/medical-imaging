@@ -22,7 +22,7 @@ from typing import List, Optional
 
 import dataclasses_json
 
-import ilm_config
+from ilm import ilm_config
 
 
 @dataclasses.dataclass(frozen=True)

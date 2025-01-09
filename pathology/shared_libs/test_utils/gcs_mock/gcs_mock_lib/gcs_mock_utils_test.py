@@ -19,8 +19,8 @@ from absl.testing import absltest
 from absl.testing import parameterized
 import google.cloud.storage
 
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_constants
-from shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_utils
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_constants
+from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_mock_utils
 
 
 class BlobMockTest(parameterized.TestCase):

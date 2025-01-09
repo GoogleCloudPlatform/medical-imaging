@@ -21,7 +21,7 @@ from unittest import mock
 from absl.testing import absltest
 from absl.testing import parameterized
 
-from transformation_pipeline import ingest_flags
+from pathology.transformation_pipeline import ingest_flags
 
 
 class IngestFlagsTest(parameterized.TestCase):

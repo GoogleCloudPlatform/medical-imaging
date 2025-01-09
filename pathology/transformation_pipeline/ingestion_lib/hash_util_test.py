@@ -17,7 +17,7 @@ import os
 
 from absl.testing import absltest
 
-from transformation_pipeline.ingestion_lib import hash_util
+from pathology.transformation_pipeline.ingestion_lib import hash_util
 
 
 class HashUtilsTest(absltest.TestCase):

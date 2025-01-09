@@ -18,9 +18,9 @@ from unittest import mock
 from absl.testing import absltest
 from absl.testing import parameterized
 
-from transformation_pipeline.ingestion_lib import cloud_storage_client
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import gcs_storage_util
-from transformation_pipeline.ingestion_lib.pubsub_msgs import ingestion_complete_pubsub
+from pathology.transformation_pipeline.ingestion_lib import cloud_storage_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import gcs_storage_util
+from pathology.transformation_pipeline.ingestion_lib.pubsub_msgs import ingestion_complete_pubsub
 
 
 class GcsStorageUtilTest(parameterized.TestCase):

@@ -1,0 +1,329 @@
+[
+  {
+    "00080008": {
+      "vr": "CS",
+      "Value": ["ORIGINAL", "PRIMARY", "LABEL", "NONE"]
+    },
+    "00080016": { "vr": "UI", "Value": ["1.2.840.10008.5.1.4.1.1.77.1.6"] },
+    "00080019": { "vr": "UI", "Value": ["1.2.3.9"] },
+    "00080020": { "vr": "DA" },
+    "00080022": { "vr": "DA", "Value": ["20220331"] },
+    "00080023": { "vr": "DA", "Value": ["20220331"] },
+    "0008002A": { "vr": "DT", "Value": ["20220331010953"] },
+    "00080030": { "vr": "TM" },
+    "00080032": { "vr": "TM", "Value": ["010953"] },
+    "00080033": { "vr": "TM", "Value": ["010953"] },
+    "00080050": { "vr": "SH" },
+    "00080060": { "vr": "CS", "Value": ["SM"] },
+    "00080070": { "vr": "LO", "Value": ["GOOGLE"] },
+    "00080090": { "vr": "PN" },
+    "00081090": { "vr": "LO", "Value": ["DPAS_transformation_pipeline"] },
+    "00082111": {
+      "vr": "ST",
+      "Value": [
+        "Image frames generated from  values extracted from un-tiled image (wikipedia.png) and embedded as encapsulated JPEG compressed (quality: 80); Imaging bytes re-compressed once."
+      ]
+    },
+    "00089206": { "vr": "CS", "Value": ["VOLUME"] },
+    "00100010": { "vr": "PN" },
+    "00100020": { "vr": "LO", "Value": ["not_found_ndpi_test"] },
+    "00100030": { "vr": "DA" },
+    "00100040": { "vr": "CS" },
+    "00181000": { "vr": "LO", "Value": ["Build_Version:123"] },
+    "00181020": { "vr": "LO", "Value": ["Build_Version:123"] },
+    "00200010": { "vr": "SH" },
+    "00200011": { "vr": "IS" },
+    "00200013": { "vr": "IS", "Value": [1] },
+    "00200052": { "vr": "UI", "Value": ["1.2.3.9"] },
+    "00201040": { "vr": "LO" },
+    "00209221": {
+      "vr": "SQ",
+      "Value": [{ "00209164": { "vr": "UI", "Value": ["1.2.3.9"] } }]
+    },
+    "00209222": {
+      "vr": "SQ",
+      "Value": [
+        {
+          "00209164": { "vr": "UI", "Value": ["1.2.3.9"] },
+          "00209165": { "vr": "AT", "Value": ["0048021E"] },
+          "00209167": { "vr": "AT", "Value": ["0048021A"] }
+        },
+        {
+          "00209164": { "vr": "UI", "Value": ["1.2.3.9"] },
+          "00209165": { "vr": "AT", "Value": ["0048021E"] },
+          "00209167": { "vr": "AT", "Value": ["0048021A"] }
+        }
+      ]
+    },
+    "00209311": { "vr": "CS", "Value": ["TILED_FULL"] },
+    "00280002": { "vr": "US", "Value": [3] },
+    "00280004": { "vr": "CS", "Value": ["YBR_FULL_422"] },
+    "00280006": { "vr": "US", "Value": [0] },
+    "00280008": { "vr": "IS", "Value": [1] },
+    "00280010": { "vr": "US", "Value": [117] },
+    "00280011": { "vr": "US", "Value": [234] },
+    "00280100": { "vr": "US", "Value": [8] },
+    "00280101": { "vr": "US", "Value": [8] },
+    "00280102": { "vr": "US", "Value": [7] },
+    "00280103": { "vr": "US", "Value": [0] },
+    "00280301": { "vr": "CS", "Value": ["NO"] },
+    "00282110": { "vr": "CS", "Value": ["01"] },
+    "00282112": { "vr": "DS", "Value": [7.271713] },
+    "00282114": { "vr": "CS", "Value": ["ISO_10918_1"] },
+    "00286010": { "vr": "US", "Value": [1] },
+    "00400512": { "vr": "LO", "Value": ["not_found_ndpi_test"] },
+    "00400513": { "vr": "SQ", "Value": [] },
+    "00400518": { "vr": "SQ", "Value": [] },
+    "00400555": { "vr": "SQ", "Value": [] },
+    "00480003": { "vr": "FL", "Value": [12.0] },
+    "00480006": { "vr": "UL", "Value": [234] },
+    "00480007": { "vr": "UL", "Value": [117] },
+    "00480008": {
+      "vr": "SQ",
+      "Value": [
+        {
+          "0040072A": { "vr": "DS", "Value": [0.0] },
+          "0040073A": { "vr": "DS", "Value": [0.0] }
+        }
+      ]
+    },
+    "00480010": { "vr": "CS", "Value": ["NO"] },
+    "00480011": { "vr": "CS", "Value": ["AUTO"] },
+    "00480012": { "vr": "CS", "Value": ["NO"] },
+    "00480102": { "vr": "DS", "Value": [0.0, -1.0, 0.0, -1.0, 0.0, 0.0] },
+    "00480105": {
+      "vr": "SQ",
+      "Value": [
+        {
+          "00220016": {
+            "vr": "SQ",
+            "Value": [
+              {
+                "00080100": { "vr": "SH", "Value": ["111741"] },
+                "00080102": { "vr": "SH", "Value": ["DCM"] },
+                "00080104": {
+                  "vr": "LO",
+                  "Value": ["Transmission illumination"]
+                }
+              }
+            ]
+          },
+          "00282000": {"vr": "OB", "InlineBinary": "U1JHQl9JQ0NQUk9GSUxFX0JZVEVTAA=="},
+          "00282002": {"vr": "CS", "Value": ["SRGB"]},
+          "00480106": { "vr": "SH", "Value": ["1"] },
+          "00480107": { "vr": "ST", "Value": ["Transmitted Light"] },
+          "00480108": {
+            "vr": "SQ",
+            "Value": [
+              {
+                "00080100": { "vr": "SH", "Value": ["11744"] },
+                "00080102": { "vr": "SH", "Value": ["DCM"] },
+                "00080104": {
+                  "vr": "LO",
+                  "Value": ["Brightfield illumination"]
+                }
+              }
+            ]
+          },
+          "00480112": { "vr": "DS", "Value": [20.0] }
+        }
+      ]
+    },
+    "00480302": { "vr": "UL", "Value": [1] },
+    "00480303": { "vr": "UL", "Value": [1] },
+    "22000005": { "vr": "LT" },
+    "22000002": { "vr": "UT" },
+    "30210010": { "vr": "LO", "Value": ["GOOGLE"] },
+    "30211003": { "vr": "LT", "Value": ["mock_pubsub_msg_id"] },
+    "30211004": { "vr": "LT", "Value": ["not_found_ndpi_test.ndpi"] },
+    "52009229": {
+      "vr": "SQ",
+      "Value": [
+        {
+          "00289110": {
+            "vr": "SQ",
+            "Value": [
+              {
+                "00180050": { "vr": "DS", "Value": [0.012] },
+                "00280030": { "vr": "DS", "Value": [0.1, 0.1] }
+              }
+            ]
+          },
+          "00400710": {
+            "vr": "SQ",
+            "Value": [
+              {
+                "00089007": {
+                  "vr": "CS",
+                  "Value": ["ORIGINAL", "PRIMARY", "LABEL", "NONE"]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "00080008": {
+      "vr": "CS",
+      "Value": ["ORIGINAL", "PRIMARY", "OVERVIEW", "NONE"]
+    },
+    "00080016": { "vr": "UI", "Value": ["1.2.840.10008.5.1.4.1.1.77.1.6"] },
+    "00080019": { "vr": "UI", "Value": ["1.2.3.9"] },
+    "00080020": { "vr": "DA" },
+    "00080022": { "vr": "DA", "Value": ["20240312"] },
+    "0008002A": { "vr": "DT", "Value": ["20240312012345"] },
+    "00080030": { "vr": "TM" },
+    "00080032": { "vr": "TM", "Value": ["012345"] },
+    "00080050": { "vr": "SH" },
+    "00080060": { "vr": "CS", "Value": ["SM"] },
+    "00080070": { "vr": "LO", "Value": ["GOOGLE"] },
+    "00080090": { "vr": "PN" },
+    "00081090": { "vr": "LO", "Value": ["DPAS_transformation_pipeline"] },
+    "00082111": {
+      "vr": "ST",
+      "Value": [
+        "Image bytes extracted from SVS file without decompression and ecapsulated in DICOM; image unchanged."
+      ]
+    },
+    "00089206": { "vr": "CS", "Value": ["VOLUME"] },
+    "00100010": { "vr": "PN" },
+    "00100020": { "vr": "LO", "Value": ["not_found_ndpi_test"] },
+    "00100030": { "vr": "DA" },
+    "00100040": { "vr": "CS" },
+    "00181000": { "vr": "LO", "Value": ["Build_Version:123"] },
+    "00181020": { "vr": "LO", "Value": ["Build_Version:123"] },
+    "00200010": { "vr": "SH" },
+    "00200011": { "vr": "IS" },
+    "00200013": { "vr": "IS", "Value": [2] },
+    "00200052": { "vr": "UI", "Value": ["1.2.3.9"] },
+    "00201040": { "vr": "LO" },
+    "00209221": {
+      "vr": "SQ",
+      "Value": [{ "00209164": { "vr": "UI", "Value": ["1.2.3.9"] } }]
+    },
+    "00209222": {
+      "vr": "SQ",
+      "Value": [
+        {
+          "00209164": { "vr": "UI", "Value": ["1.2.3.9"] },
+          "00209165": { "vr": "AT", "Value": ["0048021E"] },
+          "00209167": { "vr": "AT", "Value": ["0048021A"] }
+        },
+        {
+          "00209164": { "vr": "UI", "Value": ["1.2.3.9"] },
+          "00209165": { "vr": "AT", "Value": ["0048021E"] },
+          "00209167": { "vr": "AT", "Value": ["0048021A"] }
+        }
+      ]
+    },
+    "00209311": { "vr": "CS", "Value": ["TILED_FULL"] },
+    "00280002": { "vr": "US", "Value": [3] },
+    "00280004": { "vr": "CS", "Value": ["YBR_FULL_422"] },
+    "00280006": { "vr": "US", "Value": [0] },
+    "00280008": { "vr": "IS", "Value": [1] },
+    "00280010": { "vr": "US", "Value": [408] },
+    "00280011": { "vr": "US", "Value": [1191] },
+    "00280100": { "vr": "US", "Value": [8] },
+    "00280101": { "vr": "US", "Value": [8] },
+    "00280102": { "vr": "US", "Value": [7] },
+    "00280103": { "vr": "US", "Value": [0] },
+    "00280301": { "vr": "CS", "Value": ["NO"] },
+    "00282110": { "vr": "CS", "Value": ["01"] },
+    "00282112": { "vr": "DS", "Value": [25.51] },
+    "00282114": { "vr": "CS", "Value": ["ISO_10918_1"] },
+    "00286010": { "vr": "US", "Value": [1] },
+    "00400512": { "vr": "LO", "Value": ["not_found_ndpi_test"] },
+    "00400513": { "vr": "SQ", "Value": [] },
+    "00400518": { "vr": "SQ", "Value": [] },
+    "00400555": { "vr": "SQ", "Value": [] },
+    "00480003": { "vr": "FL", "Value": [12.0] },
+    "00480006": { "vr": "UL", "Value": [1191] },
+    "00480007": { "vr": "UL", "Value": [408] },
+    "00480008": {
+      "vr": "SQ",
+      "Value": [
+        {
+          "0040072A": { "vr": "DS", "Value": [0.0] },
+          "0040073A": { "vr": "DS", "Value": [0.0] }
+        }
+      ]
+    },
+    "00480010": { "vr": "CS", "Value": ["YES"] },
+    "00480011": { "vr": "CS", "Value": ["AUTO"] },
+    "00480012": { "vr": "CS", "Value": ["NO"] },
+    "00480102": { "vr": "DS", "Value": [0.0, -1.0, 0.0, -1.0, 0.0, 0.0] },
+    "00480105": {
+      "vr": "SQ",
+      "Value": [
+        {
+          "00220016": {
+            "vr": "SQ",
+            "Value": [
+              {
+                "00080100": { "vr": "SH", "Value": ["111741"] },
+                "00080102": { "vr": "SH", "Value": ["DCM"] },
+                "00080104": {
+                  "vr": "LO",
+                  "Value": ["Transmission illumination"]
+                }
+              }
+            ]
+          },
+          "00282000": {"vr": "OB", "InlineBinary": "U1JHQl9JQ0NQUk9GSUxFX0JZVEVTAA=="},
+          "00282002": {"vr": "CS", "Value": ["SRGB"]},
+          "00480106": { "vr": "SH", "Value": ["1"] },
+          "00480107": { "vr": "ST", "Value": ["Transmitted Light"] },
+          "00480108": {
+            "vr": "SQ",
+            "Value": [
+              {
+                "00080100": { "vr": "SH", "Value": ["11744"] },
+                "00080102": { "vr": "SH", "Value": ["DCM"] },
+                "00080104": {
+                  "vr": "LO",
+                  "Value": ["Brightfield illumination"]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "00480302": { "vr": "UL", "Value": [1] },
+    "00480303": { "vr": "UL", "Value": [1] },
+    "22000005": { "vr": "LT" },
+    "22000002": { "vr": "UT" },
+    "30210010": { "vr": "LO", "Value": ["GOOGLE"] },
+    "30211003": { "vr": "LT", "Value": ["mock_pubsub_msg_id"] },
+    "30211004": { "vr": "LT", "Value": ["not_found_ndpi_test.ndpi"] },
+    "52009229": {
+      "vr": "SQ",
+      "Value": [
+        {
+          "00289110": {
+            "vr": "SQ",
+            "Value": [
+              {
+                "00180050": { "vr": "DS", "Value": [0.012] },
+                "00280030": { "vr": "DS", "Value": [0.1, 0.1] }
+              }
+            ]
+          },
+          "00400710": {
+            "vr": "SQ",
+            "Value": [
+              {
+                "00089007": {
+                  "vr": "CS",
+                  "Value": ["ORIGINAL", "PRIMARY", "OVERVIEW", "NONE"]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+]

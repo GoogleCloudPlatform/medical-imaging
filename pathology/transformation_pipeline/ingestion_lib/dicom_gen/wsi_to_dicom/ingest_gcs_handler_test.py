@@ -29,24 +29,24 @@ import google.auth
 from google.cloud import pubsub_v1
 import pydicom
 
-from shared_libs.logging_lib import cloud_logging_client_instance
-from shared_libs.test_utils.dicom_store_mock import dicom_store_mock
-from shared_libs.test_utils.gcs_mock import gcs_mock
-from transformation_pipeline import ingest_flags
-from transformation_pipeline.ingestion_lib import cloud_storage_client
-from transformation_pipeline.ingestion_lib import gen_test_util
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib import polling_client
-from transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
-from transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
-from transformation_pipeline.ingestion_lib.dicom_gen import wsi_dicom_file_ref
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import gcs_storage_util
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_base
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_gcs_handler
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
-from transformation_pipeline.ingestion_lib.dicom_util import dicom_test_util
-from transformation_pipeline.ingestion_lib.pubsub_msgs import ingestion_complete_pubsub
+from pathology.shared_libs.logging_lib import cloud_logging_client_instance
+from pathology.shared_libs.test_utils.dicom_store_mock import dicom_store_mock
+from pathology.shared_libs.test_utils.gcs_mock import gcs_mock
+from pathology.transformation_pipeline import ingest_flags
+from pathology.transformation_pipeline.ingestion_lib import cloud_storage_client
+from pathology.transformation_pipeline.ingestion_lib import gen_test_util
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib import polling_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import wsi_dicom_file_ref
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import gcs_storage_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_base
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_gcs_handler
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_test_util
+from pathology.transformation_pipeline.ingestion_lib.pubsub_msgs import ingestion_complete_pubsub
 
 
 _OOF_TRIGGER = 'mock_oof_trigger'
@@ -955,10 +955,15 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
   )
   @mock.patch.object(polling_client, 'PollingClient', autospec=True)
   def test_gcs_handler_ndpi_transform_lock(self, mock_polling_client):
+    ndpi_path = gen_test_util.test_file_path('ndpi_test.ndpi')
+    if not os.path.exists(ndpi_path):
+      # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
+      # file is not available.
+      return
     expected = 'MD-01-1-A1-1'
     filename = f'{expected}_ndpi_test.ndpi'
     dicom_path = os.path.join(self.create_tempdir(), filename)
-    shutil.copyfile(gen_test_util.test_file_path('ndpi_test.ndpi'), dicom_path)
+    shutil.copyfile(ndpi_path, dicom_path)
     test_bucket_path = self.create_tempdir().full_path
     shutil.copyfile(
         gen_test_util.test_file_path('metadata_duplicate.csv'),
@@ -996,9 +1001,13 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
       mock_polling_client,
   ):
     filename = 'ndpi_test.ndpi'
+    ndpi_path = gen_test_util.test_file_path(filename)
+    if not os.path.exists(ndpi_path):
+      # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
+      # file is not available.
+      return
     dicom_gen = abstract_dicom_generation.GeneratedDicomFiles(
-        localfile=gen_test_util.test_file_path(filename),
-        source_uri=f'gs://test_bucket/{filename}',
+        localfile=ndpi_path, source_uri=f'gs://test_bucket/{filename}'
     )
     files_to_upload = ingest_base.DicomInstanceIngestionSets(set())
     dicom_ingest_result = ingest_base.GenDicomResult(
@@ -1049,9 +1058,13 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
       mock_polling_client,
   ):
     filename = 'ndpi_test.ndpi'
+    ndpi_path = gen_test_util.test_file_path(filename)
+    if not os.path.exists(ndpi_path):
+      # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
+      # file is not available.
+      return
     dicom_gen = abstract_dicom_generation.GeneratedDicomFiles(
-        localfile=gen_test_util.test_file_path(filename),
-        source_uri=f'gs://test_bucket/{filename}',
+        localfile=ndpi_path, source_uri=f'gs://test_bucket/{filename}'
     )
     files_to_upload = ingest_base.DicomInstanceIngestionSets(set())
     dicom_ingest_result = ingest_base.GenDicomResult(
@@ -1125,16 +1138,18 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
       file_ignored,
   ):
     filename = 'ndpi_test.ndpi'
+    ndpi_path = gen_test_util.test_file_path(filename)
+    if not os.path.exists(ndpi_path):
+      # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
+      # file is not available.
+      return
     ingest_bucket_name = 'test_bucket'
     test_bucket_path = self.create_tempdir().full_path
     with flagsaver.flagsaver(
         gcs_upload_ignore_file_exts=gcs_upload_ignore_file_exts,
         gcs_ignore_file_regexs=gcs_ignore_file_regexs,
     ):
-      shutil.copyfile(
-          gen_test_util.test_file_path(filename),
-          os.path.join(test_bucket_path, filename),
-      )
+      shutil.copyfile(ndpi_path, os.path.join(test_bucket_path, filename))
       with gcs_mock.GcsMock({ingest_bucket_name: test_bucket_path}):
         ingest_handler = ingest_gcs_handler.IngestGcsPubSubHandler(
             'gs://test_bucket/success',
@@ -1185,6 +1200,11 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
       file_ignored,
   ):
     filename = 'ndpi_test.ndpi'
+    ndpi_path = gen_test_util.test_file_path(filename)
+    if not os.path.exists(ndpi_path):
+      # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
+      # file is not available.
+      return
     ingest_bucket_name = 'test_bucket'
     test_bucket_path = self.create_tempdir().full_path
     test_ignore_bucket_path = self.create_tempdir().full_path
@@ -1194,10 +1214,7 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
         gcs_ignore_file_regexs=gcs_ignore_file_regexs,
         gcs_ignore_file_bucket=f'gs://{gcs_ignore_file_bucket}',
     ):
-      shutil.copyfile(
-          gen_test_util.test_file_path(filename),
-          os.path.join(test_bucket_path, filename),
-      )
+      shutil.copyfile(ndpi_path, os.path.join(test_bucket_path, filename))
       with gcs_mock.GcsMock({
           ingest_bucket_name: test_bucket_path,
           gcs_ignore_file_bucket: test_ignore_bucket_path,
@@ -1236,6 +1253,11 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
       self,
   ):
     filename = 'ndpi_test.ndpi'
+    ndpi_path = gen_test_util.test_file_path(filename)
+    if not os.path.exists(ndpi_path):
+      # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
+      # file is not available.
+      return
     ingest_bucket_name = 'test_bucket'
     test_bucket_path = self.create_tempdir().full_path
     with flagsaver.flagsaver(
@@ -1243,10 +1265,7 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
         gcs_ignore_file_regexs='',
         gcs_ignore_file_bucket='gs://invalid_bucket',
     ):
-      shutil.copyfile(
-          gen_test_util.test_file_path(filename),
-          os.path.join(test_bucket_path, filename),
-      )
+      shutil.copyfile(ndpi_path, os.path.join(test_bucket_path, filename))
       with gcs_mock.GcsMock({
           ingest_bucket_name: test_bucket_path,
       }):
@@ -1279,6 +1298,11 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
       self, _
   ):
     filename = 'ndpi_test.ndpi'
+    ndpi_path = gen_test_util.test_file_path(filename)
+    if not os.path.exists(ndpi_path):
+      # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
+      # file is not available.
+      return
     ingest_bucket_name = 'test_bucket'
     test_bucket_path = self.create_tempdir().full_path
     test_ignore_bucket_path = self.create_tempdir().full_path
@@ -1288,10 +1312,7 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
         gcs_ignore_file_regexs='',
         gcs_ignore_file_bucket=f'gs://{gcs_ignore_file_bucket}',
     ):
-      shutil.copyfile(
-          gen_test_util.test_file_path(filename),
-          os.path.join(test_bucket_path, filename),
-      )
+      shutil.copyfile(ndpi_path, os.path.join(test_bucket_path, filename))
       with gcs_mock.GcsMock({
           ingest_bucket_name: test_bucket_path,
           gcs_ignore_file_bucket: test_ignore_bucket_path,

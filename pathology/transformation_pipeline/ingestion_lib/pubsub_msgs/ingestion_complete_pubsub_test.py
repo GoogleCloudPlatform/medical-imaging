@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Tests for ingestion_complete_pubsub."""
+"""Tests for ingestion complete pubsub."""
 
 import json
 from unittest import mock
@@ -20,11 +20,11 @@ from unittest import mock
 from absl.testing import absltest
 from absl.testing import parameterized
 
-from ml.inference_pipeline.test_utils import inference_task_test_utils
-from shared_libs.ml.inference_pipeline import inference_pubsub_message
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib.dicom_util import dicom_test_util
-from transformation_pipeline.ingestion_lib.pubsub_msgs import ingestion_complete_pubsub
+from pathology.shared_libs.ml.inference_pipeline import inference_pubsub_message
+from pathology.transformation_pipeline.ingestion_lib import gen_test_util
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_test_util
+from pathology.transformation_pipeline.ingestion_lib.pubsub_msgs import ingestion_complete_pubsub
 
 
 _STUDY_UID = '1.2.3'
@@ -77,10 +77,6 @@ _DICOM_FILE_REF_TISSUE_MASK_PIXEL_SPACING = (
 _PIXEL_SPACING_0 = '0.5'
 _PIXEL_SPACING_1 = '0.25'
 
-_INFERENCE_PUBSUB_MESSAGE_CONFIG = (
-    inference_task_test_utils.create_inference_config()
-)
-
 
 class IngestionCompletePubsubTest(parameterized.TestCase):
   """Tests ingestion_complete_pubsub."""
@@ -91,33 +87,6 @@ class IngestionCompletePubsubTest(parameterized.TestCase):
       _ = ingestion_complete_pubsub.read_inference_pipeline_config_from_json(
           json_file.full_path
       )
-
-  def test_read_inference_pipeline_config_from_json_invalid_config(self):
-    with mock.patch.object(
-        inference_pubsub_message.ModelConfig,
-        '__post_init__',
-        autospec=True,
-        return_value=None,
-    ):
-      invalid_config = inference_task_test_utils.create_inference_config(
-          model_config=inference_task_test_utils.create_model_config(
-              gcs_path=''
-          )
-      )
-      json_file = self.create_tempfile(content=invalid_config.to_json())
-    with self.assertRaises(ValueError):
-      ingestion_complete_pubsub.read_inference_pipeline_config_from_json(
-          json_file.full_path
-      )
-
-  def test_read_inference_pipeline_config_from_json_succeeds(self):
-    json_file = self.create_tempfile(
-        content=_INFERENCE_PUBSUB_MESSAGE_CONFIG.to_json()
-    )
-    config = ingestion_complete_pubsub.read_inference_pipeline_config_from_json(
-        json_file.full_path
-    )
-    self.assertEqual(config, _INFERENCE_PUBSUB_MESSAGE_CONFIG)
 
   @parameterized.parameters(
       ('50', '100', '0.5'),
@@ -312,6 +281,13 @@ class IngestionCompletePubsubTest(parameterized.TestCase):
   def test_create_ingest_complete_pubsub_msg_for_inference_pipeline_no_dicoms(
       self, ingest_dicoms, duplicate_dicoms
   ):
+    inference_config = (
+        ingestion_complete_pubsub.read_inference_pipeline_config_from_json(
+            gen_test_util.test_file_path(
+                'pubsub_msgs', 'inference_pubsub_config.json'
+            )
+        )
+    )
     with mock.patch.object(
         inference_pubsub_message.InferencePubSubMessage,
         '__post_init__',
@@ -325,7 +301,7 @@ class IngestionCompletePubsubTest(parameterized.TestCase):
           duplicate_dicoms=duplicate_dicoms,
           pipeline_passthrough_params=_PIPELINE_PASSTHROUGH_PARAMS,
           create_legacy_pipeline_msg=False,
-          inference_config=_INFERENCE_PUBSUB_MESSAGE_CONFIG,
+          inference_config=inference_config,
       )
     with self.assertRaises(inference_pubsub_message.PubSubValidationError):
       inference_pubsub_message.InferencePubSubMessage.from_json(
@@ -358,6 +334,13 @@ class IngestionCompletePubsubTest(parameterized.TestCase):
   def test_create_ingest_complete_pubsub_msg_for_inference_pipeline(
       self, ingest_dicoms, duplicate_dicoms
   ):
+    inference_config = (
+        ingestion_complete_pubsub.read_inference_pipeline_config_from_json(
+            gen_test_util.test_file_path(
+                'pubsub_msgs', 'inference_pubsub_config.json'
+            )
+        )
+    )
     pubsub_msg = ingestion_complete_pubsub.create_ingest_complete_pubsub_msg(
         dicomstore_web_path=_DICOM_STORE_WEB_PATH,
         topic_name=_PUBSUB_TOPIC_NAME,
@@ -365,7 +348,7 @@ class IngestionCompletePubsubTest(parameterized.TestCase):
         duplicate_dicoms=duplicate_dicoms,
         pipeline_passthrough_params=_PIPELINE_PASSTHROUGH_PARAMS,
         create_legacy_pipeline_msg=False,
-        inference_config=_INFERENCE_PUBSUB_MESSAGE_CONFIG,
+        inference_config=inference_config,
     )
 
     self.assertEqual(pubsub_msg.topic_name, _PUBSUB_TOPIC_NAME)

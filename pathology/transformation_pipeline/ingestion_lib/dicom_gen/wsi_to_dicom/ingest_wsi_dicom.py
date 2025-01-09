@@ -13,35 +13,38 @@
 # limitations under the License.
 # ==============================================================================
 """Converts WSI DICOM image to DICOM Pyramid."""
+
 import dataclasses
 import os
 import shutil
 import tempfile
+import typing
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 import zipfile
 
 import pydicom
 
-from shared_libs.logging_lib import cloud_logging_client
-from transformation_pipeline import ingest_flags
-from transformation_pipeline.ingestion_lib import hash_util
-from transformation_pipeline.ingestion_lib import ingest_const
-from transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_file_ref
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_json_util
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_private_tag_generator
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_schema_util
-from transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ancillary_image_extractor
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import decode_slideid
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_base
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingested_dicom_file_ref
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import validate_ingested_dicom
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import wsi_pyramid_gen_config
-from transformation_pipeline.ingestion_lib.dicom_util import dicom_standard
-from transformation_pipeline.ingestion_lib.dicom_util import dicom_standard_util
+from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.shared_libs.pydicom_version_util import pydicom_version_util
+from pathology.transformation_pipeline import ingest_flags
+from pathology.transformation_pipeline.ingestion_lib import hash_util
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_file_ref
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_json_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_private_tag_generator
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_schema_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen import dicom_store_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ancillary_image_extractor
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import decode_slideid
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingest_base
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import ingested_dicom_file_ref
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import metadata_storage_client
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import validate_ingested_dicom
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import wsi_pyramid_gen_config
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_standard
+from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_standard_util
 
 
 _VL_WHOLE_SLIDE_MICROSCOPY_IOD_MODULES_TO_COPY_FROM_PRIMARY_TO_RESAMPLED = {
@@ -615,7 +618,7 @@ def _add_metadata_to_generated_dicom_files(
       )
       dicom_util.add_missing_type2_dicom_metadata(dcm_file)
       dicom_util.if_missing_create_encapsulated_frame_offset_table(dcm_file)
-      dcm_file.save_as(dicom_path, write_like_original=True)
+      dcm_file.save_as(dicom_path)
       dicom_path_list.append(dicom_path)
     except pydicom.errors.InvalidDicomError as exp:
       cloud_logging_client.error(
@@ -643,7 +646,7 @@ def _common_init_for_externally_generated_dicom_instance(
     dcm_file.file_meta.TransferSyntaxUID = (
         ingest_const.DicomImageTransferSyntax.EXPLICIT_VR_LITTLE_ENDIAN
     )
-  dcm_file.is_implicit_VR = False
+  pydicom_version_util.set_little_endian_explicit_vr(dcm_file)
   dcm_file.InstanceNumber = instance_number_util.get_instance_number(dcm_file)
   dicom_private_tag_generator.DicomPrivateTagGenerator.add_dicom_private_tags(
       private_tags, dcm_file
@@ -698,7 +701,7 @@ def _add_metadata_to_ingested_wsi_dicom(
       dicom_util.init_undefined_wsi_imaging_type1_tags(dcm_file)
       dicom_util.add_missing_type2_dicom_metadata(dcm_file)
       if highest_magnification_image is None:
-        dcm_file.save_as(wsi_ref.source, write_like_original=True)
+        dcm_file.save_as(wsi_ref.source)
         dicom_path_list.append(wsi_ref.source)
         continue
       # Save image using file name that identifies image downsampling.
@@ -720,7 +723,7 @@ def _add_metadata_to_ingested_wsi_dicom(
             ),
             {'tested_dicom_instance': wsi_ref.dict()},
         )
-        dcm_file.save_as(wsi_ref.source, write_like_original=True)
+        dcm_file.save_as(wsi_ref.source)
         dicom_path_list.append(wsi_ref.source)
         continue
       if not wsi_ref.imaged_volume_width or not wsi_ref.imaged_volume_height:
@@ -731,7 +734,7 @@ def _add_metadata_to_ingested_wsi_dicom(
             ),
             {'tested_dicom_instance': wsi_ref.dict()},
         )
-        dcm_file.save_as(wsi_ref.source, write_like_original=True)
+        dcm_file.save_as(wsi_ref.source)
         dicom_path_list.append(wsi_ref.source)
         continue
       try:
@@ -752,13 +755,13 @@ def _add_metadata_to_ingested_wsi_dicom(
             },
             exp,
         )
-        dcm_file.save_as(wsi_ref.source, write_like_original=True)
+        dcm_file.save_as(wsi_ref.source)
         dicom_path_list.append(wsi_ref.source)
         continue
       downsample = max(1, min(ds_width, ds_height))
       downsample_name = f'downsample-{downsample}-{base_name}'
       file_path = os.path.join(dir_name, downsample_name)
-      dcm_file.save_as(file_path, write_like_original=True)
+      dcm_file.save_as(file_path)
       cloud_logging_client.debug(
           'Re-naming ingested DICOM to identify instance downsampling.',
           {
@@ -775,6 +778,32 @@ def _add_metadata_to_ingested_wsi_dicom(
       )
       raise
   return dicom_path_list
+
+
+def _correct_dicom_image_type(dicom_file_path: str) -> None:
+  """OpenSlide requires DICOM Image Type to end in NONE, correct if missing."""
+  with pydicom.dcmread(
+      dicom_file_path, specific_tags=['ImageType']
+  ) as dcm_file:
+    try:
+      image_type = dcm_file.ImageType
+    except AttributeError as exp:
+      cloud_logging_client.error('DICOM instance missing ImageType tag.', exp)
+      return
+  if len(image_type) != 3:
+    return
+  if image_type[0] not in ('ORIGINAL', 'DERIVED'):
+    return
+  if image_type[1] not in ('PRIMARY'):
+    return
+  if image_type[2] not in ('VOLUME', 'LABEL', 'OVERVIEW', 'THUMBNAIL'):
+    return
+  with pydicom.dcmread(dicom_file_path) as dcm_file:
+    cloud_logging_client.info(
+        'Appending None to DICOM ImageType for OpenSlide.'
+    )
+    dcm_file.ImageType.append('NONE')
+    dcm_file.save_as(dicom_file_path)
 
 
 class IngestWsiDicom(ingest_base.IngestBase):
@@ -933,7 +962,7 @@ class IngestWsiDicom(ingest_base.IngestBase):
               dcm_file, private_tags, instance_number_util, metadata
           )
           dicom_util.add_missing_type2_dicom_metadata(dcm_file)
-          dcm_file.save_as(dicom_path, write_like_original=True)
+          dcm_file.save_as(dicom_path)
           dicom_path_list.append(dicom_path)
       except pydicom.errors.InvalidDicomError as exp:
         cloud_logging_client.error(
@@ -994,7 +1023,9 @@ class IngestWsiDicom(ingest_base.IngestBase):
       ValueError: Slide ID is undefined.
     """
     pyramid_level_config = None
-    dicom_file_info = self._dicom_file_info
+    dicom_file_info = typing.cast(
+        validate_ingested_dicom.DicomFileInfo, self._dicom_file_info
+    )
     if self.slide_id is None:
       raise ValueError('Slideid is not set.')
     try:
@@ -1033,7 +1064,7 @@ class IngestWsiDicom(ingest_base.IngestBase):
         pyramid_level_config = self.get_downsamples_to_generate(
             pixel_spacing, self._is_oof_ingestion_enabled
         )
-
+        _correct_dicom_image_type(dicom_file_info.original_image.source)
         dicom_gen.generated_dicom_files = self.convert_wsi_to_dicom(
             dicom_file_info.original_image.source,
             pyramid_level_config,

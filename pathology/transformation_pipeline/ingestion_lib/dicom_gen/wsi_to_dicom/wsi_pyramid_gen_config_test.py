@@ -21,8 +21,8 @@ from absl.testing import flagsaver
 from absl.testing import parameterized
 import pydicom
 
-from transformation_pipeline.ingestion_lib import gen_test_util
-from transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import wsi_pyramid_gen_config
+from pathology.transformation_pipeline.ingestion_lib import gen_test_util
+from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import wsi_pyramid_gen_config
 
 
 _DOWNSAMPLE_TEST_CASES = [

@@ -13,21 +13,21 @@
 # limitations under the License.
 #
 # ==============================================================================
-"""Tests for logs_lib."""
+"""Tests for logs lib."""
 
 import dataclasses
 import datetime
+from unittest import mock
 
 from absl.testing import absltest
 from absl.testing import parameterized
-import mock
 
-import ilm_config
-import ilm_types
-from ilm_lib import dicom_store_lib
-from ilm_lib import logs_lib
-from ilm_lib import pipeline_util
-from test_utils import test_const
+from ilm import ilm_config
+from ilm import ilm_types
+from ilm.ilm_lib import dicom_store_lib
+from ilm.ilm_lib import logs_lib
+from ilm.ilm_lib import pipeline_util
+from ilm.test_utils import test_const
 
 
 _RETRIEVE_INSTANCE_REQUEST_JSON = (
