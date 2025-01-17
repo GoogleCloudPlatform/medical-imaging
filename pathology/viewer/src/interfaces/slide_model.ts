@@ -19,7 +19,6 @@ import {filter, map} from 'rxjs/operators';
 import { Visibility } from './visibility';
 import { ChannelConfig, ChannelConfigEntry, getDefaultChannelConfig } from './channel_config';
 import { ImageRectangle,ImageVector } from './image_overlay_geometry';
-import { ImageOverlay } from './image_overlay';
 import {SlideDescriptor, SlideExtraMetadata, SlideInfo, SlideMetadata} from './slide_descriptor';
 
 const defaultColorMixes =
@@ -42,7 +41,6 @@ export class SlideModel {
   initialized$ = new BehaviorSubject(false);
   slideMetadata!: SlideMetadata;
   slideExtraMetadata?: SlideExtraMetadata;
-  imageOverlays?: ImageOverlay[];
   channelConfig!: ChannelConfig;
 
   private readonly forceUpdateSubject = new BehaviorSubject(void 0);
