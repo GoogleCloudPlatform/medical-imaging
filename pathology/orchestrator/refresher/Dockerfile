@@ -75,8 +75,7 @@ ENV PYTHONPATH="${PYTHONPATH}:/"
 # Run unit tests on container.
 RUN set -e && \
     python3 -m unittest discover -p "*_test.py" -s "/pathology/orchestrator" -t / && \
-    set +e && \
-    rm -rf /tmp
+    set +e
 
 # Set container to run as non-root user.
 # NonRootUser configured in dpas-debian-python-base image.
