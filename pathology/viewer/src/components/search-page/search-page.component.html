@@ -1,0 +1,57 @@
+<!--
+ Copyright 2024 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<div class="search-page">
+    <div class="header" *ngIf="!searchText">
+        <div class="header-logo" [routerLink]="['/']">
+            <img src="../../favicon.ico" alt="Logo" />
+            <span> Pathology Image Library </span>
+        </div>
+    </div>
+    <div class="search-container">
+        <mat-form-field appearance='outline' color="primary">
+            <mat-icon matPrefix>search</mat-icon>
+            <mat-label *ngIf="enableFhirSearch">Search keyword, patient ID, or case ID</mat-label>
+            <mat-label *ngIf="!enableFhirSearch">Search patient ID, or case ID</mat-label>
+            <input matInput [class.force-upper]="forceUpperCase" [formControl]="searchText" (keyup.enter)="search()"
+                autocomplete="off" />
+        </mat-form-field>
+        <button mat-flat-button color="primary" (click)="search()">Search</button>
+        <div class="search-tip-section" *ngIf="enableFhirSearchTooltip">
+            <div class="search-tip-title">Search tips:</div>
+            <ul class="search-tip-info">
+                <li>
+                    Typing more than one FHIR keyword searches for an exact match (e.g. Prostatic
+                    Adenocarcinoma)
+                </li>
+                <li>Use "|" for OR searches (e.g. Keratosis | Biopsy)</li>
+                <li>Use "-" to negate words (e.g. -Acute)</li>
+            </ul>
+        </div>
+    </div>
+
+    <search-results emptyMessage="No results found, check your search and try again" [allowDownloading]="true"
+        [allowSelecting]="searchText.value !== ''" [allowSorting]="diagnosticReports.length !== 0"
+        [cases]="(searchService.cases$ | async) || []" [casesByCaseId]="(searchService.casesByCaseId$ | async) || undefined"
+        [diagnosticReports]="diagnosticReports" [loading]="(searchService.loading$ | async) || false"
+        [loadingText]="(searchService.loadingText$ | async) || ''"
+        [loadingMore]="(searchService.loadingMore$ | async) || false"
+        [nextPageToken]="(searchService.nextDiagnosticReportLink$ | async) || ''" [patient]="patient"
+        [searchText]="searchText.value" [showText]="diagnosticReports.length !== 0"
+        [totalResults]="(searchService.totalResults$ | async) || 0" (loadMore)="loadMore($event)"
+        (searchSortBy)="searchSortBy($event)" [showEmptyMessage]="searchText.value !== ''">
+    </search-results>
+</div>

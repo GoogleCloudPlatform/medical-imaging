@@ -1,0 +1,328 @@
+/**
+ * Copyright 2024 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+$case-title-color: #5f6368;
+$cohort-table-bg: #fafafa;
+$cohort-table-header-bg: #e8eaed;
+$row-selected-section-bg: #f5f5f5;
+$search-section-color: #444746;
+$search-section-bg: #eef3fa;
+$selected-row-bg: #d3e3fd;
+$slide-thumbnail-bg: #d9d9d9;
+$slide-thumbnail-color: #7f7f7f;
+$view-only-chip-bg: #aecbfa;
+$warning-color: #f44336;
+
+.case-checkbox-button {
+  color: $case-title-color;
+}
+
+.case-title {
+  color: $case-title-color;
+  font-size: 1.1em;
+}
+
+.cases-actions {
+  display: grid;
+  grid-template-columns: max-content max-content max-content max-content;
+  place-content: end;
+  grid-column-gap: 0.5em;
+  padding-bottom: 0.5em;
+}
+
+.cases-refresh-and-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-column-gap: 1em;
+  padding: 0.5em 0 0;
+}
+
+.cohort-cases-section {
+  display: grid;
+  position: relative;
+  height: 100%;
+  align-content: start;
+}
+
+.cohort-page {
+  display: grid;
+  grid-template-rows: min-content min-content 1fr;
+  height: 95%;
+  padding: 1em 0em 1em 1em;
+}
+
+.cohort-row-name-description {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 30em;
+}
+
+.cohort-search-actions-section {
+  display: grid;
+  grid-template-columns: min-content 1fr;
+  grid-column-gap: 1em;
+
+  .search-section {
+    padding: 1em 0 0;
+    width: 25em;
+
+    ::ng-deep {
+      .mat-mdc-floating-label {
+        color: $search-section-color;
+      }
+
+      .mat-mdc-form-field-input-control {
+        caret-color: $search-section-color;
+      }
+
+      .mat-mdc-text-field-wrapper {
+        width: 100%;
+        border: 1px solid transparent;
+        border-radius: 2em;
+        background: $search-section-bg;
+      }
+
+      div[matformfieldlineripple] {
+        display: none;
+      }
+    }
+
+    .mat-mdc-form-field {
+      width: 100%;
+    }
+  }
+
+  .actions-section {
+    display: grid;
+    grid-auto-columns: min-content;
+    grid-auto-flow: column;
+    grid-column-gap: 1em;
+    place-content: end;
+    padding: 1em 1em 1em 0em;
+  }
+}
+
+.cohorts-table {
+  background: $cohort-table-bg;
+
+  .mat-mdc-header-row {
+    background: $cohort-table-header-bg;
+  }
+}
+
+.cohorts-table-empty {
+  display: grid;
+  align-content: center;
+}
+
+.cohorts-table .cohort-row {
+  &:hover {
+    background: $selected-row-bg;
+  }
+}
+
+.cohort-row-selected {
+  background: $selected-row-bg;
+}
+
+.header-section {
+  display: grid;
+  grid-row-gap: 0.5em;
+  grid-template-rows: min-content min-content;
+}
+
+.header-sub-title {
+  font-size: 1em;
+}
+
+.header-title {
+  font-size: 2em;
+}
+
+.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.inactive-link {
+  cursor: default;
+  pointer-events: none;
+  text-decoration: unset;
+}
+
+.mat-accordion {
+  overflow: auto;
+}
+
+.mat-divider {
+  margin: 1em 0 0;
+}
+
+.mat-column-tags {
+  width: 4em;
+}
+
+.mat-drawer-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  margin: 0 20px;
+  min-width: 400px;
+}
+
+.mat-drawer {
+  width: 70%;
+}
+
+.mat-drawer-container {
+  margin: 0;
+  border-radius: 10px;
+}
+
+.mat-menu-item-warning {
+  color: $warning-color;
+}
+
+.row-selected-section {
+  position: absolute;
+  background: $row-selected-section-bg;
+  height: 58.5em;
+  right: 0;
+  top: 3.5em;
+  width: 74vw;
+}
+
+.selected-cohort-info {
+  display: grid;
+  grid-template-rows: min-content min-content 1fr;
+  padding: 1em;
+  overflow: auto;
+}
+
+.selected-cohort-info-cases {
+  position: relative;
+  display: grid;
+  grid-template-rows: min-content 1fr;
+}
+
+.selected-pathology-cohort-cases-empty {
+  align-content: center;
+  display: grid;
+}
+
+.selected-cohort-info-loading {
+  align-content: center;
+  display: grid;
+}
+
+.selected-cohort-info-empty {
+  display: grid;
+  place-content: center;
+}
+
+.selected-cohort-info-section {
+  align-items: baseline;
+  display: grid;
+  grid-column-gap: 1em;
+  grid-template-columns: min-content 1fr min-content min-content;
+}
+
+.selected-cohort-info-title {
+  font-size: 1.5em;
+}
+
+.selected-cohort-info-actions {
+  display: grid;
+  grid-column-gap: 0.5em;
+  grid-template-columns: max-content max-content max-content;
+}
+
+.selected-cohort-info-description {
+  display: grid;
+  grid-column: 2/4;
+  grid-row: 2;
+}
+
+.slides-accordion-content {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1em;
+}
+
+.quickview-button {
+  bottom: 0.5em;
+  position: absolute;
+  right: 0.2em;
+
+  &:hover {
+    transform: scale(1.2);
+  }
+}
+
+.quickview-dialog-content {
+  height: 60vh;
+  position: relative;
+  overflow: hidden;
+  width: 70vw;
+}
+
+.quickview-dialog-close-button {
+  position: absolute;
+  right: 0.2em;
+  top: 0.2em;
+  z-index: 2;
+}
+
+.quickview-dialog-open-full-image-button {
+  bottom: 0.2em;
+  position: absolute;
+  right: 0.2em;
+  z-index: 2;
+}
+
+.slide-thumbnail {
+  align-content: center;
+  aspect-ratio: 3/2;
+  background: $slide-thumbnail-bg;
+  color: $slide-thumbnail-color;
+  display: flex;
+  justify-items: center;
+  width: 20em;
+  position: relative;
+}
+
+.table-section {
+  max-height: 75vh;
+  overflow: auto;
+  position: relative;
+}
+
+.table-container {
+  flex: 1;
+  min-height: 100px;
+  overflow: auto;
+}
+
+.view-only-chip {
+  align-items: center;
+  background-color: $view-only-chip-bg;
+  border-radius: 1em;
+  display: grid;
+  grid-column-gap: 0.2em;
+  grid-template-columns: min-content max-content;
+  padding: 0.4em;
+}

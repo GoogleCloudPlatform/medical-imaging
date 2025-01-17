@@ -1,0 +1,99 @@
+/**
+ * Copyright 2024 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+@import '../../styles';
+
+$primary_blue: #d3e3fd;
+$MATERIAL_GRAY_700: gray;
+
+.container {
+  align-content: center;
+  background: #f5f5f5;
+  color: $MATERIAL_GRAY_700;
+  display: grid;
+  grid-template-columns: 250px 1fr;
+}
+
+.left {
+  align-items: center;
+  display: grid;
+  font-size: 1em;
+  grid-column-gap: 0.4em;
+  grid-template-columns: min-content 1fr;
+  padding: 0 0.4em;
+  margin: 0.2em 0;
+}
+
+.right {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  justify-content: space-between;
+}
+
+.cases-navigator {
+  display: grid;
+  grid-template-columns: min-content max-content min-content;
+}
+
+.breadcrumbs {
+  align-items: center;
+  background: $primary_blue;
+  display: flex;
+  padding: 0 1em 0 0;
+}
+
+.crumb {
+  align-items: center;
+  display: grid;
+  grid-template-columns: min-content max-content;
+}
+
+.crumb-info {
+  align-items: center;
+  display: grid;
+  grid-template-columns: min-content max-content;
+}
+
+.cases-and-search {
+  align-content: center;
+  display: grid;
+  grid-template-columns: min-content min-content;
+  grid-column-gap: 1em;
+  padding: 0 1em;
+}
+
+.clickable-text {
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.ellipsis {
+  display: inline-block;
+  line-height: 1;
+  max-width: 250px;
+  max-height: 2em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.logo {
+  cursor: pointer;
+}
+
+.logo-img {
+  height: auto;
+  width: auto;
+}

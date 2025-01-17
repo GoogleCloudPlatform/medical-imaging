@@ -1,0 +1,277 @@
+/**
+ * Copyright 2024 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+$CODE_BACKGROUND_COLOR: rgba(0, 0, 0, 0.04);
+$light_blue: #d3e3fd;
+$light_gray: #5f6368;
+
+::ng-deep .label-thumbnail .thumbnail-image {
+  object-fit: contain;
+}
+
+.slides-expansion-panel {
+  max-width: 80vw;
+  transition: max-width 225ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.slides-expansion-panel-collapsed {
+  max-width: 20ch;
+}
+
+.image-viewer-side-nav-menu {
+  color: $light_gray;
+  .image-viewer-side-nav-menu-header {
+    height: 3em;
+    padding: 0.3em 0.7em 0em 0.2em;
+    display: grid;
+  }
+}
+
+::ng-deep .image-viewer-side-nav-menu .mat-expansion-panel-body {
+  padding: 0;
+  color: $light_gray;
+}
+
+::ng-deep .image-viewer-side-nav .mat-expansion-panel-body {
+  padding: 0 0.2em 1em 0.7em;
+  color: $light_gray;
+}
+
+.image-viewer-side-widgets {
+  overflow: auto;
+  overflow-y: scroll;
+}
+
+.image-viewer-side-nav {
+  height: 80vh;
+  background: white;
+  display: grid;
+  grid-template-rows: 1fr min-content min-content;
+  mat-expansion-panel-header {
+    font-size: 1.3em;
+    font-weight: bold;
+    padding: 0em 0 0 0.5em;
+    color: $light_gray;
+  }
+}
+
+.slide-details-header {
+  display: grid;
+  grid-template-columns: 1fr min-content;
+  align-items: center;
+  width: 100%;
+}
+
+.slide-details-header-title {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+
+  .title-label {
+    align-items: center;
+    display: grid;
+    grid-column-gap: 1em;
+    grid-template-columns: min-content max-content;
+  }
+}
+
+.thumbnails {
+  display: grid;
+  grid-auto-flow: column;
+  grid-gap: 1em;
+  overflow-x: scroll;
+  padding: 0.2em;
+}
+
+.thumbnails-progress {
+  display: grid;
+  row-gap: 0.2em;
+}
+
+.selected-slide-cohort-actions {
+  display: grid;
+  grid-template-columns: max-content max-content max-content;
+}
+
+.thumbnail {
+  border-radius: 8px;
+  display: grid;
+  height: 8em;
+  outline: 1px solid #1976d2;
+  overflow: hidden;
+  position: relative;
+  width: 13em;
+
+  &:hover {
+    outline: 3px solid #1976d2;
+    transform: scale(1.01);
+  }
+
+  .thumbnail-image {
+    width: inherit;
+    height: inherit;
+  }
+}
+
+.viewer-actions-header {
+  column-gap: 0.5em;
+  display: grid;
+  grid-template-columns: min-content 1fr;
+  justify-content: space-between;
+  width: 100%;
+
+  .viewer-actions {
+    display: flex;
+    grid-gap: 0.5em;
+    justify-content: end;
+  }
+
+  .viewer-action-button {
+    &:hover {
+      background: $light_blue;
+    }
+  }
+  .viewer-action-selected {
+    background: $light_blue;
+  }
+}
+
+.mat-expansion-panel-spacing {
+  border-radius: 0;
+  margin: 0;
+}
+
+.quickview-button {
+  bottom: 0.5em;
+  position: absolute;
+  right: 0.2em;
+
+  &:hover {
+    transform: scale(1.2);
+  }
+}
+
+.quickview-checkbox {
+  bottom: 1em;
+  right: 0.2em;
+  position: absolute;
+  z-index: 2;
+}
+
+.quickview-dialog-content {
+  height: 60vh;
+  position: relative;
+  overflow: hidden;
+  width: 70vw;
+}
+
+.thumbnails-section {
+  display: grid;
+  grid-column-gap: 1em;
+  grid-template-columns: 1fr min-content min-content;
+}
+
+.thumbnail-actions {
+  display: grid;
+  grid-template-columns: max-content min-content;
+  justify-content: space-between;
+}
+
+.thumbnail-select-actions {
+  display: grid;
+  grid-row-gap: 0.5em;
+  grid-template-columns: min-content;
+  grid-template-rows: min-content;
+  color: #5f6368;
+}
+
+.thumbnail-selected-action {
+  background: #d3e3fd;
+}
+
+.quickview-dialog-open-full-image-button {
+  bottom: 0.2em;
+  position: absolute;
+  right: 0.2em;
+  z-index: 2;
+}
+
+.selected-image {
+  outline: 0.2em dashed #f44336;
+}
+
+.layer-info {
+  align-items: center;
+  display: grid;
+  grid-column-gap: 0.5em;
+  grid-template-columns: 1fr min-content;
+}
+
+.layer-info-actions {
+  display: flex;
+  grid-column-gap: 0.5em;
+}
+
+.de-Identified-header {
+  align-items: center;
+  display: grid;
+  grid-template-columns: min-content max-content;
+  grid-column-gap: 0.2em;
+}
+
+::ng-deep {
+  .slide-data-dialog-panel {
+    max-height: 80vh;
+  }
+}
+
+.slide-not-in-cohort:not(.selected-image) {
+  outline-color: #bcbcbc;
+}
+
+.slide-divider {
+  width: 100%;
+}
+
+.action-divider {
+  height: 100%;
+}
+
+.splitview-index {
+  align-content: center;
+  background: #d3e3fd;
+  border: 1px solid #1976d2;
+  cursor: pointer;
+  color: #5f6368;
+  display: grid;
+  height: 1.2em;
+  justify-items: center;
+  padding: 0.1em 0.5em;
+  position: absolute;
+  right: 1em;
+  top: 0.5em;
+  width: max-content;
+
+  &:hover {
+    transform: scale(1.2);
+  }
+}
+
+.not-in-cohort-warning {
+  width: 6em;
+}

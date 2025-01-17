@@ -1,0 +1,331 @@
+/**
+ * Copyright 2024 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+$thumbnail_image_height: 10em;
+$light_gray: #5f6368;
+
+.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+::ng-deep .highlighted-text {
+  background: #d2e3fc;
+}
+
+.cases-list {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+.cases-list-padding {
+  padding: 1em 0 0.5em;
+}
+
+.case-info {
+  display: grid;
+  grid-gap: 1em;
+
+  .case-info-basic-details {
+    display: grid;
+    width: 90%;
+  }
+
+  .case-info-details-and-images {
+    display: grid;
+    grid-row-gap: 1em;
+  }
+}
+
+.case-slide {
+  align-items: center;
+  align-self: center;
+  aspect-ratio: 1/1;
+  background: #ddd;
+  border-radius: 8px;
+  color: #bdc1c6;
+  display: grid;
+  font-size: 3em;
+  justify-content: center;
+}
+
+.case-slide-patient {
+  border-radius: 50px;
+}
+
+.case-title {
+  color: $light_gray;
+  font-size: 1.1em;
+  font-weight: bold;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.diagnostic-report {
+  border: 1px solid gray;
+  border-radius: 8px;
+  color: gray;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-column-gap: 0.5em;
+  padding: 1em;
+  position: relative;
+}
+
+.diagnostic-report-date {
+  font-style: italic;
+}
+
+.diagnostic-report-show-text {
+  grid-template-columns: 1fr;
+}
+
+.diagnostic-reports {
+  display: grid;
+  grid-gap: 1em;
+  grid-template-columns: 1fr;
+  padding-bottom: 4em;
+}
+
+.diagnostic-report-select-button {
+  border: 1px solid #999;
+  background: #fafafa;
+  border-radius: 100%;
+  color: #999;
+  cursor: pointer;
+  padding-top: 6px;
+  position: absolute;
+  right: 1em;
+  top: 1em;
+  transition: background-color 0.08s ease-out;
+
+  &:hover {
+    color: #777;
+  }
+
+  &.selected {
+    background-color: #4285f4;
+    color: #fafafa;
+    &:hover {
+      background-color: #1a73e8;
+    }
+  }
+}
+
+.disable-selecting .select-button {
+  pointer-events: none;
+}
+
+.empty-message {
+  justify-self: center;
+  color: red;
+}
+
+.grid-one-column {
+  align-items: end;
+  grid-template-columns: 1fr;
+}
+
+.grid-two-columns {
+  grid-template-columns: 1fr 1fr;
+}
+
+.info {
+  display: grid;
+  padding: 1em 0;
+}
+
+.info-sticky {
+  align-self: start;
+  background: #fafafa;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.load-more {
+  justify-self: center;
+  width: max-content;
+}
+
+.load-more-section {
+  display: grid;
+  justify-items: center;
+  overflow-anchor: none;
+}
+
+.loading-section {
+  display: grid;
+  grid-row-gap: 1em;
+  justify-items: center;
+  justify-self: center;
+}
+
+mat-selection-list {
+  display: grid;
+  grid-row-gap: 1em;
+}
+
+mat-list-option {
+  border: 1px solid #dadce0;
+  border-radius: 15px;
+}
+
+.search-info {
+  align-items: center;
+  display: grid;
+  grid-template-columns: 1fr;
+  justify-content: space-between;
+}
+
+.search-actions {
+  display: flex;
+  justify-content: end;
+}
+
+.search-actions-sorting {
+  justify-content: space-between;
+}
+
+.select-actions {
+  display: flex;
+  column-gap: 1fr;
+  grid-column-gap: 0.5em;
+  grid-template-columns: repeat(auto-fill, min-content);
+  justify-content: end;
+}
+
+.select-button {
+  border-radius: 15px;
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  color: white;
+  padding: 0 2px;
+  position: absolute;
+  right: 19px;
+  top: 18px;
+  transition: background-color 0.08s ease-out;
+
+  &.selected {
+    background-color: #4285f4;
+    border: 1px solid white;
+
+    &:hover {
+      background-color: #1a73e8;
+    }
+  }
+}
+
+.inactive-link {
+  cursor: default;
+  pointer-events: none;
+  text-decoration: unset;
+}
+
+.slide-image {
+  height: 1em;
+  font-size: 1em;
+  width: 1em;
+}
+
+.patient-info {
+  margin-top: 2em;
+}
+
+.search-result-count {
+  color: $light_gray;
+  font-weight: bold;
+}
+
+.snippet {
+  height: 4.5em; /* height is 2x line-height, so two lines will display */
+  line-height: 1.5em;
+  overflow: hidden; /* prevents extra lines from being visible */
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.sort-by {
+  align-items: center;
+  color: #1976d2;
+  display: grid;
+  grid-column-gap: 0.2em;
+  grid-template-columns: max-content 6.2em;
+
+  ::ng-deep {
+    .mat-button {
+      color: #1976d2;
+    }
+    .mat-mdc-select-value,
+    .mat-mdc-select-arrow {
+      color: inherit;
+    }
+  }
+}
+
+.thumbnail-images {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-column-gap: 1em;
+  overflow: auto;
+  padding-bottom: 0.5em;
+
+  .thumbnail-image {
+    border-radius: 8px;
+    height: $thumbnail_image_height;
+    overflow: hidden;
+    outline: 1px solid #dadce0;
+  }
+
+  .thumbnail-image-empty {
+    display: grid;
+    place-content: center center;
+    outline: 1px solid #dadce0;
+    border-radius: 8px;
+    height: $thumbnail_image_height;
+    background: lightgrey;
+
+    .empty-icon {
+      transform: scale(2);
+    }
+  }
+
+  .thumbnail-images-more {
+    border-radius: 8px;
+    outline: 1px solid #dadce0;
+    display: grid;
+    place-content: center center;
+    height: 100%;
+    padding: 0;
+    font-size: 1.3em;
+    color: #5f6368;
+    background: #d3e3fd;
+    font-weight: bold;
+  }
+}
+
+.label-header {
+  font-weight: bold;
+  font-size: 1em;
+}

@@ -1,0 +1,137 @@
+/**
+ * Copyright 2024 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+:host {
+  height: 100%;
+  display: block;
+  overflow-y: scroll;
+}
+
+.pad {
+  padding: 8px;
+}
+
+.container {
+  padding: 1em;
+  position: relative;
+}
+
+.textInput {
+  width: 100%;
+}
+
+.error {
+  color: red;
+}
+
+.flexColumn {
+  display: flex;
+  flex-direction: column;
+}
+
+td,
+th {
+  padding: 1px 10px;
+}
+
+thead td {
+  font-weight: bold;
+}
+
+.zoom-level-section-data {
+  display: grid;
+  overflow: scroll;
+}
+
+::ng-deep .call-table {
+  table-layout: fixed;
+  div {
+    width: 25px;
+    height: 18px;
+    line-height: 19px;
+    overflow: hidden;
+    text-align: center;
+    font-size: 10px;
+    background-color: lightblue;
+  }
+
+  .called {
+    background-color: yellow;
+  }
+
+  .complete {
+    background-color: lightgreen;
+  }
+}
+
+.series-info {
+  display: grid;
+}
+
+.latency-options {
+  display: grid;
+  grid-row-gap: 1em;
+
+  button {
+    width: max-content;
+  }
+}
+
+.latency-benchmark-section {
+  display: grid;
+  gap: 0.5em;
+
+  button {
+    width: max-content;
+  }
+
+  .latency-results {
+    font-size: 1.2em;
+  }
+  .benchmark-result {
+    font-weight: bold;
+  }
+}
+
+.series-option {
+  word-break: break-all;
+}
+
+.dialog-close-button {
+  position: absolute;
+  right: 0.3em;
+  top: 0.5em;
+  z-index: 2;
+}
+
+.slide-detail-section {
+  display: grid;
+  overflow: auto;
+  padding: 0;
+}
+
+.strike-through {
+  text-decoration: line-through;
+}
+
+.even-row-style {
+  background: lightgray;
+}
+
+.level-storage {
+  font-weight: bold;
+  font-size: 1.2em;
+}

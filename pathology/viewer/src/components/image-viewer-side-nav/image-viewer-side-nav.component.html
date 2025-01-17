@@ -1,0 +1,346 @@
+<!--
+ Copyright 2024 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<mat-expansion-panel class="image-viewer-side-nav-menu" hideToggle expanded>
+  <mat-expansion-panel-header class="image-viewer-side-nav-menu-header">
+    <div class="viewer-actions-header">
+      <button mat-icon-button class="viewer-menu-button" aria-label="Toggle viewer menu">
+        <mat-icon>menu</mat-icon>
+      </button>
+      <div class="viewer-actions">
+        <button mat-icon-button aria-label="Select" class="viewer-action-button"
+          (click)="$event.stopPropagation(); onSelectTool();"
+          [ngClass]="{'viewer-action-selected': selectedViewerAction === viewerMenuAction.SELECT}"
+          matTooltip="Select (S)">
+          <mat-icon class="google-symbols">arrow_selector_tool</mat-icon>
+        </button>
+        <div *ngIf="!isFlatImage" (click)="$event.stopPropagation();"
+          [matTooltip]="(!olMap || disableAnnotationTools) ? 'No read/write permissions to Dicom Annotation Store':''">
+          <button mat-icon-button aria-label="Measure" class="viewer-action-button"
+            [ngClass]="{'viewer-action-selected': selectedViewerAction === viewerMenuAction.MEASURE}"
+            (click)="$event.stopPropagation(); onMeasureTool()" [disabled]="!olMap || disableAnnotationTools  || loadingDicomAnnotations"
+            matTooltip="Measure (M)">
+            <mat-icon class="google-symbols">straighten</mat-icon>
+          </button>
+        </div>
+        <div *ngIf="enableAnnotationWritting" (click)="$event.stopPropagation();"
+          [matTooltip]="(!olMap || disableAnnotationTools) ? 'No read/write permissions to Dicom Annotation Store':''">
+          <button mat-icon-button aria-label="Draw (D)" class="viewer-action-button"
+            [ngClass]="{'viewer-action-selected': selectedViewerAction === viewerMenuAction.DRAW_POLYGON}"
+            (click)="$event.stopPropagation(); onDrawPolygonsTool(viewerMenuAction.DRAW_POLYGON)"
+            [disabled]="!olMap|| disableAnnotationTools || loadingDicomAnnotations" matTooltip="Draw (D)">
+            <mat-icon class="material-icons-outlined">draw</mat-icon>
+          </button>
+        </div>
+        <div *ngIf="enableAnnotationWritting" (click)="$event.stopPropagation();"
+          [matTooltip]="(!olMap || disableAnnotationTools) ? 'No read/write permissions to Dicom Annotation Store':''">
+          <button mat-icon-button aria-label="Rectangle (R)" class="viewer-action-button"
+            [ngClass]="{'viewer-action-selected': selectedViewerAction === viewerMenuAction.DRAW_BOX}"
+            (click)="$event.stopPropagation(); onDrawPolygonsTool(viewerMenuAction.DRAW_BOX)"
+            [disabled]="!olMap|| disableAnnotationTools || loadingDicomAnnotations" matTooltip="Rectangle (R)">
+            <mat-icon class="material-icons-outlined">square</mat-icon>
+          </button>
+        </div>
+        <div *ngIf="enableAnnotationWritting && enablePointTool"
+          (click)="$event.stopPropagation();"
+          [matTooltip]="(!olMap || disableAnnotationTools) ? 'No read/write permissions to Dicom Annotation Store':''">
+          <button mat-icon-button aria-label="Point (P)" class="viewer-action-button"
+            [ngClass]="{'viewer-action-selected': selectedViewerAction === viewerMenuAction.DRAW_POINT}"
+            (click)="$event.stopPropagation(); onDrawPolygonsTool(viewerMenuAction.DRAW_POINT)"
+            [disabled]="!olMap|| disableAnnotationTools || loadingDicomAnnotations" matTooltip="Point (P)">
+            <mat-icon class="material-icons">scatter_plot</mat-icon>
+          </button>
+        </div>
+      </div>
+    </div>
+  </mat-expansion-panel-header>
+  <div matExpansionPanelContent class="image-viewer-side-nav">
+    <mat-accordion class="image-viewer-side-widgets" multi>
+      <mat-expansion-panel hideToggle expanded>
+        <mat-expansion-panel-header>
+          <div class="slide-details-header">
+            <div class="slide-details-header-title">
+              <div> Slide Details </div>
+              <mat-icon class="material-icons-outlined">arrow_drop_down</mat-icon>
+            </div>
+            <button mat-icon-button aria-label="Slide details" matTooltip="View details"
+              (click)="$event.stopPropagation(); openSlideDetailsDialog();">
+              <mat-icon>info_outline</mat-icon>
+            </button>
+          </div>
+        </mat-expansion-panel-header>
+        <div>
+          <div class="de-Identified-header" *ngIf="selectedExtraMetaData?.deided">
+            <mat-icon matTooltip="De-Identified">security</mat-icon>
+            De-Identified
+          </div>
+          <div class="metadata-info">
+            <span class="label-header">Patient name: </span> <span>{{selectedExtraMetaData?.patientName}}</span>
+          </div>
+          <div class="metadata-info">
+            <span class="label-header">Patient ID: </span> <span>{{selectedExtraMetaData?.patientId}}</span>
+          </div>
+          <div class="metadata-info metadata-info-case-id">
+            <span class="label-header">Case ID: </span>
+            <mat-select class="metadata-info-case-id-select" [value]="selectedExtraMetaData?.caseId"
+              *ngIf="hasCaseIdInCohortCases" panelClass="metadata-info-case-id-panel">
+              @for (case of selectedPathologyCohortCases; track case.accessionNumber) {
+              <mat-option (click)="goToCase(case)" [value]="case?.accessionNumber">{{case.accessionNumber}}</mat-option>
+              }
+            </mat-select>
+            <span *ngIf="!hasCaseIdInCohortCases">{{selectedExtraMetaData?.caseId}}</span>
+          </div>
+          <div class="thumbnail label-image"
+            *ngIf="hasLabelOrOverviewImage && selectedSplitViewSlideDescriptor && selectedSlideInfo && olMap">
+            <ol-tile-viewer class="thumbnail-image label-thumbnail" [slideDescriptor]="selectedSplitViewSlideDescriptor"
+              [slideInfo]="selectedSlideInfo" [isLabelOrOverviewImage]="true">
+            </ol-tile-viewer>
+          </div>
+        </div>
+      </mat-expansion-panel>
+      <mat-expansion-panel *ngIf="enableAnnotations" hideToggle expanded class="annotators-expansion-panel">
+        <mat-expansion-panel-header>
+          <div class="slide-details-header-title">
+            <div> Annotators </div>
+            <mat-icon class="material-icons-outlined">arrow_drop_down</mat-icon>
+          </div>
+        </mat-expansion-panel-header>
+        <div class="layers">
+          <div class="annotators-list">
+            <div *ngIf="!hasAnnotationReadAccess && !loadingDicomAnnotations" class="annotators-list-empty">
+              "Permission required." <br />
+              Your current access level doesn't allow you to retrieve Dicom annotations.
+            </div>
+            <div *ngIf="hasAnnotationReadAccess && !annotationInstances.length" class="annotators-list-empty">
+              No annotators
+            </div>
+            <div *ngFor="let annotationInstance of annotationInstances;" class="annotator-info">
+              <button mat-icon-button color="primary"
+                [disabled]="annotationInstance.annotatorId===currentUser && selectedInstanceIds.has(annotationInstance.path.instanceUID??'') && selectedViewerAction !== viewerMenuAction.SELECT"
+                (click)="toggleAnnotationInstancesSelected(annotationInstance)">
+                <mat-icon>
+                  {{ selectedInstanceIds.has(annotationInstance.path.instanceUID ?? '') ? "check_box" :
+                  "check_box_outline_blank"}}
+                </mat-icon>
+              </button>
+              <div [matTooltip]="annotationInstance.annotatorId" class="annotator-id">
+                {{annotationInstance.annotatorId}}
+              </div>
+            </div>
+          </div>
+        </div>
+        <mat-expansion-panel hideToggle [expanded]=true (opened)="scrollAnnotationsIntoView()"
+          *ngIf="hasAnnotationReadAccess">
+          <mat-expansion-panel-header>
+            <div class="annotations-expand-header">
+              <div class="slide-details-header-title">
+                <div> Annotations </div>
+                <mat-icon class="material-icons-outlined">arrow_drop_down</mat-icon>
+                <button 
+                  mat-icon-button 
+                  aria-label="Download annotations"
+                  matTooltip="Download annotations"  
+                  class="annotation-download-button"
+                  (click)="$event.stopPropagation(); downloadAnnotations()">
+                  <mat-icon class="material-icons-outlined">download</mat-icon>
+                </button>
+              </div>
+              <div class="layer-info-actions">
+                <button *ngIf="drawLayer && sideNavDrawLayers.length" mat-icon-button aria-label="Toggle visibility"
+                  [ngClass]="{'annotations-header-scroll-bar-icon': sideNavDrawLayers.length > 4}"
+                  (click)="$event.stopPropagation(); toggleAllSideNavLayerOpacity()">
+                  <mat-icon *ngIf="toggleSideNavLayerStyleByLayer.size<sideNavDrawLayers.length"
+                    class="material-icons-outlined">visibility</mat-icon>
+                  <mat-icon *ngIf="toggleSideNavLayerStyleByLayer.size===sideNavDrawLayers.length"
+                    class="material-icons-outlined">visibility_off</mat-icon>
+                </button>
+              </div>
+            </div>
+          </mat-expansion-panel-header>
+          <div class="layers">
+
+            <div class="annotation-layers">
+              <div *ngIf="!sideNavDrawLayers.length">
+                No annotations
+              </div>
+              <div *ngFor="let layer of sideNavDrawLayers;let i = index">
+                <div class="annotation-layers-divider"
+                  *ngIf="i===0||sideNavDrawLayers[i-1].annotatorId!==sideNavDrawLayers[i].annotatorId">
+                  {{layer.annotatorId}}
+                </div>
+                <div class="annotation-layer-info"
+                  [ngClass]="{'annotation-layer-info-selected ': selectedAnnotations.has(layer.feature)}"
+                  (click)="sideNavSelectFeature(layer.feature)">
+                  <div>
+                    {{layer.names}}
+                  </div>
+                  <div class="layer-info-actions">
+                    <button mat-icon-button aria-label="Note" matTooltip="Note" *ngIf="layer.notes">
+                      <mat-icon class="google-symbols">news</mat-icon>
+                    </button>
+                    <div *ngIf="enableAnnotationWritting" [matTooltip]="'Only ' +layer.annotatorId+ ' can delete'"
+                      [matTooltipDisabled]="layer.annotatorId===currentUser" matTooltipPosition="right">
+                      <button mat-icon-button aria-label="Delete annotation" matTooltip="Delete"
+                        (click)="$event.stopPropagation(); deleteSingleAnnotation(layer)"
+                        [disabled]="layer.annotatorId!==currentUser">
+                        <mat-icon class="material-icons-outlined">delete</mat-icon>
+                      </button>
+                    </div>
+                    <button mat-icon-button aria-label="Toggle visibility" matTooltip="Visibility"
+                      (click)="toggleSideNavLayerOpacity(layer)">
+                      <mat-icon *ngIf="!this.toggleSideNavLayerStyleByLayer.has(layer.feature)"
+                        class="material-icons-outlined">visibility</mat-icon>
+                      <mat-icon *ngIf="this.toggleSideNavLayerStyleByLayer.has(layer.feature)"
+                        class="material-icons-outlined">visibility_off</mat-icon>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </mat-expansion-panel>
+      </mat-expansion-panel>
+
+    </mat-accordion>
+  </div>
+</mat-expansion-panel>
+
+<div #overlayTemplate>
+  <div class="annotation-info-overlay">
+    <form class="annotation-info-overlay-note-form" *ngIf="editModeSelectedAnnotationOverlay">
+      <div *ngIf="!disableLabelInput">
+        <div class="annotation-info-overlay-note-sub">Find or create a new label with a hashtag (#)</div>
+        <mat-form-field class="annotation-info-overlay-form-field">
+          <mat-label>Label</mat-label>
+          <mat-chip-grid #chipGrid aria-label="Label selection">
+            <mat-chip-row *ngFor="let label of labels" [style.background-color]="label.color"
+              (removed)="removeAnnotationLabel(label)">
+              {{label.name}}
+              <button matChipRemove type="button" [attr.aria-label]="'remove ' + label">
+                <mat-icon>cancel</mat-icon>
+              </button>
+            </mat-chip-row>
+          </mat-chip-grid>
+          <input placeholder="Label" #labelInput [formControl]="annotationLabelCtrl" [matChipInputFor]="chipGrid"
+            [matAutocomplete]="auto" [matChipInputSeparatorKeyCodes]="separatorKeysCodes"
+            (focus)="isOverlayTemplateFocused = true" (blur)="isOverlayTemplateFocused = false"
+            (matChipInputTokenEnd)="addLabel($event)" />
+          <mat-autocomplete class="label-autocomplete" #auto="matAutocomplete" (optionSelected)="selected($event)">
+            <mat-option *ngFor="let label of filteredLabels| async" [value]="label">
+              <div class="annotation-info-overlay-label-form-option">
+                <div class="annotation-info-overlay-label-form-option-label-color-preview"
+                  [style.background-color]="label.color">
+                </div>
+                <div>{{label.name}}
+                </div>
+
+              </div>
+            </mat-option>
+          </mat-autocomplete>
+        </mat-form-field>
+      </div>
+      <mat-form-field class="annotation-info-overlay-form-field" appearance="outline">
+        <mat-label>Notes (optional)</mat-label>
+        <textarea [formControl]="annotationNoteCtrl" matInput
+          placeholder="Leave a note about this annotation"></textarea>
+      </mat-form-field>
+    </form>
+    <div *ngIf="!editModeSelectedAnnotationOverlay" class="annotation-info-overlay-readonly">
+      <div>
+        {{annotationNoteCtrl.value}}
+      </div>
+      <div class="annotation-info-overlay-annotator-id">
+        {{selectedAnnotationKey?.annotatorId}}
+      </div>
+    </div>
+    <div class="annotation-info-overlay-metrics-and-actions">
+      <div class="annotation-info-overlay-metrics">
+        <div class="annotation-info-overlay-metric">
+          <div>
+            Area:
+          </div>
+          <div>
+            {{formatArea(selectedFeature?.getGeometry())}} mm<sup>2</sup>
+          </div>
+        </div>
+        <div class="annotation-info-overlay-metric">
+          <div>
+            Perimeter:
+          </div>
+          <div>
+            {{formatLength(selectedFeature?.getGeometry())}} mm
+          </div>
+        </div>
+      </div>
+      <div *ngIf="editModeSelectedAnnotationOverlay && selectedFeature" class='annotation-info-overlay-edit-actions'>
+        <button mat-stroked-button color="primary" type="button" class="annotation-info-overlay-action-button"
+          (click)="saveAnnotationNote(selectedFeature)">
+          <mat-icon class="material-icons-outlined">save</mat-icon>
+          Save note
+        </button>
+      </div>
+      <div *ngIf="!editModeSelectedAnnotationOverlay && (currentUser === selectedAnnotationKey?.annotatorId)"
+        class='annotation-info-overlay-actions'>
+        <button mat-icon-button aria-label="Edit note"
+          (click)="editModeSelectedAnnotationOverlay=!editModeSelectedAnnotationOverlay">
+          <mat-icon class="material-icons-outlined">edit</mat-icon>
+        </button>
+        <button mat-icon-button aria-label="Delete note" (click)="deleteSelectedAnnotation()">
+          <mat-icon class="material-icons-outlined">delete</mat-icon>
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+  <div #context_menu>
+    <div *ngIf="enableAnnotationWritting" class="context-menu" cdkMenu>
+      <button mat-stroked-button class="context-menu-item" cdkMenuItem type="button"
+        [disabled]="!selectedContextMenuFeatures.length || disableContextDelete" (click)="deleteSelectedAnnotation()">
+        <mat-icon class="google-symbols">delete</mat-icon>
+        Delete
+      </button>
+      <div class="context-menu-info">
+        <mat-divider></mat-divider>
+        If two overlapping shapes are selected
+      </div>
+      <button mat-button [disabled]="!selectedContextMenuFeatures.length||disableContextMenuAdoptShapes"
+        class="context-menu-item" cdkMenuItem type="button" (click)="adoptBorderAnnotations()">
+        <mat-icon class="material-icons-outlined">join_left</mat-icon>
+        Adopt shape border
+      </button>
+      <button mat-button [disabled]="!selectedContextMenuFeatures.length||disableContextMenuMergeShapes"
+        class="context-menu-item" cdkMenuItem type="button" (click)="mergeAnnotations()">
+        <mat-icon class="material-icons-outlined">join_full</mat-icon>
+        Unite/Merge
+      </button>
+
+    </div>
+  </div>
+
+  <ng-template #deleteAnnotationConfirmationDialogTemplate let-dialogRef="dialogRef" let-data>
+    <div mat-dialog-content>
+      Are you sure you want to delete these annotation?
+    </div>
+    <div mat-dialog-actions class="dialog-actions">
+      <button mat-stroked-button color="primary" data-qa="cancel-button" [mat-dialog-close]="false">
+        Cancel
+      </button>
+      <button mat-stroked-button color="warn" data-qa="cancel-button" [mat-dialog-close]="true">
+        Delete
+      </button>
+    </div>
+  </ng-template>

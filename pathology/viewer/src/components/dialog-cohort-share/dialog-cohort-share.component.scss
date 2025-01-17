@@ -1,0 +1,182 @@
+/**
+ * Copyright 2024 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+$primary-blue: #1973e8;
+$secondary-blue: #e8f0fe;
+$primary-grey: #696d70;
+$secondary-grey: #e8eaed;
+
+.add-emails-content {
+  display: grid;
+  grid-row-gap: 0;
+  grid-template-areas:
+    'input accessRole'
+    'description description';
+  grid-template-columns: 1fr 7em;
+}
+
+.cohort-users {
+  display: grid;
+  grid-auto-rows: 1fr;
+  grid-gap: 1em;
+  padding: 0em 1em;
+}
+
+.cohort-user-access-template {
+  align-items: center;
+  display: grid;
+  grid-gap: 2em;
+  grid-template-columns: 1fr 7em;
+}
+
+.discard-confirmation-actions {
+  justify-content: end;
+}
+
+.general-access-section {
+  padding-right: 1em;
+  padding-top: 1em;
+}
+
+.general-access-content {
+  align-items: center;
+  display: flex;
+  grid-gap: 1em;
+}
+
+.general-access-selector > .mat-option {
+  font-weight: bold;
+}
+
+.general-access-selector {
+  ::ng-deep {
+    .mat-mdc-select-trigger {
+      justify-content: start;
+    }
+  }
+}
+
+.general-access-open-select {
+  width: 6em;
+}
+
+.general-access-icon {
+  padding: 0.2em;
+  border-radius: 50%;
+}
+
+.domain-icon {
+  @extend .general-access-icon;
+  color: $primary-blue;
+  background: $secondary-blue;
+}
+
+.mat-h3 {
+  margin: 0;
+}
+
+.mat-mdc-dialog-title {
+  align-items: center;
+  display: grid;
+  grid-template-columns: 1fr min-content;
+  margin: 0;
+  padding: 1em 0.5em 0 1em;
+}
+
+.mat-dialog-add-emails-title {
+  grid-template-columns: min-content 1fr min-content;
+}
+
+.mat-mdc-dialog-content.mat-mdc-dialog-content {
+  align-items: baseline;
+  display: grid;
+  padding: 1em;
+}
+
+.mat-mdc-dialog-actions {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  justify-content: space-between;
+  padding: 1em;
+}
+
+.mat-form-field {
+  display: block;
+}
+
+.mat-mdc-standard-chip {
+  --mdc-chip-label-text-color: black;
+  --mdc-chip-disabled-label-text-color: black;
+  --mdc-chip-elevated-container-color: white;
+  --mdc-chip-elevated-disabled-container-color: white;
+  border: 1px solid grey;
+}
+
+mat-select {
+  flex: 1;
+
+  ::ng-deep {
+    .mat-mdc-select-value {
+      max-width: 100%;
+      width: auto;
+      padding-right: 8px;
+    }
+    .mat-mdc-select-trigger {
+      justify-content: end;
+    }
+  }
+}
+
+.lock-icon {
+  @extend .general-access-icon;
+  color: $primary-grey;
+  background: $secondary-grey;
+}
+
+.people-access-content {
+  margin-bottom: 1.5em;
+}
+
+.people-access-content > * {
+  padding-right: 1em;
+}
+
+.pending-changes-label {
+  color: $primary-grey;
+  font-size: 0.8em;
+  font-style: italic;
+}
+
+.save-section {
+  align-items: baseline;
+  display: grid;
+  grid-template-columns: max-content min-content;
+  grid-gap: 0.5em;
+}
+
+.sub-text {
+  color: $primary-grey;
+}
+
+.user-email {
+  font-weight: bold;
+  max-width: 20em;
+  word-break: break-all;
+}
+
+.user-role-owner {
+  justify-self: end;
+}

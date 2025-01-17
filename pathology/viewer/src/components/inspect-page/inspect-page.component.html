@@ -1,0 +1,146 @@
+<!--
+ Copyright 2024 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<div class="container">
+    <button *ngIf="dialogRef" mat-icon-button (click)="dialogRef.close()" cdkFocusInitial aria-label="Close slide data" class="dialog-close-button">
+      <mat-icon>close</mat-icon>
+    </button>
+    <h1>
+      Slide Data
+    </h1>
+    <div *ngIf="slideInfo" class="slide-detail-section">
+      <span><b>Slide name:</b> {{slideInfo.slideName}}</span>
+      <span><b>Series URL:</b> {{urlSeriesUid}}</span>
+      <span><b>Channel count:</b> {{slideInfo.channelCount}}</span>
+      <span><b>Flat image:</b> {{slideInfo.isFlatImage}}</span>
+      <div *ngIf="slideInfo.associatedImages" class="flexColumn pad">
+        <h3>Associated Images</h3>
+        <table *ngIf="slideInfo.associatedImages.length > 0">
+          <thead>
+            <tr>
+              <td>Type</td><td>width</td><td>height</td><td>UID</td>
+            </tr>
+          </thead>
+          <tbody>
+          <tr *ngFor="let associatedImage of slideInfo.associatedImages">
+            <td>{{ associatedImage.type }}</td>
+            <td>{{ associatedImage.width }}</td>
+            <td>{{ associatedImage.height }}</td>
+            <td>{{ associatedImage.instanceUid }}</td>
+          </tr>
+          </tbody>
+        </table>
+        <div *ngIf="!slideInfo.associatedImages.length">
+          No associate images found.
+        </div>
+      </div>
+      <div *ngIf="slideInfo.levelMap" class="flexColumn pad">
+        <h3>Zoom Levels</h3>
+        <div class="zoom-level-section-data">
+          <table>
+            <thead>
+              <tr>
+                <td>Zoom</td><td>Magnification</td><td>Real</td><td>Storage [MB]</td><td>Width</td><td>Height</td>
+                <td>Pixel width [µm]</td><td>Pixel height [µm]</td><td>Tile size</td>
+                <td>Frames</td><td>Offset</td><td>UID</td>
+              </tr>
+            </thead>
+            <tbody>
+            <tr *ngFor="let level of slideInfo.levelMap; let index = index" [ngClass]="{'even-row-style': 0 === index % 2}">
+              <td>{{ level.zoom | percent:'1.0-0' }}</td>
+              <td>{{ !level.pixelWidth || pixelSpacingToMagnification(level.pixelWidth * 1e6) }}X</td>
+              <td>{{ level.downSampleMultiplier === undefined }}</td>
+              <td><span *ngIf="level.storedBytes" class="level-storage" [class.strike-through]="level.downSampleMultiplier !== undefined">
+                {{level.storedBytes / 1048576 | number: '1.0-0'}}</span></td>
+              <td>{{ level.width }}</td>
+              <td>{{ level.height }}</td>
+              <td><span *ngIf="level.pixelWidth">{{ level.pixelWidth * 1e3 | number: '1.0-2'}}</span></td>
+              <td><span *ngIf="level.pixelHeight">{{ level.pixelHeight! * 1e3 | number:'1.0-2'}}</span></td>
+              <td>{{ level.tileSize }}</td>
+              <td><span *ngFor="let prop of level.properties">{{ prop.frames }}</span></td>
+              <td><span *ngFor="let prop of level.properties">{{ prop.offset }}</span></td>
+              <td><span *ngFor="let prop of level.properties">{{ prop.instanceUid }}</span></td>
+            </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+  
+    </div>
+    <div class="latency-benchmark-section" *ngIf="urlSeriesUid && slideInfo !== undefined">
+      <h2>
+        Tile Latency Benchmark
+      </h2>
+      <div class="latency-options">
+        <button
+            [disabled]="benchmarkRunning"
+            mat-stroked-button
+            color="primary"
+            class="select-all"
+            (click)="benchmark.icc=!benchmark.icc"
+          >
+            <mat-icon>
+              {{ benchmark.icc ? "check_box" : "check_box_outline_blank"}}
+            </mat-icon>
+            Dicom proxy ICC color correction
+        </button>
+        <button
+            [disabled]="benchmarkRunning"
+            mat-stroked-button
+            color="primary"
+            class="select-all"
+            (click)="benchmark.disableCache=!benchmark.disableCache"
+          >
+            <mat-icon>
+              {{ benchmark.disableCache ? "check_box" : "check_box_outline_blank"}}
+            </mat-icon>
+            Dicom proxy disable caching
+        </button>
+        <button
+            [disabled]="benchmarkRunning"
+            mat-stroked-button
+            color="primary"
+            class="select-all"
+            (click)="benchmark.realLayersOnly=!benchmark.realLayersOnly"
+          >
+            <mat-icon>
+              {{ benchmark.realLayersOnly ? "check_box" : "check_box_outline_blank"}}
+            </mat-icon>
+            Dicom proxy real layers only (no server scaled layers)
+        </button>
+        <div>Number of tiles to load in base layer (if available): <input [(ngModel)]="benchmark.numTilesToLoadBaseLayer" type="range" min="1" [disabled]="benchmarkRunning">{{benchmark.numTilesToLoadBaseLayer}}</div>
+        <div>Number of continous frame batch per stride:  <input [(ngModel)]="benchmark.numFramesPerStride" type="range" min="1" max="20" [disabled]="benchmarkRunning">{{benchmark.numFramesPerStride}}</div>
+        <div>Number of tiles requests per call:  <input [(ngModel)]="benchmark.numTilesPerCall" type="range" min="1" max="20" [disabled]="benchmarkRunning">{{benchmark.numTilesPerCall}}</div>
+        <div>Concurrency: <input [(ngModel)]="benchmark.concurency" [disabled]="benchmarkRunning" type="range" min="1" max="200">{{benchmark.concurency}}</div>
+     </div>
+      <button mat-flat-button color="primary" [disabled]="benchmarkRunning" (click)="start()">
+        Start Benchmark
+      </button>
+      <div *ngIf="benchmark.latency || benchmarkRunning || errorMsg" class="latency-results">
+        <hr>
+        <div *ngIf="benchmarkRunning"> Benchmark running...</div>
+        <div *ngIf="benchmark.latency"> 
+          <div>Average latency per tile:  <span class="benchmark-result">{{ benchmark.latency | number:'1.0-0' }} ms</span></div>
+          <div>Benchmark real time: <span class="benchmark-result">{{ benchmark.realTime | number:'1.0-0' }} ms</span></div>
+          <div>Calls made: <span class="benchmark-result">{{ benchmark.callComplete }}</span></div>
+        </div>
+        <div *ngIf="errorMsg" class="error">
+          ERROR: {{ errorMsg }}
+        </div>
+      </div>
+    </div>
+    <table #callTable class="call-table"></table>
+  </div>

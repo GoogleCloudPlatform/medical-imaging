@@ -1,0 +1,121 @@
+<!--
+ Copyright 2024 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<div class="image-viewer-page">
+    <image-viewer-side-nav class="side-nav-menu">
+    </image-viewer-side-nav>
+    <image-viewer-slides class="slides-menu">
+    </image-viewer-slides>
+  
+    <div class="tile-viewer-wrapper">
+      <div *ngIf="isMultiViewScreenPicker" class="multi-view-option-picker"> 
+        <div>
+          Select a layout.
+        </div>
+        <div class="multi-view-options">
+          <div class="option">
+            <div class="option-image-sections multi-view-2">
+              <div class="option-image">
+                <image-viewer-quick-view
+                  *ngIf="splitViewSlideDescriptors[0]"
+                  [slideDescriptor]="splitViewSlideDescriptors[0]"
+                  [enableExpandedView]="false"
+                  >
+                </image-viewer-quick-view>
+              </div>
+              <div class="option-image">
+              </div>
+            </div>
+            <div>View two slides side by side</div>
+            <button mat-flat-button color="primary" (click)="toggleMultiView(2)">2-Up</button>
+          </div>
+          <mat-divider vertical></mat-divider>
+          <div class="option">
+            <div class="option-image-sections multi-view-4">
+              <div class="option-image">
+                <image-viewer-quick-view
+                  *ngIf="splitViewSlideDescriptors[0]"
+                  [slideDescriptor]="splitViewSlideDescriptors[0]"
+                  [enableExpandedView]="false"
+                  >
+                </image-viewer-quick-view>
+              </div>
+              <div class="option-image">
+              </div>
+              <div class="option-image">
+              </div>
+              <div class="option-image">
+              </div>
+            </div>
+            <div>View up to four slides side by side</div>
+            <button mat-flat-button color="primary" (click)="toggleMultiView(4)">4-Up</button>
+          </div>
+        </div>
+        
+      </div>
+      <div *ngIf="!isMultiViewScreenPicker && splitViewSlideDescriptors.length && splitViewSlideDescriptors[0]?.id"
+        [ngClass]="{'multi-screen-viewer-2': splitViewSlideDescriptors.length>1 || multiViewScreens===2,
+                    'multi-screen-viewer-4': splitViewSlideDescriptors.length>2 || multiViewScreens===4,}"
+        >
+        <ng-container *ngIf="splitViewSlideDescriptors.length >1">
+          <div  
+            class="multi-view-info">
+            <div *ngFor="let slideDescriptor of splitViewSlideDescriptors | slice:0:4; let index = index;">{{index+1}}</div>
+          </div>
+          <button
+              class="lock-button"
+              [ngClass]="{'locked-button': syncLock}"
+              mat-icon-button
+              color="primary"
+              (click)="$event.stopPropagation(); toggleSyncLock()"
+            >
+            <mat-icon class="google-symbols">
+              {{syncLock? 'lock':'lock_open_right'}}
+            </mat-icon>
+          </button>
+        </ng-container>
+        <ng-container *ngFor="let slideDescriptor of splitViewSlideDescriptors;let index=index; trackBy: trackBySlideDescriptor" >
+          <div (click)="selectMultiViewScreenSelected(index)" *ngIf="!slideDescriptor" class="empty-multi-view-option"
+          [ngClass]="{
+            'selected-split-viewer':multiViewScreenSelectedIndex===index }">
+            Select from the Slides Panel
+          </div>
+          <ng-container *ngIf="slideDescriptor">
+            <ol-tile-viewer 
+              *ngIf="slideInfoBySlideDescriptorId| GetSlideInfoPipe:slideDescriptor; let slideInfo"
+              (click)="selectMultiViewScreenSelected(index)"
+              [slideDescriptor]="slideDescriptor"
+              [slideInfo]="slideInfo"
+              (olMapLoaded)="olMapLoaded($event,slideDescriptor)"
+              [ngClass]="{
+                'selected-split-viewer':multiViewScreenSelectedIndex===index }"
+              >
+            </ol-tile-viewer>
+  
+          </ng-container>
+        </ng-container>
+  
+        <ng-container *ngIf="splitViewSlideDescriptors.length-1< multiViewScreens">
+          <ng-container 
+              *ngFor="let emptyPlacer of [].constructor(multiViewScreens) | slice:splitViewSlideDescriptors.length:multiViewScreens; let index = index; " >
+              <div class="select-slide-viewer">
+                <button mat-flat-button color="primary">Select a slide</button>
+              </div>
+          </ng-container>
+        </ng-container>
+      </div>
+    </div>
+  </div>

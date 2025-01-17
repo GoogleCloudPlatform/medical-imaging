@@ -1,0 +1,299 @@
+<!--
+ Copyright 2024 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<div class="cohort-page">
+    <div class="header-section">
+        <div class="header-title">Cohorts</div>
+        <div class="header-sub-title">
+            All cohorts you created can be found and viewed here, including cohorts that have been shared with you.
+        </div>
+    </div>
+    <div class="cohort-search-actions-section">
+        <div class="search-section">
+            <mat-form-field appearance="fill" color="primary">
+                <mat-icon matPrefix>search</mat-icon>
+                <mat-label labelColor="red">Search for a cohort name or keyword</mat-label>
+                <input matInput (keyup)="cohortFilterKeyUp($event)" autocomplete="off" />
+            </mat-form-field>
+        </div>
+        <div class="actions-section">
+            <button mat-stroked-button color="primary" (click)="showCreateCohortDialog()" matTooltip="Create cohorts">
+                <mat-icon>add</mat-icon>
+                Add
+            </button>
+            <button mat-stroked-button color="primary" (click)="reloadCohorts()" matTooltip="Refresh cohorts">
+                <mat-icon>refresh</mat-icon>
+                Refresh
+            </button>
+        </div>
+    </div>
+    <div class="table-section">
+        <busy-overlay title="cohorts" *ngIf="loadingCohortInfos$ | async"></busy-overlay>
+        <mat-drawer-container hasBackdrop="false">
+            <mat-drawer #cohortDetailsDrawer mode="side" position="end" [opened]="!!selectedCohortInfo">
+
+                <div class="selected-cohort-info-empty"
+                    *ngIf="!selectedCohortInfo && !(loadingSelectedPathologyCohort$ | async)">
+                    Please select a cohort.
+                </div>
+                <div class="selected-cohort-info" *ngIf="selectedCohortInfo">
+                    <div class="selected-cohort-info-section">
+                        <div>
+                            <ng-container [ngTemplateOutlet]="cohortInfoTagsTemplate"
+                                [ngTemplateOutletContext]="{cohortInfo:selectedCohortInfo}">
+                            </ng-container>
+                        </div>
+                        <div class="selected-cohort-info-title">
+                            {{selectedPathologyCohort?.cohortMetadata?.displayName || selectedCohortInfo.displayName}}
+                        </div>
+                        <div class="selected-cohort-info-description"
+                            *ngIf="!(loadingSelectedPathologyCohort$ | async)">
+                            {{selectedPathologyCohort?.cohortMetadata?.description}}
+                        </div>
+                        <div class="selected-cohort-info-actions" *ngIf="!(loadingSelectedPathologyCohort$ | async)">
+                            <span class="view-only-chip" *ngIf="isViewOnly && isShared">
+                                <mat-icon>visibility</mat-icon>
+                                View only
+                            </span>
+                            <button mat-flat-button #save color="primary" class="save-button" data-qa="save-button"
+                                mat-button [disabled]="isSavingCohort"
+                                *ngIf="isCohortSaved === false && !(loadingSelectedPathologyCohort$ | async) && !(loadingCohortInfos$ | async)"
+                                (click)="saveCohort()">
+                                <mat-icon>save</mat-icon>
+                                Save to cohorts
+                            </button>
+                            <button mat-button *ngIf="allowAppending" (click)="showAppendSlidesDialog()">
+                                <mat-icon>add</mat-icon>
+                                Add slides
+                            </button>
+                            <button mat-button *ngIf="allowSharing" (click)="showShareCohortDialog()">
+                                <mat-icon>share</mat-icon>
+                                Share
+                            </button>
+                            <button mat-icon-button [matMenuTriggerFor]="menu" aria-label="More cohort actions">
+                                <mat-icon>more_vert</mat-icon>
+                            </button>
+                            <mat-menu #menu="matMenu">
+                                <button mat-menu-item (click)="showCloneCohortDialog()">
+                                    Clone
+                                </button>
+
+                                <button mat-menu-item *ngIf="allowDeid" (click)="showDeIdCohortDialog()"
+                                    [disabled]="!selectedPathologyCohortCases?.length">
+                                    De-ID
+                                </button>
+                                <button mat-menu-item *ngIf="allowEditingFields && allowSharing" (click)="showEditCohortDialog()">
+                                    Edit cohort
+                                </button>
+
+                                <button mat-menu-item *ngIf="allowExport" (click)="showExportCohortDialog()">
+                                    Export
+                                </button>
+                                <button class="mat-menu-item-warning" mat-menu-item *ngIf="allowDeleting"
+                                    (click)="showDeleteCohortDialog()">
+                                    Delete
+                                </button>
+                                <button class="mat-menu-item-warning" mat-menu-item *ngIf="isShared && isCohortSaved"
+                                    (click)="unsaveCohort()">
+                                    Remove from saved
+                                </button>
+                            </mat-menu>
+                        </div>
+                        <button mat-icon-button (click)="closeCohortDetailsDrawer()" aria-label="Close cohort info.">
+                            <mat-icon>close</mat-icon>
+                        </button>
+                    </div>
+                    <mat-divider></mat-divider>
+                    <div class="selected-cohort-info-cases">
+                        <busy-overlay class="selected-cohort-info-loading"
+                            [title]="(selectedCohortInfo.displayName || '') +  ' cohort'"
+                            *ngIf="(loadingSelectedPathologyCohort$ | async)"></busy-overlay>
+                        <div class="cases-refresh-and-actions">
+                            <div class="cases-actions" *ngIf="!(loadingSelectedPathologyCohortCases$ | async)">
+                                <button mat-stroked-button color="primary" class="delete-button"
+                                    [ngClass]="{'hidden': selectedCases.size === 0}" (click)="downloadSelected()">
+                                    Download ({{selectedCases.size}}) selected
+                                    <mat-icon>download</mat-icon>
+                                </button>
+                                <button *ngIf="allowRemoving" mat-stroked-button color="primary" class="delete-button"
+                                    [ngClass]="{'hidden': selectedCases.size === 0}" (click)="removeCases()">
+                                    Remove cases from cohort
+                                    <mat-icon>delete</mat-icon>
+                                </button>
+
+                                <button *ngIf="selectedPathologyCohortCases?.length" mat-stroked-button color="primary"
+                                    class="select-all" (click)="selectAll()">
+                                    <mat-icon>{{someCasesSelected? "indeterminate_check_box": allCasesSelected ?
+                                        "check_box" : "check_box_outline_blank"
+                                        }}</mat-icon>
+                                    Select all in view
+                                </button>
+
+                            </div>
+                        </div>
+                        <div class="cohort-cases-section">
+                            <busy-overlay
+                                [title]="selectedCohortInfo.displayName + ' cases ' + (((loadingProgressSelectedPathologyCohortCases$ | async)??0)/100 | percent)"
+                                *ngIf="(loadingSelectedPathologyCohortCases$ | async)"></busy-overlay>
+                            <div class="selected-pathology-cohort-cases-empty"
+                                *ngIf="!selectedPathologyCohortCases?.length && !(loadingSelectedPathologyCohortCases$ | async)">
+                                No images available
+                            </div>
+                            <mat-accordion
+                                *ngIf="selectedPathologyCohortCases?.length && !(loadingSelectedPathologyCohortCases$ | async) && !(loadingSelectedPathologyCohort$ | async)"
+                                #pathologyCohortCaseAccordion displayMode="flat" [multi]="true">
+                                <ng-container
+                                    *ngFor="let pathologyCohortCase of selectedPathologyCohortCases;let isFirst = first">
+                                    <mat-expansion-panel *ngIf="{
+                      pathologyCohortCase:pathologyCohortCase,
+                      isExpanded:false
+                    } as caseInfo" [expanded]="isFirst" (opened)="caseInfo.isExpanded=true">
+                                        <mat-expansion-panel-header>
+                                            <button class="case-checkbox-button" mat-icon-button
+                                                (click)="toggleSelect($event, caseInfo.pathologyCohortCase)"
+                                                aria-label='Select case'>
+                                                <mat-icon>{{ selectedCases.has(caseInfo.pathologyCohortCase) ?
+                                                    "check_box" : "check_box_outline_blank"
+                                                    }}</mat-icon>
+                                            </button>
+                                            <div>
+                                                <div class="case-title">
+                                                    <a class="case-title"
+                                                        [class.inactive-link]="!caseInfo.pathologyCohortCase.accessionNumber || !caseInfo.pathologyCohortCase.slides.length || caseInfo.pathologyCohortCase.failedToLoad"
+                                                        routerLink="/viewer"
+                                                        [queryParams]=" selectedCohortInfo | ToViewerParamsPipe: caseInfo.pathologyCohortCase.slides[0]"
+                                                        (click)="$event.stopPropagation();">
+                                                        <ng-container
+                                                            *ngIf="caseInfo.pathologyCohortCase.accessionNumber">
+                                                            {{caseInfo.pathologyCohortCase.accessionNumber}}
+                                                        </ng-container>
+                                                        <ng-container
+                                                            *ngIf="!caseInfo.pathologyCohortCase.accessionNumber">
+                                                            Unknown Case ID
+                                                        </ng-container>
+                                                    </a>
+                                                </div>
+                                                <div>
+                                                    <span>
+                                                        <span>{{ caseInfo.pathologyCohortCase.slides.length }}
+                                                            image</span>
+                                                        <span
+                                                            *ngIf="caseInfo.pathologyCohortCase.slides.length!==1">s</span>
+                                                    </span>
+                                                    |
+                                                    <span>
+                                                        Case date: {{ isDate(caseInfo.pathologyCohortCase.date)
+                                                        ?(caseInfo.pathologyCohortCase.date | date: "MM/dd/yyyy") :
+                                                        caseInfo.pathologyCohortCase.date || 'Unknown date' }}
+                                                    </span>
+                                                </div>
+
+                                            </div>
+                                        </mat-expansion-panel-header>
+                                        <div class="slides-accordion-content" *ngIf="caseInfo.isExpanded">
+                                            <ng-container
+                                                *ngFor="let pathologyCohortSlide of caseInfo.pathologyCohortCase.slides;let i = index">
+                                                <div class="slide-thumbnail">
+                                                    <image-viewer-quick-view class="thumbnail-image"
+                                                        *ngIf="pathologyCohortSlide.dicomUri"
+                                                        [slideDescriptor]="pathologyCohortSlide.dicomUri | DICOMUriToSlideDescriptorPipe"
+                                                        [cohortInfo]="selectedCohortInfo">
+                                                    </image-viewer-quick-view>
+                                                </div>
+                                            </ng-container>
+                                        </div>
+                                    </mat-expansion-panel>
+                                </ng-container>
+                            </mat-accordion>
+
+                        </div>
+                    </div>
+                </div>
+            </mat-drawer>
+            <mat-drawer-content>
+                <table class="cohorts-table" mat-table recycleRows [dataSource]="dataSource" matSort
+                    matSortActive="displayName" matSortDirection="asc">
+                    <!-- Position Column -->
+                    <ng-container matColumnDef="tags">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header sortActionDescription="Sort by tags"></th>
+                        <td mat-cell *matCellDef="let element">
+                            <ng-container [ngTemplateOutlet]="cohortInfoTagsTemplate"
+                                [ngTemplateOutletContext]="{cohortInfo:element}">
+                            </ng-container>
+                        </td>
+                    </ng-container>
+
+                    <!-- Name Column -->
+                    <ng-container matColumnDef="displayName">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header sortActionDescription="Sort by name"> Name
+                        </th>
+                        <td mat-cell *matCellDef="let element">
+                            <div>
+                                <div>
+                                    {{element.displayName}}
+                                </div>
+                                <div class="cohort-row-name-description">
+                                    {{element.pathologyCohort.cohortMetadata.description}}
+                                </div>
+                            </div>
+                        </td>
+                    </ng-container>
+
+                    <ng-container matColumnDef="dateModified">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header
+                            sortActionDescription="Sort by date modified">Date modified</th>
+                        <td mat-cell *matCellDef="let element">
+                            {{element.pathologyCohort.cohortMetadata.updateTime | date: "MM/dd/yyyy"}}
+                        </td>
+                    </ng-container>
+
+                    <ng-container matColumnDef="description">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header
+                            sortActionDescription="Sort by description"> Description </th>
+                        <td mat-cell *matCellDef="let element"> {{element.pathologyCohort.cohortMetadata.description}}
+                        </td>
+                    </ng-container>
+
+                    <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+                    <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="cohort-row"
+                        [class.cohort-row-selected]="row?.name === selectedCohortInfo?.name"
+                        (click)="selectCohortInfo(row)"></tr>
+                    <ng-template mat-row>
+                        <tr>
+                            <td colspan="100%">
+                                <p class="cohorts-table-empty">No working</p>
+                            </td>
+                        </tr>
+                    </ng-template>
+                    <ng-template matNoDataRow>
+                        <tr>
+                            <td colspan="100%">
+                                <p class="cohorts-table-empty">No cohorts</p>
+                            </td>
+                        </tr>
+                    </ng-template>
+                </table>
+
+            </mat-drawer-content>
+        </mat-drawer-container>
+
+    </div>
+</div>
+
+<ng-template #cohortInfoTagsTemplate let-cohortInfo='cohortInfo'>
+    <mat-icon *ngIf="cohortInfo.isShared" matTooltip="Shared">group</mat-icon>
+    <mat-icon *ngIf="cohortInfo.isDeid" matTooltip="De-Identified">security</mat-icon>
+</ng-template>

@@ -1,0 +1,141 @@
+<!--
+ Copyright 2024 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<mat-expansion-panel hideToggle expanded #slidesExpansionPanel class="slides-expansion-panel"
+  [ngClass]="{'slides-expansion-panel-collapsed': !slidesExpansionPanel.expanded}" 
+  >
+  <mat-expansion-panel-header>
+    <div class="slide-details-header-title">
+      <div class="title-label">
+        <mat-icon class="material-icons-outlined">menu</mat-icon>
+        <div> Slides <span *ngIf="slideDescriptors.length">({{slideDescriptors.length}})</span></div>
+      </div>
+      <div class="selected-slide-cohort-actions" *ngIf="cohortsEnabled && selectFeatureAvailable">
+        <div [matTooltip]="quickViewSelectedDescriptors.size===0?'Select a slide to add to cohort':''">
+          <button 
+              *ngIf="slidesExpansionPanel.expanded"
+              mat-icon-button 
+              aria-label="Add slides to cohort" 
+              matTooltip="Add slides to cohort" 
+              class="add-image-button" 
+              [disabled]="quickViewSelectedDescriptors.size===0"
+              (click)="$event.stopPropagation(); openAddToCohortDialog()">
+            <mat-icon class="google-symbols">list_alt_add</mat-icon>
+          </button>
+        </div>
+        <div 
+          [matTooltip]="quickViewSelectedDescriptors.size===0?'Select a slide to remove from cohort':''">
+          <button 
+              *ngIf="slidesExpansionPanel.expanded && activatedRouteParams.cohortName &&
+    (cohortEditAllowed | async)"
+              mat-icon-button 
+              aria-label="Remove slides from cohort" 
+              matTooltip="Remove slides from cohort"
+              class="remove-image-button" 
+              [disabled]="quickViewSelectedDescriptors.size===0"
+              (click)="$event.stopPropagation();  removeSlideFromCurrentCohort()">
+            <mat-icon >remove</mat-icon>
+          </button>
+        </div>
+        <button
+          *ngIf="slidesExpansionPanel.expanded"
+          mat-stroked-button
+          color="primary"
+          class="select-all"
+          (click)="$event.stopPropagation(); toggleSelectAllQuickViewSelectedDescriptors()"
+          >
+          <mat-icon>
+              {{
+                quickViewSelectedDescriptors.size>0&&quickViewSelectedDescriptors.size!==slideDescriptors.length? "indeterminate_check_box"
+                : quickViewSelectedDescriptors.size===slideDescriptors.length ? "check_box" : "check_box_outline_blank"
+              }}
+          </mat-icon
+          >
+            Select all
+        </button>
+      </div>
+    </div>
+  </mat-expansion-panel-header>
+  <div class="thumbnails-section">
+    <div class="thumbnails-progress">
+      <mat-progress-bar
+          *ngIf="loadingCohorts"
+          color="primary"
+          mode="indeterminate"
+      >
+      </mat-progress-bar>
+      <div class="thumbnails">
+        <ng-container *ngTemplateOutlet="quickViewThumbnails ; context: {quickViewSlideDescriptors: slideDescriptorsInCohort }"></ng-container>
+        <ng-container *ngIf="slideDescriptorsNotInCohort.length">
+          <mat-divider vertical class="slide-divider" ></mat-divider>
+          <div class="not-in-cohort-warning">Case slides not part of cohort ➤</div>
+          <mat-divider vertical class="slide-divider" ></mat-divider>
+          <ng-container *ngTemplateOutlet="quickViewThumbnails ; context: {quickViewSlideDescriptors: slideDescriptorsNotInCohort, notInCohort:true }"></ng-container>
+        </ng-container>
+      </div>
+    </div>
+    <mat-divider vertical class="action-divider" ></mat-divider>
+    
+    <div class="thumbnail-actions">
+      <div class="thumbnail-select-actions" >
+        <button 
+            *ngIf="enableSplitView"
+            mat-icon-button 
+            aria-label="Multiview" 
+            matTooltip="Multiview"
+            class="remove-image-button" 
+            [ngClass]="{'thumbnail-selected-action': multiViewScreens>1 || isMultiViewSlidePicker }" 
+            (click)="toggleMultiView()">
+          <mat-icon >grid_view</mat-icon>
+        </button>
+      </div>
+    </div>
+  </div>  
+</mat-expansion-panel>
+
+
+<ng-template  #quickViewThumbnails let-quickViewSlideDescriptors="quickViewSlideDescriptors" let-notInCohort="notInCohort">
+  <div  
+      *ngFor="let slideDescriptor of quickViewSlideDescriptors;"
+      class="thumbnail"
+      [ngClass]="{'selected-image': slideDescriptor.id === selectedSplitViewSlideDescriptor?.id,'slide-not-in-cohort': notInCohort}" 
+      [matTooltip]="notInCohort?'Case slide not part of cohort':''"
+      >
+    <image-viewer-quick-view
+      class="thumbnail-image"
+      [slideDescriptor]="slideDescriptor"
+      [enableExpandedView]="false"
+      >
+    </image-viewer-quick-view>
+    <button
+        *ngIf="cohortsEnabled && selectFeatureAvailable"
+        class="quickview-checkbox" 
+        mat-icon-button
+        color="primary"
+        [ngClass]="{'selected-quickview-checkbox': quickViewSelectedDescriptors.has(slideDescriptor)}" 
+        (click)="toggleQuickViewSelectedDescriptors(slideDescriptor)">
+      <mat-icon>
+        {{ quickViewSelectedDescriptors.has(slideDescriptor) ? "check_box" : "check_box_outline_blank"}}
+      </mat-icon>
+    </button>
+    <div 
+        *ngIf="multiViewScreens>1 && slideDescriptor | SplitViewSlideDescriptorToIndexPipe: splitViewSlideDescriptors; let multiViewIndex" 
+        class="splitview-index" 
+        (click)="$event.stopPropagation(); selectSplitViewScreen(slideDescriptor)">
+       {{multiViewIndex}}
+    </div>
+  </div>
+</ng-template>

@@ -1,0 +1,50 @@
+<!--
+ Copyright 2024 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<div mat-dialog-title>Export Cohort to Cloud Storage</div>
+<div mat-dialog-content>
+  <div class="vertical-pad">
+    All DICOM files related to this cohort will be saved in this provided cloud storage destination.
+    The saving will happen in the background.
+  </div>
+  <div>
+    <mat-form-field>
+      <mat-label>Destination Cloud Storage</mat-label>
+      <input matInput placeholder="Ex. gs://path/to/dest/folder" [formControl]="gcsPath" />
+      <mat-error *ngIf="gcsPath.hasError('pattern')"> Path must begin with gs:// </mat-error>
+    </mat-form-field>
+    <div class="vertical-pad">
+      Note that the destination storage needs to be provisioned with the right permissions.
+    </div>
+    <p *ngIf="showDeIdWarning">
+      <strong>Warning:</strong> You are about to export images that may contain PHI.
+      Deidentification only removes PHI from certain metadata fields but does not remove metadata at
+      the pixel level. Please review metadata and pixel data for each image to ensure no PHI is
+      visible prior to sharing.</p>
+  </div>
+</div>
+<div mat-dialog-actions>
+  <button mat-stroked-button color="primary" type="button" (click)="cancel()">Cancel</button>
+  <button
+    mat-flat-button
+    color="primary"
+    [disabled]="exportDisabled"
+    type="button"
+    (click)="export()"
+  >
+    Export
+  </button>
+</div>

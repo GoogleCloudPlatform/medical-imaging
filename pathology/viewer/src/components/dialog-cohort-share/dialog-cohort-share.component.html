@@ -1,0 +1,136 @@
+<!--
+ Copyright 2024 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<div mat-dialog-title [class.mat-dialog-add-emails-title]="emails.length">
+    <button *ngIf="emails.length" mat-icon-button (click)="backToCohortViewer()" aria-label="Go back to cohort viewer">
+        <mat-icon>arrow_back</mat-icon>
+    </button>
+    <div class="mat-h3">Share "{{ selectedCohort?.cohortMetadata?.displayName }}"</div>
+    <button mat-icon-button (click)="closeDialog()" aria-label="Close cohort dialog">
+        <mat-icon>close</mat-icon>
+    </button>
+</div>
+
+<div mat-dialog-content [class.add-emails-content]="emails.length">
+    <mat-form-field class="email-input" appearance="fill">
+        <mat-chip-grid #emailGrid aria-label="Add space separated emails">
+            <mat-chip-row *ngFor="let email of emails" (removed)="removeEmail(email)">
+                {{ email }}
+                <button matChipRemove>
+                    <mat-icon>cancel</mat-icon>
+                </button>
+            </mat-chip-row>
+            <input [matChipInputFor]="emailGrid" [matChipInputSeparatorKeyCodes]="separatorKeysCodes"
+                [matChipInputAddOnBlur]="true" (matChipInputTokenEnd)="addEmail($event)"
+                placeholder="Add space separated emails" />
+        </mat-chip-grid>
+    </mat-form-field>
+    <ng-container *ngIf="emails.length">
+        <mat-select [(value)]="shareAccessRole">
+            <mat-option *ngFor="let optionAccessRole of pathologyUserRoleOptions" value="{{ optionAccessRole }}">
+                {{ pathologyUserAccessRoleToLabel(optionAccessRole) }}
+            </mat-option>
+        </mat-select>
+        <div>Please copy and share the link of the cohort. Email notification will not be sent
+            <p *ngIf="showDeIdWarning"><strong>Warning:</strong> You are about to share images that may contain PHI.
+                Deidentification only removes PHI from the certain metadata fields but does not remove on a
+                pixel level. Please review metadata and each image to ensure no PHI is visible on each image
+                prior to sharing.</p>
+        </div>
+    </ng-container>
+    <ng-container *ngIf="!emails.length">
+        <div class="people-access-content">
+            <div class="mat-h3">People with access</div>
+            <div class="cohort-users">
+                <ng-container *ngFor="let user of pathologyUserAccess">
+                    <ng-container *ngTemplateOutlet="cohortUserAccessTemplate; context: {user}"></ng-container>
+                </ng-container>
+            </div>
+        </div>
+        <mat-divider></mat-divider>
+
+        <div class="general-access-section">
+            <div class="mat-h3 general-access-title">General Access</div>
+            <div class="general-access-content">
+                <mat-icon *ngIf="!isPublicAccess" class="material-icons-outlined lock-icon">lock</mat-icon>
+                <mat-icon *ngIf="isPublicAccess" class="domain-icon">domain</mat-icon>
+                <div class="alt">
+                    <mat-select class="general-access-selector" [(value)]="isPublicAccess"
+                        (selectionChange)="generalAccessChanged()" [hideSingleSelectionIndicator]="true">
+                        <mat-option [value]="false">Restricted </mat-option>
+                        <mat-option [value]="true"> Anyone with access</mat-option>
+                    </mat-select>
+                    <div *ngIf="!isPublicAccess" class="sub-text">
+                        Only people with access can open with the link
+                    </div>
+                    <div *ngIf="isPublicAccess" class="sub-text">
+                        Anyone with access to this viewer can view
+                    </div>
+                </div>
+                <mat-select class="general-access-open-select" *ngIf="isPublicAccess" [(value)]="cohortAccess"
+                    [hideSingleSelectionIndicator]="true">
+                    <mat-option [value]="pathologyCohortAccess.openView"> Viewer </mat-option>
+                    <mat-option [value]="pathologyCohortAccess.openEdit"> Editor </mat-option>
+                </mat-select>
+            </div>
+        </div>
+    </ng-container>
+</div>
+
+<div mat-dialog-actions [class.add-emails-actions]="emails.length">
+    <button mat-stroked-button color="primary" (click)="copyLink()">
+        <mat-icon>link</mat-icon>
+        Copy link
+    </button>
+
+    <div *ngIf="emails.length">
+        <button mat-flat-button color="primary" (click)="backToCohortViewer()">Cancel</button>
+        <button mat-flat-button color="primary" (click)="shareEmails(emails, shareAccessRole)">
+            Share
+        </button>
+    </div>
+
+    <ng-container *ngIf="!emails.length">
+        <button *ngIf="!hasPendingChanges" mat-flat-button color="primary" mat-dialog-close>
+            Done
+        </button>
+        <div class="save-section" *ngIf="hasPendingChanges">
+            <div class="pending-changes-label">Pending changes</div>
+            <button mat-flat-button color="primary" (click)="savePendingChanges()">Save</button>
+        </div>
+    </ng-container>
+</div>
+
+<ng-template #cohortUserAccessTemplate let-user="user" let-userEmail="user.userEmail" let-accessRole="user.accessRole">
+    <div class="cohort-user-access-template">
+        <div class="user-email">{{ userEmail }}</div>
+        <div class="user-role-owner" *ngIf="accessRole === pathologyUserRoles.owner">
+            {{ pathologyUserAccessRoleToLabel(accessRole) }}
+        </div>
+        <div *ngIf="accessRole !== pathologyUserRoles.owner">
+            <mat-select [value]="accessRole">
+                <mat-option *ngFor="let optionAccessRole of pathologyUserRoleOptions"
+                    (onSelectionChange)="accessRoleChanged($event, user)" value="{{ optionAccessRole }}">
+                    {{ pathologyUserAccessRoleToLabel(optionAccessRole) }}
+                </mat-option>
+                <mat-divider></mat-divider>
+                <mat-option (onSelectionChange)="removeUserAccess($event, user)">
+                    Remove access
+                </mat-option>
+            </mat-select>
+        </div>
+    </div>
+</ng-template>

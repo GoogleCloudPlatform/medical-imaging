@@ -1,0 +1,189 @@
+/**
+ * Copyright 2024 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+@import '../../styles';
+
+mat-sidenav-container {
+  height: 100%;
+}
+
+.search-page {
+  display: grid;
+  grid-template-rows: -webkit-min-content -webkit-min-content 1fr;
+  grid-template-rows: min-content min-content 1fr;
+  grid-template-columns: 50em;
+  height: 95%;
+  justify-content: center;
+  overflow: auto;
+  padding: 1em;
+  padding-top: 0;
+}
+
+.header {
+  align-items: center;
+  color: gray;
+  display: grid;
+  justify-content: center;
+  font-family: 'Google Sans Display', Roboto, Arial, sans-serif;
+  font-size: 24px;
+  letter-spacing: 0.17px;
+  line-height: 20px;
+  padding: 1.5em 0;
+}
+
+.header-logo {
+  align-items: center;
+  cursor: pointer;
+  display: grid;
+  grid-column-gap: 0.3em;
+  grid-template-columns: min-content max-content;
+}
+
+.microscope-icon {
+  top: 3px;
+}
+
+.status {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  padding-top: 24px;
+}
+
+.patient-info {
+  padding: 24px;
+
+  font-family: 'Google Sans Text';
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  color: gray;
+}
+
+.patient-info > h3 {
+  padding: 0px;
+  margin: 0px;
+
+  font-family: 'Google Sans Display';
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  color: gray;
+}
+
+::ng-deep {
+  .mat-drawer.mat-drawer-side .mat-drawer-inner-container {
+    overflow: hidden;
+  }
+
+  .mat-mdc-form-field-infix {
+    width: 15em;
+  }
+}
+
+.search-container {
+  align-items: baseline;
+  background-color: #eee;
+  display: grid;
+  grid-template-columns: 25em min-content;
+  grid-gap: 0em 1em;
+  justify-content: center;
+  padding: 1em 0;
+}
+
+.bar {
+  align-items: center;
+  background-color: #eee;
+  grid-gap: 0.5em 1em;
+  display: grid;
+  padding: 1em;
+  justify-content: center;
+  grid-template-columns: max-content min-content;
+}
+
+.bar ::ng-deep {
+  .mat-form-field-underline {
+    display: none;
+  }
+
+  .mat-form-field-wrapper {
+    padding: 0;
+  }
+
+  .mat-form-field-flex {
+    align-items: end;
+    padding: 0;
+  }
+
+  .mat-form-field-prefix {
+    padding-bottom: 0.2em;
+    font-size: 1.7em;
+  }
+
+  .mat-form-field-prefix .mat-icon {
+    font-size: 1em;
+    height: 1em;
+    width: 1em;
+  }
+
+  .mat-form-field:not(.mat-form-field-appearance-legacy)
+    .mat-form-field-suffix
+    .mat-icon-button {
+    width: unset;
+    height: unset;
+  }
+
+  .mat-form-field-infix {
+    width: 21em;
+  }
+}
+
+.force-upper {
+  text-transform: uppercase;
+}
+
+.uppercase-button {
+  border-style: solid;
+  border-width: thin;
+  padding: 2px;
+}
+
+img {
+  opacity: 0.7;
+}
+
+.search-tip-section {
+  font-size: 0.8em;
+  color: #5f6368;
+}
+
+.search-tip-title {
+  font-weight: bold;
+}
+
+.search-tip-info {
+  padding-left: 1.3em;
+  margin-top: 0;
+}
+
+.no-force-upper {
+  opacity: 0.3;
+}
+
+body {
+  background-color: white;
+}

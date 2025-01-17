@@ -106,8 +106,8 @@ RUN set -e && \
     # Clone wsi-to-dicom-converter
     git clone https://github.com/GoogleCloudPlatform/wsi-to-dicom-converter && \
     cd wsi-to-dicom-converter && \
-    # Sync to change submitted to head on 1/30/2024 : Update to OpenSlide 4.0 Dicom decoder.
-    git reset --hard 314325ab25207bd062320e03403bc7e933a4fd52 && \
+    # Sync to change submitted to head on 1/16/2025: Update e2e tests for DCMTK 3.6.9
+    git reset --hard 61fd2f8719a3ae05a025da1de426957d68f274c9 && \
     cp /usr/lib/x86_64-linux-gnu/glib-2.0/include/glibconfig.h /usr/include/glib-2.0/glibconfig.h && \
     mkdir build && \
     cd build && \

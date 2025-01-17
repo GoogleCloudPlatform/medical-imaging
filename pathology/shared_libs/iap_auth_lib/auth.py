@@ -41,7 +41,7 @@ JWT_AUD_FLG = flags.DEFINE_string(
     # Project dpas-digipat in organization cloudflyer.info
     secret_flag_utils.get_secret_or_env(
         'JWT_AUDIENCE',
-        '/projects/5532971370/global/backendServices/2857124789491219472',
+        None
     ),
     'JWT audience of this backend service.',
 )

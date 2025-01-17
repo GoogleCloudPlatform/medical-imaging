@@ -1,0 +1,206 @@
+/**
+ * Copyright 2024 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+@use '@angular/material' as mat;
+
+@include mat.core();
+
+@for $i from 0 through 24 {
+  .mat-elevation-#{$i} {
+    @include mat.elevation($i);
+  }
+}
+
+@import url(https://fonts.googleapis.com/css?family=Google+Sans);
+@import url(https://fonts.googleapis.com/css?family=Google+Sans+Text:400,500);
+@import url(https://fonts.googleapis.com/css?family=Google+Sans+Display:400,500,700);
+@import url(https://fonts.googleapis.com/css?family=Material+Icons|Material+Icons+Outlined|Material+Icons+Two+Tone|Material+Icons+Round|Material+Icons+Sharp);
+@import url(https://fonts.googleapis.com/css2?family=Google+Symbols:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200);
+
+$my-primary: mat.define-palette(mat.$blue-palette, 500);
+$my-accent: mat.define-palette(mat.$blue-grey-palette, A200, A100, A400);
+$my-warn: mat.define-palette(mat.$red-palette);
+
+$my-theme: mat.define-light-theme(
+  (
+    color: (
+      primary: $my-primary,
+      accent: $my-accent,
+      warn: $my-warn,
+    ),
+  )
+);
+
+
+@include mat.all-component-themes($my-theme);
+
+$MATERIAL_GRAY_800: #3c4043;
+$MATERIAL_GRAY_700: #5f6368;
+$MATERIAL_GRAY_300: #dadce0;
+
+$app-background-color: #f5f5f5;
+
+.overlay {
+  z-index: 1000;
+  inset: 0 0 0 0 absolute;
+  background-color: rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hidden {
+  visibility: hidden;
+  pointer-events: none;
+
+  &,
+  canvas {
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+$divider-color: rgba(#000, 0.12);
+
+html,
+body {
+  height: 100%;
+  font-family: 'Google Symbols';
+  font-family: Roboto, 'Helvetica Neue', sans-serif;
+}
+
+html {
+  overflow: hidden;
+}
+
+body {
+  background-color: $app-background-color;
+  margin: 0;
+  overflow: auto;
+
+  &.search {
+    background-color: white;
+  }
+}
+
+.cursor-overlay {
+  height: 100%;
+  left: 0;
+  position: fixed;
+  top: 0;
+  width: 100%;
+  z-index: 999;
+  // Prevents overlay sitting in front of app from blocking click events
+  pointer-events: none;
+
+  &.grabbing {
+    cursor: -webkit-grabbing;
+  }
+
+  &.wait {
+    cursor: wait;
+  }
+}
+
+hr {
+  border-color: $divider-color;
+  border-style: solid;
+  border-width: 1px 0 0;
+  margin: 0;
+}
+
+.mat-icon {
+  bottom: 1px;
+  position: relative;
+}
+
+.mat-tooltip {
+  margin: 4px;
+  font-size: 12px;
+}
+
+.cdk-overlay-pane .mat-mdc-dialog-container {
+  min-width: 25em;
+}
+
+.mat-mdc-menu-content {
+  background: white;
+}
+
+.mat-drawer.mat-drawer-side .mat-drawer-inner-container {
+  display: grid;
+}
+
+.mat-mdc-dialog-container {
+  .mat-mdc-dialog-actions {
+    padding: 1em;
+  }
+
+  .mat-mdc-dialog-title {
+    padding-top: 1em;
+  }
+
+  .mat-mdc-dialog-title::before {
+    content: unset;
+  }
+}
+
+.mat-mdc-icon-button.mat-mdc-icon-button.mat-mdc-button-base {
+  display: grid;
+  height: auto;
+  place-content: center center;
+  padding: 0.2em;
+  width: auto;
+}
+
+// TODO: Consider removing this override.
+// Angular Material icons default to overflow hidden. This override is necessary
+// to avoid breaking layout or tests. See this pull request for the change:
+// https://github.com/angular/components/pull/12429
+.mat-icon {
+  overflow: visible;
+}
+
+.mat-dialog-container .mat-card {
+  padding: 24px;
+}
+
+.mat-dialog-container .mat-card-header-text {
+  margin: 0;
+}
+
+::-webkit-scrollbar {
+  -webkit-appearance: none;
+}
+
+::-webkit-scrollbar:horizontal {
+  height: 11px;
+}
+
+::-webkit-scrollbar:vertical {
+  width: 11px;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 8px;
+  border: 2px solid white;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+::-webkit-scrollbar-track {
+  background-color: #fff;
+  border-radius: 8px;
+}

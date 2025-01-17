@@ -1,0 +1,187 @@
+<!--
+ Copyright 2024 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<div class="cases-list" [class.cases-list-padding]="loading || totalResults === 0">
+    <!-- Loading state -->
+    <ng-container *ngIf="loading && !loadingMore">
+        <ng-container *ngTemplateOutlet="loadingTemplate"></ng-container>
+    </ng-container>
+    <!-- Empty state -->
+    <ng-container *ngIf="!loading">
+        <ng-container *ngIf="totalResults === 0 && !patient">
+            <div class="empty-message" *ngIf="emptyMessage && showEmptyMessage">
+                {{ emptyMessage }}
+            </div>
+        </ng-container>
+
+        <!-- Patient info -->
+        <div *ngIf="patient" class="diagnostic-report patient-info">
+            <div class="case-title">
+                {{ patient.name }} ({{ patient.patientId }})
+            </div>
+            <div><span class="label-header">Latest case:</span> #{{ patient.latestCaseAccessionNumber }}</div>
+            <div>
+                <span class="label-header">Last update:</span> {{ getFormattedDate(patient.latestCaseDate) }}
+            </div>
+        </div>
+
+        <!-- Cases/Diagnostic Reports -->
+        <ng-container *ngIf="totalResults !== 0">
+            <div class="info" [class.info-sticky]="selectedCases.size" *ngIf="allowSelecting">
+                <div class="search-info">
+                    <div class="search-result-count">
+                        {{ totalResults | number }} {{ totalResults > 1 ? "cases" : "case"
+                        }}
+                        <span *ngIf="searchText">found</span>
+                    </div>
+                    <div class="search-actions" [class.search-actions-sorting]="allowSorting">
+                        <div class="sort-by" *ngIf="allowSorting">
+                            <span> Sort by: </span>
+                            <mat-select [(value)]="diagnosticReportsSortBy"
+                                (selectionChange)="searchBySort(diagnosticReportsSortBy)">
+                                <mat-option [value]="searchDiagnosticReportSort.LAST_MODIFIED_DESC">
+                                    Most recent</mat-option>
+                                <mat-option [value]="searchDiagnosticReportSort.LAST_MODIFIED_ASC">
+                                    Least recent
+                                </mat-option>
+                            </mat-select>
+                        </div>
+
+                        <div class="select-actions">
+                            <button *ngIf="allowDownloading" mat-stroked-button color="primary" class="delete-button"
+                                [ngClass]="{'hidden': selectedCases.size === 0}" (click)="downloadSelected()">
+                                Download ({{selectedCases.size}}) selected
+                                <mat-icon>download</mat-icon>
+                            </button>
+                            <button *ngIf="allowRemoving" mat-stroked-button color="primary" class="delete-button"
+                                [ngClass]="{'hidden': selectedCases.size === 0}" (click)="removeCases()">
+                                Remove cases from cohort
+                                <mat-icon>delete</mat-icon>
+                            </button>
+                            <button *ngIf="caseWidgets.length" mat-stroked-button color="primary" class="select-all"
+                                (click)="selectAll()">
+                                <mat-icon>{{ allCasesSelected ? "check_box" : "check_box_outline_blank"
+                                    }}</mat-icon>
+                                Select all in view
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- diagnostic-reports -->
+            <div class="diagnostic-reports" *ngIf="caseWidgets.length">
+                <div class="diagnostic-report" [class.diagnostic-report-show-text]="showText"
+                    *ngFor="let widgetData of caseWidgets">
+                    <div class="case-info">
+                        <div class="case-info-basic-details">
+                            <a class="case-title"
+                                [class.inactive-link]="!widgetData.hasLinking || !widgetData.slides.length || widgetData.caseInfo?.failedToLoad"
+                                routerLink="/viewer" [queryParams]="!widgetData?.slides?.length ?
+                  {}:
+                  widgetData.slides[0] | PathologySlideToViewerParamsPipe">
+                                <span *ngIf="widgetData.id !== widgetData.diagnosticReport?.resource?.id">
+                                    {{ widgetData.id }}
+                                </span>
+
+                                <span *ngIf="widgetData.id === widgetData.diagnosticReport?.resource?.id">
+                                    Unknown Case ID
+                                </span>
+                            </a>
+                            <div>
+                                <span>
+                                    <span>{{ widgetData.slides.length }} image</span>
+                                    <span *ngIf="widgetData.slides.length!==1">s</span>
+                                </span>
+                                |
+                                <span>
+                                    Case date: {{ isDate(widgetData.caseDate)
+                                    ?(widgetData.caseDate | date: "MM/dd/yyyy") :
+                                    widgetData.caseDate }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="case-info-details-and-images">
+                            <div *ngIf="showText && widgetData.text?.div">
+                                <div class="diagnostic-report-date" *ngIf="showText && widgetData.text?.div">
+                                    Diagnostic Report: Last modified on {{
+                                    (widgetData.diagnosticReportDate&&isDate(widgetData.diagnosticReportDate))
+                                    ?(widgetData.diagnosticReportDate | date: "MM/dd/yyyy") :
+                                    widgetData.diagnosticReportDate }}
+                                </div>
+                                <div *ngIf="showText && widgetData.text?.div">
+                                    <div class="snippet"
+                                        [innerHTML]="widgetData.text?.snippet ?? '' | HighlightPipe: searchedKeywords">
+                                    </div>
+
+                                    <button mat-button color="primary" [class.selected]="selectedCases.has(widgetData)"
+                                        (click)="openReadDetailsDialog(widgetData, $event)">
+                                        <mat-icon>library_books</mat-icon>
+                                        Read details
+                                    </button>
+                                </div>
+                            </div>
+                            <div *ngIf="widgetData?.slides?.length" class="thumbnail-images"
+                                [ngClass]="{'thumbnail-images-scroll': widgetData?.slides?.length === 0}"
+                                [ngStyle]="{'grid-template-columns': 'repeat('+ widgetData?.slides?.length +',32%)'}">
+                                <image-viewer-quick-view class="thumbnail-image"
+                                    *ngFor="let slide of widgetData?.slides"
+                                    [slideDescriptor]="(slide.dicomUri??'') | DICOMUriToSlideDescriptorPipe">
+                                </image-viewer-quick-view>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Item select button -->
+                    <button class="diagnostic-report-select-button" [class.selected]="selectedCases.has(widgetData)"
+                        (click)="toggleSelect($event, widgetData)">
+                        <mat-icon>done</mat-icon>
+                    </button>
+                </div>
+                <!-- Loading more -->
+                <div *ngIf="nextPageToken" class="load-more-section">
+                    <ng-container *ngIf="loadingMore">
+                        <ng-container *ngTemplateOutlet="loadingTemplate"></ng-container>
+                    </ng-container>
+                    <button *ngIf="!loadingMore" mat-flat-button color="primary" class="load-more"
+                        (click)="handleLoadMore(nextPageToken)">
+                        Load more
+                    </button>
+                </div>
+            </div>
+        </ng-container>
+    </ng-container>
+</div>
+
+<ng-template #loadingTemplate>
+    <div class="loading-section">
+        <mat-spinner [diameter]="50"></mat-spinner>
+        <div *ngIf="loadingText">Searching {{ loadingText }}...</div>
+        <div *ngIf="!loadingText">
+            Loading {{loadingProgressSelectedPathologyCohortCases/100 | percent }}...
+        </div>
+    </div>
+</ng-template>
+
+<ng-template #readDetailsTemplate let-data>
+    <div class="mat-dialog-title" mat-dialog-title>Cases - {{ data.id }}</div>
+    <div class="mat-dialog-content" mat-dialog-content [innerHTML]="
+      data.diagnosticReport.resource.text.sanitizedHtml.toString() ?? ''
+        | HighlightPipe: searchedKeywords
+    "></div>
+
+    <mat-dialog-actions class="discard-confirmation-actions" align="end">
+        <button mat-button color="primary" [mat-dialog-close]="false">Close</button>
+    </mat-dialog-actions>
+</ng-template>

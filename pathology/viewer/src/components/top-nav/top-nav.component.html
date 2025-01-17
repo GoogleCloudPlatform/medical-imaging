@@ -1,0 +1,83 @@
+<!--
+ Copyright 2024 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<div class="container">
+    <div class="left">
+        <img class="logo logo-img" src="favicon.ico" alt="Logo" (click)="routeToHome()" />
+        <span class="logo" (click)="routeToHome()">Pathology Image Library</span>
+    </div>
+    <div class="right" *ngIf="isViewerRoute">
+        <div class="breadcrumbs"
+            *ngIf="(cohortDisplayName && cohortName) || selectedExtraMetaData?.patientId || caseId || selectedSlideDescriptor?.name">
+            <div *ngIf="cohortDisplayName && cohortName" class="crumb" matTooltip="Cohort">
+                <mat-icon>chevron_right</mat-icon>
+                <div class="crumb-info">
+                    <mat-icon>view_stream</mat-icon>
+                    <span class="clickable-text ellipsis" ng-disabled="!cohortName" (click)="routeToCohort()">
+                        {{ cohortDisplayName }}
+                    </span>
+                </div>
+            </div>
+            <div *ngIf="selectedExtraMetaData?.patientId" class="crumb" matTooltip="Patient name">
+                <mat-icon>chevron_right</mat-icon>
+                <div class="crumb-info">
+                    <mat-icon>person</mat-icon>
+                    <span [class.clickable-text]="allowLinks" (click)="routeToPatient()" class="ellipsis">
+                        {{ selectedExtraMetaData?.patientName }}
+                    </span>
+                </div>
+            </div>
+            <div *ngIf="selectedExtraMetaData?.caseId" class="crumb" matTooltip="Case ID">
+                <mat-icon>chevron_right</mat-icon>
+                <div class="crumb-info">
+                    <mat-icon>ballot</mat-icon>
+                    <span [class.clickable-text]="allowLinks" (click)="routeToCase()" class="ellipsis">
+                        {{ selectedExtraMetaData?.caseId }}
+                    </span>
+                </div>
+            </div>
+            <div *ngIf="selectedSlideDescriptor?.name" class="crumb" matTooltip="Slide name">
+                <mat-icon>chevron_right</mat-icon>
+                <div class="crumb-info">
+                    <mat-icon>crop_7_5</mat-icon><span class="ellipsis">
+                        {{ selectedSlideDescriptor?.name }}
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div class="cases-and-search">
+            <div *ngIf="selectedCaseIndex !== -1" class="cases-navigator">
+                <button mat-icon-button aria-label="Show previous case" [disabled]="selectedCaseIndex<1"
+                    (click)="prevCase()" matTooltip="Previous case">
+                    <mat-icon>chevron_left</mat-icon>
+                </button>
+                <div>
+                    <div>
+                        Case
+                    </div>
+                    <div> {{ selectedCaseIndex +1}} / {{ cohortService.selectedPathologyCohortCases$.getValue().length
+                        }}
+                    </div>
+                </div>
+                <button mat-icon-button aria-label="Show next case"
+                    [disabled]="selectedCaseIndex>=cohortService.selectedPathologyCohortCases$.getValue().length-1"
+                    (click)="nextCase()" matTooltip="Next case">
+                    <mat-icon>chevron_right</mat-icon>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

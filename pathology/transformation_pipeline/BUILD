@@ -84,9 +84,9 @@ filegroup(
 )
 
 py_binary(
-    name = "localhost_main",
+    name = "local_main",
     srcs = [
-        "localhost_main.py",
+        "local_main.py",
     ],
     srcs_version = "PY3",
     deps = [
@@ -102,9 +102,9 @@ py_binary(
 )
 
 py_library(
-    name = "localhost_main_lib",
+    name = "local_main_lib",
     srcs = [
-        "localhost_main.py",
+        "local_main.py",
     ],
     srcs_version = "PY3",
     deps = [
@@ -120,9 +120,9 @@ py_library(
 )
 
 py_test(
-    name = "localhost_main_test",
+    name = "local_main_test",
     srcs = [
-        "localhost_main_test.py",
+        "local_main_test.py",
     ],
     data = [
         ":license",
@@ -134,7 +134,7 @@ py_test(
         requirement("absl-py"),
         ":gke_main_lib",
         ":ingest_flags",
-        ":localhost_main_lib",
+        ":local_main_lib",
         "//pathology/transformation_pipeline/ingestion_lib:gen_test_util",
         "//pathology/transformation_pipeline/ingestion_lib:redis_client",
         "//pathology/transformation_pipeline/ingestion_lib/dicom_gen/wsi_to_dicom:dicom_util",

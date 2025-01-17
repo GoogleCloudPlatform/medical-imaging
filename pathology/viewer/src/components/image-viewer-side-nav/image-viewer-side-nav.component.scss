@@ -1,0 +1,480 @@
+/**
+ * Copyright 2024 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+$CODE_BACKGROUND_COLOR: rgba(0, 0, 0, 0.04);
+$light_blue: #d3e3fd;
+$light_gray: #5f6368;
+
+.annotators-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 16em;
+  overflow: hidden auto;
+  padding-bottom: 0.5em;
+
+  .annotators-list-empty {
+    height: min-content;
+    padding-left: 1em;
+  }
+
+  .annotator-info {
+    display: grid;
+    grid-template-columns: min-content 26ch;
+    align-items: center;
+    height: 2.5em;
+
+    .annotator-id {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+}
+
+::ng-deep .label-thumbnail .thumbnail-image {
+  object-fit: contain;
+}
+
+.annotations-expand-header {
+  display: grid;
+  grid-template-columns: 1fr min-content;
+  width: 100%;
+  align-items: center;
+}
+
+.layer-info-actions .annotations-header-scroll-bar-icon {
+  padding-right: 0.65em;
+}
+
+.image-viewer-side-nav-menu {
+  color: $light_gray;
+  width: 16em;
+
+  .image-viewer-side-nav-menu-header {
+    height: 3em;
+    padding: 0.3em 0.7em 0em 0.2em;
+    display: grid;
+  }
+}
+
+::ng-deep
+  .image-viewer-side-nav
+  .annotators-expansion-panel
+  .mat-expansion-panel-body {
+  padding: 0;
+}
+
+::ng-deep .image-viewer-side-nav .mat-expansion-panel-body {
+  padding: 0 0.2em 1em 0.7em;
+  color: $light_gray;
+}
+
+::ng-deep .annotators-expansion-panel .mat-expansion-panel-body {
+  padding: 0;
+  color: $light_gray;
+}
+
+.image-viewer-side-widgets {
+  overflow: auto;
+  overflow-y: scroll;
+}
+
+.image-viewer-side-nav {
+  height: 65vh;
+  background: white;
+  display: grid;
+  grid-template-rows: 1fr min-content min-content;
+  padding-bottom: 0.1em;
+
+  mat-expansion-panel-header {
+    font-size: 1.3em;
+    font-weight: bold;
+    padding: 0em 0 0 0.5em;
+    color: $light_gray;
+  }
+}
+
+.slide-details-header {
+  display: grid;
+  grid-template-columns: 1fr min-content;
+  align-items: center;
+  width: 100%;
+}
+
+.slide-details-header-title {
+  align-items: center;
+  display: flex;
+}
+
+.annotation-download-button {
+  margin-left: auto;
+}
+
+.thumbnails {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-row-gap: 1em;
+  justify-items: center;
+}
+
+.thumbnail {
+  border-radius: 8px;
+  display: grid;
+  height: 10em;
+  outline: 1px solid #1976d2;
+  overflow: hidden;
+  position: relative;
+  width: 15em;
+
+  .thumbnail-image {
+    width: inherit;
+    height: inherit;
+  }
+}
+
+.viewer-actions-header {
+  column-gap: 0.5em;
+  display: grid;
+  grid-template-columns: min-content 1fr;
+  justify-content: space-between;
+  width: 100%;
+
+  .viewer-actions {
+    display: flex;
+    grid-gap: 0.5em;
+    justify-content: end;
+  }
+
+  .viewer-action-button {
+    &:hover {
+      background: $light_blue;
+    }
+  }
+
+  .viewer-action-selected {
+    background: $light_blue;
+  }
+}
+
+.mat-expansion-panel-spacing {
+  border-radius: 0;
+  margin: 0;
+}
+
+.quickview-button {
+  bottom: 0.5em;
+  position: absolute;
+  right: 0.2em;
+
+  &:hover {
+    transform: scale(1.2);
+  }
+}
+
+.quickview-checkbox {
+  bottom: 1em;
+  right: 0.2em;
+  position: absolute;
+  z-index: 2;
+}
+
+.quickview-dialog-content {
+  height: 60vh;
+  position: relative;
+  overflow: hidden;
+  width: 70vw;
+}
+
+.thumbnails-section {
+  display: grid;
+  grid-row-gap: 1em;
+  grid-template-rows: 1fr;
+}
+
+.thumbnail-actions {
+  display: grid;
+  grid-template-columns: max-content min-content;
+  justify-content: space-between;
+}
+
+.thumbnail-select-actions {
+  display: grid;
+  grid-column-gap: 0.5em;
+  grid-template-columns: min-content min-content min-content;
+}
+
+.quickview-dialog-open-full-image-button {
+  bottom: 0.2em;
+  position: absolute;
+  right: 0.2em;
+  z-index: 2;
+}
+
+.selected-image {
+  outline: 3px solid #1976d2;
+}
+
+.layer-info {
+  align-items: center;
+  display: grid;
+  grid-column-gap: 0.5em;
+  grid-template-columns: 1fr min-content;
+}
+
+.layer-info-actions {
+  display: flex;
+  grid-column-gap: 0.5em;
+}
+
+.annotation-layer-info {
+  align-items: center;
+  display: grid;
+  grid-column-gap: 0.5em;
+  grid-template-columns: 1fr min-content;
+  height: max-content;
+
+  &:hover {
+    background: $light_blue;
+  }
+}
+
+.annotation-layer-info-selected {
+  background: $light_blue;
+}
+
+.annotation-layers {
+  align-content: start;
+  display: grid;
+  grid-column: 1/3;
+  grid-row-gap: 0.5em;
+  grid-template-rows: min-content;
+  max-height: 11em;
+  overflow: auto;
+  overflow-x: hidden;
+  padding: 0 0 0.5em 1em;
+}
+
+.annotation-layers-divider {
+  color: #5f6368;
+  font-weight: bold;
+  padding: 0.4em 0;
+}
+
+.annotation-info-overlay {
+  // background: $light_blue;
+  box-shadow:
+    0px 3px 1px -2px rgba(0, 0, 0, 0.2),
+    0px 2px 2px 0px rgba(0, 0, 0, 0.14),
+    0px 1px 5px 0px rgba(0, 0, 0, 0.12);
+  background: #fff;
+  // border-radius: 1em;
+  color: light_gray;
+  cursor: pointer;
+  display: grid;
+  grid-row-gap: 0.2em;
+  grid-template-rows: min-content min-content;
+  padding: 1em;
+  width: 20em;
+}
+
+.annotation-info-overlay-title {
+  font-size: 1.4em;
+}
+
+.annotation-info-overlay-note-form {
+  display: grid;
+  row-gap: 0.2em;
+}
+
+.annotation-info-overlay-note-sub {
+  color: #1f1f1f;
+  font-size: 0.8em;
+}
+
+.annotation-info-overlay-actions {
+  color: #5f6368;
+
+  display: grid;
+  grid-template-columns: repeat(2, 2.5em);
+  justify-content: space-between;
+}
+
+.annotation-info-overlay-action-button {
+  background: #f5f5f5;
+}
+
+.annotation-info-overlay-label-form-option {
+  display: grid;
+  grid-template-columns: min-content 1fr;
+  grid-column-gap: 0.5em;
+}
+
+.annotation-info-overlay-label-form-option-label-color-preview {
+  height: 1em;
+  width: 1em;
+  border-radius: 50%;
+}
+
+.annotation-info-overlay-form-field {
+  display: grid;
+}
+
+.annotation-info-overlay-annotator-id {
+  color: #959595;
+}
+
+.annotation-info-overlay-readonly {
+  padding-bottom: 1em;
+}
+
+.annotation-info-overlay-metrics-and-actions {
+  display: grid;
+  grid-template-columns: 1fr max-content;
+
+  .annotation-info-overlay-metrics {
+    display: grid;
+    color: #959595;
+
+    .annotation-info-overlay-metric {
+      display: grid;
+      grid-template-columns: min-content 1fr;
+      grid-column-gap: 0.2em;
+      align-items: baseline;
+    }
+  }
+}
+
+::ng-deep .label-autocomplete {
+  --mat-autocomplete-background-color: #f5f5f5;
+}
+
+.context-menu {
+  box-shadow:
+    0px 3px 1px -2px rgba(0, 0, 0, 0.2),
+    0px 2px 2px 0px rgba(0, 0, 0, 0.14),
+    0px 1px 5px 0px rgba(0, 0, 0, 0.12);
+  background: #fff;
+  display: grid;
+  max-width: 14em;
+  min-width: 10em;
+  padding: 0.3em 0;
+}
+
+.context-menu-item {
+  align-items: center;
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  display: grid;
+  grid-column-gap: 0.5em;
+  grid-template-columns: min-content max-content;
+  font-size: 1em;
+  justify-content: start;
+  padding: 0.3em 1em;
+  user-select: none;
+
+  &:focus-visible {
+    outline: none;
+  }
+
+  &:active {
+    background-color: rgb(170, 170, 170);
+  }
+}
+
+.context-menu-info {
+  display: grid;
+  grid-row-gap: 0.3em;
+  padding: 0.3em 1em;
+}
+
+.minor-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+
+  button {
+    color: $light_gray;
+  }
+}
+
+.dialog-actions {
+  justify-content: space-between;
+}
+
+kbd {
+  background-color: #eee;
+  border-radius: 3px;
+  border: 1px solid #b4b4b4;
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.2),
+    0 2px 0 0 rgba(255, 255, 255, 0.7) inset;
+  color: #333;
+  display: inline-block;
+  font-size: 0.85em;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 4px;
+  white-space: nowrap;
+}
+
+.label-header {
+  font-weight: bold;
+  font-size: 1em;
+}
+
+.label-image {
+  height: 10em;
+  margin: 0.5em auto 0em;
+}
+
+.de-Identified-header {
+  align-items: center;
+  display: grid;
+  grid-template-columns: min-content max-content;
+  grid-column-gap: 0.2em;
+}
+
+::ng-deep {
+  .slide-data-dialog-panel {
+    max-height: 80vh;
+  }
+}
+
+.slide-divider {
+  width: 100%;
+}
+
+.metadata-info {
+  width: 15em;
+}
+
+.metadata-info-case-id {
+  align-items: center;
+  display: grid;
+  grid-template-columns: max-content max-content;
+  grid-column-gap: 0.2em;
+  padding: 0.4em 0;
+}
+
+.metadata-info-case-id-select {
+  padding: 0 4px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+::ng-deep .cdk-overlay-pane:has(.mat-mdc-select-panel) {
+  min-width: fit-content;
+}

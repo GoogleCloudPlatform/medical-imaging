@@ -1,0 +1,100 @@
+<!--
+ Copyright 2024 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<div mat-dialog-title>
+    <div *ngIf="editMode === editModeType.ALL">Create New Cohort</div>
+    <div *ngIf="editMode === editModeType.SLIDES">Append Slides To Cohort</div>
+    <div *ngIf="editMode === editModeType.NAME_DESCRIPTION">Edit Cohort</div>
+    
+  </div>
+  <div mat-dialog-content>
+    <mat-form-field appearance="fill" *ngIf="editMode === editModeType.ALL || editMode === editModeType.NAME_DESCRIPTION">
+      <mat-label>Cohort name</mat-label>
+      <input matInput data-qa="name-input" [formControl]="displayName" />
+      <mat-error *ngIf="displayName.hasError('required')"> Display name is required. </mat-error>
+    </mat-form-field>
+  
+    <mat-form-field appearance="fill" *ngIf="editMode === editModeType.ALL || editMode === editModeType.NAME_DESCRIPTION">
+      <mat-label>Cohort description</mat-label>
+      <textarea matInput [formControl]="description" rows="3"></textarea>
+    </mat-form-field>
+  
+    <div 
+    *ngIf="editMode === editModeType.ALL || editMode === editModeType.SLIDES"
+    >
+      <div id="id-type-radio-label">Add to cohort using:</div>
+      <mat-radio-group [(ngModel)]="idType" class="radio-group" aria-labelledby="id-type-radio-label">
+        <mat-radio-button value="patientId">Patient IDs</mat-radio-button>
+        <mat-radio-button value="caseId">Case IDs</mat-radio-button>
+        <mat-radio-button value="slideId">Slide IDs</mat-radio-button>
+      </mat-radio-group>
+    </div>
+  
+    <mat-form-field
+    *ngIf="editMode === editModeType.ALL || editMode === editModeType.SLIDES"
+    
+    class="id-text-area" appearance="fill">
+      <mat-label>Comma-separated list of IDs</mat-label>
+      <textarea
+        matInput
+        data-qa="ids-input"
+        [formControl]="commaSeparatedIds"
+        rows="3"
+        (input)="forceUppercaseConditionally()"
+      ></textarea>
+      <button
+        aria-label="Toggle id caplock"
+        class="caplock-icon"
+        (click)="toggleCaplockIds()"
+        mat-icon-button
+        matSuffix
+        [class.caplock-lowercase-icon]="!caplockIds"
+      >
+        <mat-icon>keyboard_capslock</mat-icon>
+      </button>
+      <mat-error *ngIf="commaSeparatedIds.hasError('required')"> IDs are required. </mat-error>
+      <mat-error *ngIf="commaSeparatedIds.hasError('invalidChars')">
+        Cannot parse invalid characters: {{commaSeparatedIds.errors?.['invalidChars']}}
+      </mat-error>
+      <mat-error *ngIf="commaSeparatedIds.hasError('badIds')">
+        No data found for IDs: {{commaSeparatedIds.errors?.['badIds']}}
+      </mat-error>
+    </mat-form-field>
+  </div>
+  
+  <div mat-dialog-actions>
+    <button mat-stroked-button color="primary" data-qa="cancel-button" [mat-dialog-close]="false">
+      Cancel
+    </button>
+    <button
+      mat-flat-button
+      color="primary"
+      data-qa="create-button"
+      type="button"
+      [disabled]="modifyCohortLoading"
+      (click)="modifyCohort()"
+    >
+    <ng-container  *ngIf="editMode === editModeType.ALL">
+      Create
+    </ng-container>  
+    <ng-container  *ngIf="editMode === editModeType.SLIDES">
+      Append
+    </ng-container>
+    <ng-container *ngIf="editMode === editModeType.NAME_DESCRIPTION">
+      Update
+    </ng-container>
+    </button>
+  </div>

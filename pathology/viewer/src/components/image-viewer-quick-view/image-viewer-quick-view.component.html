@@ -1,0 +1,75 @@
+<!--
+ Copyright 2024 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<div class="image-viewer-quick-view">
+    <div class="ol-viewer-quick-view" (click)="goToViewer(slideDescriptor, cohortInfo)">
+      <ol-tile-viewer 
+          *ngIf="slideDescriptor && slideInfo" 
+          [slideDescriptor]="slideDescriptor"
+          [slideInfo]="slideInfo"
+          (olMapLoaded)="olMapLoadedHandler($event)"
+          [isThumbnail]="true">
+      </ol-tile-viewer>
+    </div>
+    <div class="slide-name" *ngIf="slideInfo?.slideName">
+      {{slideInfo! | QuickViewSlideDescriptorNamePipe:selectedExtraMetaData}}
+    </div>
+    <button 
+        *ngIf="isLoaded && enableExpandedView" 
+        mat-icon-button 
+        aria-label="Quickview image" 
+        class="quickview-button" 
+        matTooltip="Expand Image"
+        (click)="openQuickviewImage(slideDescriptor);$event.stopPropagation();">
+      <mat-icon >preview</mat-icon>
+    </button>
+    <button 
+        *ngIf="showSlideData"
+        mat-icon-button 
+        aria-label="Slide data" 
+        class="slide-data-button" 
+        matTooltip="Open slide data"
+        (click)="openSlideData();$event.stopPropagation();">
+      <mat-icon >account_tree</mat-icon>
+    </button>
+  </div>
+  
+  <ng-template #quickviewImageDialogTemplate let-dialogRef="dialogRef" let-data>
+    <div mat-dialog-content class="quickview-dialog-content">
+      <button 
+          mat-icon-button 
+          matTooltip="Close" 
+          mat-dialog-close
+          cdkFocusInitial 
+          aria-label="Close quickview" 
+          class="quickview-dialog-close-button">
+        <mat-icon>close</mat-icon>
+      </button>
+        <button  
+            routerLink="/viewer" 
+            [queryParams]="data.slideDescriptor | SlideDescriptorToViewerUrlParamsPipe"
+            mat-dialog-close mat-icon-button aria-label="Open full image" 
+            class="quickview-dialog-open-full-image-button"
+            matTooltip="Expand" 
+           >
+          <mat-icon >open_in_full</mat-icon>
+        </button>
+      <ol-tile-viewer class="quickview-dialog-viewer" *ngIf="data.slideDescriptor.id  && data.slideInfo" 
+              [slideInfo]="data.slideInfo"
+              [slideDescriptor]="data.slideDescriptor">
+      </ol-tile-viewer>
+    </div>
+  </ng-template>

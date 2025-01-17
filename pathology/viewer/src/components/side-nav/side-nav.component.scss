@@ -1,0 +1,120 @@
+/**
+ * Copyright 2024 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+$light_blue: #d3e3fd;
+
+.side-nav-container {
+  display: grid;
+  font-size: 12px;
+  grid-template-rows: 1fr min-content;
+  height: 96%;
+  width: max-content;
+  padding: 1em 0;
+
+  .navigation-buttons {
+    display: grid;
+    grid-template-rows: repeat(3, min-content);
+    grid-row-gap: 2em;
+
+    .viewer-button-wrapper {
+      display: grid;
+    }
+  }
+
+  .settings-and-logout {
+    display: grid;
+    grid-row-gap: 1em;
+  }
+
+  .navigation-button {
+    display: grid;
+    justify-items: center;
+    grid-row-gap: 0.3em;
+    height: auto;
+
+    .mat-icon {
+      border-radius: 8px;
+      width: 2em;
+      margin: 0;
+      height: 1em;
+      font-size: 2em;
+    }
+
+    [data-selected='true'] {
+      background: $light_blue;
+    }
+  }
+}
+
+.settings {
+  display: grid;
+  padding: 2em;
+
+  .quickview-dialog-close-button {
+    position: absolute;
+    right: 0.2em;
+    top: 0.2em;
+    z-index: 2;
+  }
+
+  .shortcuts-settings {
+    .setting-title {
+      font-size: 2em;
+    }
+
+    .shortcuts-settings-info {
+      display: grid;
+
+      .shortcut-group {
+        font-size: 16px;
+        margin-right: 30px;
+
+        .debug-settings {
+          display: grid;
+          grid-gap: 1em;
+        }
+
+        .shortcuts {
+          display: flex;
+          grid-gap: 1em;
+        }
+
+        .shortcut {
+          align-items: center;
+          display: grid;
+          grid-column-gap: 0.2em;
+          grid-template-columns: min-content max-content;
+        }
+
+        kbd {
+          background-color: #eee;
+          border-radius: 3px;
+          border: 1px solid #b4b4b4;
+          box-shadow:
+            0 1px 1px rgba(0, 0, 0, 0.2),
+            0 2px 0 0 rgba(255, 255, 255, 0.7) inset;
+          color: #333;
+          display: inline-block;
+          font-size: 0.85em;
+          font-weight: 700;
+          line-height: 1;
+          padding: 2px 4px;
+          white-space: nowrap;
+        }
+      }
+    }
+  }
+}

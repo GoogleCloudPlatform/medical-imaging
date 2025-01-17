@@ -1,0 +1,115 @@
+<!--
+ Copyright 2024 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<div class="side-nav-container">
+    <div class="navigation-buttons">
+      <button 
+          class="navigation-button"
+          mat-button 
+          [routerLink]="defaultSearchUrl"
+          [queryParams]="activatedRoute.snapshot.queryParams['q'] === lastSearchUrlQueryParams['q'] ?{}:lastSearchUrlQueryParams" >
+        <mat-icon 
+            [attr.data-selected]="router.url.startsWith(defaultSearchUrl)" 
+            mat-list-icon>search</mat-icon>
+        <div mat-line >Search</div>
+      </button>
+      <button 
+          *ngIf="cohortsEnabled" 
+          class="navigation-button"
+          mat-button 
+          [routerLink]="defaultCohortUrl"
+          [queryParams]="activatedRoute.snapshot.queryParams['cohortName']  === lastCohortUrlQueryParams['cohortName'] && router.url.startsWith(defaultCohortUrl) ?{}:lastCohortUrlQueryParams " >
+        <mat-icon [attr.data-selected]="router.url.startsWith(defaultCohortUrl)"  mat-list-icon>list_alt</mat-icon>
+        <div mat-line >Cohorts</div>
+      </button>
+      <div class="viewer-button-wrapper" [matTooltip]="!lastViewerUrlQueryParams['series'] ? 'Please select a image to view' : ''">
+        <button 
+            mat-button 
+            
+            class="navigation-button"
+            [routerLink]="defaultViewerUrl"
+            [disabled]="!lastViewerUrlQueryParams['series']"
+            [queryParams]="lastViewerUrlQueryParams" 
+            >
+          <mat-icon [attr.data-selected]="router.url.startsWith(defaultViewerUrl)"  mat-list-icon>biotech</mat-icon>
+          <div mat-line >Viewer</div>
+        </button>
+      </div>
+    </div>
+    <div class="settings-and-logout">
+      <button 
+          mat-button 
+          class="navigation-button"
+          (click)="openSettingsDialog()">
+        <mat-icon mat-list-icon>settings</mat-icon>
+        <div mat-line >Settings</div>
+      </button>
+      <button 
+          mat-button 
+          class="navigation-button"
+          (click)="logout()">
+        <mat-icon mat-list-icon>logout</mat-icon>
+        <div mat-line >Logout</div>
+      </button>
+    </div>
+  </div>
+  
+  
+  <ng-template  #settingsDialogTemplate let-dialogRef="dialogRef" let-data>
+    <div class="settings">
+      <button 
+          mat-icon-button 
+          (click)="dialogRef.close()"
+          cdkFocusInitial 
+          aria-label="Close settings" 
+          class="quickview-dialog-close-button">
+        <mat-icon>close</mat-icon>
+      </button>
+      <div class="shortcuts-settings">
+        <div class="setting-title">Settings</div>
+        <div class="shortcuts-settings-info">
+          <div class="shortcut-group">
+            <div class="debug-settings">
+              <div class="shortcut">
+                <button
+                    mat-icon-button
+                    color="primary"
+                    (click)="toggleDebugMode()"
+                    >
+                  <mat-icon>
+                    {{ showXYZCoordinates ? "check_box" : "check_box_outline_blank"}}
+                  </mat-icon>
+                </button>
+                Display the tile coordinates (z, x, y).
+              </div>
+              <div class="shortcut">
+                <mat-form-field>
+                  <mat-label>
+                    Select color space
+                  </mat-label>
+                    <mat-select [(ngModel)]="iccProfile" (selectionChange)="selectIccProfile()">
+                      <mat-option [value]="profile" *ngFor="let profile of iccProfileType">
+                        {{profile | IccProfileTypeToLabelPipe}}
+                      </mat-option>
+                    </mat-select>
+                </mat-form-field>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </ng-template>
