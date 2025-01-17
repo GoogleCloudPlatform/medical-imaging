@@ -67,5 +67,4 @@ RUN apt-get purge -y \
 ENV PYTHONPATH="${PYTHONPATH}:/"
 RUN set -e && \
     python3 -m unittest discover -p "*_test.py" && \
-    set +e && \
-    rm -rf /tmp
+    set +e
