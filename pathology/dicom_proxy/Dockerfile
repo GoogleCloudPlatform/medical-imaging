@@ -107,7 +107,7 @@ RUN set -e && \
     python3 -m unittest discover -p "*_test.py" -s "/pathology/dicom_proxy" -t / && \
     python3 -m unittest discover -p "*_test.py" -s "/pathology/shared_libs" -t / && \
     set +e && \
-    rm -rf /tmp
+    rm -r /tmp/*
 # Set container to run as non-root user.
 # NonRootUser configured in dpas-debian-python-base image.
 USER NonRootUser
