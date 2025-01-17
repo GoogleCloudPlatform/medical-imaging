@@ -28,5 +28,7 @@ RUN npm run build
 FROM nginx:latest
 COPY --from=builder /app/dist/viewer/ /usr/share/nginx/html/
 COPY nginx.conf /etc/nginx/nginx.conf
+RUN mkdir -p /var/cache/nginx/client_temp /var/cache/nginx/proxy_temp /var/cache/nginx/fastcgi_temp /var/cache/nginx/uwsgi_temp /var/cache/nginx/scgi_temp /tmp/nginx
+RUN chmod -R 777 /var/cache/nginx /tmp/nginx
 EXPOSE 5432
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["nginx", "-g", "daemon off; pid /tmp/nginx/nginx.pid;"]
