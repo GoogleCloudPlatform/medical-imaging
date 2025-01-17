@@ -68,7 +68,6 @@ COPY ilm/batch_pipeline_main.py .
 ENV PYTHONPATH="${PYTHONPATH}:/"
 RUN set -e && \
     python3 -m unittest discover -p "*_test.py" && \
-    set +e && \
-    rm -rf /tmp
+    set +e
 
 ENV FLEX_TEMPLATE_PYTHON_PY_FILE="${WORKDIR}/batch_pipeline_main.py"
