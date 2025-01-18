@@ -57,6 +57,7 @@ import {AnnotationGroup, DicomAnnotation, DicomAnnotationInstance, ReferencedSer
 import {AssociatedImageType, DicomModel} from '../../interfaces/dicom_descriptor';
 import {parseDICOMwebUrl} from '../../interfaces/dicomweb';
 import {Case} from '../../interfaces/hierarchy_descriptor';
+import {ImageOverlay} from '../../interfaces/image_overlay';
 import {SlideDescriptor, SlideExtraMetadata, SlideInfo} from '../../interfaces/slide_descriptor';
 import {AnnotationKey, DEFAULT_ANNOTATION_KEY, SideNavLayer} from '../../interfaces/types';
 import {CohortService} from '../../services/cohort.service';
@@ -186,6 +187,7 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
   hasAnnotationReadAccess = LOCAL_ANNOTATION_MODE;
   hasCaseIdInCohortCases = false;
   hasLabelOrOverviewImage = false;
+  imageOverlays: ImageOverlay[] = [];
   initialChange = true;
   isAnnotationOverlayEditMode = false;
   isFlatImage = false;
