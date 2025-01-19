@@ -27,7 +27,6 @@ import { LogService } from "./log.service";
 import { PathologySlide } from "../interfaces/slide_descriptor";
 import { environment } from "../environments/environment";
 
-// pathology.orchestrator/rest_server/server.py
 const FIELDS_AS_URL_PARAM = ['linkToken', 'filter', 'view'];
 /** Error message to retry update stale cohort. */
 export const ERROR_MESSAGE_STALE_UPDATE_COHORT =
