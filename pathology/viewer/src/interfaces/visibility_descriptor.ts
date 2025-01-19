@@ -25,14 +25,14 @@
 export declare interface VisibilityDescriptor {
     visible: boolean;
     opacity: number;
-  }
-  
-  /**
-   * The UrlSerializedImageOverlay is a slightly different interface than the
-   * general VisibilityDescriptor since all properties are optional. This is
-   * because no specific property is guaranteed to be encoded in the URL.
-   */
-  export declare interface UrlSerializedVisibility {
-    visible?: string;
-    opacity?: string;
-  }
+}
+
+/**
+ * The UrlSerializedImageOverlay is a slightly different interface than the
+ * general VisibilityDescriptor since all properties are optional. This is
+ * because no specific property is guaranteed to be encoded in the URL.
+ */
+export declare interface UrlSerializedVisibility {
+  visible?: string;
+  opacity?: string;
+}
