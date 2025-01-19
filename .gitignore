@@ -6,7 +6,7 @@
 /bazel-out
 
 # Node
-/pathology/viewer/node_modules
+/pathology/viewer/node_modules/
 npm-debug.log
 yarn-error.log
 
@@ -28,8 +28,8 @@ yarn-error.log
 .history/*
 
 # Miscellaneous
-/pathology/viewer/.angular/cache
-.sass-cache/
+/pathology/viewer/.angular/
+/pathology/viewer/.sass-cache/
 /connect.lock
 /coverage
 /libpeerconnection.log
