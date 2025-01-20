@@ -22,10 +22,9 @@ import {defaultEnvironment, EnvironmentSettings} from './environment-types';
 export const environment: EnvironmentSettings = {
   ...defaultEnvironment,
   // Setup your dicomstore base url.
-  // As a demon only, this was preconfigured to point to IDC dicomweb server.
-  // Please see https://learn.canceridc.dev/portal/proxy-policy for limitations
-  // on usage.
-  // To view slides search case ID that can be found here:
+  // For demonstration only, this was preconfigured to point to IDC dicomweb
+  // server. Please see https://learn.canceridc.dev/portal/proxy-policy for
+  // limitations on usage. To view slides search case ID that can be found here:
   // https://portal.imaging.datacommons.cancer.gov/explore/filters/?Modality_op=OR&Modality=SM
   // For example: MSB-07656
   'IMAGE_DICOM_STORE_BASE_URL':

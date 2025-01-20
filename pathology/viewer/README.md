@@ -1,5 +1,7 @@
 # Zero Footprint DICOMWeb Pathology Viewer
 
+<center><img src="../images/frontend.png"></img></center>
+
 ## Overview
 
 The Pathology Viewer is a single-page application designed for interacting with, visualizing, and annotating DICOM images, in accordance with DICOM-web standards. It is compatible with any server supporting DICOMWeb, allowing it to be deployed and used on any device with a web browser.
@@ -42,6 +44,17 @@ The open source viewer is configured via environment files:
 * `src/environments/environment.ts` - For production builds (e.g., `npm run build`).
 
 In the section [Viewer Configuration Parameters](#viewer-configuration-parameters) below, you will find detailed descriptions of the configuration parameters.
+
+For demonstration only, this was preconfigured to point to IDC dicomweb server. You can
+find case ID and patient ID to display in the
+[IDC data explorer](https://portal.imaging.datacommons.cancer.gov/explore/filters/?Modality_op=OR&Modality=SM).
+Examples:
+
+- [TCGA-A6-2671](http://localhost:5432/search?q=TCGA-A6-2671)
+- [TCGA-EJ-7781](http://localhost:5432/search?q=TCGA-EJ-7781)
+
+> _NOTE_: The IDC is intended for limited user viewing only and is not meant for
+> image downloads. Read more [here](https://learn.canceridc.dev/portal/proxy-policy).
 
 ## Development server
 
