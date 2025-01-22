@@ -63,6 +63,7 @@ export class SearchPageComponent implements OnInit, OnChanges, OnDestroy {
   cases: Array<BehaviorSubject<Case>> = [];
   diagnosticReports: DiagnosticReport[] = [];
   loading = false;
+  searchInitiated = false;
   patient: Patient|undefined = undefined;
   searchText = new FormControl<string>('', {nonNullable: true});
 
@@ -158,9 +159,11 @@ export class SearchPageComponent implements OnInit, OnChanges, OnDestroy {
     if (!searchText) {
       this.searchService.resetSearchResults();
       this.router.navigate([]);
+      this.searchInitiated = false;
       return;
     }
 
+    this.searchInitiated = true;
     if (this.route.snapshot.queryParamMap.get('q') !== searchText) {
       this.router.navigate([], {queryParams: {'q': searchText}});
     }

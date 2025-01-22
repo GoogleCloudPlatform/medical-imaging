@@ -52,6 +52,6 @@
         [nextPageToken]="(searchService.nextDiagnosticReportLink$ | async) || ''" [patient]="patient"
         [searchText]="searchText.value" [showText]="diagnosticReports.length !== 0"
         [totalResults]="(searchService.totalResults$ | async) || 0" (loadMore)="loadMore($event)"
-        (searchSortBy)="searchSortBy($event)" [showEmptyMessage]="searchText.value !== ''">
+        (searchSortBy)="searchSortBy($event)" [showEmptyMessage]="searchText.value !== '' && searchInitiated">
     </search-results>
 </div>
