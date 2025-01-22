@@ -33,13 +33,26 @@ The tissue viewer page allows the user to inspect WSI imagery streaming from the
 
 ## To set up project and dependencies
 
-- `git clone https://github.com/GoogleCloudPlatform/medical-imaging`
-- `cd pathology/viewer`
-- `npm install`
+```shell
+git clone https://github.com/GoogleCloudPlatform/medical-imaging
+cd medical-imaging/pathology/viewer`
+npm install
+```
+
+## Development server
+
+To run the application locally, pointing to a development environment: 
+
+```shell
+npm run start
+```
+
+Navigate to `http://localhost:5432/`. The application will automatically reload if you change any of the source files.
 
 ## Viewer Configuration
 
 The open source viewer is configured via environment files:
+
 * `src/environments/environment.development.ts` - For development using `npm start`.
 * `src/environments/environment.ts` - For production builds (e.g., `npm run build`).
 
@@ -56,10 +69,6 @@ Examples:
 > _NOTE_: The IDC is intended for limited user viewing only and is not meant for
 > image downloads. Read more [here](https://learn.canceridc.dev/portal/proxy-policy).
 
-## Development server
-
-To run the application locally, pointing to a development environment: `npm run start`. Navigate to `http://localhost:5432/`. The application will automatically reload if you change any of the source files.
-
 ## Build for produciton
 
 Run `npm run build` to build the project. The build artifacts will be stored in the `dist/` directory. Those can be served in various ways. See the list of options in [Website hosting in Google Cloud](https://cloud.google.com/architecture/web-serving-overview). When choosing, take into account your security, authentication, privacy requirements, and whether a custom domain name is needed. In principle, this viewer can technically be statically hosted.
@@ -67,9 +76,12 @@ Run `npm run build` to build the project. The build artifacts will be stored in 
 Some of those methods require a docker container. We created the Dockerfile and nginx.conf to serve the static files from a docker container as an example.
 
 To build the docker container and run it locally:
-1. `docker build -t path-viewer .`
-2. `docker run -p 5432:5432 path-viewer`
-3. `http://localhost:5432` in a local browser.
+
+```shell
+docker build -t path-viewer .
+docker run -p 5432:5432 path-viewer
+# http://localhost:5432` in a local browser.
+```
 
 # Viewer Configuration Parameters & Data Requirements
 
