@@ -17,7 +17,10 @@
 import {CommonModule} from '@angular/common';
 import {Component, OnDestroy} from '@angular/core';
 import {FormControl, FormsModule, ReactiveFormsModule, Validators} from '@angular/forms';
+import {MatButtonModule} from '@angular/material/button';
+import {MatDialogModule} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
+import {MatInputModule} from '@angular/material/input';
 import {MatSnackBar, MatSnackBarConfig} from '@angular/material/snack-bar';
 import {ReplaySubject} from 'rxjs';
 import {takeUntil, tap} from 'rxjs/operators';
@@ -31,7 +34,10 @@ import {DialogService} from '../../services/dialog.service';
 @Component({
   selector: 'dialog-cohort-clone',
   standalone: true,
-  imports: [FormsModule, ReactiveFormsModule, MatFormFieldModule, CommonModule],
+  imports: [
+    MatDialogModule, FormsModule, ReactiveFormsModule, MatFormFieldModule,
+    MatInputModule, MatButtonModule, CommonModule
+  ],
   templateUrl: './dialog-cohort-clone.component.html',
   styleUrl: './dialog-cohort-clone.component.scss'
 })

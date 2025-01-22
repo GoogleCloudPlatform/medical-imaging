@@ -24,6 +24,8 @@ import {tap} from 'rxjs/operators';
 
 import {CohortService} from '../../services/cohort.service';
 import {DialogService} from '../../services/dialog.service';
+import { MatInputModule } from '@angular/material/input';
+import { MatButtonModule } from '@angular/material/button';
 
 /**
  * The dialog for users to de id an existing cohort to a different DICOM store.
@@ -33,7 +35,7 @@ import {DialogService} from '../../services/dialog.service';
   standalone: true,
   imports: [
     FormsModule, MatDialogModule, ReactiveFormsModule, MatFormFieldModule,
-    CommonModule
+    CommonModule, MatInputModule, MatButtonModule
   ],
   templateUrl: './dialog-cohort-de-id.component.html',
   styleUrl: './dialog-cohort-de-id.component.scss'

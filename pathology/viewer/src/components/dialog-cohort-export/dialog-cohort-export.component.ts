@@ -22,6 +22,9 @@ import {MatSnackBar, MatSnackBarConfig} from '@angular/material/snack-bar';
 
 import {CohortService} from '../../services/cohort.service';
 import {DialogService} from '../../services/dialog.service';
+import { MatInputModule } from '@angular/material/input';
+import { MatButtonModule } from '@angular/material/button';
+import { MatDialogModule } from '@angular/material/dialog';
 
 /**
  * The dialog for users to export an existing cohort to a user specified
@@ -30,7 +33,7 @@ import {DialogService} from '../../services/dialog.service';
 @Component({
   selector: 'dialog-cohort-export',
   standalone: true,
-  imports: [CommonModule, MatFormFieldModule, FormsModule, ReactiveFormsModule],
+  imports: [CommonModule, MatDialogModule, MatFormFieldModule, FormsModule, ReactiveFormsModule, MatInputModule, MatButtonModule],
   templateUrl: './dialog-cohort-export.component.html',
   styleUrl: './dialog-cohort-export.component.scss'
 })
