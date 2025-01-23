@@ -7,14 +7,17 @@ JPEG2000 codecs.
 
 - Libraries built in this container:
 
-  *  LibJpegTurbo (3.0.3) JPEG Codec
-  *  OpenJPEG (2.5.2) JPEG 2000 Codec
+  *  LibJpegTurbo (3.1.0) JPEG Codec
+  *  OpenJPEG (2.5.3) JPEG 2000 Codec
   *  OpenCV (4.10.0)
 
-To rebuild the base image:
+To build the OpenCV base container:
 
-   1. Make the desired changes to Dockerfile
-   2. Run (use image built from `../base_py_debian_docker/` as base):
+1. Build the [base_debian_docker](../base_py_debian_docker) container. This step only needs to be repeated if elements in the base container are changed.
+
+2. Build the OpenCV Base container. Set _BASE_CONTAINER to the path to the built base_py_debian container, e.g., gcr.io/${PATH_BASE_PY_DEBIAN_DOCKER}:latest.
+
+      To build the OpenCV Base container run:
 
       ```shell
       gcloud builds submit --config=./cloudbuild.yaml \
@@ -22,4 +25,6 @@ To rebuild the base image:
         --substitutions REPO_NAME=<YOUR GCR DESTINATION>,_BASE_CONTAINER=<YOUR BASE CONTAINER GCR>
       ```
 
-   3. Rebuild derived images and test for regressions.
+      Following a successful build the newly built container will be visible in your destination registry. If the build is not successful inspect the gcloud build logs to determine the issue.
+
+3. Any derived images should now be re-built and tested for regressions.

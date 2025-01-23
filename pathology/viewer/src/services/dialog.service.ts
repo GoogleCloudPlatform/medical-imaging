@@ -27,7 +27,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { map } from 'rxjs/operators';
 import { DialogConfirmationComponent } from '../components/dialog-confirmation/dialog-confirmation.component';
 import { DialogStringQuestionsComponent } from '../components/dialog-string-questions/dialog-string-questions.component';
-import { DialogErrorComponent } from '../components/dialog-error/dialog-error.component';
+import { SnackBarErrorComponent } from '../components/snackbar-error/snackbar-error.component';
 
 /**
  * Titles for various dialogs.
@@ -79,7 +79,7 @@ export class DialogService {
 
   openErrorSnackbar(message: string) {
     return this.snackBar
-      .openFromComponent(DialogErrorComponent, {
+      .openFromComponent(SnackBarErrorComponent, {
         data: {
           title: Titles.ERROR,
           message,

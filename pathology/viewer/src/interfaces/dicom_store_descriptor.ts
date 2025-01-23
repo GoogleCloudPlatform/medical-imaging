@@ -53,6 +53,27 @@ export function isSlideDeId(slideId: string) {
 }
 
 /**
+ * Adds the appropriate DICOM store prefix to a partial slide id.
+ *
+ * @param slideId The partial slide id, which may be missing the DICOM store
+ *     prefix.
+ * @returns The complete slide id with the DICOM store prefix.
+ */
+export function addDicomStorePrefixIfMissing(slideId: string) {
+  const urlPathSeg = slideId.split('/studies');
+  if (urlPathSeg.length < 1) {
+    return slideId;
+  }
+  const serverPath = urlPathSeg[0];
+  for (const value of Object.values(DICOM_STORE)) {
+    if (value.endsWith(serverPath)) {
+      return `${value}/studies${urlPathSeg[1] ? urlPathSeg[1] : ''}`;
+    }
+  }
+  return slideId;
+}
+
+/**
  * Looks up dicom store from dicom id. The prefix of an id should match the
  * store parent.
  */

@@ -31,4 +31,6 @@ To rebuild the base image:
          --timeout=24h --substitutions REPO_NAME=<YOUR IMAGE DESTINATION>
       ```
 
+      Following a successful build the newly built container will be visible in your destination registry. If the build is not successful inspect the gcloud build logs to determine the issue.
+
    3. Rebuild derived images and test for regressions.

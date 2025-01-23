@@ -73,7 +73,13 @@ python3 -m unittest discover -p "*_test.py" -s "$CLOUD_PATH/pathology/transforma
 
 ## Building the Transformation Pipeline
 
-To build a new image run:
+To build the Transformation Pipeline container:
+
+  1. Build the [base_transformation_docker](../base_docker_images/base_transformation_docker) container. This step only needs to be repeated if elements in the base container are changed.
+
+  2. Build the Transformation Pipeline container. Set _BASE_CONTAINER to the path to the built base_transformation_docker base container, e.g., gcr.io/${PATH_BASE_TRANSFORM_DOCKER}:latest
+
+  To build the container run:
 
 ```
 cd $CLOUD_PATH
@@ -81,6 +87,8 @@ gcloud builds submit --config=./pathology/transformation_pipeline/cloudbuild.yam
   --timeout=24h \
   --substitutions=REPO_NAME="<YOUR GCR DESTINATION>",_BASE_CONTAINER="<YOUR BASE CONTAINER GCR>"
 ```
+
+  Following a successful build the newly built container will be visible in your destination registry. If the build is not successful inspect the gcloud build logs to determine the issue.
 
 ## Running the Transformation Pipeline Locally
 

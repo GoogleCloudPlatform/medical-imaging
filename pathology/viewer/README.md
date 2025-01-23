@@ -9,8 +9,17 @@ The Pathology Viewer is a single-page application designed for interacting with,
 ## Features of the Pathology Viewer
 
 1. **Search Functionality:** Users can search for cases, patient IDs in the DICOM store, and FHIR diagnostic reports using keywords. This function facilitates access to cases, slides, patient information, and diagnostic reports based on the query.
+
 2. **Tissue Viewer:** The Viewer displays a case (series) of Whole Slide Images (WSI) and flat images. The viewer leverages the Digital Pathology DICOM Proxy if configured.
-3. **Basic Annotation Tools:** Users can view others' annotations and create or manage their own, following the [Microscopy Bulk Simple Annotations](https://dicom.nema.org/medical/Dicom/2024c/output/chtml/part03/sect_C.37.html#sect_C.37.1.2) standard (supplemental 222). This feature aims to enhance collaboration and improve labeling for machine learning purposes.
+
+3. **Basic Annotation Tools:** Users can view others' annotations and create or manage their own, using the [Microscopy Bulk Simple Annotations](https://dicom.nema.org/medical/Dicom/2024c/output/chtml/part03/sect_C.37.html#sect_C.37.1.2) standard (supplemental 222). This feature aims to enhance collaboration and improve labeling for machine learning purposes. Additional annotation resources:<p>
+
+<table border="0"><tr><td width="200px">
+<img src="docs/annotations/annotation_example.png"></img></td><td>
+   <li>Overview of DICOM <a href="https://dicom.nema.org/medical/dicom/Supps/Slides/sup222_WSIAnnotations_overview.pdf">Bulk Microscopy Simple Annotations</a>.</li>
+   <li><a href="https://github.com/GoogleCloudPlatform/medical-imaging/tree/main/pathology/docs/annotations/2024_connectathon_summary.pdf">2024 ECDP presentation</a> for the DICOM digital pathology working group that reports findings of the 2024 DICOM annotation connectathon.</li>
+   <li>The WSI DICOM imaging with associated bulk microscopy simple annotation tested at the 2024 DICOM connectathon are shared at: <a href="ftp://medical.nema.org/MEDICAL/Dicom/DataSets/WG26/WG26Connectathon2024/">ftp://medical.nema.org/MEDICAL/Dicom/DataSets/WG26/WG26Connectathon2024/</a>. If your web browser does not support FTP then it is recommended to use <a href="https://filezilla-project.org/">Filezilla</a> or other third party FTP clients to connect to the NEMA FTP site. Authentication is not required.
+</td></tr></table>
 
 ## Search bar
 

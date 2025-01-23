@@ -14,36 +14,31 @@
  * limitations under the License.
  */
 
+import {HttpStatusCode} from '@angular/common/http';
+import {Injectable, OnDestroy} from '@angular/core';
+import {ActivatedRoute, Router} from '@angular/router';
 import * as ol from 'ol';
+import {Feature} from 'ol';
+import {Coordinate} from 'ol/coordinate';
+import {Geometry, LineString, Point, Polygon} from 'ol/geom';
+import {Modify} from 'ol/interaction';
+import {Vector} from 'ol/source';
+import {BehaviorSubject, combineLatest, EMPTY, forkJoin, Observable, of, ReplaySubject} from 'rxjs';
+import {catchError, distinctUntilChanged, map, switchMap, takeUntil, tap} from 'rxjs/operators';
 
-import { ActivatedRoute, Router } from '@angular/router';
-import { AnnotationKey, DEFAULT_ANNOTATION_KEY, IccProfileType } from '../interfaces/types';
-import { BehaviorSubject, EMPTY, Observable, ReplaySubject, combineLatest, forkJoin, of } from 'rxjs';
-import { CohortPageParams, DEFAULT_VIEWER_URL, ImageViewerPageParams } from '../app/app.routes';
-import { Geometry, LineString, Point, Polygon } from 'ol/geom';
-import { Injectable, OnDestroy } from '@angular/core';
-import { catchError, distinctUntilChanged, map, switchMap, takeUntil, tap } from 'rxjs/operators';
-
-import { CohortService } from '../services/cohort.service';
-import { DialogService } from '../services/dialog.service';
-import { DicomAnnotation } from '../interfaces/annotation_descriptor';
-import { DicomAnnotationInstance } from '../interfaces/annotation_descriptor';
-import { DicomAnnotationsService } from '../services/dicom-annotations.service';
-import { DicomModel } from '../interfaces/dicom_descriptor';
-import { Feature } from 'ol';
-import { HttpStatusCode } from '@angular/common/http';
-import { Modify } from 'ol/interaction';
-import { SideNavLayer } from '../interfaces/types';
-import { SlideApiService } from '../services/slide-api.service';
-import { SlideDescriptor } from '../interfaces/slide_descriptor';
-import { SlideExtraMetadata } from '../interfaces/slide_descriptor';
-import { SlideInfo } from '../interfaces/slide_descriptor';
-import { UserService } from '../services/user.service';
-import { Vector } from 'ol/source';
-import { constructDicomWebPath, parseDICOMwebUrl } from '../interfaces/dicomweb';
-import { environment } from '../environments/environment';
-import { Coordinate } from 'ol/coordinate';
-import { dicomIdToDicomStore } from '../interfaces/dicom_store_descriptor';
+import {CohortPageParams, DEFAULT_VIEWER_URL, ImageViewerPageParams} from '../app/app.routes';
+import {environment} from '../environments/environment';
+import {DicomAnnotation, DicomAnnotationInstance} from '../interfaces/annotation_descriptor';
+import {DicomModel} from '../interfaces/dicom_descriptor';
+import {addDicomStorePrefixIfMissing, dicomIdToDicomStore} from '../interfaces/dicom_store_descriptor';
+import {constructDicomWebPath, parseDICOMwebUrl} from '../interfaces/dicomweb';
+import {SlideDescriptor, SlideExtraMetadata, SlideInfo} from '../interfaces/slide_descriptor';
+import {AnnotationKey, DEFAULT_ANNOTATION_KEY, IccProfileType, SideNavLayer} from '../interfaces/types';
+import {CohortService} from '../services/cohort.service';
+import {DialogService} from '../services/dialog.service';
+import {DicomAnnotationsService} from '../services/dicom-annotations.service';
+import {SlideApiService} from '../services/slide-api.service';
+import {UserService} from '../services/user.service';
 
 /**
  * Store to connect all children of the  Image Viewer page.
@@ -725,7 +720,11 @@ export class ImageViewerPageStore implements OnDestroy {
                     const url = this.router.url;
                     if (!url.startsWith(DEFAULT_VIEWER_URL)) return;
 
-                    const { cohortName, series } = params;
+                    let {cohortName, series} = params;
+                    if (series) {
+                      // Support legacy URLs
+                      series = addDicomStorePrefixIfMissing(series);
+                    }
 
                     if (!environment.IMAGE_DICOM_STORE_BASE_URL) {
                         this.router.navigate(['/config']);
@@ -754,7 +753,7 @@ export class ImageViewerPageStore implements OnDestroy {
                         dicomIdToDicomStore(series);
                     } catch (e) {
                         this.dialogService.error(
-                            'For your safety operation was blocked. The DICOM store specified in your browser URL is not on the ones that were configured.')
+                            'For your safety loading this slide was blocked. The DICOM store specified in your browser URL is not on the ones that were configured.')
                             .subscribe(() => {
                                 this.router.navigate(['/search']);
                             });

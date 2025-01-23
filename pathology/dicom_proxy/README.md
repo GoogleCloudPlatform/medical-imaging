@@ -86,7 +86,13 @@ python3 -m unittest discover -p "*_test.py" -s "$CLOUD_PATH/pathology/dicom_prox
 
 ## Building the DICOM Proxy
 
-To build a new image run:
+To build the DICOM Proxy container:
+
+  1. Build the [base_py_opencv_docker](../base_docker_images/base_py_opencv_docker/README.md) container. This step only needs to be repeated if elements in the base container are changed.
+
+  2. Build the DICOM Proxy Container. Set _BASE_CONTAINER to the path to built base_py_opencv base container, e.g., gcr.io/${PATH_PY_OPENCV_DOCKER_BASE_IMAGE}:latest.
+
+  To build the container image run:
 
 ```
 cd $CLOUD_PATH
@@ -94,6 +100,8 @@ gcloud builds submit --config=./pathology/dicom_proxy/cloudbuild.yaml \
   --timeout=24h \
   --substitutions=REPO_NAME="<YOUR GCR DESTINATION>",_BASE_CONTAINER="<YOUR BASE CONTAINER GCR>"
 ```
+
+  Following a successful build the newly built container will be visible in your destination registry. If the build is not successful inspect the gcloud build logs to determine the issue.
 
 ## Cloud Deployment
 
@@ -128,5 +136,5 @@ docker pull gcr.io/${MY_REPO_NAME}/dicom-proxy@sha256:${SHA256_HASH}
   -e TEMP='/temp_dir' \
   --mount type=tmpfs,destination=/temp_dir \
   -p=8080:8080 \
-  gcr.io/connectathon2022/dicom-proxy:latest
+  gcr.io/${MY_PROJECT_NAME}/dicom-proxy:latest
 ```
