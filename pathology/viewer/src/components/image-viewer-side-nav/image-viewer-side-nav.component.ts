@@ -799,7 +799,6 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
     const slidePath = parseDICOMwebUrl(seriesId).path;
     if (!slidePath.studyUID || !slidePath.seriesUID) return;
 
-    // TODO: Move this to annotations store.
     const referencedSeries: ReferencedSeries =
         this.annotationInstances
             .find(

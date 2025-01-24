@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
+import {CommonModule} from '@angular/common';
 import {Component, Inject, Optional} from '@angular/core';
 import {MatButtonModule} from '@angular/material/button';
 import {MatDialogModule} from '@angular/material/dialog';
 import {MatIconModule} from '@angular/material/icon';
-import { MAT_SNACK_BAR_DATA } from '@angular/material/snack-bar';
+import {MAT_SNACK_BAR_DATA, MatSnackBar} from '@angular/material/snack-bar';
 
 
 /** Inputs that can be dynamically bound to the dialog component. */
@@ -34,7 +35,7 @@ export interface DialogErrorComponentData {
 @Component({
   selector: 'snackbar-error',
   standalone: true,
-  imports: [MatIconModule, MatButtonModule, MatDialogModule],
+  imports: [MatIconModule, MatButtonModule, MatDialogModule, CommonModule],
   templateUrl: './snackbar-error.component.html',
   styleUrl: './snackbar-error.component.scss'
 })
@@ -44,6 +45,7 @@ export class SnackBarErrorComponent {
   copyLogsToClipboard?: Function;
 
   constructor(
+    private readonly snackBar: MatSnackBar,
       @Optional() @Inject(MAT_SNACK_BAR_DATA) public data?: DialogErrorComponentData
   ) {
     if (data) {
@@ -57,5 +59,9 @@ export class SnackBarErrorComponent {
     if (this.copyLogsToClipboard) {
       this.copyLogsToClipboard();
     }
+  }
+
+  dismiss() {
+    this.snackBar.dismiss();
   }
 }

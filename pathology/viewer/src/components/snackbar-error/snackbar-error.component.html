@@ -20,9 +20,9 @@
   </div>
   <div mat-dialog-content>
     <div>{{ message }}</div>
-    <div>When reporting this issue, please include the log by using the button below.</div>
+    <div *ngIf="copyLogsToClipboard">When reporting this issue, please include the log by using the button below.</div>
   </div>
   <div mat-dialog-actions>
     <button *ngIf="copyLogsToClipboard" mat-stroked-button color="primary" (click)="copyLogs()">Copy logs to clipboard</button>
-    <button mat-flat-button color="primary" [mat-dialog-close]="true">Close</button>
+    <button mat-flat-button color="primary" (click)="dismiss()">Close</button>
   </div>

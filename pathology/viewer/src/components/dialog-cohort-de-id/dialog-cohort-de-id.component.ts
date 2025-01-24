@@ -80,7 +80,6 @@ export class DialogCohortDeIdComponent {
                     '', snackBarConfig);
               } else {
                 this.deIdDisabled = false;
-                this.snackBar.dismiss();
               }
             }),
             )

@@ -805,15 +805,16 @@ export class CohortService implements OnDestroy {
   deIdCohort(displayName: string, description?: string): Observable<boolean> {
     // Find the dicom store parent.
     const segments =
-        environment.IMAGE_DEID_DICOM_STORE_BASE_URL.split('/project/');
+        environment.IMAGE_DEID_DICOM_STORE_BASE_URL.split('/projects/');
     if (segments.length === 1) {
-      this.dialogService.error('Configured destination is not supported.');
+      this.dialogService.error('The configured DICOM store for de-identified data is not supported for this operation.').subscribe();
       return of(false);
     }
     const request: TransferDeIdPathologyCohortRequest = {
       name: this.getSelectedCohortName(),
       displayNameTransferred: displayName,
-      destDicomImages: `/project/${segments[1]}`,
+      // Expected format: projects/.../locations/.../datasets/.../dicomStores/...
+      destDicomImages: `projects/${segments[1].replace('/dicomWeb', '')}`,
     };
     if (description) {
       request.descriptionTransferred = description;
@@ -828,7 +829,7 @@ export class CohortService implements OnDestroy {
             stack: 'cohort_service',
           });
 
-          if (error['originalStack'].includes(
+          if (error?.['originalStack']?.includes(
                   TRANSFER_DEID_COHORT_ERROR_TIMEOUT_MESSAGE)) {
             return of(true);
           }
