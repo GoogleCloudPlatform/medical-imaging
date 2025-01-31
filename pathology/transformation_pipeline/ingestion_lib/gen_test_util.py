@@ -27,13 +27,15 @@ from pathology.transformation_pipeline.ingestion_lib import ingest_const
 
 def test_file_path(*path: str) -> str:
   """Returns path to file in unit test."""
-  return os.path.join(
-      os.path.dirname(__file__),
-      '..',
-      '..',
-      'transformation_pipeline',
-      'testdata',
-      *path,
+  return os.path.normpath(
+      os.path.join(
+          os.path.dirname(__file__),
+          '..',
+          '..',
+          'transformation_pipeline',
+          'testdata',
+          *path,
+      )
   )
 
 
