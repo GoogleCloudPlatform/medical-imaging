@@ -956,7 +956,7 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
   @mock.patch.object(polling_client, 'PollingClient', autospec=True)
   def test_gcs_handler_ndpi_transform_lock(self, mock_polling_client):
     ndpi_path = gen_test_util.test_file_path('ndpi_test.ndpi')
-    if not os.path.exists(ndpi_path):
+    if not gen_test_util.is_openslide_file_valid(ndpi_path):
       # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
       # file is not available.
       return
@@ -1002,7 +1002,7 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
   ):
     filename = 'ndpi_test.ndpi'
     ndpi_path = gen_test_util.test_file_path(filename)
-    if not os.path.exists(ndpi_path):
+    if not gen_test_util.is_openslide_file_valid(ndpi_path):
       # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
       # file is not available.
       return
@@ -1059,7 +1059,7 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
   ):
     filename = 'ndpi_test.ndpi'
     ndpi_path = gen_test_util.test_file_path(filename)
-    if not os.path.exists(ndpi_path):
+    if not gen_test_util.is_openslide_file_valid(ndpi_path):
       # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
       # file is not available.
       return
@@ -1139,7 +1139,7 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
   ):
     filename = 'ndpi_test.ndpi'
     ndpi_path = gen_test_util.test_file_path(filename)
-    if not os.path.exists(ndpi_path):
+    if not gen_test_util.is_openslide_file_valid(ndpi_path):
       # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
       # file is not available.
       return
@@ -1201,7 +1201,7 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
   ):
     filename = 'ndpi_test.ndpi'
     ndpi_path = gen_test_util.test_file_path(filename)
-    if not os.path.exists(ndpi_path):
+    if not gen_test_util.is_openslide_file_valid(ndpi_path):
       # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
       # file is not available.
       return
@@ -1254,7 +1254,7 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
   ):
     filename = 'ndpi_test.ndpi'
     ndpi_path = gen_test_util.test_file_path(filename)
-    if not os.path.exists(ndpi_path):
+    if not gen_test_util.is_openslide_file_valid(ndpi_path):
       # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
       # file is not available.
       return
@@ -1299,7 +1299,7 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
   ):
     filename = 'ndpi_test.ndpi'
     ndpi_path = gen_test_util.test_file_path(filename)
-    if not os.path.exists(ndpi_path):
+    if not gen_test_util.is_openslide_file_valid(ndpi_path):
       # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
       # file is not available.
       return

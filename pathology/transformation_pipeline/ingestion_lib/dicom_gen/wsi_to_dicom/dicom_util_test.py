@@ -177,7 +177,7 @@ class DicomUtilTest(parameterized.TestCase):
     ds = pydicom.Dataset()
     dicom_util.add_default_optical_path_sequence(ds, None)
     path = gen_test_util.test_file_path('ndpi_test.ndpi')
-    if not os.path.exists(path):
+    if not gen_test_util.is_openslide_file_valid(path):
       # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
       # file is not available.
       return
@@ -202,7 +202,7 @@ class DicomUtilTest(parameterized.TestCase):
     dicom_util.add_default_optical_path_sequence(ds, None)
     dicom_util.add_default_total_pixel_matrix_origin_sequence_if_not_defined(ds)
     path = gen_test_util.test_file_path('ndpi_test.ndpi')
-    if not os.path.exists(path):
+    if not gen_test_util.is_openslide_file_valid(path):
       # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
       # file is not available.
       return

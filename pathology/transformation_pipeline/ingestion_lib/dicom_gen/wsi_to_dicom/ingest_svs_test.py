@@ -278,7 +278,7 @@ class IngestSVSTest(parameterized.TestCase):
     dcm.ImageType = 'test_dicom'
     pydicom_version_util.save_as_validated_dicom(dcm, dcm_file_path)
     ndpi_path = gen_test_util.test_file_path('ndpi_test.ndpi')
-    if not os.path.exists(ndpi_path):
+    if not gen_test_util.is_openslide_file_valid(ndpi_path):
       # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
       # file is not available.
       return
@@ -529,7 +529,7 @@ class IngestSVSTest(parameterized.TestCase):
       self, *unused_mocks, slide_id, flags, expected_output
   ):
     path = gen_test_util.test_file_path('ndpi_test.ndpi')
-    if not os.path.exists(path):
+    if not gen_test_util.is_openslide_file_valid(path):
       # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
       # file is not available.
       return
@@ -568,7 +568,7 @@ class IngestSVSTest(parameterized.TestCase):
   def test_generate_dicom_missing_study_instance_uid(self, *unused_mocks):
     slide_id = 'MD-05-3-A1-2'
     path = gen_test_util.test_file_path('ndpi_test.ndpi')
-    if not os.path.exists(path):
+    if not gen_test_util.is_openslide_file_valid(path):
       # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
       # file is not available.
       return
@@ -621,7 +621,7 @@ class IngestSVSTest(parameterized.TestCase):
       dest,
   ):
     path = gen_test_util.test_file_path('ndpi_test.ndpi')
-    if not os.path.exists(path):
+    if not gen_test_util.is_openslide_file_valid(path):
       # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
       # file is not available.
       return
@@ -641,7 +641,7 @@ class IngestSVSTest(parameterized.TestCase):
       *unused_mocks,
   ):
     path = gen_test_util.test_file_path('ndpi_test.ndpi')
-    if not os.path.exists(path):
+    if not gen_test_util.is_openslide_file_valid(path):
       # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
       # file is not available.
       return
@@ -696,7 +696,7 @@ class IngestSVSTest(parameterized.TestCase):
       expected_series_uid,
   ):
     path = gen_test_util.test_file_path('ndpi_test.ndpi')
-    if not os.path.exists(path):
+    if not gen_test_util.is_openslide_file_valid(path):
       # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
       # file is not available.
       return
@@ -738,7 +738,7 @@ class IngestSVSTest(parameterized.TestCase):
       self, *unused_mocks, slide_id, flags
   ):
     path = gen_test_util.test_file_path('ndpi_test.ndpi')
-    if not os.path.exists(path):
+    if not gen_test_util.is_openslide_file_valid(path):
       # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
       # file is not available.
       return
@@ -761,7 +761,7 @@ class IngestSVSTest(parameterized.TestCase):
       *unused_mocks,
   ):
     path = gen_test_util.test_file_path('ndpi_test.ndpi')
-    if not os.path.exists(path):
+    if not gen_test_util.is_openslide_file_valid(path):
       # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
       # file is not available.
       return
@@ -776,7 +776,7 @@ class IngestSVSTest(parameterized.TestCase):
   @flagsaver.flagsaver(metadata_bucket='metadata')
   def test_generate_dicom_raises_if_slide_id_not_set(self):
     ndpi_path = gen_test_util.test_file_path('ndpi_test.ndpi')
-    if not os.path.exists(ndpi_path):
+    if not gen_test_util.is_openslide_file_valid(ndpi_path):
       # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
       # file is not available.
       return
@@ -803,7 +803,7 @@ class IngestSVSTest(parameterized.TestCase):
   @flagsaver.flagsaver(metadata_bucket='metadata')
   def test_generate_dicom_generates_bad_dicom_errors(self):
     ndpi_path = gen_test_util.test_file_path('ndpi_test.ndpi')
-    if not os.path.exists(ndpi_path):
+    if not gen_test_util.is_openslide_file_valid(ndpi_path):
       # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
       # file is not available.
       return
@@ -851,7 +851,7 @@ class IngestSVSTest(parameterized.TestCase):
   )
   def test_generate_metadata_free_slide_metadata(self, *unused_mocks):
     ndpi_path = gen_test_util.test_file_path('ndpi_test.ndpi')
-    if not os.path.exists(ndpi_path):
+    if not gen_test_util.is_openslide_file_valid(ndpi_path):
       # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
       # file is not available.
       return
@@ -912,7 +912,7 @@ class IngestSVSTest(parameterized.TestCase):
       self, is_metadata_free, init_series_from_metadata, expected
   ):
     ndpi_path = gen_test_util.test_file_path('ndpi_test.ndpi')
-    if not os.path.exists(ndpi_path):
+    if not gen_test_util.is_openslide_file_valid(ndpi_path):
       # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
       # file is not available.
       return

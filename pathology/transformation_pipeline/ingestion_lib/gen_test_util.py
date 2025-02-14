@@ -18,6 +18,7 @@ import io
 import os
 
 import numpy as np
+import openslide
 import PIL.Image
 import pydicom
 
@@ -88,3 +89,14 @@ def write_test_dicom(path: str, base_ds: pydicom.Dataset):
   )
   pydicom_version_util.set_little_endian_explicit_vr(ds)
   ds.save_as(path)
+
+
+def is_openslide_file_valid(path: str) -> bool:
+  """Returns True if ndpi_test.ndpi file is available."""
+  if not os.path.exists(path):
+    return False
+  try:
+    _ = openslide.OpenSlide(path)
+    return True
+  except (openslide.OpenSlideError, OSError) as _:
+    return False

@@ -416,40 +416,42 @@ class MetadataStorageClient:
     for metadata in self._csv_metadata_cache:
       if metadata.filename.upper().endswith('.CSV'):
         csv_found = True
-        csv_chunks = csv_util.read_csv(metadata.filename, chunksize)
-        for df in csv_chunks:
-          primary_key_column_name = (
-              dicom_schema_util.find_data_frame_column_name(
-                  df, ingest_flags.METADATA_PRIMARY_KEY_COLUMN_NAME_FLG.value
+        with csv_util.read_csv(metadata.filename, chunksize) as csv_chunks:
+          for df in csv_chunks:
+            primary_key_column_name = (
+                dicom_schema_util.find_data_frame_column_name(
+                    df, ingest_flags.METADATA_PRIMARY_KEY_COLUMN_NAME_FLG.value
+                )
+            )
+            if primary_key_column_name is None:
+              cloud_logging_client.warning(
+                  'CSV file does not contain metadata primary key column name;'
+                  ' CSV file ignored.',
+                  {
+                      ingest_const.LogKeywords.FILENAME: metadata.filename,
+                      ingest_const.LogKeywords.METADATA_PRIMARY_KEY_COLUMN_NAME: (
+                          ingest_flags.METADATA_PRIMARY_KEY_COLUMN_NAME_FLG.value
+                      ),
+                  },
               )
-          )
-          if primary_key_column_name is None:
-            cloud_logging_client.warning(
-                'CSV file does not contain metadata primary key column name;'
-                ' CSV file ignored.',
-                {
-                    ingest_const.LogKeywords.FILENAME: metadata.filename,
-                    ingest_const.LogKeywords.METADATA_PRIMARY_KEY_COLUMN_NAME: (
-                        ingest_flags.METADATA_PRIMARY_KEY_COLUMN_NAME_FLG.value
-                    ),
-                },
-            )
-            break
-          searchdf = df.loc[df[primary_key_column_name] == pk_value]
-          row, _ = searchdf.shape
-          if row == 1:
-            cloud_logging_client.info(
-                f'Primary key {pk_value} found in CSV metadata',
-                {ingest_const.LogKeywords.METADATA_PRIMARY_KEY: pk_value},
-            )
-            self._slide_metadata_cache[pk_value] = searchdf.copy()
-            return searchdf
-          elif row > 1:
-            cloud_logging_client.error(
-                'Multiple primary keys found in metadata',
-                {ingest_const.LogKeywords.METADATA_PRIMARY_KEY: pk_value},
-            )
-            raise MetadataDefinedOnMultipleRowError(pk_value, metadata.filename)
+              break
+            searchdf = df.loc[df[primary_key_column_name] == pk_value]
+            row, _ = searchdf.shape
+            if row == 1:
+              cloud_logging_client.info(
+                  f'Primary key {pk_value} found in CSV metadata',
+                  {ingest_const.LogKeywords.METADATA_PRIMARY_KEY: pk_value},
+              )
+              self._slide_metadata_cache[pk_value] = searchdf.copy()
+              return searchdf
+            elif row > 1:
+              cloud_logging_client.error(
+                  'Multiple primary keys found in metadata',
+                  {ingest_const.LogKeywords.METADATA_PRIMARY_KEY: pk_value},
+              )
+              raise MetadataDefinedOnMultipleRowError(
+                  pk_value, metadata.filename
+              )
 
     if not csv_found:
       cloud_logging_client.error(

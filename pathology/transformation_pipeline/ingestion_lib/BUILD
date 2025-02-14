@@ -273,6 +273,7 @@ py_library(
         "//pathology/shared_libs/pydicom_version_util",
         requirement("pillow"),
         requirement("numpy"),
+        requirement("openslide-python"),
         requirement("pydicom"),
     ],
 )

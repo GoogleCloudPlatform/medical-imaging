@@ -128,7 +128,7 @@ class AncillaryImageExtractorTest(parameterized.TestCase):
       self, openslide_mock_poperty
   ):
     ndpi_path = gen_test_util.test_file_path('ndpi_test.ndpi')
-    if not os.path.exists(ndpi_path):
+    if not gen_test_util.is_openslide_file_valid(ndpi_path):
       # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
       # file is not available.
       return
@@ -158,7 +158,7 @@ class AncillaryImageExtractorTest(parameterized.TestCase):
       self, openslide_mock_poperty, filename
   ):
     ndpi_path = gen_test_util.test_file_path('ndpi_test.ndpi')
-    if not os.path.exists(ndpi_path):
+    if not gen_test_util.is_openslide_file_valid(ndpi_path):
       # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
       # file is not available.
       return
@@ -199,7 +199,7 @@ class AncillaryImageExtractorTest(parameterized.TestCase):
 
   def test_extract_ancillary_image_with_openslide_invalid_openslide_key(self):
     ndpi_path = gen_test_util.test_file_path('ndpi_test.ndpi')
-    if not os.path.exists(ndpi_path):
+    if not gen_test_util.is_openslide_file_valid(ndpi_path):
       # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
       # file is not available.
       return
@@ -215,7 +215,7 @@ class AncillaryImageExtractorTest(parameterized.TestCase):
 
   def test_extract_ancillary_image_with_openslide(self):
     ndpi_path = gen_test_util.test_file_path('ndpi_test.ndpi')
-    if not os.path.exists(ndpi_path):
+    if not gen_test_util.is_openslide_file_valid(ndpi_path):
       # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
       # file is not available.
       return
@@ -239,7 +239,7 @@ class AncillaryImageExtractorTest(parameterized.TestCase):
 
   def test_macro_image_succeeds(self):
     ndpi_path = gen_test_util.test_file_path('ndpi_test.ndpi')
-    if not os.path.exists(ndpi_path):
+    if not gen_test_util.is_openslide_file_valid(ndpi_path):
       # ndpi_test.ndpi exceeds size limits for git. Skip this test if NDPI
       # file is not available.
       return

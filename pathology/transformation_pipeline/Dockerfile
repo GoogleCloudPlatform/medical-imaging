@@ -35,9 +35,15 @@ RUN apt-get -qq update && apt-get install -y unzip wget && \
     cp "./adobe_icc_profiles/Adobe ICC Profiles (end-user)/"*.pdf /icc_profiles/adobergb && \
     cp "./adobe_icc_profiles/Adobe ICC Profiles (end-user)/RGB/AdobeRGB1998.icc" /icc_profiles/adobergb && \
     rm -r -f ./adobe_icc_profiles && \
-    apt-get -qq purge -y unzip wget
+    apt-get -qq purge -y unzip
 # To add additional ICC Profiles to the container, add place them in the
 # /icc_profiles directory
+
+# Download ndpi test file if it appears to a git lfs pointer.
+COPY ./pathology/transformation_pipeline/testdata/ndpi_test.ndpi /ndpi_test.ndpi
+RUN file_size=$(wc -c <"/ndpi_test.ndpi") && \
+    if [ $file_size -le 100000 ]; then wget https://openslide.cs.cmu.edu/download/openslide-testdata/Hamamatsu/CMU-1.ndpi -O /ndpi_test.ndpi ; fi && \
+    apt-get -qq purge -y wget
 
 RUN apt-get update && apt-get install -y \
     git \
@@ -204,6 +210,7 @@ COPY ./third_party /third_party
 
 # Make python directory __init__ files for copied directories.
 RUN mv /pathology/transformation_pipeline/default_config.* / && \
+    mv /ndpi_test.ndpi /pathology/transformation_pipeline/testdata/ndpi_test.ndpi && \
     python3 -m compileall -b /pathology && \
     find /pathology -type d -exec chmod 755 {} \; && \
     find /pathology -type f -exec chmod 644 {} \; && \
