@@ -41,8 +41,8 @@ RUN apt-get update && \
 
 WORKDIR /
 
-#Install Abseil TS 20240722.0
-ARG ABSEIL_VERSION="20240722.0"
+#Install Abseil TS 20250127.0
+ARG ABSEIL_VERSION="20250127.0"
 RUN wget -O abseil.zip "https://github.com/abseil/abseil-cpp/archive/refs/tags/${ABSEIL_VERSION}.zip" && \
     unzip abseil.zip && \
     rm abseil.zip && \

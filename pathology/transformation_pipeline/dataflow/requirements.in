@@ -1,5 +1,7 @@
 # Do not modify requirements.txt directly. Run
 # `pip-compile --generate-hashes requirements.in` to build requirements.txt from this file.
 # LINT.IfChange
-apache-beam[gcp]==2.60.0
+apache-beam[gcp]==2.62.0
+cryptography==44.0.1
+numpy==2.2.1  # Numpy 2.2.3 causes error with np.testing moduels.
 # LINT.ThenChange(//depot/pathology.transformation_pipeline/dataflow/requirements.txt)

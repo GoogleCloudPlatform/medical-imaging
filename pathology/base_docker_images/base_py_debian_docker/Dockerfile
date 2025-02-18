@@ -14,18 +14,15 @@
 # ==============================================================================
 # Base Debian Docker container for wsi image ingestion
 #
-# Debian 12.8-slim + Python 3.13.1
+# Debian 12.9-slim + Python 3.13.2
 #
-FROM debian:12.8-slim
+FROM debian:12.9-slim
 
-# Start Python 3.13.1 install.
-# docker install code from offical python 3.13.1 DOCKER image.
-# https://github.com/docker-library/python/blob/da7ef3c71d3ecd87a43018a372b3e3590d88dd98/3.13/slim-bookworm/Dockerfile
+# Start Python 3.13.2 install.
+# docker install code from offical python 3.13.2 DOCKER image.
+# https://github.com/docker-library/python/blob/0330f0baedb296c8806a869d04fe76838f721647/3.13/slim-bookworm/Dockerfile
 
 # ensure local python is preferred over distribution python
-ENV PATH /usr/local/bin:$PATH
-
-# runtime dependencies
 RUN set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
@@ -36,8 +33,8 @@ RUN set -eux; \
   rm -rf /var/lib/apt/lists/*
 
 ENV GPG_KEY 7169605F62C751356D054A26A821E680E5FA6305
-ENV PYTHON_VERSION 3.13.1
-ENV PYTHON_SHA256 9cf9427bee9e2242e3877dd0f6b641c1853ca461f39d6503ce260a59c80bf0d9
+ENV PYTHON_VERSION 3.13.2
+ENV PYTHON_SHA256 d984bcc57cd67caab26f7def42e523b1c015bbc5dc07836cf4f0b63fa159eb56
 
 RUN set -eux; \
   \
@@ -66,9 +63,9 @@ RUN set -eux; \
     zlib1g-dev \
   ; \
   \
-  wget -O python.tar.xz "https://www.python.org/ftp/python/3.13.1/Python-3.13.1.tar.xz"; \
+  wget -O python.tar.xz "https://www.python.org/ftp/python/3.13.2/Python-3.13.2.tar.xz"; \
   echo "$PYTHON_SHA256 *python.tar.xz" | sha256sum -c -; \
-  wget -O python.tar.xz.asc "https://www.python.org/ftp/python/3.13.1/Python-3.13.1.tar.xz.asc"; \
+  wget -O python.tar.xz.asc "https://www.python.org/ftp/python/3.13.2/Python-3.13.2.tar.xz.asc"; \
   GNUPGHOME="$(mktemp -d)"; export GNUPGHOME; \
   gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys "$GPG_KEY"; \
   gpg --batch --verify python.tar.xz.asc python.tar.xz; \
@@ -93,6 +90,24 @@ RUN set -eux; \
   EXTRA_CFLAGS="$(dpkg-buildflags --get CFLAGS)"; \
   LDFLAGS="$(dpkg-buildflags --get LDFLAGS)"; \
   LDFLAGS="${LDFLAGS:--Wl},--strip-all"; \
+    arch="$(dpkg --print-architecture)"; arch="${arch##*-}"; \
+# https://docs.python.org/3.12/howto/perf_profiling.html
+# https://github.com/docker-library/python/pull/1000#issuecomment-2597021615
+    case "$arch" in \
+      amd64|arm64) \
+        # only add "-mno-omit-leaf" on arches that support it
+        # https://gcc.gnu.org/onlinedocs/gcc-14.2.0/gcc/x86-Options.html#index-momit-leaf-frame-pointer-2
+        # https://gcc.gnu.org/onlinedocs/gcc-14.2.0/gcc/AArch64-Options.html#index-momit-leaf-frame-pointer
+        EXTRA_CFLAGS="${EXTRA_CFLAGS:-} -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer"; \
+        ;; \
+      i386) \
+        # don't enable frame-pointers on 32bit x86 due to performance drop.
+        ;; \
+      *) \
+        # other arches don't support "-mno-omit-leaf"
+        EXTRA_CFLAGS="${EXTRA_CFLAGS:-} -fno-omit-frame-pointer"; \
+        ;; \
+    esac; \
   make -j "$nproc" \
     "EXTRA_CFLAGS=${EXTRA_CFLAGS:-}" \
     "LDFLAGS=${LDFLAGS:-}" \
@@ -133,7 +148,7 @@ RUN set -eux; \
     [ ! -e "/usr/local/bin/$dst" ]; \
     ln -svT "$src" "/usr/local/bin/$dst"; \
   done
-# End Python 3.13.1 install
+# End Python 3.13.2 install
 
 # Add gcloud to base container
 # Add public key for gcloud

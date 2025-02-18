@@ -83,7 +83,7 @@ RUN git clone https://gitlab.com/libtiff/libtiff.git && \
     -DCMAKE_POSITION_INDEPENDENT_CODE=ON . && \
   make install
 
-#Install OpenCV 4.10.0 (numpy required to build opencv python interface)
+#Install OpenCV 4.11.0 (numpy required to build opencv python interface)
 # OpenCV build is using above built: LibJpegTurbo & OpenJPEG for
 # jpeg and JPEG2000 decoding.
 COPY /opencv_build_test_requirements.txt /opencv_build_test_requirements.txt
@@ -92,10 +92,10 @@ COPY /opencv_build_test.py /opencv_build_test.py
 RUN python3 -m pip install -r opencv_build_requirements.txt --require-hashes && \
     apt-get update && \
     apt-get install -y libglib2.0-0 && \
-    wget -O opencv.zip https://github.com/opencv/opencv/archive/refs/tags/4.10.0.zip > /dev/null && \
+    wget -O opencv.zip https://github.com/opencv/opencv/archive/refs/tags/4.11.0.zip > /dev/null && \
     unzip opencv.zip > /dev/null && \
     rm opencv.zip  && \
-    mv opencv-4.10.0 opencv && \
+    mv opencv-4.11.0 opencv && \
     mkdir -p /opencv/build && \
     cd /opencv/build && \
     cmake -DWITH_JPEG=ON -DBUILD_JPEG=OFF -DWITH_TIFF=ON -DBUILD_TIFF=OFF -DJPEG_LIBRARY=/opt/libjpeg-turbo/lib64/libjpeg.a -DJPEG_INCLUDE_DIR=/opt/libjpeg-turbo/include .. -DBUILD_LIST=core,imgproc,imgcodecs,python3  && \
@@ -110,11 +110,11 @@ RUN python3 -m pip install -r opencv_build_requirements.txt --require-hashes && 
 # Removes libraries that were maintained in base image from Python build to
 # support building opencv
 RUN rm -rf /usr/src/python; \
-	  find /usr/local -depth \
-		\( \
-			\( -type d -a \( -name test -o -name tests -o -name idle_test \) \) \
-			-o \( -type f -a \( -name '*.pyc' -o -name '*.pyo' -o -name 'libpython*.a' \) \) \
-		\) -exec rm -rf '{}' +
+    find /usr/local -depth \
+    \( \
+      \( -type d -a \( -name test -o -name tests -o -name idle_test \) \) \
+      -o \( -type f -a \( -name '*.pyc' -o -name '*.pyo' -o -name 'libpython*.a' \) \) \
+    \) -exec rm -rf '{}' +
 
 # Remove packages installed above
 RUN apt-get purge --autoremove -y \
