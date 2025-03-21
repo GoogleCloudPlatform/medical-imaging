@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import contextlib
 import copy
+import http
 import io
 import json
 import os
@@ -42,6 +43,22 @@ _PyDicomSingleInstanceCache = (
 )
 _LocalDicomInstance = parameters_exceptions_and_return_types.LocalDicomInstance
 _RenderFrameParams = render_frame_params.RenderFrameParams
+
+
+def _http_status_response(status: http.HTTPStatus) -> str:
+  return (f'{status.value} {status.phrase}').upper()
+
+
+def http_not_found_status() -> str:
+  return _http_status_response(http.HTTPStatus.NOT_FOUND)
+
+
+def http_ok_status() -> str:
+  return _http_status_response(http.HTTPStatus.OK)
+
+
+def http_bad_request_status() -> str:
+  return _http_status_response(http.HTTPStatus.BAD_REQUEST)
 
 
 class MockFlaskRequest(contextlib.ExitStack):

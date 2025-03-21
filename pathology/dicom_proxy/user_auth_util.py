@@ -35,6 +35,7 @@ _EMAIL_DERIVED_FROM_BEARER_TOKEN = 'EMAIL_DERIVED_FROM_BEARER_TOKEN'
 class UserEmailRetrievalError(Exception):
   """Unable to determine user email."""
 
+
 _auth_cache = cachetools.LRUCache(maxsize=1)
 _auth_cache_lock = threading.Lock()
 
@@ -178,9 +179,14 @@ class AuthSession:
     bearer_token = f'Bearer {credentials.token}'
     self._auth_dict[proxy_const.HeaderKeywords.AUTH_HEADER_KEY] = bearer_token
     self._auth_dict[proxy_const.HeaderKeywords.AUTHORITY_HEADER_KEY] = ''
-    self._userid_dict[_EMAIL_DERIVED_FROM_BEARER_TOKEN] = (
-        _get_email_from_bearer_token(bearer_token)
-    )
+    try:
+      self._userid_dict[_EMAIL_DERIVED_FROM_BEARER_TOKEN] = (
+          _get_email_from_bearer_token(bearer_token)
+      )
+    except UserEmailRetrievalError:
+      self._userid_dict[_EMAIL_DERIVED_FROM_BEARER_TOKEN] = (
+          'proxy-service-account'
+      )
 
   @property
   def email(self) -> str:
@@ -224,6 +230,7 @@ class AuthSession:
     return_header = dict(request_header)
     return_header.update(self._auth_dict)
     return return_header
+
 
 # The digitial_pathology_dicom proxy runs using gunicorn, which forks worker
 # processes. Forked processes do not re-init global state and assume their

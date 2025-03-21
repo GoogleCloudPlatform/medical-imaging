@@ -22,7 +22,8 @@ import io
 import re
 import tempfile
 import threading
-from typing import Any, Callable, IO, Iterator, List, Mapping, Optional, Union
+import typing
+from typing import Any, Callable, IO, Iterator, List, Mapping, Optional, Sequence, Union
 
 import flask
 import pydicom
@@ -120,6 +121,11 @@ class MetadataThreadPoolDownloadManager(contextlib.ExitStack):
       if self._total_size > self._max_data_size:
         raise MetadataDownloadExceedsMaxSizeLimitError()
       return self._total_size
+
+  def map(
+      self, func: Callable[..., Any], args: Union[Sequence[Any], Iterator[Any]]
+  ) -> Sequence[Union[futures.Future[str], str]]:
+    return [self.submit(func, arg) for arg in args]
 
   def submit(
       self, func: Callable[..., Any], *args
@@ -318,7 +324,7 @@ def _get_dicom_json(
     response.raise_for_status()
     metadata = response.json()
     cloud_logging_client.info(
-        'Retrieved DICOM instance metadata.',
+        f'Retrieved DICOM JSON: {query.url}',
         base_log,
         {proxy_const.LogKeywords.DICOMWEB_URL: query.url},
     )
@@ -450,6 +456,66 @@ def get_dicom_study_instance_metadata(
           user_auth, dicom_study_url, instance
       ),
       {proxy_const.LogKeywords.USER_EMAIL_OF_DICOMWEB_REQUEST: user_auth.email},
+  )
+
+
+def get_dicom_study_series_metadata(
+    user_auth: user_auth_util.AuthSession,
+    dicom_web_base_url: dicom_url_util.DicomWebBaseURL,
+    study_instance_uid: dicom_url_util.StudyInstanceUID,
+) -> Sequence[Mapping[str, Any]]:
+  """Returns study serieslevel metadata."""
+  return _get_dicom_json(
+      dicom_url_util.dicom_get_study_series_metadata_query(
+          user_auth, dicom_web_base_url, study_instance_uid
+      ),
+      {proxy_const.LogKeywords.USER_EMAIL_OF_DICOMWEB_REQUEST: user_auth.email},
+  )
+
+
+def get_dicom_study_metrics(
+    user_auth: user_auth_util.AuthSession,
+    dicom_web_base_url: dicom_url_util.DicomWebBaseURL,
+    study_instance_uid: dicom_url_util.StudyInstanceUID,
+) -> Mapping[str, Any]:
+  """Returns dicom study level metrics."""
+  return typing.cast(
+      Mapping[str, Any],
+      _get_dicom_json(
+          dicom_url_util.dicom_get_study_metrics_query(
+              user_auth, dicom_web_base_url, study_instance_uid
+          ),
+          {
+              proxy_const.LogKeywords.USER_EMAIL_OF_DICOMWEB_REQUEST: (
+                  user_auth.email
+              )
+          },
+      ),
+  )
+
+
+def get_dicom_series_metrics(
+    user_auth: user_auth_util.AuthSession,
+    dicom_web_base_url: dicom_url_util.DicomWebBaseURL,
+    study_instance_uid: dicom_url_util.StudyInstanceUID,
+    series_instance_uid: dicom_url_util.SeriesInstanceUID,
+) -> Mapping[str, Any]:
+  """Returns dicom study level metrics."""
+  return typing.cast(
+      Mapping[str, Any],
+      _get_dicom_json(
+          dicom_url_util.dicom_get_series_metrics_query(
+              user_auth,
+              dicom_web_base_url,
+              study_instance_uid,
+              series_instance_uid,
+          ),
+          {
+              proxy_const.LogKeywords.USER_EMAIL_OF_DICOMWEB_REQUEST: (
+                  user_auth.email
+              )
+          },
+      ),
   )
 
 

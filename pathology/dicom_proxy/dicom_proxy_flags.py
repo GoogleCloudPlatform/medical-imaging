@@ -452,6 +452,44 @@ ENABLE_DEBUG_FUNCTION_TIMING_FLG = flags.DEFINE_boolean(
     'Enable logging of timing for decorated functions and methods.',
 )
 
+# ENABLE_AUGMENTED_STUDY_SEARCH_FLG adds the following tags to the study
+# tag search response:
+# https://dicom.nema.org/medical/dicom/current/output/chtml/part18/sect_10.6.3.3.html
+# Modalities in Study     (0008,0061)
+# Retrieve URL    (0008,1190)
+# Number of Study Related Series  (0020,1206)
+# Number of Study Related Instances       (0020,1208)
+# Instance Availability 	(0008,0056)
+ENABLE_AUGMENTED_STUDY_SEARCH_FLG = flags.DEFINE_boolean(
+    'enable_augmented_study_search',
+    secret_flag_utils.get_bool_secret_or_env('ENABLE_AUGMENTED_STUDY_SEARCH'),
+    'Enable the return of augmented metadata for study search.',
+)
+
+# ENABLE_AUGMENTED_SERIES_SEARCH_FLG adds the following tags to the series
+# tag search response:
+# https://dicom.nema.org/medical/dicom/current/output/chtml/part18/sect_10.6.3.3.2.html
+# Retrieve URL    (0008,1190)
+# Number of Study Related Instances       (0020,1208)
+ENABLE_AUGMENTED_SERIES_SEARCH_FLG = flags.DEFINE_boolean(
+    'enable_augmented_series_search',
+    secret_flag_utils.get_bool_secret_or_env('ENABLE_AUGMENTED_SERIES_SEARCH'),
+    'Enable the return of augmented metadata for series search.',
+)
+
+# ENABLE_AUGMENTED_INSTANCE_SEARCH_FLG adds the following tags to the instance
+# tag search response:
+# https://dicom.nema.org/medical/dicom/current/output/chtml/part18/sect_10.6.3.3.3.html
+# Retrieve URL    (0008,1190)
+# Instance Availability 	(0008,0056)
+ENABLE_AUGMENTED_INSTANCE_SEARCH_FLG = flags.DEFINE_boolean(
+    'enable_augmented_instance_search',
+    secret_flag_utils.get_bool_secret_or_env(
+        'ENABLE_AUGMENTED_INSTANCE_SEARCH', True
+    ),
+    'Enable the return of augmented metadata for instance search.',
+)
+
 MAX_AUGMENTED_METADATA_DOWNLOAD_THREAD_COUNT_FLG = flags.DEFINE_integer(
     'max_augmented_metadata_thread_count',
     int(

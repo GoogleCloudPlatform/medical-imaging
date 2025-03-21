@@ -14,14 +14,11 @@
 # ==============================================================================
 """Flask blueprint for DICOM Store DICOM Proxy."""
 
-from concurrent import futures
 import dataclasses
-import enum
 import http
-import json
 import os
 import re
-from typing import Iterator, List, Mapping, Optional, Union
+from typing import List, Mapping, Optional
 
 import flask
 import flask_compress
@@ -30,7 +27,6 @@ import requests_toolbelt
 from pathology.dicom_proxy import annotations_util
 from pathology.dicom_proxy import base_dicom_request_error
 from pathology.dicom_proxy import bulkdata_util
-from pathology.dicom_proxy import cache_enabled_type
 from pathology.dicom_proxy import dicom_instance_request
 from pathology.dicom_proxy import dicom_proxy_flags
 from pathology.dicom_proxy import dicom_store_util
@@ -42,6 +38,7 @@ from pathology.dicom_proxy import flask_util
 from pathology.dicom_proxy import frame_caching_util
 from pathology.dicom_proxy import iccprofile_bulk_metadata_util
 from pathology.dicom_proxy import logging_util
+from pathology.dicom_proxy import metadata_augmentation
 from pathology.dicom_proxy import metadata_util
 from pathology.dicom_proxy import parameters_exceptions_and_return_types
 from pathology.dicom_proxy import proxy_const
@@ -98,34 +95,6 @@ compress = flask_compress.Compress()
 _VALID_FRAME_CHARS = re.compile('[^0-9, ]')
 
 
-@dataclasses.dataclass(frozen=True)
-class _HttpParam:
-  name: str
-  default: str
-
-
-class _TileServerHttpParams(enum.Enum):
-  ICCPROFILE = _HttpParam('iccprofile', 'no')
-  DISABLE_CACHING = _HttpParam('disable_caching', 'false')
-  DOWNSAMPLE = _HttpParam('downsample', '1.0')
-  INTERPOLATION = _HttpParam('interpolation', 'area')
-  QUALITY = _HttpParam('quality', '95')
-  EMBED_ICCPROFILE = _HttpParam('embed_iccprofile', 'true')
-
-
-def _get_dicom_proxy_request_args() -> Mapping[str, str]:
-  return flask_util.norm_dict_keys(
-      flask_util.get_first_key_args(),
-      [en.value.name for en in _TileServerHttpParams],
-  )
-
-
-def _get_parameter_value(
-    args: Mapping[str, str], param: _TileServerHttpParams
-) -> str:
-  return args.get(param.value.name, param.value.default).strip().lower()
-
-
 def _parse_interpolation(args: Mapping[str, str]) -> _Interpolation:
   """Parses interpolation algorithm from  request args.
 
@@ -138,7 +107,9 @@ def _parse_interpolation(args: Mapping[str, str]) -> _Interpolation:
   Raises:
     ValueError: Unsupported interpolation algorithm
   """
-  arg = _get_parameter_value(args, _TileServerHttpParams.INTERPOLATION)
+  arg = flask_util.get_parameter_value(
+      args, enum_types.TileServerHttpParams.INTERPOLATION
+  )
   if arg == 'area':
     return _Interpolation.AREA  # Recommended
   if arg == 'cubic':
@@ -184,27 +155,14 @@ def _parse_compression_quality(args: Mapping[str, str]) -> int:
   Raise:
     ValueError: Invalid quality value or cannot parse quality to int.
   """
-  quality = int(_get_parameter_value(args, _TileServerHttpParams.QUALITY))
+  quality = int(
+      flask_util.get_parameter_value(
+          args, enum_types.TileServerHttpParams.QUALITY
+      )
+  )
   if quality < 1 or quality > 100:
     raise ValueError('Invalid quality value')
   return quality
-
-
-def _parse_downsample(args: Mapping[str, str]) -> float:
-  """Returns request image downsample.
-
-  Args:
-    args: HTTP Request Args.
-
-  Raise:
-    ValueError: Invalid downsample value or cannot parse to float.
-  """
-  downsample = float(
-      _get_parameter_value(args, _TileServerHttpParams.DOWNSAMPLE)
-  )
-  if downsample < 1.0:
-    raise ValueError('Invalid downsample')
-  return downsample
 
 
 def _parse_iccprofile(args: Mapping[str, str]) -> _ICCProfile:
@@ -221,7 +179,9 @@ def _parse_iccprofile(args: Mapping[str, str]) -> _ICCProfile:
   if dicom_proxy_flags.DISABLE_ICC_PROFILE_CORRECTION_FLG.value:
     return _ICCProfile(proxy_const.ICCProfile.NO)
   return _ICCProfile(
-      _get_parameter_value(args, _TileServerHttpParams.ICCPROFILE).upper()
+      flask_util.get_parameter_value(
+          args, enum_types.TileServerHttpParams.ICCPROFILE
+      ).upper()
   )
 
 
@@ -261,25 +221,6 @@ def _get_request_compression(
   raise ValueError('Unsupported compression format.')
 
 
-def _parse_cache_enabled(
-    args: Mapping[str, str],
-) -> cache_enabled_type.CachingEnabled:
-  """Returns True if caching is enabled.
-
-  Args:
-    args: HTTP Request Args.
-
-  Raises:
-    Value error if parameter cannot be converted to bool.
-  """
-  result = flag_utils.str_to_bool(
-      _get_parameter_value(args, _TileServerHttpParams.DISABLE_CACHING)
-  )
-  if result:
-    cloud_logging_client.info('Caching disabled')
-  return cache_enabled_type.CachingEnabled(not result)
-
-
 def _parse_embed_icc_profile(args: Mapping[str, str]) -> bool:
   """Returns False if icc_profile should not be embedded in returned images.
 
@@ -290,7 +231,9 @@ def _parse_embed_icc_profile(args: Mapping[str, str]) -> bool:
     Value error if parameter cannot be converted to bool.
   """
   result = flag_utils.str_to_bool(
-      _get_parameter_value(args, _TileServerHttpParams.EMBED_ICCPROFILE)
+      flask_util.get_parameter_value(
+          args, enum_types.TileServerHttpParams.EMBED_ICCPROFILE
+      )
   )
   return result
 
@@ -311,13 +254,13 @@ def _parse_request_params(
   Raises:
     ValueError: Error in parameter definition.
   """
-  downsample = _parse_downsample(args)
+  downsample = flask_util.parse_downsample(args)
   # https://dicom.nema.org/medical/dicom/current/output/chtml/part18/sect_8.3.5.html#sect_8.3.5.1.2
   jpeg_quality = _parse_compression_quality(args)
   interpolation = _parse_interpolation(args)
   # https://dicom.nema.org/medical/dicom/2019a/output/chtml/part18/sect_6.5.8.html#sect_6.5.8.1.2.5
   iccprofile = _parse_iccprofile(args)
-  enable_caching = _parse_cache_enabled(args)
+  enable_caching = flask_util.parse_cache_enabled(args)
   embed_iccprofile = _parse_embed_icc_profile(args)
   result = _RenderFrameParams(
       downsample,
@@ -331,15 +274,6 @@ def _parse_request_params(
       embed_iccprofile,
   )
   return result
-
-
-def _exception_flask_response(exp: Union[Exception, str]) -> flask.Response:
-  """Returns flask response for python exception."""
-  return flask.Response(
-      response=str(exp),
-      status=http.HTTPStatus.BAD_REQUEST.value,
-      content_type='text/plain',
-  )
 
 
 @execution_timer.log_execution_time('_create_dicom_instance_web_request')
@@ -360,7 +294,7 @@ def _create_dicom_instance_web_request(
   Returns:
     DicomInstanceWebRequest
   """
-  fl_request_args = _get_dicom_proxy_request_args()
+  fl_request_args = flask_util.get_dicom_proxy_request_args()
   http_header = flask_util.norm_dict_keys(
       flask_util.get_headers(), [flask_util.ACCEPT_HEADER_KEY]
   )
@@ -370,7 +304,7 @@ def _create_dicom_instance_web_request(
       dicom_url_util.StudyInstanceUID(study),
       dicom_url_util.SeriesInstanceUID(series),
       dicom_url_util.SOPInstanceUID(instance),
-      _parse_cache_enabled(fl_request_args),
+      flask_util.parse_cache_enabled(fl_request_args),
       fl_request_args,
       http_header,
   )
@@ -393,7 +327,7 @@ def _get_rendered_frames(
     dicom_frame_indexes = _parse_frame_list(frames)
   except (ValueError, IndexError) as exp:
     cloud_logging_client.error('Exception parsing frame list.', exp)
-    return _exception_flask_response(exp)
+    return flask_util.exception_flask_response(exp)
   try:
     params = _parse_request_params(
         instance_request.url_args,
@@ -402,7 +336,7 @@ def _get_rendered_frames(
     )
   except ValueError as exp:
     cloud_logging_client.error('Exception parsing request params.', exp)
-    return _exception_flask_response(exp)
+    return flask_util.exception_flask_response(exp)
 
   if (
       not instance_request.metadata.is_tiled_full
@@ -413,7 +347,7 @@ def _get_rendered_frames(
         _INSTANCE_IS_NOT_FULLY_TILED,
         dataclasses.asdict(instance_request.metadata),
     )
-    return _exception_flask_response(_DIMENSION_ORG_ERR)
+    return flask_util.exception_flask_response(_DIMENSION_ORG_ERR)
 
   try:
     result = downsample_util.get_rendered_dicom_frames(
@@ -421,7 +355,7 @@ def _get_rendered_frames(
     )
   except _DownsamplingFrameRequestError as exp:
     cloud_logging_client.error('Error occurred getting rendered frame.', exp)
-    return _exception_flask_response(exp)
+    return flask_util.exception_flask_response(exp)
   except base_dicom_request_error.BaseDicomRequestError as exp:
     cloud_logging_client.error('Error occurred getting rendered frame.', exp)
     return exp.flask_response()
@@ -564,7 +498,7 @@ def _get_frames_instance_generic(
     return rendered_frame
   except metadata_util.ReadDicomMetadataError as exp:
     cloud_logging_client.error('Reading DICOM metadata.', exp)
-    return _exception_flask_response(exp)
+    return flask_util.exception_flask_response(exp)
 
 
 def _get_masked_flask_headers() -> Mapping[str, str]:
@@ -579,6 +513,7 @@ def _get_masked_flask_headers() -> Mapping[str, str]:
         'store_api_version': dicom_proxy_flags.DEFAULT_DICOM_STORE_API_VERSION,
         'is_rendered_request': True,
     },
+    strict_slashes=False,
 )
 @dicom_proxy.route(
     f'{dicom_url_util.DICOM_WEB_INSTANCE_URL_DEFAULT_VERSION}/frames/<string:framelist>',
@@ -588,18 +523,21 @@ def _get_masked_flask_headers() -> Mapping[str, str]:
         'store_api_version': dicom_proxy_flags.DEFAULT_DICOM_STORE_API_VERSION,
         'is_rendered_request': False,
     },
+    strict_slashes=False,
 )
 @dicom_proxy.route(
     f'{dicom_url_util.DICOM_WEB_INSTANCE_URL}/frames/<string:framelist>/rendered',
     methods=flask_util.GET_AND_POST_METHODS,
     endpoint='_get_frame_instance',
     defaults={'is_rendered_request': True},
+    strict_slashes=False,
 )
 @dicom_proxy.route(
     f'{dicom_url_util.DICOM_WEB_INSTANCE_URL}/frames/<string:framelist>',
     methods=flask_util.GET_AND_POST_METHODS,
     endpoint='_get_frame_instance',
     defaults={'is_rendered_request': False},
+    strict_slashes=False,
 )
 @logging_util.log_exceptions
 @execution_timer.log_execution_time('_get_frame_instance')
@@ -654,6 +592,7 @@ def _get_frame_instance(
         'store_api_version': dicom_proxy_flags.DEFAULT_DICOM_STORE_API_VERSION,
         'is_rendered_request': True,
     },
+    strict_slashes=False,
 )
 @dicom_proxy.route(
     f'{dicom_url_util.DICOM_WEB_STUDY_URL_DEFAULT_VERSION}/instances/<string:sop_instance_uid>/frames/<string:framelist>',
@@ -663,18 +602,21 @@ def _get_frame_instance(
         'store_api_version': dicom_proxy_flags.DEFAULT_DICOM_STORE_API_VERSION,
         'is_rendered_request': False,
     },
+    strict_slashes=False,
 )
 @dicom_proxy.route(
     f'{dicom_url_util.DICOM_WEB_STUDY_URL}/instances/<string:sop_instance_uid>/frames/<string:framelist>/rendered',
     methods=flask_util.GET_AND_POST_METHODS,
     endpoint='_redirect_frame_instance_missing_series_query',
     defaults={'is_rendered_request': True},
+    strict_slashes=False,
 )
 @dicom_proxy.route(
     f'{dicom_url_util.DICOM_WEB_STUDY_URL}/instances/<string:sop_instance_uid>/frames/<string:framelist>',
     methods=flask_util.GET_AND_POST_METHODS,
     endpoint='_redirect_frame_instance_missing_series_query',
     defaults={'is_rendered_request': False},
+    strict_slashes=False,
 )
 @logging_util.log_exceptions
 @execution_timer.log_execution_time(
@@ -743,7 +685,7 @@ def _rendered_wsi_instance(
     )
   except ValueError as exp:
     cloud_logging_client.error('Exception parsing request params.', exp)
-    return _exception_flask_response(exp)
+    return flask_util.exception_flask_response(exp)
   try:
     result = downsample_util.downsample_dicom_web_instance(
         instance_request,
@@ -754,7 +696,7 @@ def _rendered_wsi_instance(
     )
   except _DownsamplingFrameRequestError as exp:
     cloud_logging_client.error('Error occurred getting rendered instance.', exp)
-    return _exception_flask_response(exp)
+    return flask_util.exception_flask_response(exp)
   except base_dicom_request_error.BaseDicomRequestError as exp:
     cloud_logging_client.error('Error occurred getting rendered instance.', exp)
     return exp.flask_response()
@@ -762,7 +704,9 @@ def _rendered_wsi_instance(
       response=result.images[0],
       headers={
           'Content-Type': result.content_type,
-          'Cache-Control': f'max-age={dicom_proxy_flags.CACHE_CONTROL_TTL_RENDERED_FRAMES_FLG.value}',
+          'Cache-Control': (
+              f'max-age={dicom_proxy_flags.CACHE_CONTROL_TTL_RENDERED_FRAMES_FLG.value}'
+          ),
       },
   )
 
@@ -774,11 +718,13 @@ def _rendered_wsi_instance(
     defaults={
         'store_api_version': dicom_proxy_flags.DEFAULT_DICOM_STORE_API_VERSION
     },
+    strict_slashes=False,
 )
 @dicom_proxy.route(
     f'{dicom_url_util.DICOM_WEB_INSTANCE_URL}/rendered',
     methods=flask_util.GET_AND_POST_METHODS,
     endpoint='_rendered_instance',
+    strict_slashes=False,
 )
 @logging_util.log_exceptions
 @execution_timer.log_execution_time('_rendered_instance')
@@ -861,7 +807,7 @@ def _rendered_instance(
     return _rendered_wsi_instance(instance_request)
   except metadata_util.ReadDicomMetadataError as exp:
     cloud_logging_client.error('Reading DICOM metadata.', exp)
-    return _exception_flask_response(exp)
+    return flask_util.exception_flask_response(exp)
 
 
 @dicom_proxy.route(
@@ -871,11 +817,13 @@ def _rendered_instance(
     defaults={
         'store_api_version': dicom_proxy_flags.DEFAULT_DICOM_STORE_API_VERSION,
     },
+    strict_slashes=False,
 )
 @dicom_proxy.route(
     f'{dicom_url_util.DICOM_WEB_STUDY_URL}/instances/<string:sop_instance_uid>/rendered',
     methods=flask_util.GET_AND_POST_METHODS,
     endpoint='_redirect_render_instance_missing_series_query',
+    strict_slashes=False,
 )
 @logging_util.log_exceptions
 @execution_timer.log_execution_time(
@@ -916,276 +864,6 @@ def _redirect_render_instance_missing_series_query(
   )
 
 
-def _stream_metadata_response(
-    instance_metadata_list: list[Union[str, futures.Future[str]]],
-) -> Iterator[str]:
-  """Stream metadata response."""
-  buffer = ['[']
-  buffer_len = 1
-  if instance_metadata_list:
-    max_chunk_size = (
-        dicom_proxy_flags.DICOM_INSTANCE_DOWNLOAD_STREAMING_CHUNKSIZE_FLG.value
-    )
-    last_entry = instance_metadata_list[-1]
-    for instance_metadata in instance_metadata_list:
-      is_last = instance_metadata is last_entry
-      if not isinstance(instance_metadata, str):
-        instance_metadata = instance_metadata.result()
-      metadata_size = len(instance_metadata)
-      if not metadata_size:
-        continue
-      start = 0
-      while start < metadata_size:
-        read_size = min(
-            metadata_size - start, max(0, max_chunk_size - buffer_len)
-        )
-        buffer.append(instance_metadata[start : start + read_size])
-        buffer_len += read_size
-        start += read_size
-        if buffer_len >= max_chunk_size:
-          yield ''.join(buffer)
-          buffer_len = 0
-          buffer.clear()
-      if not is_last:
-        buffer.append(',')
-        buffer_len += 1
-  buffer.append(']')
-  yield ''.join(buffer)
-
-
-def _augment_instance_metadata(
-    dicom_web_base_url: dicom_url_util.DicomWebBaseURL,
-    study_instance_uid: dicom_url_util.StudyInstanceUID,
-    series_instance_uid: dicom_url_util.SeriesInstanceUID,
-    sop_instance_uid: dicom_url_util.SOPInstanceUID,
-    response: flask.Response,
-) -> flask.Response:
-  """Downsamples metadata returned in dicom store proxy response.
-
-  Returns error if not JSON, not able to parse JSON metadata, JSON is poorly
-  formatted, cannot downsample or parameters are poorly formatted.
-
-  Otherwise returns downsampled metadata.
-
-  Args:
-    dicom_web_base_url: Base DICOMweb URL for store.
-    study_instance_uid: DICOM Study Instance UID queried
-    series_instance_uid: DICOM Series Instance UID queried
-    sop_instance_uid: DICOM SOP Instance UID queried
-    response: Flask.Response containing metadata to be downsampled.
-
-  Returns:
-    Metadata response
-  """
-  # If response not ok return as is
-  if response.status_code >= 300:
-    cloud_logging_client.error(
-        'Error occured retrieving DICOM metadata (augment entry point)',
-        {proxy_const.LogKeywords.HTTP_STATUS_CODE: response.status_code},
-    )
-    return response
-  if response.status_code == http.HTTPStatus.NO_CONTENT:
-    return response
-  try:
-    fl_request_args = _get_dicom_proxy_request_args()
-    downsample = _parse_downsample(fl_request_args)
-    enable_caching = _parse_cache_enabled(fl_request_args)
-  except ValueError as ve:
-    # Return error if parameters cannot be parsed
-    cloud_logging_client.error('Error parsing url parameters', ve)
-    return _exception_flask_response(ve)
-  base_url = flask_util.get_base_url().lower().rstrip('/')
-  is_metadata_query = base_url.endswith('metadata')
-  is_instances_query = base_url.endswith('instances')
-  if not is_metadata_query and not is_instances_query:
-    # Unrecognized query not expected ever to occur.
-    cloud_logging_client.warning('Unexpected query', {'query': base_url})
-    return response
-  instance_request_that_includes_binary_tags = (
-      is_instances_query and flask_util.includefield_binary_tags()
-  )
-  bulkdata_util.test_dicom_store_metadata_for_bulkdata_uri_support(
-      dicom_web_base_url, response.data
-  )
-  if bulkdata_util.does_dicom_store_support_bulkdata(dicom_web_base_url):
-    # if store supports bulk uri then if configured alter bulk uri to proxy
-    # uri through proxy to hide underlying dicom store.
-    # otherwise leave bulk urli returned from store unchanged.
-    if dicom_proxy_flags.PROXY_DICOM_STORE_BULK_DATA_FLG.value:
-      bulkdata_util.proxy_dicom_store_bulkdata_response(
-          dicom_web_base_url, response
-      )
-  elif is_metadata_query or instance_request_that_includes_binary_tags:
-    # metadata queries return bulkuri url for binary tags
-    # If store does not support bulkuri (v1 API) then attempt to augment
-    # with ICC Profile Bulk URI.
-    try:
-      iccprofile_bulk_metadata_util.augment_dicom_iccprofile_bulkdata_metadata(
-          dicom_web_base_url,
-          study_instance_uid,
-          series_instance_uid,
-          sop_instance_uid,
-          response,
-          enable_caching=enable_caching,
-      )
-    except iccprofile_bulk_metadata_util.InvalidICCProfilePathError as ve:
-      cloud_logging_client.error('Invalid ICC profile path', ve)
-      return _exception_flask_response(ve)
-  # application/dicom+json was returned
-  if 'dicom+json' not in response.content_type.strip().lower():
-    return response
-
-  # the response is empty just return
-  if not response.data:
-    return response
-
-  patch_missing_metadata_tags = False
-  if instance_request_that_includes_binary_tags:
-    augment_bulk_simple_annotation_metadata = True
-  elif (
-      is_metadata_query
-      and not bulkdata_util.does_dicom_store_support_bulkdata(
-          dicom_web_base_url
-      )
-  ):
-    augment_bulk_simple_annotation_metadata = True
-  elif (
-      is_metadata_query
-      and dicom_proxy_flags.ENABLE_ANNOTATION_BULKDATA_METADATA_PATCH.value
-  ):
-    # temporary fix for bug in dicom store where store does not short binary
-    # tags
-    patch_missing_metadata_tags = True
-    augment_bulk_simple_annotation_metadata = True
-  else:
-    augment_bulk_simple_annotation_metadata = False
-
-  if is_metadata_query:
-    correct_sparse_dicom_metadata = True
-  elif (
-      is_instances_query
-      and sparse_dicom_util.do_includefields_request_perframe_functional_group_seq()
-  ):
-    correct_sparse_dicom_metadata = True
-  else:
-    correct_sparse_dicom_metadata = False
-
-  if (
-      downsample <= 1.0
-      and not augment_bulk_simple_annotation_metadata
-      and not correct_sparse_dicom_metadata
-  ):
-    return response
-  try:
-    # Decode JSON response
-    instance_metadata_list = json.loads(response.data)
-  except json.decoder.JSONDecodeError as exp:
-    # If error occurred decoding JSON. Then return the response as is.
-    cloud_logging_client.error(
-        'Error occured decoding DICOM metadata.',
-        {'metadata': response.data},
-        exp,
-    )
-    return response
-
-  if isinstance(instance_metadata_list, dict):
-    instance_metadata_list = [instance_metadata_list]
-  elif not isinstance(instance_metadata_list, list):
-    cloud_logging_client.warning(
-        'Unexpected DICOM Store response returning metadata as is.',
-        {'metadata': instance_metadata_list},
-    )
-    return response
-  for metadata in instance_metadata_list:
-    if not isinstance(metadata, dict):
-      cloud_logging_client.warning(
-          'Unexpected DICOM Store response returning metadata as is.',
-          {'metadata': instance_metadata_list},
-      )
-      return response
-  response_status_code = response.status_code
-  response_mimetype = response.content_type
-  del response
-  # Augment metadata.
-  try:
-    metadata_length = len(instance_metadata_list)
-    with dicom_store_util.MetadataThreadPoolDownloadManager(
-        metadata_length,
-        dicom_proxy_flags.MAX_AUGMENTED_METADATA_DOWNLOAD_SIZE_FLG.value,
-    ) as thread_pool_mgr:
-      output_list = []
-      # reverse to keep poped metadata in order,
-      instance_metadata_list.reverse()
-      for _ in range(metadata_length):
-        metadata = instance_metadata_list.pop()
-        if (
-            augment_bulk_simple_annotation_metadata
-            and metadata_util.is_bulk_microscopy_simple_annotation(metadata)
-        ):
-          output_list.append(
-              annotations_util.download_return_annotation_metadata(
-                  dicom_web_base_url,
-                  study_instance_uid,
-                  series_instance_uid,
-                  sop_instance_uid,
-                  metadata,
-                  patch_missing_metadata_tags,
-                  thread_pool_mgr,
-              )
-          )
-          continue
-        if metadata_util.is_vl_wholeside_microscopy_iod(metadata):
-          if correct_sparse_dicom_metadata and metadata_util.is_sparse_dicom(
-              metadata
-          ):
-            if downsample != 1.0:
-              msg = 'Metadata downsampling is not supported on sparse DICOM.'
-              cloud_logging_client.error(msg)
-              return _exception_flask_response(msg)
-            output_list.append(
-                sparse_dicom_util.download_and_return_sparse_dicom_metadata(
-                    dicom_web_base_url,
-                    study_instance_uid,
-                    series_instance_uid,
-                    sop_instance_uid,
-                    metadata,
-                    enable_caching,
-                    thread_pool_mgr,
-                )
-            )
-            continue
-          if downsample != 1.0:
-            try:
-              metadata_util.downsample_json_metadata(metadata, downsample)
-              output_list.append(json.dumps(metadata))
-              continue
-            except metadata_util.JsonMetadataDownsampleError as err:
-              # If a error occures downsampling return the error.
-              cloud_logging_client.error(
-                  'Error downsampling JSON metadata', err
-              )
-              return _exception_flask_response(err)
-        output_list.append(json.dumps(metadata, sort_keys=True))
-      return flask.Response(
-          flask.stream_with_context(_stream_metadata_response(output_list)),
-          status=response_status_code,
-          mimetype=response_mimetype,
-      )
-  except dicom_store_util.MetadataDownloadExceedsMaxSizeLimitError as exp:
-    size_limit = (
-        dicom_proxy_flags.MAX_AUGMENTED_METADATA_DOWNLOAD_SIZE_FLG.value
-    )
-    msg = f'DICOM instance metadata retrieval exceeded {size_limit} byte limit.'
-    cloud_logging_client.error(msg, exp)
-    status = http.HTTPStatus.BAD_REQUEST
-    return flask.Response(msg, status=status, mimetype='text/plain')
-  except dicom_store_util.DicomInstanceMetadataRetrievalError as exp:
-    msg = 'Error occured retrieving DICOM metadata.'
-    cloud_logging_client.error(msg, exp)
-    status = http.HTTPStatus.INTERNAL_SERVER_ERROR
-    return flask.Response(msg, status=status, mimetype='text/plain')
-
-
 def _get_sop_instance_uid_param_value() -> str:
   return flask_util.get_key_value(
       flask_util.get_first_key_args(), 'SOPInstanceUID', ''
@@ -1199,6 +877,7 @@ def _get_sop_instance_uid_param_value() -> str:
         'store_api_version': dicom_proxy_flags.DEFAULT_DICOM_STORE_API_VERSION,
     },
     endpoint='_instances_search',
+    strict_slashes=False,
 )
 @dicom_proxy.route(
     f'{dicom_url_util.DICOM_WEB_STUDY_URL_DEFAULT_VERSION}/instances',
@@ -1208,6 +887,7 @@ def _get_sop_instance_uid_param_value() -> str:
         'series_instance_uid': '',
     },
     endpoint='_instances_search',
+    strict_slashes=False,
 )
 @dicom_proxy.route(
     f'{dicom_url_util.DICOM_WEB_BASE_URL_DEFAULT_VERSION}/instances',
@@ -1218,11 +898,13 @@ def _get_sop_instance_uid_param_value() -> str:
         'series_instance_uid': '',
     },
     endpoint='_instances_search',
+    strict_slashes=False,
 )
 @dicom_proxy.route(
     f'{dicom_url_util.DICOM_WEB_SERIES_URL}/instances',
     methods=flask_util.GET_AND_POST_METHODS,
     endpoint='_instances_search',
+    strict_slashes=False,
 )
 @dicom_proxy.route(
     f'{dicom_url_util.DICOM_WEB_STUDY_URL}/instances',
@@ -1231,6 +913,7 @@ def _get_sop_instance_uid_param_value() -> str:
         'series_instance_uid': '',
     },
     endpoint='_instances_search',
+    strict_slashes=False,
 )
 @dicom_proxy.route(
     f'{dicom_url_util.DICOM_WEB_BASE_URL}/instances',
@@ -1240,6 +923,7 @@ def _get_sop_instance_uid_param_value() -> str:
         'series_instance_uid': '',
     },
     endpoint='_instances_search',
+    strict_slashes=False,
 )
 @logging_util.log_exceptions
 @execution_timer.log_execution_time('_instances_search')
@@ -1318,12 +1002,156 @@ def _instances_search(
     ]
   else:
     additional_parameters = None
-  return _augment_instance_metadata(
+  return metadata_augmentation.augment_instance_metadata(
       dicom_web_base_url,
       dicom_url_util.StudyInstanceUID(study_instance_uid),
       dicom_url_util.SeriesInstanceUID(series_instance_uid),
       dicom_url_util.SOPInstanceUID(sop_instance_uid),
       dicom_store_util.dicom_store_proxy(params=additional_parameters),
+  )
+
+
+@dicom_proxy.route(
+    f'{dicom_url_util.DICOM_WEB_STUDY_URL_DEFAULT_VERSION}/series',
+    methods=flask_util.GET_AND_POST_METHODS,
+    defaults={
+        'store_api_version': dicom_proxy_flags.DEFAULT_DICOM_STORE_API_VERSION,
+    },
+    endpoint='_series_search',
+    strict_slashes=False,
+)
+@dicom_proxy.route(
+    f'{dicom_url_util.DICOM_WEB_BASE_URL_DEFAULT_VERSION}/series',
+    methods=flask_util.GET_AND_POST_METHODS,
+    defaults={
+        'store_api_version': dicom_proxy_flags.DEFAULT_DICOM_STORE_API_VERSION,
+        'study_instance_uid': '',
+    },
+    endpoint='_series_search',
+    strict_slashes=False,
+)
+@dicom_proxy.route(
+    f'{dicom_url_util.DICOM_WEB_STUDY_URL}/series',
+    methods=flask_util.GET_AND_POST_METHODS,
+    endpoint='_series_search',
+    strict_slashes=False,
+)
+@dicom_proxy.route(
+    f'{dicom_url_util.DICOM_WEB_BASE_URL}/series',
+    methods=flask_util.GET_AND_POST_METHODS,
+    defaults={
+        'study_instance_uid': '',
+    },
+    endpoint='_series_search',
+    strict_slashes=False,
+)
+@logging_util.log_exceptions
+@execution_timer.log_execution_time('_studysearch')
+@auth.validate_iap
+@compress.compressed()
+@metadata_util.ClearLocalMetadata()
+def _series_search(
+    store_api_version: str,
+    projectid: str,
+    location: str,
+    datasetid: str,
+    dicomstore: str,
+    study_instance_uid: str,
+) -> flask.Response:
+  """Flask entry point for DICOMweb study metadata search request.
+
+  Args:
+    store_api_version: Healthcare API DICOM store version.
+    projectid: GCP projectid.
+    location: Location of healthcare api dataset.
+    datasetid: Healthcare API dataset ID.
+    dicomstore: DICOM store to connect to.
+    study_instance_uid: DICOM Study Instance UID to return metadata.
+
+  Returns:
+    Flask response containing dicom metadata.
+  """
+  cloud_logging_client.info(
+      'External DICOM study search entrypoint',
+      {
+          proxy_const.LogKeywords.HEALTHCARE_API_DICOM_VERSION: (
+              store_api_version
+          ),
+          proxy_const.LogKeywords.PROJECT_ID: projectid,
+          proxy_const.LogKeywords.LOCATION: location,
+          proxy_const.LogKeywords.DATASET_ID: datasetid,
+          proxy_const.LogKeywords.DICOM_STORE: dicomstore,
+      },
+      _get_masked_flask_headers(),
+  )
+  dicom_web_base_url = dicom_url_util.DicomWebBaseURL(
+      store_api_version, projectid, location, datasetid, dicomstore
+  )
+  return metadata_augmentation.augment_series_response_metadata(
+      dicom_web_base_url,
+      dicom_url_util.StudyInstanceUID(study_instance_uid),
+      dicom_store_util.dicom_store_proxy(),
+  )
+
+
+@dicom_proxy.route(
+    f'{dicom_url_util.DICOM_WEB_BASE_URL_DEFAULT_VERSION}/studies',
+    methods=flask_util.GET_AND_POST_METHODS,
+    defaults={
+        'store_api_version': dicom_proxy_flags.DEFAULT_DICOM_STORE_API_VERSION,
+    },
+    endpoint='_studies_search',
+    strict_slashes=False,
+)
+@dicom_proxy.route(
+    f'{dicom_url_util.DICOM_WEB_BASE_URL}/studies',
+    methods=flask_util.GET_AND_POST_METHODS,
+    endpoint='_studies_search',
+    strict_slashes=False,
+)
+@logging_util.log_exceptions
+@execution_timer.log_execution_time('_studysearch')
+@auth.validate_iap
+@compress.compressed()
+@metadata_util.ClearLocalMetadata()
+def _studies_search(
+    store_api_version: str,
+    projectid: str,
+    location: str,
+    datasetid: str,
+    dicomstore: str,
+) -> flask.Response:
+  """Flask entry point for DICOMweb study metadata search request.
+
+  Args:
+    store_api_version: Healthcare API DICOM store version.
+    projectid: GCP projectid.
+    location: Location of healthcare api dataset.
+    datasetid: Healthcare API dataset ID.
+    dicomstore: DICOM store to connect to.
+
+  Returns:
+    Flask response containing dicom metadata.
+  """
+  cloud_logging_client.info(
+      'External DICOM study search entrypoint',
+      {
+          proxy_const.LogKeywords.HEALTHCARE_API_DICOM_VERSION: (
+              store_api_version
+          ),
+          proxy_const.LogKeywords.PROJECT_ID: projectid,
+          proxy_const.LogKeywords.LOCATION: location,
+          proxy_const.LogKeywords.DATASET_ID: datasetid,
+          proxy_const.LogKeywords.DICOM_STORE: dicomstore,
+      },
+      _get_masked_flask_headers(),
+  )
+  dicom_web_base_url = dicom_url_util.DicomWebBaseURL(
+      store_api_version, projectid, location, datasetid, dicomstore
+  )
+  return metadata_augmentation.augment_study_response_metadata(
+      dicom_web_base_url,
+      dicom_store_util.dicom_store_proxy(),
   )
 
 
@@ -1334,6 +1162,7 @@ def _instances_search(
     defaults={
         'store_api_version': dicom_proxy_flags.DEFAULT_DICOM_STORE_API_VERSION
     },
+    strict_slashes=False,
 )
 @dicom_proxy.route(
     f'{dicom_url_util.DICOM_WEB_SERIES_URL_DEFAULT_VERSION}/metadata',
@@ -1343,6 +1172,7 @@ def _instances_search(
         'sop_instance_uid': '',
     },
     endpoint='_metadata_search',
+    strict_slashes=False,
 )
 @dicom_proxy.route(
     f'{dicom_url_util.DICOM_WEB_STUDY_URL_DEFAULT_VERSION}/metadata',
@@ -1353,6 +1183,7 @@ def _instances_search(
         'sop_instance_uid': '',
     },
     endpoint='_metadata_search',
+    strict_slashes=False,
 )
 @dicom_proxy.route(
     f'{dicom_url_util.DICOM_WEB_BASE_URL_DEFAULT_VERSION}/metadata',
@@ -1364,17 +1195,20 @@ def _instances_search(
         'series_instance_uid': '',
         'sop_instance_uid': '',
     },
+    strict_slashes=False,
 )
 @dicom_proxy.route(
     f'{dicom_url_util.DICOM_WEB_INSTANCE_URL}/metadata',
     methods=flask_util.GET_AND_POST_METHODS,
     endpoint='_metadata_search',
+    strict_slashes=False,
 )
 @dicom_proxy.route(
     f'{dicom_url_util.DICOM_WEB_SERIES_URL}/metadata',
     methods=flask_util.GET_AND_POST_METHODS,
     defaults={'sop_instance_uid': ''},
     endpoint='_metadata_search',
+    strict_slashes=False,
 )
 @dicom_proxy.route(
     f'{dicom_url_util.DICOM_WEB_STUDY_URL}/metadata',
@@ -1384,6 +1218,7 @@ def _instances_search(
         'sop_instance_uid': '',
     },
     endpoint='_metadata_search',
+    strict_slashes=False,
 )
 @dicom_proxy.route(
     f'{dicom_url_util.DICOM_WEB_BASE_URL}/metadata',
@@ -1394,6 +1229,7 @@ def _instances_search(
         'series_instance_uid': '',
         'sop_instance_uid': '',
     },
+    strict_slashes=False,
 )
 @logging_util.log_exceptions
 @execution_timer.log_execution_time('_metadata_search')
@@ -1444,7 +1280,7 @@ def _metadata_search(
   dicom_web_base_url = dicom_url_util.DicomWebBaseURL(
       store_api_version, projectid, location, datasetid, dicomstore
   )
-  return _augment_instance_metadata(
+  return metadata_augmentation.augment_instance_metadata(
       dicom_web_base_url,
       dicom_url_util.StudyInstanceUID(study_instance_uid),
       dicom_url_util.SeriesInstanceUID(series_instance_uid),
@@ -1525,19 +1361,19 @@ def _dicom_instance_icc_profile_bulkdata(
     icc_profile_bytes = instance_request.icc_profile()
   except metadata_util.ReadDicomMetadataError as exp:
     cloud_logging_client.error('Reading DICOM metadata.', exp)
-    return _exception_flask_response(exp)
+    return flask_util.exception_flask_response(exp)
   if icc_profile_bytes is None:
     cloud_logging_client.error('ICCProfile is not found.')
-    return _exception_flask_response('ICCProfile is not found.')
+    return flask_util.exception_flask_response('ICCProfile is not found.')
   multipart_data = requests_toolbelt.MultipartEncoder(
-      fields=[((
+      fields=[(
           'icc_profile.icc',
           (
               None,
               icc_profile_bytes,
               'application/octet-stream',
           ),
-      ))]
+      )]
   )
   return flask.Response(
       response=multipart_data.read(),
@@ -1639,6 +1475,7 @@ def _get_bulkdata(
     defaults={
         'store_api_version': dicom_proxy_flags.DEFAULT_DICOM_STORE_API_VERSION
     },
+    strict_slashes=False,
 )
 @dicom_proxy.route(
     f'{dicom_url_util.DICOM_WEB_BASE_URL_DEFAULT_VERSION}/studies',
@@ -1648,17 +1485,20 @@ def _get_bulkdata(
         'store_api_version': dicom_proxy_flags.DEFAULT_DICOM_STORE_API_VERSION,
         'study_instance_uid': '',
     },
+    strict_slashes=False,
 )
 @dicom_proxy.route(
     f'{dicom_url_util.DICOM_WEB_BASE_URL}/studies/<string:study_instance_uid>',
     methods=flask_util.POST_METHOD,
     endpoint='_store_annotation_instance',
+    strict_slashes=False,
 )
 @dicom_proxy.route(
     f'{dicom_url_util.DICOM_WEB_BASE_URL}/studies',
     methods=flask_util.POST_METHOD,
     endpoint='_store_annotation_instance',
     defaults={'study_instance_uid': ''},
+    strict_slashes=False,
 )
 @auth.validate_iap
 @logging_util.log_exceptions
@@ -1716,11 +1556,13 @@ def _store_annotation_instance(
     defaults={
         'store_api_version': dicom_proxy_flags.DEFAULT_DICOM_STORE_API_VERSION
     },
+    strict_slashes=False,
 )
 @dicom_proxy.route(
     dicom_url_util.DICOM_WEB_INSTANCE_URL,
     methods=flask_util.DELETE_METHOD,
     endpoint='_delete_annotation_instance',
+    strict_slashes=False,
 )
 @auth.validate_iap
 @logging_util.log_exceptions

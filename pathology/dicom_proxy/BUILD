@@ -78,6 +78,26 @@ py_library(
 )
 
 py_library(
+    name = "metadata_augmentation",
+    srcs = ["metadata_augmentation.py"],
+    deps = [
+        ":annotations_util",
+        ":bulkdata_util",
+        ":dicom_proxy_flags",
+        ":dicom_store_util",
+        ":dicom_url_util",
+        ":flask_util",
+        ":iccprofile_bulk_metadata_util",
+        ":metadata_util",
+        ":proxy_const",
+        ":sparse_dicom_util",
+        ":user_auth_util",
+        "//pathology/shared_libs/logging_lib:cloud_logging_client",
+        requirement("Flask"),
+    ],
+)
+
+py_library(
     name = "base_dicom_request_error",
     srcs = ["base_dicom_request_error.py"],
     deps = [
@@ -267,6 +287,9 @@ py_library(
     name = "flask_util",
     srcs = ["flask_util.py"],
     deps = [
+        ":cache_enabled_type",
+        ":enum_types",
+        "//pathology/shared_libs/flags:flag_utils",
         "//pathology/shared_libs/logging_lib:cloud_logging_client",
         requirement("Flask"),
         requirement("pydicom"),
@@ -484,7 +507,6 @@ py_library(
         ":annotations_util",
         ":base_dicom_request_error",
         ":bulkdata_util",
-        ":cache_enabled_type",
         ":dicom_instance_request",
         ":dicom_proxy_flags",
         ":dicom_store_util",
@@ -496,6 +518,7 @@ py_library(
         ":frame_caching_util",
         ":iccprofile_bulk_metadata_util",
         ":logging_util",
+        ":metadata_augmentation",
         ":metadata_util",
         ":parameters_exceptions_and_return_types",
         ":proxy_const",
@@ -1020,5 +1043,20 @@ py_test(
         ":shared_test_util",
         ":user_auth_util",
         requirement("cachetools"),
+    ],
+)
+
+py_test(
+    name = "metadata_augmentation_test",
+    srcs = ["metadata_augmentation_test.py"],
+    deps = [
+        requirement("absl-py"),
+        ":dicom_url_util",
+        ":flask_util",
+        ":metadata_augmentation",
+        ":metadata_util",
+        ":shared_test_util",
+        "//pathology/shared_libs/iap_auth_lib:auth",
+        requirement("Flask"),
     ],
 )

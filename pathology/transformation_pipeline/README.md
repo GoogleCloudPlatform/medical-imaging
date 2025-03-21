@@ -92,7 +92,7 @@ gcloud builds submit --config=./pathology/transformation_pipeline/cloudbuild.yam
 
 ## Running the Transformation Pipeline Locally
 
-The transformation pipeline can be run locally (Linux systems) or within Cloud virtual machines. Directions to build and run the pipeline locally are provided [here](https://github.com/GoogleCloudPlatform/medical-imaging/tree/main/pathology/transformation_pipeline/localhost). Building the local runner requires first building the Cloud deployable container. The local runner does not support horizontal scaling and is intended to facilitate the transformation of small jobs and non-cloud end-to-end testing.
+The transformation pipeline can be run locally (Linux systems) or within Cloud virtual machines. Building the local runner requires first building the Cloud deployable container, described above, and then [building a the locally executable container](https://github.com/GoogleCloudPlatform/medical-imaging/tree/main/pathology/transformation_pipeline/local). The local runner is intended to facilitate the transformation of small jobs and non-cloud end-to-end testing and does not support horizontal scaling.
 
 
 ## Cloud Deployment

@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """Tests for flask util."""
+import http
 from unittest import mock
 
 from absl.testing import absltest
@@ -22,6 +23,62 @@ from pathology.dicom_proxy import flask_util
 
 
 class FlaskUtilTest(parameterized.TestCase):
+
+  @mock.patch.object(flask_util, 'get_first_key_args', autospec=True)
+  def test_get_dicom_proxy_request_args(self, mock_get_flask_args):
+    mock_get_flask_args.return_value = {
+        ' IcCpRoFiLe ': 'abcd',
+        ' disable_caching ': 'TRUE',
+        ' DownSample ': '2.0',
+        ' interpolation ': 'AREA',
+        'quality': '100',
+        'Not_in_list': 'bogus',
+        '': '',
+    }
+    self.assertEqual(
+        flask_util.get_dicom_proxy_request_args(),
+        {
+            'disable_caching': 'TRUE',
+            'downsample': '2.0',
+            'iccprofile': 'abcd',
+            'interpolation': 'AREA',
+            'quality': '100',
+        },
+    )
+
+  def test_parse_downsample(self):
+    value = 5.0
+    self.assertEqual(
+        flask_util.parse_downsample({'downsample': str(value)}),
+        value,
+    )
+
+  def test_parse_downsample_no_value(self):
+    self.assertEqual(flask_util.parse_downsample({}), 1.0)
+
+  def test_parse_downsample_throws(self):
+    with self.assertRaises(ValueError):
+      flask_util.parse_downsample({'downsample': '0.5'})
+
+  @parameterized.parameters(['Yes', 'True', 'On', '1'])
+  def test_parse_cache_enabled_false(self, val):
+    self.assertFalse(flask_util.parse_cache_enabled({'disable_caching': val}))
+
+  @parameterized.parameters(['No', 'False', 'Off', '0'])
+  def test_parse_cache_disabled_true(self, val):
+    self.assertTrue(flask_util.parse_cache_enabled({'disable_caching': val}))
+
+  def test_parse_cache_disabled_raises(self):
+    with self.assertRaises(ValueError):
+      flask_util.parse_cache_enabled({'disable_caching': 'ABC'})
+
+  @parameterized.parameters([Exception('bad request'), 'bad request'])
+  def test_exception_flask_response(self, exp):
+    response = flask_util.exception_flask_response(exp)
+
+    self.assertEqual(response.data, b'bad request')
+    self.assertEqual(response.status_code, http.HTTPStatus.BAD_REQUEST)
+    self.assertEqual(response.content_type, 'text/plain')
 
   @parameterized.parameters([
       (['B', 'c'], {'b': 2, 'c': 3}),

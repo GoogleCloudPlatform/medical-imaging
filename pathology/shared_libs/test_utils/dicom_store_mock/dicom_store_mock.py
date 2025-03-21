@@ -35,6 +35,7 @@ import os
 import re
 from typing import Any, BinaryIO, Iterator, List, Mapping, Match, MutableMapping, NewType, Optional, Set, Tuple, Union
 from unittest import mock
+import urllib.parse
 
 from absl.testing import absltest
 import cachetools
@@ -902,6 +903,8 @@ class MockDicomStoreClient(contextlib.ContextDecorator):
         self._download_frame,
         self._store_level_study_request,
         self._bulkdata_request,
+        self._store_level_study_metric_request,
+        self._study_level_series_metric_request,
     ]
 
   @property
@@ -1356,6 +1359,52 @@ class MockDicomStoreClient(contextlib.ContextDecorator):
         http.HTTPStatus.NO_CONTENT, '', ContentType.TEXT_HTML
     )
 
+  def _store_level_study_metric_request(
+      self, request: requests.Request
+  ) -> Optional[requests.Response]:
+    """Entry point for handling a store level study metadata metric request."""
+    result = self._parse_url(
+        request,
+        r'/studies/([0-9.]+):getStudyMetrics',
+        RequestMethod.GET,
+    )
+    if result is None:
+      return None
+    if not self._can_read(request.headers):
+      return _build_response(
+          http.HTTPStatus.UNAUTHORIZED,
+          '',
+          ContentType.TEXT_HTML,
+      )
+    parts = result.groups()
+    study_instance_uid = parts[0]
+    metadata_iterator = self._get_dicom_metadata_iterator(study_instance_uid)
+    metadata = self._filter_metadata_response(parts, 0, metadata_iterator)
+    series_count = set()
+    instance_count = set()
+    for md in metadata:
+      series_uid = md['0020000E']['Value'][0]
+      instance_uid = md['00080018']['Value'][0]
+      series_count.add(series_uid)
+      instance_count.add(f'{series_uid}_{instance_uid}')
+
+    if series_count:
+      study_path = urllib.parse.urlparse(self._dicomweb_path).path.lstrip('/')
+      study_path = f'{study_path}/studies/{study_instance_uid}'
+      metadata = dict(
+          study=study_path,
+          seriesCount=len(series_count),
+          instanceCount=len(instance_count),
+      )
+      return _build_response(
+          http.HTTPStatus.OK,
+          json.dumps(metadata),
+          ContentType.APPLICATION_DICOM_JSON,
+      )
+    return _build_response(
+        http.HTTPStatus.NO_CONTENT, '', ContentType.TEXT_HTML
+    )
+
   def _get_binary_tag_data(
       self, metadata: pydicom.FileDataset, path: str
   ) -> Optional[bytes]:
@@ -1447,6 +1496,48 @@ class MockDicomStoreClient(contextlib.ContextDecorator):
         parts, 1, metadata_iterator, limit_series=True
     )
     if metadata:
+      return _build_response(
+          http.HTTPStatus.OK,
+          json.dumps(metadata),
+          ContentType.APPLICATION_DICOM_JSON,
+      )
+    return _build_response(
+        http.HTTPStatus.NO_CONTENT, '', ContentType.TEXT_HTML
+    )
+
+  def _study_level_series_metric_request(
+      self, request: requests.Request
+  ) -> Optional[requests.Response]:
+    """Entry point for returning study level series metadata request."""
+    result = self._parse_url(
+        request,
+        r'/studies/([0-9.]+)/series/([0-9.]+):getSeriesMetrics',
+        RequestMethod.GET,
+    )
+    if result is None:
+      return None
+    if not self._can_read(request.headers):
+      return _build_response(
+          http.HTTPStatus.UNAUTHORIZED,
+          '',
+          ContentType.TEXT_HTML,
+      )
+    parts = result.groups()
+    study_instance_uid = parts[0]
+    series_instance_uid = parts[1]
+    metadata_iterator = self._get_dicom_metadata_iterator(
+        study_instance_uid, series_instance_uid
+    )
+    metadata = self._filter_metadata_response(parts, 1, metadata_iterator)
+    instance_count = set()
+    for md in metadata:
+      instance_uid = md['00080018']['Value'][0]
+      instance_count.add(instance_uid)
+
+    if instance_count:
+      series_path = urllib.parse.urlparse(self._dicomweb_path).path.lstrip('/')
+      series_path = f'{series_path}/studies/{study_instance_uid}/series/{series_instance_uid}'
+      metadata = dict(series=series_path, instanceCount=len(instance_count))
       return _build_response(
           http.HTTPStatus.OK,
           json.dumps(metadata),

@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """DICOM Proxy enum types."""
+import dataclasses
 import enum
 from typing import NewType
 
@@ -29,6 +30,7 @@ class Interpolation(enum.Enum):
 
 class Compression(enum.Enum):
   """Compression format to return imaging."""
+
   JPEG = 0
   PNG = 1
   WEBP = 2
@@ -41,3 +43,18 @@ class Compression(enum.Enum):
 
 
 ICCProfile = NewType('ICCProfile', str)
+
+
+@dataclasses.dataclass(frozen=True)
+class _HttpParam:
+  name: str
+  default: str
+
+
+class TileServerHttpParams(enum.Enum):
+  ICCPROFILE = _HttpParam('iccprofile', 'no')
+  DISABLE_CACHING = _HttpParam('disable_caching', 'false')
+  DOWNSAMPLE = _HttpParam('downsample', '1.0')
+  INTERPOLATION = _HttpParam('interpolation', 'area')
+  QUALITY = _HttpParam('quality', '95')
+  EMBED_ICCPROFILE = _HttpParam('embed_iccprofile', 'true')

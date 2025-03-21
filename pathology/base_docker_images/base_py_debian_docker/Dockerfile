@@ -14,9 +14,9 @@
 # ==============================================================================
 # Base Debian Docker container for wsi image ingestion
 #
-# Debian 12.9-slim + Python 3.13.2
+# Debian 12.10-slim + Python 3.13.2
 #
-FROM debian:12.9-slim
+FROM debian:12.10-slim
 
 # Start Python 3.13.2 install.
 # docker install code from offical python 3.13.2 DOCKER image.

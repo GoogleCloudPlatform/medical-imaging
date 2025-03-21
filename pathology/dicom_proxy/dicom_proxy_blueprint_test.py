@@ -14,7 +14,6 @@
 # ==============================================================================
 """Tests for dicom proxy blueprint."""
 
-from concurrent import futures
 import contextlib
 import copy
 import http
@@ -71,9 +70,6 @@ _DicomInstanceWebRequest = (
     parameters_exceptions_and_return_types.DicomInstanceWebRequest
 )
 _LocalDicomInstance = parameters_exceptions_and_return_types.LocalDicomInstance
-_EMPTY_STUDY = dicom_url_util.StudyInstanceUID('')
-_EMPTY_SERIES = dicom_url_util.SeriesInstanceUID('')
-_EMPTY_SOPINSTANCE = dicom_url_util.SOPInstanceUID('')
 _DICOM_PIXELDATA_TAG_ADDRESS = '7FE00010'
 _DICOM_FILE_META_INFORMATION_VERSION_TAG_ADDRESS = '00020001'
 _MOCK_DICOM_STORE_API_VERSION = 'v1'
@@ -91,70 +87,6 @@ def _mock_sparse_dicom() -> pydicom.FileDataset:
   ds2.StudyID = '2'
   dcm.PerFrameFunctionalGroupsSequence = [ds1, ds2]
   return dcm
-
-
-class _MockFlaskRequest:
-
-  def __init__(self, url: str):
-    self._url = url
-
-  @property
-  def url(self) -> str:
-    return self._url
-
-  @property
-  def url_root(self) -> str:
-    path = self.url
-    prefix = ''
-    for strip_prefix in ('http://', 'https://'):
-      if path.startswith(strip_prefix):
-        path = path[len(strip_prefix) :]
-        prefix = strip_prefix
-        break
-    if '/' in path:
-      path = path[: path.index('/')]
-    return f'{prefix}{path}'
-
-  @property
-  def base_url(self) -> str:
-    if '?' in self.url:
-      return self.url[: self.url.index('?')]
-    return self.url
-
-  @property
-  def path(self) -> str:
-    return self.base_url[len(self.url_root) :]
-
-  @property
-  def args(self) -> Mapping[str, str]:
-    if '?' not in self.url:
-      return {}
-    params = self.url[self.url.index('?') + 1 :]
-    if not params:
-      return {}
-    result = {}
-    for param in params.split('&'):
-      parts = param.split('=')
-      if len(parts) == 2:
-        key, value = parts
-        result[key] = value
-    return result
-
-
-def _http_status_response(status: http.HTTPStatus) -> str:
-  return (f'{status.value} {status.phrase}').upper()
-
-
-def _http_ok_status() -> str:
-  return _http_status_response(http.HTTPStatus.OK)
-
-
-def _http_bad_request_status() -> str:
-  return _http_status_response(http.HTTPStatus.BAD_REQUEST)
-
-
-def _http_not_found_status() -> str:
-  return _http_status_response(http.HTTPStatus.NOT_FOUND)
 
 
 def _mock_flask_stream_context(msg: Iterator[str]) -> str:
@@ -343,6 +275,191 @@ def _dicom_instance_search(
     )
 
 
+@flagsaver.flagsaver(validate_iap=False)
+@mock.patch.object(
+    user_auth_util,
+    '_get_email_from_bearer_token',
+    autospec=True,
+    return_value='mock@email.com',
+)
+@mock.patch.object(
+    flask_util,
+    'get_headers',
+    autospec=True,
+    return_value={
+        proxy_const.HeaderKeywords.AUTH_HEADER_KEY: 'bearer mock_token',
+    },
+)
+@mock.patch.object(
+    flask_util,
+    'get_method',
+    autospec=True,
+    return_value='GET',
+)
+@mock.patch.object(
+    flask_util,
+    'get_first_key_args',
+    autospec=True,
+)
+@mock.patch.object(
+    flask_util,
+    'get_key_args_list',
+    autospec=True,
+)
+@mock.patch.object(
+    dicom_proxy_blueprint, '_get_sop_instance_uid_param_value', autospec=True
+)
+@mock.patch.object(flask_util, 'get_includefields', autspec=True)
+@mock.patch.object(flask_util, 'get_base_url', autospec=True)
+@mock.patch.object(flask_util, 'get_path', autospec=True)
+@mock.patch.object(flask_util, 'get_full_request_url', autospec=True)
+@mock.patch.object(flask_util, 'get_url_root', autospec=True)
+def _dicom_study_search(
+    dcm: pydicom.FileDataset,
+    bulkdata_uri_enabled: bool,
+    mk_get_url_root,
+    mk_get_full_request_url,
+    mk_get_path,
+    mk_get_base_url,
+    mk_get_includefields,
+    mk_get_sop_instance_uid_param_value,
+    mk_get_key_args_list,
+    mk_get_first_key_args,
+    *unused_mocks,
+    add_instance_to_store: bool = True,
+    proxy_root: str = '',
+    proxy_path: str = '',
+    mock_dicom_store_response: Optional[
+        dicom_store_mock.MockHttpResponse
+    ] = None,
+) -> flask.Response:
+  key_args_list = {}
+  mk_get_key_args_list.return_value = key_args_list
+  mk_get_first_key_args.return_value = {
+      key: value[0] for key, value in key_args_list.items()
+  }
+  base_url = _MOCK_DICOMWEBBASE_URL
+  params = ''
+  dicom_web_path = '/studies'
+  external_url_root = base_url.root_url if not proxy_root else proxy_root
+  base_path = f'{external_url_root}/{proxy_path}/{base_url}{dicom_web_path}'
+  mk_get_includefields.return_value = set()
+  mk_get_sop_instance_uid_param_value.return_value = dcm.SOPInstanceUID
+  mk_get_url_root.return_value = external_url_root
+  mk_get_full_request_url.return_value = f'{base_path}{params}'
+  mk_get_path.return_value = f'/{proxy_path}/{base_url}{dicom_web_path}'
+  mk_get_base_url.return_value = base_path
+  with dicom_store_mock.MockDicomStores(
+      base_url.full_url, bulkdata_uri_enabled=bulkdata_uri_enabled
+  ) as mocked_dicom_stores:
+    if add_instance_to_store:
+      mocked_dicom_stores[base_url.full_url].add_instance(dcm)
+      if mock_dicom_store_response is not None:
+        mocked_dicom_stores[base_url.full_url].set_mock_response(
+            mock_dicom_store_response
+        )
+    return dicom_proxy_blueprint._studies_search(
+        base_url.dicom_store_api_version,
+        base_url.gcp_project_id,
+        base_url.location,
+        base_url.dataset_id,
+        base_url.dicom_store,
+    )
+
+
+@flagsaver.flagsaver(validate_iap=False)
+@mock.patch.object(
+    user_auth_util,
+    '_get_email_from_bearer_token',
+    autospec=True,
+    return_value='mock@email.com',
+)
+@mock.patch.object(
+    flask_util,
+    'get_headers',
+    autospec=True,
+    return_value={
+        proxy_const.HeaderKeywords.AUTH_HEADER_KEY: 'bearer mock_token',
+    },
+)
+@mock.patch.object(
+    flask_util,
+    'get_method',
+    autospec=True,
+    return_value='GET',
+)
+@mock.patch.object(
+    flask_util,
+    'get_first_key_args',
+    autospec=True,
+)
+@mock.patch.object(
+    flask_util,
+    'get_key_args_list',
+    autospec=True,
+)
+@mock.patch.object(
+    dicom_proxy_blueprint, '_get_sop_instance_uid_param_value', autospec=True
+)
+@mock.patch.object(flask_util, 'get_includefields', autspec=True)
+@mock.patch.object(flask_util, 'get_base_url', autospec=True)
+@mock.patch.object(flask_util, 'get_path', autospec=True)
+@mock.patch.object(flask_util, 'get_full_request_url', autospec=True)
+@mock.patch.object(flask_util, 'get_url_root', autospec=True)
+def _dicom_series_search(
+    dcm: pydicom.FileDataset,
+    bulkdata_uri_enabled: bool,
+    mk_get_url_root,
+    mk_get_full_request_url,
+    mk_get_path,
+    mk_get_base_url,
+    mk_get_includefields,
+    mk_get_sop_instance_uid_param_value,
+    mk_get_key_args_list,
+    mk_get_first_key_args,
+    *unused_mocks,
+    add_instance_to_store: bool = True,
+    proxy_root: str = '',
+    proxy_path: str = '',
+    mock_dicom_store_response: Optional[
+        dicom_store_mock.MockHttpResponse
+    ] = None,
+) -> flask.Response:
+  key_args_list = {}
+  mk_get_key_args_list.return_value = key_args_list
+  mk_get_first_key_args.return_value = {
+      key: value[0] for key, value in key_args_list.items()
+  }
+  base_url = _MOCK_DICOMWEBBASE_URL
+  params = ''
+  dicom_web_path = f'/studies/{dcm.StudyInstanceUID}/series'
+  external_url_root = base_url.root_url if not proxy_root else proxy_root
+  base_path = f'{external_url_root}/{proxy_path}/{base_url}{dicom_web_path}'
+  mk_get_includefields.return_value = set()
+  mk_get_sop_instance_uid_param_value.return_value = dcm.SOPInstanceUID
+  mk_get_url_root.return_value = external_url_root
+  mk_get_full_request_url.return_value = f'{base_path}{params}'
+  mk_get_path.return_value = f'/{proxy_path}/{base_url}{dicom_web_path}'
+  mk_get_base_url.return_value = base_path
+  with dicom_store_mock.MockDicomStores(
+      base_url.full_url, bulkdata_uri_enabled=bulkdata_uri_enabled
+  ) as mocked_dicom_stores:
+    if add_instance_to_store:
+      mocked_dicom_stores[base_url.full_url].add_instance(dcm)
+      if mock_dicom_store_response is not None:
+        mocked_dicom_stores[base_url.full_url].set_mock_response(
+            mock_dicom_store_response
+        )
+    return dicom_proxy_blueprint._series_search(
+        base_url.dicom_store_api_version,
+        base_url.gcp_project_id,
+        base_url.location,
+        base_url.dataset_id,
+        base_url.dicom_store,
+        dcm.StudyInstanceUID,
+    )
+
+
 @mock.patch.object(
     flask_util,
     'get_headers',
@@ -526,28 +643,6 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
     flagsaver.restore_flag_values(self.saved_flag_values)
     super().tearDown()
 
-  @mock.patch.object(flask_util, 'get_first_key_args', autospec=True)
-  def test_get_dicom_proxy_request_args(self, mock_get_flask_args):
-    mock_get_flask_args.return_value = {
-        ' IcCpRoFiLe ': 'abcd',
-        ' disable_caching ': 'TRUE',
-        ' DownSample ': '2.0',
-        ' interpolation ': 'AREA',
-        'quality': '100',
-        'Not_in_list': 'bogus',
-        '': '',
-    }
-    self.assertEqual(
-        dicom_proxy_blueprint._get_dicom_proxy_request_args(),
-        {
-            'disable_caching': 'TRUE',
-            'downsample': '2.0',
-            'iccprofile': 'abcd',
-            'interpolation': 'AREA',
-            'quality': '100',
-        },
-    )
-
   @parameterized.parameters([
       (True, server.HEALTH_CHECK_HTML),
       (False, server.LOCAL_REDIS_SERVER_DISABLED),
@@ -633,36 +728,6 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
 
   def test_parse_compression_quality_default(self):
     self.assertEqual(dicom_proxy_blueprint._parse_compression_quality({}), 95)
-
-  def test_parse_downsample(self):
-    value = 5.0
-    self.assertEqual(
-        dicom_proxy_blueprint._parse_downsample({'downsample': str(value)}),
-        value,
-    )
-
-  def test_parse_downsample_no_value(self):
-    self.assertEqual(dicom_proxy_blueprint._parse_downsample({}), 1.0)
-
-  def test_parse_downsample_throws(self):
-    with self.assertRaises(ValueError):
-      dicom_proxy_blueprint._parse_downsample({'downsample': '0.5'})
-
-  @parameterized.parameters(['Yes', 'True', 'On', '1'])
-  def test_parse_cache_enabled_false(self, val):
-    self.assertFalse(
-        dicom_proxy_blueprint._parse_cache_enabled({'disable_caching': val})
-    )
-
-  @parameterized.parameters(['No', 'False', 'Off', '0'])
-  def test_parse_cache_disabled_true(self, val):
-    self.assertTrue(
-        dicom_proxy_blueprint._parse_cache_enabled({'disable_caching': val})
-    )
-
-  def test_parse_cache_disabled_raises(self):
-    with self.assertRaises(ValueError):
-      dicom_proxy_blueprint._parse_cache_enabled({'disable_caching': 'ABC'})
 
   @parameterized.parameters([
       (' NO ', proxy_const.ICCProfile.NO),
@@ -753,14 +818,6 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
     self.assertEqual(result.quality, 85)
     self.assertEqual(result.icc_profile, proxy_const.ICCProfile.SRGB)
     self.assertEqual(result.embed_iccprofile, False)
-
-  @parameterized.parameters([Exception('bad request'), 'bad request'])
-  def test_exception_flask_response(self, exp):
-    response = dicom_proxy_blueprint._exception_flask_response(exp)
-
-    self.assertEqual(response.data, b'bad request')
-    self.assertEqual(response.status_code, http.HTTPStatus.BAD_REQUEST)
-    self.assertEqual(response.content_type, 'text/plain')
 
   def test_get_rendered_frames_invalid_frames(self):
     local_instance = _LocalDicomInstance(
@@ -936,7 +993,9 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
       response = dicom_proxy_blueprint._get_rendered_frames(
           web_request, frames, rendered_request
       )
-      self.assertEqual(response.status, _http_not_found_status())
+      self.assertEqual(
+          response.status, shared_test_util.http_not_found_status()
+      )
       self.assertEqual(response.content_type, 'image/png')
       self.assertEqual(response.data, b'test_data')
 
@@ -948,7 +1007,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
 
     result = dicom_proxy_blueprint._rendered_wsi_instance(local_instance)
 
-    self.assertEqual(result.status, _http_bad_request_status())
+    self.assertEqual(result.status, shared_test_util.http_bad_request_status())
     self.assertEqual(result.data, b'Invalid downsample')
 
   @flagsaver.flagsaver(max_number_of_frame_per_request=0)
@@ -960,7 +1019,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
 
     result = dicom_proxy_blueprint._rendered_wsi_instance(local_instance)
 
-    self.assertEqual(result.status, _http_bad_request_status())
+    self.assertEqual(result.status, shared_test_util.http_bad_request_status())
     self.assertEqual(result.data, b'No frames requested.')
 
   def test_rendered_wsi_instance_returns_success(self):
@@ -971,7 +1030,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
 
     result = dicom_proxy_blueprint._rendered_wsi_instance(local_instance)
 
-    self.assertEqual(result.status, _http_ok_status())
+    self.assertEqual(result.status, shared_test_util.http_ok_status())
     self.assertEqual(result.content_type, 'image/jpeg')
     self.assertLen(result.data, 64547)
 
@@ -1037,305 +1096,6 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
       self.assertEqual(response.status_code, http.HTTPStatus.NOT_FOUND)
       self.assertEqual(response.content_type, 'image/png')
       self.assertEqual(response.data, b'test_data')
-
-  @mock.patch.object(
-      flask_util,
-      'get_first_key_args',
-      autosepc=True,
-      return_value={},
-  )
-  def test_augment_instance_metadata_bad_response(self, unused_mocks):
-    resp = flask.Response('bad', status=400)
-    result = dicom_proxy_blueprint._augment_instance_metadata(
-        _MOCK_DICOMWEBBASE_URL,
-        _EMPTY_STUDY,
-        _EMPTY_SERIES,
-        _EMPTY_SOPINSTANCE,
-        resp,
-    )
-    self.assertEqual(result.status_code, http.HTTPStatus.BAD_REQUEST)
-    self.assertEqual(result.data, b'bad')
-
-  @mock.patch.object(
-      flask_util, 'get_includefields', autospec=True, return_value=set()
-  )
-  @mock.patch.object(
-      flask_util,
-      'get_first_key_args',
-      autosepc=True,
-      return_value={'accept': 'abc', 'downsample': '2.0'},
-  )
-  @mock.patch.object(
-      flask_util,
-      'get_request',
-      autosepc=True,
-      return_value=_MockFlaskRequest('instances'),
-  )
-  def test_augment_instance_metadata_bad_parameters(self, *unused_mocks):
-    content_type = 'text/plain'
-    expected_msg = 'test'
-    resp = flask.Response(
-        expected_msg, status=http.HTTPStatus.OK, content_type=content_type
-    )
-    result = dicom_proxy_blueprint._augment_instance_metadata(
-        _MOCK_DICOMWEBBASE_URL,
-        _EMPTY_STUDY,
-        _EMPTY_SERIES,
-        _EMPTY_SOPINSTANCE,
-        resp,
-    )
-
-    self.assertEqual(result.status, _http_ok_status())
-    self.assertEqual(result.data, expected_msg.encode('utf-8'))
-
-  @parameterized.parameters(['text/plain', 'application/dicom+json'])
-  @mock.patch.object(
-      flask_util,
-      'get_first_key_args',
-      autosepc=True,
-      return_value={'downsample': '1.0'},
-  )
-  @mock.patch.object(
-      flask_util, 'get_includefields', autospec=True, return_value=set()
-  )
-  @mock.patch.object(
-      flask_util,
-      'get_request',
-      autosepc=True,
-      return_value=_MockFlaskRequest('instances'),
-  )
-  def test_augment_instance_metadata_passthrough_downsample_one(
-      self, content_type, *unused_mocks
-  ):
-    test_msg = 'test'
-    resp = flask.Response(
-        test_msg, status=http.HTTPStatus.OK, content_type=content_type
-    )
-    result = dicom_proxy_blueprint._augment_instance_metadata(
-        _MOCK_DICOMWEBBASE_URL,
-        _EMPTY_STUDY,
-        _EMPTY_SERIES,
-        _EMPTY_SOPINSTANCE,
-        resp,
-    )
-
-    self.assertEqual(result.status, _http_ok_status())
-    self.assertEqual(result.data, test_msg.encode('utf-8'))
-
-  @mock.patch.object(
-      flask_util, 'get_includefields', autospec=True, return_value=set()
-  )
-  @mock.patch.object(
-      flask_util,
-      'get_first_key_args',
-      autosepc=True,
-      return_value={'downsample': '1.0'},
-  )
-  @mock.patch.object(
-      flask_util,
-      'get_request',
-      autosepc=True,
-      return_value=_MockFlaskRequest('instances'),
-  )
-  def test_augment_instance_metadata_passthrough_non_json_content(
-      self, *unused_mocks
-  ):
-    test_msg = 'test'
-    resp = flask.Response(
-        test_msg, status=http.HTTPStatus.OK, content_type='text/plain'
-    )
-    result = dicom_proxy_blueprint._augment_instance_metadata(
-        _MOCK_DICOMWEBBASE_URL,
-        _EMPTY_STUDY,
-        _EMPTY_SERIES,
-        _EMPTY_SOPINSTANCE,
-        resp,
-    )
-
-    self.assertEqual(result.status, _http_ok_status())
-    self.assertEqual(result.data, test_msg.encode('utf-8'))
-
-  @mock.patch.object(
-      flask_util, 'get_includefields', autospec=True, return_value=set()
-  )
-  @mock.patch.object(
-      flask_util,
-      'get_first_key_args',
-      autosepc=True,
-      return_value={'downsample': '0.5'},
-  )
-  def test_augment_instance_metadata_bad_downsample(self, *unused_mocks):
-    test_msg = 'test'
-    resp = flask.Response(test_msg, status=http.HTTPStatus.OK)
-    result = dicom_proxy_blueprint._augment_instance_metadata(
-        _MOCK_DICOMWEBBASE_URL,
-        _EMPTY_STUDY,
-        _EMPTY_SERIES,
-        _EMPTY_SOPINSTANCE,
-        resp,
-    )
-    self.assertEqual(result.status, _http_bad_request_status())
-    self.assertEqual(result.data, b'Invalid downsample')
-
-  @mock.patch.object(
-      flask_util, 'get_includefields', autospec=True, return_value=set()
-  )
-  @mock.patch.object(
-      flask_util,
-      'get_first_key_args',
-      autosepc=True,
-      return_value={'downsample': '2.0'},
-  )
-  @mock.patch.object(
-      flask_util,
-      'get_request',
-      autosepc=True,
-      return_value=_MockFlaskRequest('instances'),
-  )
-  def test_augment_instance_metadata_bad_content_type(self, *unused_mocks):
-    expected_msg = 'test'
-    resp = flask.Response(
-        expected_msg, status=http.HTTPStatus.OK, content_type='text/plain'
-    )
-    result = dicom_proxy_blueprint._augment_instance_metadata(
-        _MOCK_DICOMWEBBASE_URL,
-        _EMPTY_STUDY,
-        _EMPTY_SERIES,
-        _EMPTY_SOPINSTANCE,
-        resp,
-    )
-    self.assertEqual(result.status, _http_ok_status())
-    self.assertEqual(result.data, expected_msg.encode('utf-8'))
-
-  @parameterized.parameters(['', '[abc', '1', '"abc"', '[1, 2, 3]'])
-  @mock.patch.object(
-      flask_util, 'get_includefields', autospec=True, return_value=set()
-  )
-  @mock.patch.object(
-      flask_util,
-      'get_first_key_args',
-      autosepc=True,
-      return_value={'downsample': '2.0'},
-  )
-  @mock.patch.object(
-      flask_util,
-      'get_request',
-      autosepc=True,
-      return_value=_MockFlaskRequest('instances'),
-  )
-  def test_augment_instance_metadata_bad_json(self, test_msg, *unused_mocks):
-    resp = flask.Response(
-        test_msg,
-        status=http.HTTPStatus.OK,
-        content_type='application/dicom+json',
-    )
-    result = dicom_proxy_blueprint._augment_instance_metadata(
-        _MOCK_DICOMWEBBASE_URL,
-        _EMPTY_STUDY,
-        _EMPTY_SERIES,
-        _EMPTY_SOPINSTANCE,
-        resp,
-    )
-    self.assertEqual(result.status, _http_ok_status())
-    self.assertEqual(result.data, test_msg.encode('utf-8'))
-
-  @mock.patch.object(
-      flask_util, 'get_includefields', autospec=True, return_value=set()
-  )
-  @mock.patch.object(
-      flask_util,
-      'get_first_key_args',
-      autosepc=True,
-      return_value={'downsample': '2.0'},
-  )
-  @mock.patch.object(
-      flask_util,
-      'get_request',
-      autosepc=True,
-      return_value=_MockFlaskRequest('instances'),
-  )
-  def test_augment_instance_metadata_downsample_error(self, *unused_mocks):
-    test_msg = shared_test_util.jpeg_encoded_dicom_instance_json()
-    del test_msg[metadata_util._COLUMNS_DICOM_ADDRESS_TAG]
-    test_msg = json.dumps(test_msg)
-
-    resp = flask.Response(
-        test_msg,
-        status=http.HTTPStatus.OK,
-        content_type='application/dicom+json',
-    )
-    result = dicom_proxy_blueprint._augment_instance_metadata(
-        _MOCK_DICOMWEBBASE_URL,
-        _EMPTY_STUDY,
-        _EMPTY_SERIES,
-        _EMPTY_SOPINSTANCE,
-        resp,
-    )
-
-    self.assertEqual(result.status, _http_bad_request_status())
-    expected_msg = b'DICOM tag 00280011 is undefined cannot'
-    self.assertEqual(result.data[: len(expected_msg)], expected_msg)
-
-  @parameterized.named_parameters([
-      dict(
-          testcase_name='single_instance',
-          metadata=shared_test_util.jpeg_encoded_dicom_instance_json(),
-      ),
-      dict(
-          testcase_name='multiple_instance',
-          metadata=[
-              shared_test_util.jpeg_encoded_dicom_instance_json(),
-              shared_test_util.jpeg_encoded_dicom_instance_json(),
-          ],
-      ),
-  ])
-  @mock.patch.object(
-      flask_util, 'get_includefields', autospec=True, return_value=set()
-  )
-  @mock.patch.object(
-      flask_util,
-      'get_request',
-      autosepc=True,
-      return_value=_MockFlaskRequest('instances'),
-  )
-  def test_augment_instance_metadata_downsample_success(
-      self, *unused_mocks, metadata
-  ):
-    total_cols_tag = metadata_util._TOTAL_PIXEL_MATRIX_COLUMNS_DICOM_ADDRESS_TAG
-    total_rows_tag = metadata_util._TOTAL_PIXEL_MATRIX_ROWS_DICOM_ADDRESS_TAG
-    value = metadata_util._VALUE
-    downsample = 2.0
-    resp = flask.Response(
-        json.dumps(metadata),
-        status=http.HTTPStatus.OK,
-        content_type='application/dicom+json',
-    )
-    fl_request_args = {'downsample': str(downsample)}
-    with mock.patch.object(
-        flask_util,
-        'get_first_key_args',
-        autosepc=True,
-        return_value=fl_request_args,
-    ):
-      result = dicom_proxy_blueprint._augment_instance_metadata(
-          _MOCK_DICOMWEBBASE_URL,
-          _EMPTY_STUDY,
-          _EMPTY_SERIES,
-          _EMPTY_SOPINSTANCE,
-          resp,
-      )
-
-    if isinstance(metadata, dict):
-      metadata = [metadata]
-    self.assertEqual(result.status, _http_ok_status())
-    for index, downsampled_metadata in enumerate(
-        json.loads(result.data.decode('utf-8'))
-    ):
-      for test_tag in (total_cols_tag, total_rows_tag):
-        self.assertEqual(
-            downsampled_metadata[test_tag][value][0],
-            max(1, int(metadata[index][test_tag][value][0] / downsample)),
-        )
 
   def test_return_icc_profile_bulkdata(self):
     tmp_dir = self.create_tempdir()
@@ -1434,6 +1194,13 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
     expected_metadata = copy.deepcopy(instance_search_metadata)
     del expected_metadata['00020001']
     del expected_metadata['7FE00010']
+    expected_metadata['00080056'] = {'vr': 'CS', 'Value': ['ONLINE']}
+    expected_metadata['00081190'] = {
+        'vr': 'UR',
+        'Value': [
+            'https://healthcare.googleapis.com/v1/projects/proj/locations/loc/datasets/dset/dicomStores/dstore/dicomWeb/studies/1.3.6.1.4.1.11129.5.7.999.18649109954048068.740.1688792381777315/series/1.3.6.1.4.1.11129.5.7.0.1.517182092386.24422120.1688792467737634/instances/1.2.276.0.7230010.3.1.4.296485376.89.1688794081.412405'
+        ],
+    }
     expected_metadata = [expected_metadata]
     del instance_search_metadata['52009230']
     result = _dicom_instance_search(
@@ -1559,10 +1326,91 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
     del expected_metadata[_DICOM_PIXELDATA_TAG_ADDRESS]
     expected_metadata[_DICOM_FILE_META_INFORMATION_VERSION_TAG_ADDRESS] = {
         'vr': 'OB',
-        'BulkDataURI': 'https://healthcare.googleapis.com/v1/projects/proj/locations/loc/datasets/dset/dicomStores/dstore/dicomWeb/studies/1.3.6.1.4.1.11129.5.7.999.18649109954048068.740.1688792381777315/series/1.3.6.1.4.1.11129.5.7.0.1.517182092386.24422120.1688792467737634/instances/1.2.276.0.7230010.3.1.4.296485376.89.1688794081.412405/bulkdata/00020001',
+        'BulkDataURI': (
+            'https://healthcare.googleapis.com/v1/projects/proj/locations/loc/datasets/dset/dicomStores/dstore/dicomWeb/studies/1.3.6.1.4.1.11129.5.7.999.18649109954048068.740.1688792381777315/series/1.3.6.1.4.1.11129.5.7.0.1.517182092386.24422120.1688792467737634/instances/1.2.276.0.7230010.3.1.4.296485376.89.1688794081.412405/bulkdata/00020001'
+        ),
+    }
+    expected_metadata['00080056'] = {'Value': ['ONLINE'], 'vr': 'CS'}
+    expected_metadata['00081190'] = {
+        'Value': [
+            'https://healthcare.googleapis.com/v1/projects/proj/locations/loc/datasets/dset/dicomStores/dstore/dicomWeb/studies/1.3.6.1.4.1.11129.5.7.999.18649109954048068.740.1688792381777315/series/1.3.6.1.4.1.11129.5.7.0.1.517182092386.24422120.1688792467737634/instances/1.2.276.0.7230010.3.1.4.296485376.89.1688794081.412405'
+        ],
+        'vr': 'UR',
     }
     expected_metadata = [expected_metadata]
     metadata = _dicom_instance_search(dcm, True)
+    md = json.loads(metadata.data.decode('utf-8'))
+    self.assertEqual(metadata.status_code, http.HTTPStatus.OK)
+    self.assertLen(md, len(expected_metadata))
+    for index, metadata in enumerate(md):
+      self.assertEqual(metadata, expected_metadata[index])
+
+  @flagsaver.flagsaver(enable_augmented_study_search=True)
+  @mock.patch.object(
+      bulkdata_util,
+      'does_dicom_store_support_bulkdata',
+      autospec=True,
+      return_value=True,
+  )
+  def test_get_wsi_study_tags_success(self, _):
+    dcm = shared_test_util.jpeg_encoded_dicom_instance()
+    expected_metadata = dcm.to_json_dict()
+    expected_metadata.update(dcm.file_meta.to_json_dict())
+    # remove PixelData from expected metadata.
+    del expected_metadata[_DICOM_PIXELDATA_TAG_ADDRESS]
+    expected_metadata[_DICOM_FILE_META_INFORMATION_VERSION_TAG_ADDRESS] = {
+        'vr': 'OB',
+        'BulkDataURI': (
+            'https://healthcare.googleapis.com/v1/projects/proj/locations/loc/datasets/dset/dicomStores/dstore/dicomWeb/studies/1.3.6.1.4.1.11129.5.7.999.18649109954048068.740.1688792381777315/series/1.3.6.1.4.1.11129.5.7.0.1.517182092386.24422120.1688792467737634/instances/1.2.276.0.7230010.3.1.4.296485376.89.1688794081.412405/bulkdata/00020001'
+        ),
+    }
+    expected_metadata['00080056'] = {'vr': 'CS', 'Value': ['ONLINE']}
+    expected_metadata['00080061'] = {'vr': 'CS', 'Value': ['SM']}
+    expected_metadata['00201206'] = {'vr': 'IS', 'Value': [1]}
+    expected_metadata['00201208'] = {'vr': 'IS', 'Value': [1]}
+    expected_metadata['00081190'] = {
+        'vr': 'UR',
+        'Value': [
+            'https://healthcare.googleapis.com/v1/projects/proj/locations/loc/datasets/dset/dicomStores/dstore/dicomWeb/studies/1.3.6.1.4.1.11129.5.7.999.18649109954048068.740.1688792381777315'
+        ],
+    }
+    expected_metadata = [expected_metadata]
+    metadata = _dicom_study_search(dcm, True)
+    md = json.loads(metadata.data.decode('utf-8'))
+    self.assertEqual(metadata.status_code, http.HTTPStatus.OK)
+    self.assertLen(md, len(expected_metadata))
+    for index, metadata in enumerate(md):
+      self.assertEqual(metadata, expected_metadata[index])
+
+  @flagsaver.flagsaver(enable_augmented_series_search=True)
+  @mock.patch.object(
+      bulkdata_util,
+      'does_dicom_store_support_bulkdata',
+      autospec=True,
+      return_value=True,
+  )
+  def test_get_wsi_series_tags_success(self, _):
+    dcm = shared_test_util.jpeg_encoded_dicom_instance()
+    expected_metadata = dcm.to_json_dict()
+    expected_metadata.update(dcm.file_meta.to_json_dict())
+    # remove PixelData from expected metadata.
+    del expected_metadata[_DICOM_PIXELDATA_TAG_ADDRESS]
+    expected_metadata['00080056'] = {'vr': 'CS', 'Value': ['ONLINE']}
+    expected_metadata[_DICOM_FILE_META_INFORMATION_VERSION_TAG_ADDRESS] = {
+        'vr': 'OB',
+        'BulkDataURI': (
+            'https://healthcare.googleapis.com/v1/projects/proj/locations/loc/datasets/dset/dicomStores/dstore/dicomWeb/studies/1.3.6.1.4.1.11129.5.7.999.18649109954048068.740.1688792381777315/series/1.3.6.1.4.1.11129.5.7.0.1.517182092386.24422120.1688792467737634/instances/1.2.276.0.7230010.3.1.4.296485376.89.1688794081.412405/bulkdata/00020001'
+        ),
+    }
+    expected_metadata['00081190'] = {
+        'vr': 'UR',
+        'Value': [
+            'https://healthcare.googleapis.com/v1/projects/proj/locations/loc/datasets/dset/dicomStores/dstore/dicomWeb/studies/1.3.6.1.4.1.11129.5.7.999.18649109954048068.740.1688792381777315/series/1.3.6.1.4.1.11129.5.7.0.1.517182092386.24422120.1688792467737634'
+        ],
+    }
+    expected_metadata['00201208'] = {'vr': 'IS', 'Value': [1]}
+    expected_metadata = [expected_metadata]
+    metadata = _dicom_series_search(dcm, True)
     md = json.loads(metadata.data.decode('utf-8'))
     self.assertEqual(metadata.status_code, http.HTTPStatus.OK)
     self.assertLen(md, len(expected_metadata))
@@ -1656,72 +1504,6 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
           'location',
           'datasetid',
           'dicomstore',
-      )
-
-  def test_stream_metadata_response_empty_list(self):
-    self.assertEqual(
-        list(dicom_proxy_blueprint._stream_metadata_response([])), ['[]']
-    )
-
-  def test_stream_metadata_response_skips_empty_results(self):
-    self.assertEqual(
-        list(
-            dicom_proxy_blueprint._stream_metadata_response(['abc', '', '123'])
-        ),
-        ['[abc,123]'],
-    )
-
-  @parameterized.named_parameters([
-      dict(
-          testcase_name='chunksize_1',
-          chunksize=1,
-          expected=list('[abc,123]'),
-      ),
-      dict(
-          testcase_name='chunksize_2',
-          chunksize=2,
-          expected=['[a', 'bc', ',1', '23', ']'],
-      ),
-      dict(
-          testcase_name='chunksize_3',
-          chunksize=3,
-          expected=['[ab', 'c,1', '23]'],
-      ),
-      dict(
-          testcase_name='chunksize_7',
-          chunksize=7,
-          expected=['[abc,12', '3]'],
-      ),
-      dict(
-          testcase_name='chunksize_8',
-          chunksize=8,
-          expected=['[abc,123', ']'],
-      ),
-      dict(
-          testcase_name='chunksize_9',
-          chunksize=9,
-          expected=['[abc,123]'],
-      ),
-      dict(
-          testcase_name='chunksize_100',
-          chunksize=100,
-          expected=['[abc,123]'],
-      ),
-  ])
-  def test_stream_metadata_response(self, chunksize, expected):
-    with flagsaver.flagsaver(streaming_chunksize=chunksize):
-      self.assertEqual(
-          list(dicom_proxy_blueprint._stream_metadata_response(['abc', '123'])),
-          expected,
-      )
-
-  @flagsaver.flagsaver(streaming_chunksize=1)
-  def test_stream_metadata_response_from_futures(self):
-    with futures.ThreadPoolExecutor(max_workers=10) as pool:
-      future_list = [pool.submit(lambda x: x, txt) for txt in ('abc', '123')]
-      self.assertEqual(
-          list(dicom_proxy_blueprint._stream_metadata_response(future_list)),
-          list('[abc,123]'),
       )
 
   def test_get_frame_instance(self):

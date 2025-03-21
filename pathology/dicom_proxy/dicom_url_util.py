@@ -50,9 +50,7 @@ DICOM_WEB_INSTANCE_URL_DEFAULT_VERSION = (
     '/instances/<string:sop_instance_uid>'
 )
 DICOM_WEB_BASE_URL = (
-    '/<string:store_api_version>/projects/<string:projectid>/locations/'
-    '<string:location>/datasets/<string:datasetid>/dicomStores/'
-    '<string:dicomstore>/dicomWeb'
+    f'/<string:store_api_version>{DICOM_WEB_BASE_URL_DEFAULT_VERSION}'
 )
 DICOM_WEB_STUDY_URL = (
     f'{DICOM_WEB_BASE_URL}/studies/<string:study_instance_uid>'
@@ -184,6 +182,76 @@ class DicomStoreFrameTransaction(DicomStoreTransaction):
 
   frame_numbers: List[int]
   enable_caching: cache_enabled_type.CachingEnabled
+
+
+def dicom_get_study_series_metadata_query(
+    user_auth: _AuthSession,
+    dicom_web_base_url: DicomWebBaseURL,
+    study_instance_uid: StudyInstanceUID,
+) -> DicomStoreTransaction:
+  """Request queries DICOM series instances for JSON formatted metadata.
+
+  Args:
+    user_auth: User header authentication.
+    dicom_web_base_url: DICOM web base URL.
+    study_instance_uid: Study instance UID.
+
+  Returns:
+    DicomStoreTransaction
+  """
+  study_url = base_dicom_study_url(dicom_web_base_url, study_instance_uid)
+  return DicomStoreTransaction(
+      url=f'{study_url}/series',
+      headers=user_auth.add_to_header({_ACCEPT: 'application/dicom+json'}),
+  )
+
+
+def dicom_get_study_metrics_query(
+    user_auth: _AuthSession,
+    dicom_web_base_url: DicomWebBaseURL,
+    study_instance_uid: StudyInstanceUID,
+) -> DicomStoreTransaction:
+  """Request queries DICOM series instances for JSON formatted metadata.
+
+  Args:
+    user_auth: User header authentication.
+    dicom_web_base_url: DICOM web base URL.
+    study_instance_uid: Study instance UID.
+
+  Returns:
+    DicomStoreTransaction
+  """
+  study_url = base_dicom_study_url(dicom_web_base_url, study_instance_uid)
+  return DicomStoreTransaction(
+      url=f'{study_url}:getStudyMetrics',
+      headers=user_auth.add_to_header({_ACCEPT: 'application/dicom+json'}),
+  )
+
+
+def dicom_get_series_metrics_query(
+    user_auth: _AuthSession,
+    dicom_web_base_url: DicomWebBaseURL,
+    study_instance_uid: StudyInstanceUID,
+    series_instance_uid: SeriesInstanceUID,
+) -> DicomStoreTransaction:
+  """Request queries DICOM series instances for JSON formatted metadata.
+
+  Args:
+    user_auth: User header authentication.
+    dicom_web_base_url: DICOM web base URL.
+    study_instance_uid: Study instance UID.
+    series_instance_uid: Study instance UID.
+
+  Returns:
+    DicomStoreTransaction
+  """
+  series_url = base_dicom_series_url(
+      dicom_web_base_url, study_instance_uid, series_instance_uid
+  )
+  return DicomStoreTransaction(
+      url=f'{series_url}:getSeriesMetrics',
+      headers=user_auth.add_to_header({_ACCEPT: 'application/dicom+json'}),
+  )
 
 
 def dicom_instance_tag_query(

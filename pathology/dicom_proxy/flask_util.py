@@ -13,12 +13,18 @@
 # limitations under the License.
 # ==============================================================================
 """Utilities to access flask context globals."""
+
+import http
 from typing import Any, List, Mapping, MutableMapping, Optional, Set, Union
 
 import flask
 import pydicom
 
+from pathology.dicom_proxy import cache_enabled_type
+from pathology.dicom_proxy import enum_types
+from pathology.shared_libs.flags import flag_utils
 from pathology.shared_libs.logging_lib import cloud_logging_client
+
 
 # Constants
 ACCEPT_HEADER_KEY = 'accept'
@@ -33,6 +39,64 @@ POST_METHOD = [POST]
 GET_AND_POST_METHODS = [POST, GET]
 GET_POST_AND_DELETE_METHODS = [POST, GET, DELETE]
 _BINARY_TAG_VR_CODES = frozenset(['OB', 'OD', 'OF', 'OW'])
+
+
+def get_dicom_proxy_request_args() -> Mapping[str, str]:
+  return norm_dict_keys(
+      get_first_key_args(),
+      [en.value.name for en in enum_types.TileServerHttpParams],
+  )
+
+
+def get_parameter_value(
+    args: Mapping[str, str], param: enum_types.TileServerHttpParams
+) -> str:
+  return args.get(param.value.name, param.value.default).strip().lower()
+
+
+def parse_cache_enabled(
+    args: Mapping[str, str],
+) -> cache_enabled_type.CachingEnabled:
+  """Returns True if caching is enabled.
+
+  Args:
+    args: HTTP Request Args.
+
+  Raises:
+    Value error if parameter cannot be converted to bool.
+  """
+  result = flag_utils.str_to_bool(
+      get_parameter_value(args, enum_types.TileServerHttpParams.DISABLE_CACHING)
+  )
+  if result:
+    cloud_logging_client.info('Caching disabled')
+  return cache_enabled_type.CachingEnabled(not result)
+
+
+def parse_downsample(args: Mapping[str, str]) -> float:
+  """Returns request image downsample.
+
+  Args:
+    args: HTTP Request Args.
+
+  Raise:
+    ValueError: Invalid downsample value or cannot parse to float.
+  """
+  downsample = float(
+      get_parameter_value(args, enum_types.TileServerHttpParams.DOWNSAMPLE)
+  )
+  if downsample < 1.0:
+    raise ValueError('Invalid downsample')
+  return downsample
+
+
+def exception_flask_response(exp: Union[Exception, str]) -> flask.Response:
+  """Returns flask response for python exception."""
+  return flask.Response(
+      response=str(exp),
+      status=http.HTTPStatus.BAD_REQUEST.value,
+      content_type='text/plain',
+  )
 
 
 def get_request() -> flask.Request:
@@ -111,7 +175,7 @@ def get_path() -> str:
 
   Example: http://foo.bar/abc/133?test=yes -> /abc/133
   """
-  return get_request().path
+  return get_request().path.rstrip('/')
 
 
 def get_base_url() -> str:
@@ -119,7 +183,7 @@ def get_base_url() -> str:
 
   Example: http://foo.bar/abc/133?test=yes -> http://foo.bar/abc/133
   """
-  return get_request().base_url
+  return get_request().base_url.rstrip('/')
 
 
 def get_full_request_url() -> str:
