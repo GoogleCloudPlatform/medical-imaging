@@ -22,7 +22,7 @@ import {FullScreen, MousePosition, OverviewMap, ScaleLine} from 'ol/control';
 import {defaults as controlDefaults} from 'ol/control/defaults';
 import {format as coordinateFormat} from 'ol/coordinate';
 import {getCenter} from 'ol/extent';
-import {Geometry, SimpleGeometry} from 'ol/geom';
+import {Geometry} from 'ol/geom';
 import {DragRotateAndZoom, Draw, Link} from 'ol/interaction';
 import ImageLayer from 'ol/layer/Image';
 import TileLayer from 'ol/layer/Tile';
@@ -372,25 +372,6 @@ export class OlTileViewerComponent implements OnChanges {
     }
   }
 
-  getAllCoordinates() {
-    const allLayers = this.olMap?.getAllLayers() ?? [];
-    if (allLayers.length !== 2) return;
-    const drawLayer = allLayers.find((layer) => {
-      return layer.get('name') === 'draw-layer';
-    }) as VectorLayer<Vector<Feature<SimpleGeometry>>>|
-        undefined;
-
-    if (!drawLayer) return;
-
-    const coordinates =
-        drawLayer!.getSource()?.getFeatures()?.map((feature) => {
-          const featureGeometry = feature.getGeometry()!;
-          const coordinates = featureGeometry.getCoordinates();
-
-          return coordinates;
-        });
-    return coordinates;
-  }
 
   initializeOpenLayerSlideViewer(slideInfo: SlideInfo) {
     // Calculate image dimensions and resolutions for each level

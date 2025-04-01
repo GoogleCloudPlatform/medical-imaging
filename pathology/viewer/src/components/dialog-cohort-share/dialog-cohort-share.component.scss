@@ -1,5 +1,3 @@
-@use 'third_party/javascript/angular_components/material' as mat;
-
 /**
  * Copyright 2024 Google LLC
  *
@@ -120,14 +118,10 @@ $secondary-grey: #e8eaed;
 }
 
 .mat-mdc-standard-chip {
-  @include mat.chips-overrides(
-    (
-      label-text-color: black,
-      disabled-label-text-color: black,
-      elevated-container-color: white,
-      elevated-disabled-container-color: white,
-    )
-  );
+  --mdc-chip-label-text-color: black;
+  --mdc-chip-disabled-label-text-color: black;
+  --mdc-chip-elevated-container-color: white;
+  --mdc-chip-elevated-disabled-container-color: white;
   border: 1px solid grey;
 }
 

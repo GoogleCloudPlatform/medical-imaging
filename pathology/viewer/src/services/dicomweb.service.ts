@@ -16,16 +16,14 @@
 
 import { Case, Patient, RECORD_ID_TYPE_META, RecordIdType, Slide } from '../interfaces/hierarchy_descriptor';
 import { DicomModality, DicomModel, DicomTag, PersonName, formatDate, formatName, isPatients } from '../interfaces/dicom_descriptor';
-import { Observable, defer, merge, of, throwError } from 'rxjs';
+import { Observable, defer, merge, throwError } from 'rxjs';
 import { catchError, filter, first, map, mergeAll, switchMap, toArray } from 'rxjs/operators';
 
 import { AuthService } from './auth.service';
 import { HttpClient } from '@angular/common/http';
-import { ImageTile } from '../interfaces/image_tile';
 import { Injectable } from '@angular/core';
 import { LogService } from './log.service';
 import { PathologySlide } from '../interfaces/slide_descriptor';
-import { SlideInfo } from '../interfaces/slide_descriptor';
 import { encodeByteArray } from '../utils/crypt';
 import { environment } from '../environments/environment';
 import { DicomWebUrlConfig, constructDicomWebUrl, parseDICOMwebUrl } from '../interfaces/dicomweb';
@@ -76,56 +74,6 @@ export class DicomwebService {
     private readonly authService: AuthService,
     private readonly logService: LogService,
   ) { }
-
-  getImageTile(
-    path: string, slideInfo: SlideInfo, tile: ImageTile,
-    iccProfile = IccProfileType.NONE): Observable<string> {
-    const zoomLevel = slideInfo.levelMap[tile.scale];
-    const { tileSize } = zoomLevel;
-
-    const tilesPerWidth = Math.ceil(Number(zoomLevel.width) / tileSize);
-
-    // Flooring because in cases that the whole slide fits the tile, the tile
-    // size can be smaller than a normal tile. Fraction should only happen in
-    // such a scenario. For example: Normal tile size is 512. corner.x is 512.
-    // tileSize is 363. We want locationWidth to be 1.
-    const locationWidth = Math.floor(tile.corner.x / tileSize);
-    const locationHeight = Math.floor(tile.corner.y / tileSize);
-
-    const frameNum =
-      locationHeight * tilesPerWidth + locationWidth % tilesPerWidth;
-
-    let offset = 0;
-    let frame;
-    let instUID = '';
-    let downSampleMultiplier = 0;
-    // Frames may be stored across multiple DICOMs. Find the right ones.
-    for (let i = 0; i < zoomLevel.properties.length; i++) {
-      if (frameNum >= offset + zoomLevel.properties[i].frames) {
-        offset = offset + zoomLevel.properties[i].frames;
-        continue;
-      }
-      frame = frameNum - offset + 1;
-      instUID = zoomLevel.properties[i].instanceUid;
-      downSampleMultiplier = zoomLevel.downSampleMultiplier ?? 0;
-      break;
-    }
-
-    if (typeof frame === 'undefined' || !instUID) {
-      // The tile is missing!
-      return of('');
-    }
-
-    if (slideInfo.isFlatImage) {
-      return this.getFlatImage(path, instUID);
-    }
-
-    const encoded = this.getEncodedImageTile(
-      path, instUID, frame, downSampleMultiplier,
-      iccProfile);
-
-    return encoded;
-  }
 
   // disableServerCaching - is only valid when using the tile proxy.
   getEncodedImageTile(

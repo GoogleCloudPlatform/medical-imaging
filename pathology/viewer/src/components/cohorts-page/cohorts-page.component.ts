@@ -73,7 +73,7 @@ enum CohortTag {
     MatFormFieldModule, MatIconModule, CommonModule, MatTableModule,
     MatButtonModule, MatInputModule, MatSidenavModule,
     ImageViewerQuickViewComponent, DICOMUriToSlideDescriptorPipe,
-    ToViewerParamsPipe, PathologyCohortSlideToSlideDescriptorPipe, RouterModule,
+    ToViewerParamsPipe, RouterModule,
     BusyOverlayComponent, MatExpansionModule, MatDividerModule, MatMenuModule
   ],
   templateUrl: './cohorts-page.component.html',
