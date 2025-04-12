@@ -13,5 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+<<<<<<< Updated upstream
 /usr/sbin/nginx -c /nginx.conf -e stderr
 python3 -OO /pathology/dicom_proxy/server.pyc
+=======
+# /usr/sbin/nginx -c /nginx.conf -e stderr
+#python3 -OO /pathology/dicom_proxy/server.pyc
+
+python3 -OO hypercorn /pathology/dicom_proxy/server_hypercorn:flask_app --bind ${GUNICORN_BIND:"0.0.0:8080"} --workers ${GUNICORN_WORKERS:4} --keep-alive ${KEEP_ALIVE:-3600}
+>>>>>>> Stashed changes

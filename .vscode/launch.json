@@ -1,0 +1,102 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Debugger: Flask",
+            "type": "python",
+            "request": "launch",
+            "stopOnEntry": false,
+            "program": "${workspaceFolder}/pathology/dicom_proxy/server.py",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "ORIGINS": "*",
+                "PYTHONPATH": "${workspaceFolder}",
+
+                "FLASK_APP": "server.py",
+                "FLASK_ENV": "development",
+
+                "VALIDATE_IAP": "false",
+                "JWT_AUDIENCE": "/projects/1053568465268/global/backendServices/1470682154844812331",
+                "URL_PATH_PREFIX": "/dicom_proxy",
+                "API_PORT_FLG": "8080",
+                "ENABLE_APPLICATION_DEFAULT_CREDENTIALS": "true", // Will use the service account credentials
+                "ENABLE_DEBUG_FUNCTION_TIMING": "false",
+                "REDIS_CACHE_HOST_IP": "localhost",
+                "REDIS_CACHE_HOST_PORT": "6379",
+
+                "DEFAULT_DICOM_STORE_API_VERSION": "v1beta1", //v1  v1beta1
+
+                "GOOGLE_APPLICATION_CREDENTIALS": "gcp-pathology-poc1_service_key.json",
+                "GOOGLE_CLOUD_PROJECT": "gcp-pathology-poc1",
+
+                "GUNICORN_WORKERS": "1",
+                "GUNICORN_BIND": "127.0.0.1:8080",
+                "ENABLE_FAKE_EMAIL": "true",
+            },
+            "args": [
+                "run",
+                    //"--no-debugger",
+                    //"--no-reload"
+            ],
+            "jinja": true
+        },
+        
+        {
+            "name": "Debugger: Hypercorn",
+            "type": "debugpy",
+            "request": "launch",
+            "stopOnEntry": false,
+            "module": "hypercorn",
+            //"program": "${workspaceFolder}/pathology/dicom_proxy/server_hypercorn.py",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}/pathology/dicom_proxy/",
+            "args": [
+                "server_hypercorn:flask_app",
+                "--bind",
+                "localhost:8080",
+                "-w",
+                "2",
+                //"--graceful-timeout",
+                //"60",
+                    //"--no-debugger",
+                    //"--no-reload"
+            ],
+            "env": {
+                "ORIGINS": "*",
+                "PYTHONPATH": "${workspaceFolder}",
+
+                //"FLASK_APP": "server_hypercorn.py",
+                "FLASK_ENV": "development",
+
+                "VALIDATE_IAP": "false",
+                "JWT_AUDIENCE": "/projects/1053568465268/global/backendServices/1470682154844812331",
+                "URL_PATH_PREFIX": "/dicom_proxy",
+                //"API_PORT_FLG": "8080",
+                "ENABLE_APPLICATION_DEFAULT_CREDENTIALS": "true", // Will use the service account credentials
+                "ENABLE_DEBUG_FUNCTION_TIMING": "false",
+                "REDIS_CACHE_HOST_IP": "localhost",
+                "REDIS_CACHE_HOST_PORT": "6379",
+
+                "DEFAULT_DICOM_STORE_API_VERSION": "v1beta1", //v1  v1beta1
+
+                "GOOGLE_APPLICATION_CREDENTIALS": "../../gcp-pathology-poc1_service_key.json",
+                "GOOGLE_CLOUD_PROJECT": "gcp-pathology-poc1",
+
+                //"GUNICORN_WORKERS": "1",
+                //"GUNICORN_BIND": "127.0.0.1:8080",
+                "ENABLE_FAKE_EMAIL": "true",
+            },
+        }
+    ]
+}
