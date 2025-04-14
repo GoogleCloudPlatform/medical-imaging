@@ -98,6 +98,17 @@ def _get_email_from_bearer_token(bearer_token: str) -> str:
       requests.exceptions.JSONDecodeError,
       KeyError,
   ) as exc:
+    if dicom_proxy_flags.ENABLE_FAKE_EMAIL_FLG.value:
+      # TODO: Use fake email for testing. Remove as soon as possible.
+      # This is a temporary solution to allow testing of the dicom proxy with an external service account.
+      email = "missing_service_account_email@gestalt.com"
+      cache.set(
+          token_key,
+          email,
+          ttl_sec=dicom_proxy_flags.USER_LEVEL_METADATA_TTL_FLG.value,
+      )
+      return email
+
     cloud_logging_client.error(
         'Unable to retrieve user email.',
         exc,

@@ -562,8 +562,9 @@ def setup() -> None:
   cache = RedisCache()
   _validate_flags(cache)
   if cache.is_localhost:
-    subprocess.Popen(['/usr/bin/redis-server', '/redis.conf'])
-    time.sleep(30)  # Give time for redis to start before configuring.
+    pass
+    #subprocess.Popen(['/usr/bin/redis-server', '/redis.conf'])
+    #time.sleep(30)  # Give time for redis to start before configuring.
   _init_config_defrag(cache)
   _init_config_maxmemory(cache)
   if not cache.is_enabled:

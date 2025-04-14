@@ -1,10 +1,9 @@
 """Flask REST server for Tile-server using Hypercorn."""
+#from multiprocessing import current_process
+#print(f"[DEBUG] Parent process is daemon: {current_process().daemon}")
 
 import http
 import time
-import asyncio
-
-from absl import app as absl_app
 import flask
 import flask_cors
 from werkzeug import routing

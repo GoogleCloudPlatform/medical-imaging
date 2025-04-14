@@ -45,6 +45,14 @@ GUNICORN_THREADS_FLG = flags.DEFINE_integer(
     'Number of threads each GUnicorn processes should launch',
 )
 
+GUNICORN_BIND_FLG = flags.DEFINE_string(
+    'gunicorn_bind',  
+    secret_flag_utils.get_secret_or_env(
+        'GUNICORN_BIND', 'unix:/tmp/gunicorn.sock'
+    ),  # Default host:port for local DPAS web host.
+    'Sites to allow requests from for CORS.',
+)
+
 API_PORT_FLG = flags.DEFINE_integer('port', 8080, 'port to listen on')
 
 ORIGINS_FLG = flags.DEFINE_multi_string(
@@ -93,6 +101,12 @@ ENABLE_APPLICATION_DEFAULT_CREDENTIALS_FLG = flags.DEFINE_boolean(
 )
 
 VALIDATE_IAP_FLG = auth.VALIDATE_IAP_FLG
+
+ENABLE_FAKE_EMAIL_FLG = flags.DEFINE_boolean(
+    'enable_fake_email',
+    secret_flag_utils.get_bool_secret_or_env('ENABLE_FAKE_EMAIL', False),
+    'Enable the use of a fake email adresse if a service account calls the Proxy. It is not possible to get the email adresse of a service account.',
+)
 
 # ICC Profile Color Conversion.
 

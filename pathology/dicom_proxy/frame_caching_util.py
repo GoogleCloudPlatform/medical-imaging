@@ -909,10 +909,11 @@ def cache_instance_frames_in_background(
         ch_instance = _CacheWholeInstance(
             dicom_instance, running_in_process=True, load_display_thread=None
         )
-        cache_mp_obj = _get_instance_cache_mp_class()
-        cache_instance_thread = cache_mp_obj(
-            target=ch_instance.run, daemon=True
-        )
+        cache_instance_thread = _create_threaded_cache_loader(ch_instance)
+        #cache_mp_obj = _get_instance_cache_mp_class()
+        #cache_instance_thread = cache_mp_obj(
+        #    target=ch_instance.run, daemon=True
+        #)
         _start_display_thread(load_display_thread)
       else:
         ch_instance = _CacheInstanceFrameBlock(

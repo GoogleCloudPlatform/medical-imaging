@@ -27,7 +27,7 @@ docker tag us-west2-docker.pkg.dev/gcp-pathology-poc1/pathcloud/base_py_opencv_d
 docker buildx build --build-arg BASE_CONTAINER=base_py_opencv_docker:latest -t us-west2-docker.pkg.dev/gcp-pathology-poc1/pathcloud/dicom-proxy-gcp:0.0.1 -f ./pathology/dicom_proxy/Dockerfile .
 ```
 
-````sh
+```sh
 docker run -d --name dicom-proxy-gcp \
   -p 8080:8080 \
   -e ORIGINS=* \
@@ -45,16 +45,20 @@ docker run -d --name dicom-proxy-gcp \
   -e ENABLE_FAKE_EMAIL=true \
   -v $(pwd)/gcp-pathology-poc1_service_key.json:/credentials/gcp-pathology-poc1_service_key.json \
   us-west2-docker.pkg.dev/gcp-pathology-poc1/pathcloud/dicom-proxy-gcp:0.0.1
+```
 
 # To see the log output at the console, use the following command:
+
 docker logs -f dicom-proxy-gcp
 
 ```sh
 gcloud auth login
 docker push us-west2-docker.pkg.dev/gcp-pathology-poc1/pathcloud/dicom-proxy-gcp:0.0.1
-````
+```
 
 ### Deploy Container to Cloud Run
+
+Googles recommendation is int(os.cpu_count() \* 3.4) for the GUNICORN_WORKERS variable.
 
 ```sh
 gcloud run deploy dicom-proxy-gcp-private01 \
@@ -63,8 +67,11 @@ gcloud run deploy dicom-proxy-gcp-private01 \
 --port=8080 --allow-unauthenticated \
 --memory 16G --cpu 4 --execution-environment=gen2 \
 --cpu-boost \
+--use-http2 \
+--session-affinity \
 --min-instances=1 --max-instances=100 --timeout=300 --concurrency=40 \
 --set-env-vars "ORIGINS=*" \
+--set-env-vars "GUNICORN_WORKERS=14" \
 --set-env-vars "VALIDATE_IAP=false" \
 --set-env-vars "JWT_AUDIENCE=/projects/1053568465268/global/backendServices/1470682154844812331" \
 --set-env-vars "URL_PATH_PREFIX=/private01" \
