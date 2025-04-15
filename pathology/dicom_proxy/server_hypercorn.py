@@ -8,8 +8,6 @@ import flask
 import flask_cors
 from werkzeug import routing
 from werkzeug.middleware import proxy_fix
-from hypercorn.asyncio import serve
-from hypercorn.config import Config
 
 from pathology.dicom_proxy import dicom_proxy_blueprint
 from pathology.dicom_proxy import dicom_proxy_flags
@@ -18,6 +16,7 @@ from pathology.dicom_proxy import redis_cache
 from pathology.shared_libs.build_version import build_version
 from pathology.shared_libs.logging_lib import cloud_logging_client
 
+from asgiref.wsgi import WsgiToAsgi
 
 DEFAULT_TEXT_MIMETYPE = 'text/html; charset=utf-8'
 HEALTH_CHECK_HTML = 'Digital_Pathology_Proxy_Server-Blueprint-Health-Check'
@@ -46,20 +45,22 @@ dicom_proxy_blueprint.compress.init_app(flask_app)
 # settings (see nginx.conf); e.g. proxy_set_header X-Forwarded-Proto. Enables
 # proxy to re-create url from the perspective of the caller and not the proxy
 # for re-direction purposes.
-flask_app.wsgi_app = proxy_fix.ProxyFix(
-    flask_app.wsgi_app,
-    x_for=1,
-    x_proto=1,
-    x_host=1,
-    x_port=0,
-    x_prefix=1,
-)
+
+#flask_app.wsgi_app = proxy_fix.ProxyFix(
+#    flask_app.wsgi_app,
+#    x_for=1,
+#    x_proto=1,
+#    x_host=1,
+#    x_port=0,
+#    x_prefix=1,
+#)
 
 flask_app.register_blueprint(dicom_proxy_blueprint.dicom_proxy)
 
 
 @flask_app.before_request
 def handle_preflight_methods() -> flask.Response:
+    cloud_logging_client.debug(f"[{flask.request.method}] {flask.request.path}")
     if flask.request.method.lower() == 'options':
         return flask.Response(
             status=http.HTTPStatus.OK,
@@ -124,18 +125,5 @@ cloud_logging_client.info(
 )
 
 
-async def run_server():
-    # Run the server using Hypercorn with the configuration set in the flags.
-    # The server will be started with the specified bind address and number
-    # of workers.
-
-    # Not used in the code below, but useful for debugging.
-    config = Config()
-    config.bind = [str(dicom_proxy_flags.GUNICORN_BIND_FLG.value)]
-    config.workers = dicom_proxy_flags.GUNICORN_WORKERS_FLG.value
-    config.use_reloader = False
-    config.accesslog = "-"
-    config.loglevel = "info"
-    cloud_logging_client.info("Hypercorn configuration", vars(config))
-
-    await serve(flask_app, config)
+# Wrap it for ASGI
+asgi_app = WsgiToAsgi(flask_app)

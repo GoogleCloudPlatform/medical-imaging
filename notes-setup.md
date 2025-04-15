@@ -23,6 +23,15 @@ docker tag us-west2-docker.pkg.dev/gcp-pathology-poc1/pathcloud/base_py_opencv_d
 
 ### Build dicom-proxy container
 
+After adding or modifying pip packages in the requirements.in, update the requirements.txt file in the `pathology/dicom_proxy` directory with the following command:
+
+```sh
+cd pathology/dicom_proxy
+pip-compile --generate-hashes requirements.in
+```
+
+Then build the dicom-proxy container using the following command:
+
 ```sh
 docker buildx build --build-arg BASE_CONTAINER=base_py_opencv_docker:latest -t us-west2-docker.pkg.dev/gcp-pathology-poc1/pathcloud/dicom-proxy-gcp:0.0.1 -f ./pathology/dicom_proxy/Dockerfile .
 ```
@@ -60,21 +69,59 @@ docker push us-west2-docker.pkg.dev/gcp-pathology-poc1/pathcloud/dicom-proxy-gcp
 
 Googles recommendation is int(os.cpu_count() \* 3.4) for the GUNICORN_WORKERS variable.
 
+### Private with authenticated users
+
 ```sh
 gcloud run deploy dicom-proxy-gcp-private01 \
 --image us-west2-docker.pkg.dev/gcp-pathology-poc1/pathcloud/dicom-proxy-gcp:0.0.1 \
 --region=us-west2 --project=gcp-pathology-poc1 \
 --port=8080 --allow-unauthenticated \
---memory 16G --cpu 4 --execution-environment=gen2 \
+--memory 8G --cpu 8 --execution-environment=gen2 \
 --cpu-boost \
 --use-http2 \
 --session-affinity \
 --min-instances=1 --max-instances=100 --timeout=300 --concurrency=40 \
 --set-env-vars "ORIGINS=*" \
---set-env-vars "GUNICORN_WORKERS=14" \
+--set-env-vars "GUNICORN_WORKERS=24" \
 --set-env-vars "VALIDATE_IAP=false" \
 --set-env-vars "JWT_AUDIENCE=/projects/1053568465268/global/backendServices/1470682154844812331" \
 --set-env-vars "URL_PATH_PREFIX=/private01" \
+--set-env-vars "API_PORT_FLG=8080" \
+--set-env-vars "GUNICORN_BIND=0.0.0.0:8080" \
+--set-env-vars "ENABLE_FAKE_EMAIL=true" \
+--set-env-vars "DEFAULT_DICOM_STORE_API_VERSION=v1beta1" \
+--set-env-vars "ENABLE_APPLICATION_DEFAULT_CREDENTIALS=false" \
+--set-env-vars "ENABLE_DEBUG_FUNCTION_TIMING=true" \
+--set-env-vars "REDIS_CACHE_HOST_IP=10.158.57.91" \
+--set-env-vars "REDIS_CACHE_HOST_PORT=6379" \
+--set-env-vars "CLOUD_OPS_LOG_NAME=dicom-proxy-gcp-private" \
+--service-account=dicom-web-proxy-public@gcp-pathology-poc1.iam.gserviceaccount.com \
+--network=default \
+--subnet=default \
+--vpc-egress=private-ranges-only \
+--execution-environment=gen2 \
+--region=us-west2 \
+--project=gcp-pathology-poc1 \
+ && gcloud run services update-traffic dicom-proxy-gcp-private01 --to-latest
+```
+
+#### Public with no authentication
+
+```sh
+gcloud run deploy dicom-proxy-public01 \
+--image us-west2-docker.pkg.dev/gcp-pathology-poc1/pathcloud/dicom-proxy-gcp:0.0.1 \
+--region=us-west2 --project=gcp-pathology-poc1 \
+--port=8080 --allow-unauthenticated \
+--memory 8G --cpu 8 --execution-environment=gen2 \
+--cpu-boost \
+--use-http2 \
+--session-affinity \
+--min-instances=1 --max-instances=100 --timeout=300 --concurrency=40 \
+--set-env-vars "ORIGINS=*" \
+--set-env-vars "GUNICORN_WORKERS=24" \
+--set-env-vars "VALIDATE_IAP=false" \
+--set-env-vars "JWT_AUDIENCE=/projects/1053568465268/global/backendServices/1470682154844812331" \
+--set-env-vars "URL_PATH_PREFIX=/dicom-public01" \
 --set-env-vars "API_PORT_FLG=8080" \
 --set-env-vars "GUNICORN_BIND=0.0.0.0:8080" \
 --set-env-vars "ENABLE_FAKE_EMAIL=true" \
@@ -83,8 +130,15 @@ gcloud run deploy dicom-proxy-gcp-private01 \
 --set-env-vars "ENABLE_DEBUG_FUNCTION_TIMING=true" \
 --set-env-vars "REDIS_CACHE_HOST_IP=10.158.57.91" \
 --set-env-vars "REDIS_CACHE_HOST_PORT=6379" \
---set-env-vars "CLOUD_OPS_LOG_NAME=dicom-proxy-gcp-private" \
---service-account=dicom-web-proxy-public@gcp-pathology-poc1.iam.gserviceaccount.com
+--set-env-vars "CLOUD_OPS_LOG_NAME=dicom-public01-logs" \
+--service-account=dicom-web-proxy-public@gcp-pathology-poc1.iam.gserviceaccount.com \
+--network=default \
+--subnet=default \
+--vpc-egress=private-ranges-only \
+--execution-environment=gen2 \
+--region=us-west2 \
+--project=gcp-pathology-poc1 \
+ && gcloud run services update-traffic dicom-proxy-public01 --to-latest
 ```
 
 ## Setup IAP for DICOM Proxy
