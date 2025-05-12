@@ -25,17 +25,8 @@ WORKDIR /
 
 # Add additional ICC Profiles to the container here.
 ENV THIRD_PARTY_ICC_PROFILE_DIRECTORY='/icc_profiles'
-# copy adobe rgb icc profile into 3rd party icc profile directory
-RUN apt-get -qq update && apt-get install -y unzip wget && \
-    mkdir /icc_profiles && \
-    wget -q ftp://ftp.adobe.com/pub/adobe/iccprofiles/mac/AdobeICCProfilesCS4Mac_end-user.zip && \
-    unzip -qq AdobeICCProfilesCS4Mac_end-user.zip -d ./adobe_icc_profiles && \
-    rm AdobeICCProfilesCS4Mac_end-user.zip && \
-    mkdir -p /icc_profiles/adobergb && \
-    cp "./adobe_icc_profiles/Adobe ICC Profiles (end-user)/"*.pdf /icc_profiles/adobergb && \
-    cp "./adobe_icc_profiles/Adobe ICC Profiles (end-user)/RGB/AdobeRGB1998.icc" /icc_profiles/adobergb && \
-    rm -r -f ./adobe_icc_profiles && \
-    apt-get -qq purge -y unzip
+RUN apt-get -qq update && apt-get install -y --no-install-recommends wget && \
+    mkdir /icc_profiles
 # To add additional ICC Profiles to the container, add place them in the
 # /icc_profiles directory
 
@@ -45,7 +36,7 @@ RUN file_size=$(wc -c <"/ndpi_test.ndpi") && \
     if [ $file_size -le 100000 ]; then wget https://openslide.cs.cmu.edu/download/openslide-testdata/Hamamatsu/CMU-1.ndpi -O /ndpi_test.ndpi ; fi && \
     apt-get -qq purge -y wget
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     make \
     cmake \
@@ -175,8 +166,11 @@ RUN apt-get update && \
 # Setup python enviroment
 COPY ./pathology/transformation_pipeline/requirements.txt \
     ./pathology/shared_libs/docker_setup/setuptools_requirements.txt /
+# /requirements.txt installed without dependencies to avoid installing
+# EZ-WSI opencv headless which conflicts with the build environment built
+# opencv.
 RUN python3 -m pip install -r setuptools_requirements.txt --require-hashes && \
-    python3 -m pip install -r /requirements.txt --require-hashes && \
+    python3 -m pip install -r /requirements.txt --require-hashes --no-deps && \
     python3 -m pip uninstall -y pip && \
     apt-get purge -y \
       libldap-common \

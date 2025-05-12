@@ -184,3 +184,21 @@ py_test(
         requirement("google-cloud-storage"),
     ],
 )
+
+py_library(
+    name = "transfer_manager_mock",
+    srcs = ["transfer_manager_mock.py"],
+    deps = [
+        requirement("google-cloud-storage"),
+    ],
+)
+
+py_test(
+    name = "transfer_manager_mock_test",
+    srcs = ["transfer_manager_mock_test.py"],
+    deps = [
+        requirement("absl-py"),
+        "//pathology/shared_libs/test_utils/gcs_mock",
+        requirement("google-cloud-storage"),
+    ],
+)

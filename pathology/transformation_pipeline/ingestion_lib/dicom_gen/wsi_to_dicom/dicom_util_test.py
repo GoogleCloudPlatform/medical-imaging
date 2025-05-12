@@ -77,10 +77,6 @@ class DicomUtilTest(parameterized.TestCase):
   def test_get_default_icc_profile_color_none_returns_none(self):
     self.assertIsNone(dicom_util.get_default_icc_profile_color())
 
-  def test_unable_to_load_icc_profile_raises(self):
-    with self.assertRaises(FileNotFoundError):
-      dicom_util._read_internal_icc_profile('srgb', 'file_not_found.icc')
-
   @flagsaver.flagsaver(default_iccprofile='foo')
   def test_get_default_icc_profile_color_cannot_load_icc_profile(self):
     with self.assertRaises(ValueError):
@@ -138,34 +134,6 @@ class DicomUtilTest(parameterized.TestCase):
     os.mkdir(os.path.join(t_dir, 'foo', 'foo'))
     with flagsaver.flagsaver(third_party_icc_profile_directory=t_dir.full_path):
       self.assertEqual(dicom_util._read_icc_profile_plugin_file('foo'), b'')
-
-  @parameterized.parameters([
-      ingest_const.ICCProfile.ROMMRGB,
-  ])
-  @mock.patch.object(
-      dicom_util,
-      '_read_internal_icc_profile',
-      side_effect=FileNotFoundError(),
-  )
-  def test_get_default_icc_profile_color_unable_to_load_profile_raises_file_not_found(
-      self, profile, _
-  ):
-    with flagsaver.flagsaver(default_iccprofile=profile):
-      with self.assertRaises(FileNotFoundError):
-        dicom_util.get_default_icc_profile_color()
-
-  @mock.patch.object(
-      dicom_util,
-      '_read_internal_icc_profile',
-      autospec=True,
-      side_effect=FileNotFoundError(),
-  )
-  @flagsaver.flagsaver(default_iccprofile=ingest_const.ICCProfile.SRGB)
-  def test_get_default_srgb_icc_profile_color_unable_to_load_profile_returns_pill_version_if_file_not_found(
-      self, _
-  ):
-    profile = dicom_util.get_default_icc_profile_color()
-    self.assertLen(profile, 588)
 
   @mock.patch.object(
       dicom_util,

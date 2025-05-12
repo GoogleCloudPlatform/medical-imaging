@@ -22,16 +22,7 @@ WORKDIR /
 # Add additional ICC Profiles to the container here.
 ENV THIRD_PARTY_ICC_PROFILE_DIRECTORY='/icc_profiles'
 # copy adobe rgb icc profile into 3rd party icc profile directory
-RUN apt-get -qq update && apt-get install -y unzip wget && \
-    mkdir /icc_profiles && \
-    wget -q ftp://ftp.adobe.com/pub/adobe/iccprofiles/mac/AdobeICCProfilesCS4Mac_end-user.zip && \
-    unzip -qq AdobeICCProfilesCS4Mac_end-user.zip -d ./adobe_icc_profiles && \
-    rm AdobeICCProfilesCS4Mac_end-user.zip && \
-    mkdir -p /icc_profiles/adobergb && \
-    cp "./adobe_icc_profiles/Adobe ICC Profiles (end-user)/"*.pdf /icc_profiles/adobergb && \
-    cp "./adobe_icc_profiles/Adobe ICC Profiles (end-user)/RGB/AdobeRGB1998.icc" /icc_profiles/adobergb && \
-    rm -r -f ./adobe_icc_profiles && \
-    apt-get -qq purge -y unzip wget
+RUN mkdir /icc_profiles
 # To add additional ICC Profiles to the container, add place them in the
 # /icc_profiles directory
 # Note: During build the following warning maybe raised:
@@ -58,19 +49,22 @@ COPY ./third_party /third_party
 # required to run echo -e
 SHELL ["/bin/bash", "-c"]
 RUN apt-get update && \
-    apt-get install -y redis stunnel4 && \
+    apt-get install -y --no-install-recommends redis stunnel4 && \
 # Install nginx mainline server
-    apt install -y curl gnupg2 ca-certificates lsb-release debian-archive-keyring libreadline8 libterm-readline-gnu-perl && \
+    apt-get install -y --no-install-recommends curl gnupg2 ca-certificates lsb-release debian-archive-keyring libreadline8 libterm-readline-gnu-perl && \
     curl https://nginx.org/keys/nginx_signing.key | gpg --dearmor | tee /usr/share/keyrings/nginx-archive-keyring.gpg >/dev/null && \
     echo "deb [signed-by=/usr/share/keyrings/nginx-archive-keyring.gpg] http://nginx.org/packages/mainline/debian `lsb_release -cs` nginx" | tee /etc/apt/sources.list.d/nginx.list && \
     echo -e "Package: *\nPin: origin nginx.org\nPin: release o=nginx\nPin-Priority: 900\n" | tee /etc/apt/preferences.d/99nginx && \
     apt update && \
-    apt install -y nginx && \
+    apt-get install -y --no-install-recommends nginx && \
     rm /etc/nginx/nginx.conf && \
     apt-get purge -y curl && \
+# /requirements.txt installed without dependencies to avoid installing
+# EZ-WSI opencv headless which conflicts with the build environment built
+# opencv.
 # Install python
     python3 -m pip install -r setuptools_requirements.txt --require-hashes && \
-    python3 -m pip install --upgrade -r requirements.txt --require-hashes && \
+    python3 -m pip install --upgrade -r requirements.txt --require-hashes --no-deps && \
     python3 -m pip uninstall -y pip && \
     rm /requirements.txt \
        /setuptools_requirements.txt && \

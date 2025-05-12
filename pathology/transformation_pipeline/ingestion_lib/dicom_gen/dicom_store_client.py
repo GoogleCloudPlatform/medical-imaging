@@ -628,7 +628,7 @@ class DicomStoreClient:
       if not response.text:
         return []
       results = set()
-      for file_json in response.json():
+      for file_json in json.loads(response.text):
         found_study_instance_uid = dicom_json_util.get_study_instance_uid(
             file_json
         )
@@ -706,7 +706,7 @@ class DicomStoreClient:
       if not response.text:
         return []
       # Expected to return a List[Dict[str, Any]]
-      return response.json()
+      return json.loads(response.text)
     except json.JSONDecodeError as exp:
       cloud_logging_client.error(
           'Exception decoding DICOM instance metadata.',

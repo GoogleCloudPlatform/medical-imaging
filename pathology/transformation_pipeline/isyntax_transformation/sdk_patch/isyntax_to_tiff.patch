@@ -1,0 +1,578 @@
+# !/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+# Copyright © 2021 Koninklijke Philips N.V. All Rights Reserved.
+
+# A copyright license is hereby granted for redistribution and use of the
+# Software in source and binary forms, with or without modification, provided
+# that the following conditions are met:
+# • Redistributions of source code must retain the above copyright notice, this
+#   copyright license and the following disclaimer.
+# • Redistributions in binary form must reproduce the above copyright notice,
+#   this copyright license and the following disclaimer in the documentation
+#   and/ or other materials provided with the distribution.
+# • Neither the name of Koninklijke Philips N.V. nor the names of its
+#   subsidiaries may be used to endorse or promote products derived from the
+#   Software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+# OF THE POSSIBILITY OF SUCH DAMAGE.
+
+"""This sample code generates regular/big tiff for a desired ROI.
+
+The common inputs to the file are:
+
+  1. Path of the iSyntax file
+  2. Regular/Big Tiff (if 0 is passed regular tiff is generated,
+      whereas if 1 is passed big tiff is generated)
+  3. NotSparse/Sparse (if 0 is passed sparse tiff is not generated,
+      whereas if 1 is passed sparse tiff is generated)
+  4. Start_level (The tiff file is generated from starting level.)
+Eg:
+Command for regular tiff from level 0:
+  python isyntax_to_tiff.py <Isyntax file path> 0 0 0
+Command for big tiff from level 0:
+  python isyntax_to_tiff.py <Isyntax file path> 1 0 0
+Command for regular sparse tiff from level 0:
+  python isyntax_to_tiff.py <Isyntax file path> 0 1 0
+Command for big sparse tiff from level 0:
+  python isyntax_to_tiff.py <Isyntax file path> 1 1 0
+IMPORTANT NOTE : This sample code uses libtiff.
+ One needs to download it for the target platform.
+
+On Windows:
+ Download a suitable version of libtiff or build it from GitHub source.
+ Required DLL's:
+    libtiff-5.dll, libjpeg-62.dll, zlib.dll
+
+On Ubuntu: To install libtiff, execute 'apt-get install -y libtiff5-dev'
+On CentOS: To install libtiff, execute 'yum install -y libtiff'
+On Centos: if lsb_release is not found, execute 'yum install redhat-lsb'
+Dependencies:
+    Pip modules: numpy, libtiff
+"""
+
+from __future__ import absolute_import
+from __future__ import division
+
+import argparse
+import os
+import traceback
+from typing import Any, List, Tuple
+
+from backends import Backends
+from libtiff_interface import TIFF
+from libtiff_interface import TIFF_TILE_HEIGHT
+from libtiff_interface import TIFF_TILE_WIDTH
+import numpy as np
+from pixelengine import PixelEngine
+
+
+# pylint: disable=too-many-arguments
+def write_tiff_tile(
+    tiff_handle: TIFF,
+    offset: int,
+    level: int,
+    sparse: int,
+    data: np.ndarray,
+    data_size: int,
+    bb_list: List[Tuple[int, int, int, int]],
+    region,
+) -> None:
+  """Save extracted regions as Patches to Disk.
+
+  Args:
+    tiff_handle: Tiff file handle
+    offset: List of Offset Indices
+    level: Level of Tile
+    sparse: Sparse Flag
+    data: Buffer
+    data_size: Size of buffer
+    bb_list: Bounding box list
+    region: Current region
+
+  Returns:
+    None
+  """
+  try:
+    # check sparse and background tiles
+    write_tile = (not sparse) or (
+        region_within_data_envelope(bb_list, region.range)
+    )
+    if not write_tile:
+      return
+
+    # Write Tile
+    if (
+        tiff_handle.write_encoded_tile(
+            offset, level, data.ctypes.data, data_size
+        )
+        < 0
+    ):
+      print("Error in generating TIFF")
+
+  except RuntimeError:
+    traceback.print_exc()
+
+
+def region_within_data_envelope(
+    bb_list: List[Tuple[int, int, int, int]],
+    bb_range: Tuple[int, int, int, int],
+) -> bool:
+  """Method to check background tile.
+
+  Args:
+    bb_list: Data envelope list
+    bb_range: Tile view range
+
+  Returns:
+    bool(outside_x or outside_y)
+  """
+  x_min = bb_range[0]
+  x_max = bb_range[1]
+  y_min = bb_range[2]
+  y_max = bb_range[3]
+
+  for bounding_box in bb_list:
+    bound_x_min = bounding_box[0]
+    bound_x_max = bounding_box[1]
+    bound_y_min = bounding_box[2]
+    bound_y_max = bounding_box[3]
+
+    outside = (
+        (x_max < bound_x_min)
+        or (bound_x_max < x_min)
+        or (y_max < bound_y_min)
+        or (bound_y_max < y_min)
+    )
+    if not outside:
+      return True
+  return False
+
+
+# pylint: disable=too-many-locals
+def tiff_tile_processor(
+    pixel_engine: PixelEngine,
+    level: int,
+    patches: List[Tuple[int, int, int, int, int]],
+    patch_identifier: List[Tuple[int, int]],
+    tiff_file_handle: TIFF,
+    sparse: int,
+) -> None:
+  """Tiff Tile Processor.
+
+  Args:
+    pixel_engine: Object of pixel Engine
+    level: Level
+    patches: List of patches
+    patch_identifier: Identifier list to map patches when fetched from pixel
+      engine
+    tiff_file_handle: Tiff file handle
+    sparse: Sparse Flag
+
+  Returns:
+    None
+  """
+  view = pixel_engine["in"]["WSI"].source_view
+  # To query for raw pixel data (source view), the truncation level should be
+  # disabled.
+  trunc_level = {0: [0, 0, 0]}
+  view.truncation(False, False, trunc_level)
+  if view.bits_stored == 9:
+    # As SGS generates 9bit raw images(i2syntax / isyntax)
+    # Converting this 9-bit pixel data to 8-bit pixel data to render in 8-bit
+    # display monitor.
+    # Also making this data UFS equivalent by applying ICC Profile matrix
+    # Note: ICC profile depends on the scanner
+    view = view.add_user_view()
+    matrix_filter = view.add_filter("3x3Matrix16")
+    icc_matrix = pixel_engine["in"]["WSI"].icc_matrix
+    view.filter_parameter_matrix3x3(matrix_filter, "matrix3x3", icc_matrix)
+    view.add_filter("Linear16ToSRGB8")
+
+  bb_list = []
+  if sparse == 1:
+    bb_list = view.data_envelopes(level).as_rectangles()
+  samples_per_pixel = 3  # As we queried RGB for Pixel Data
+  patch_data_size = int(
+      (TIFF_TILE_WIDTH * TIFF_TILE_HEIGHT * samples_per_pixel)
+  )
+  data_envelopes = view.data_envelopes(level)
+  # Requesting all the patches together may result in large memory footprint.
+  # One can choose to optimize it by
+  # requesting the patches incrementally, one by one or in small batches.
+  total_regions = len(patches)
+  request_start = 0
+  patch = np.zeros(int(patch_data_size)).astype(np.uint8)
+  tile_read_count = 10
+  while request_start < total_regions:
+    regions = view.request_regions(
+        patches[
+            request_start : min(request_start + tile_read_count, total_regions)
+        ],
+        data_envelopes,
+        True,
+        [255, 255, 255],
+        pixel_engine.BufferType(0),
+    )
+    regions_requested = len(regions)
+    first_region_requested = request_start
+    request_start += regions_requested
+    while regions_requested > 0:
+      regions_ready = pixel_engine.wait_any()
+      regions_requested -= len(regions_ready)
+      for region in regions_ready:
+        # Find the index of obtained Region in Original PatchList
+        patch_id = patch_identifier[
+            regions.index(region) + first_region_requested
+        ]
+        x_spatial = patch_id[0]
+        y_spatial = patch_id[1]
+        region.get(patch)
+        # Set the spatial location to paste in the TIFF file
+        x_value = x_spatial * TIFF_TILE_WIDTH
+        y_value = y_spatial * TIFF_TILE_HEIGHT
+        write_tiff_tile(
+            tiff_file_handle,
+            [x_value, y_value],
+            level,
+            sparse,
+            patch,
+            patch_data_size,
+            bb_list,
+            region,
+        )
+
+
+def calculate_tiff_dimensions(view: Any, start_level: int) -> Tuple[int, int]:
+  """Set the TIFF tile size.
+
+  Note that TIFF mandates tile size in multiples of 16
+  Calculate the Image Dimension range from the View at the Start Level
+
+  Args:
+    view: Source View
+    start_level: Starting Level
+
+  Returns:
+    tiff_dim_x, tiff_dim_y
+  """
+  x_start = view.dimension_ranges(start_level)[0][0]
+  x_step = view.dimension_ranges(start_level)[0][1]
+  x_end = view.dimension_ranges(start_level)[0][2]
+  y_start = view.dimension_ranges(start_level)[1][0]
+  y_step = view.dimension_ranges(start_level)[1][1]
+  y_end = view.dimension_ranges(start_level)[1][2]
+  range_x = x_end - x_start + x_step
+  range_y = y_end - y_start + y_step
+
+  # As the multi-resolution image pyramid in TIFF
+  #  shall follow a down sample factor of 2
+  # Normalize the Image Dimension from the coarsest level
+  #  so that a downscale factor of 2 is maintained across levels
+  # Size Normalization
+  tiff_dim_x = round_up(range_x, TIFF_TILE_WIDTH * x_step)
+  tiff_dim_y = round_up(range_y, TIFF_TILE_HEIGHT * y_step)
+  return (tiff_dim_x, tiff_dim_y)
+
+
+def round_up(value: int, multiple: int) -> int:
+  """Round Up.
+
+  Args:
+    value: Value
+    multiple: Multiple
+
+  Returns:
+    Rounded up value; int
+  """
+  result = value
+  if (value % multiple) > 0:
+    result = value + multiple - (value % multiple)
+  return result
+
+
+def create_tiff_from_isyntax(
+    pixel_engine: PixelEngine,
+    tiff_file_handle: TIFF,
+    start_level: int,
+    num_levels: int,
+    sparse: int,
+    jpeg_quality: int,
+    frame_width: int,
+    frame_height: int,
+) -> None:
+  """Method to create tiff from isyntax file.
+
+  Args:
+    pixel_engine: Object of Pixel Engine
+    tiff_file_handle: Tiff file handle
+    start_level: Start level
+    num_levels: max levels in isyntax file
+    sparse: Sparse Flag
+    jpeg_quality: JPEG Quality
+    frame_width: Width of frames in output tiff
+    frame_height: Height of frames in output tiff
+
+  Returns:
+    None
+  """
+  view = pixel_engine["in"]["WSI"].source_view
+  tiff_dim_x, tiff_dim_y = calculate_tiff_dimensions(view, start_level)
+
+  #  Scanned Tissue Area
+  # Level 0 represents 40x scan factor
+  # So, in order save time and as per the requirement,
+  #  one can start from a coarser resolution level say level 2 (10x)
+
+  for level in range(start_level, num_levels, 1):
+    print("Level: {}".format(str(level)))
+    # Take starting point as the dimensionRange start on the View
+    #  for a particular Level
+    x_start = view.dimension_ranges(level)[0][0]
+    y_start = view.dimension_ranges(level)[1][0]
+
+    # As the index representation is always in Base Level i.e. Level0, but
+    # the step size increase with level as (2**level)
+    width_patch_level = TIFF_TILE_WIDTH * (2**level)
+    height_patch_level = TIFF_TILE_HEIGHT * (2**level)
+
+    num_patches_x = round_up(tiff_dim_x, width_patch_level) / width_patch_level
+    num_patches_y = (
+        round_up(tiff_dim_y, height_patch_level) / height_patch_level
+    )
+
+    print(
+        "      - Number of Tiles in X and Y directions {}, {}".format(
+            str(num_patches_x), str(num_patches_y)
+        )
+    )
+
+    # Error Resilience: Just in case if the number of patches at a given level
+    # in either direction is 0, no point in writing tiff directory
+    if num_patches_x * num_patches_y <= 0:
+      print("TIFF Directory Write bypassed")
+      continue
+
+    tiff_file_handle.set_tiff_file_attributes(
+        [tiff_dim_x, tiff_dim_y],
+        level,
+        start_level,
+        jpeg_quality,
+        frame_width,
+        frame_height,
+    )
+    patches, patch_identifier = create_patch_list(
+        int(num_patches_x),
+        int(num_patches_y),
+        (x_start, y_start),
+        level,
+        (width_patch_level, height_patch_level),
+    )
+    # Extract and Write TIFF Tiles
+    print("      - Requesting Patches.")
+    tiff_tile_processor(
+        pixel_engine, level, patches, patch_identifier, tiff_file_handle, sparse
+    )
+    print("      - Patches extracted to disk")
+    tiff_file_handle.write_directory()
+  return 0
+
+
+def create_patch_list(
+    num_patches_x: int,
+    num_patches_y: int,
+    starting_indices: Tuple[int, int],
+    level: int,
+    patch_size: Tuple[int, int],
+) -> Tuple[List[Tuple[int, int, int, int, int]], List[Tuple[int, int]]]:
+  """Method to create patches list and patch identifier list.
+
+  Args:
+    num_patches_x: Number of patches in x
+    num_patches_y: Number of patches in y
+    starting_indices: Starting indices
+    level: Level
+    patch_size: Size of patch
+
+  Returns:
+    list of patches, and list of patch_identifier
+  """
+  patches = []
+  patch_identifier = []
+  y_spatial = 0
+  for y_counter in range(num_patches_y):
+    y_patch_start = starting_indices[1] + (y_counter * patch_size[1])
+    y_patch_end = y_patch_start + patch_size[1]
+    x_spatial = 0
+    for x_counter in range(num_patches_x):
+      x_patch_start = starting_indices[0] + (x_counter * patch_size[0])
+      x_patch_end = x_patch_start + patch_size[0]
+      patch = (
+          x_patch_start,
+          x_patch_end - 2**level,
+          y_patch_start,
+          y_patch_end - 2**level,
+          level,
+      )
+      patches.append(patch)
+      patch_identifier.append((x_spatial, y_spatial))
+      x_spatial += 1
+    y_spatial += 1
+  return patches, patch_identifier
+
+
+def encode_file_path(file_path: str) -> bytes:
+  """Method to encode file_path as utf-8 .
+
+  Args:
+    file_path: file_path
+
+  Returns:
+    file_path as bytes
+  """
+  return bytes(file_path, encoding="utf-8")
+
+
+def get_tiff_handle(tiff_type: int, input_file: str, sparse: int) -> TIFF:
+  """Method to generate tiff file handle.
+
+  Args:
+    tiff_type: Type of tiff
+    input_file: Input file
+    sparse: Sparse flag
+
+  Returns:
+    tiff file handle
+  """
+  file_name = ".tiff"
+  if sparse:
+    file_name = "_sparse{}".format(file_name)
+  image_name = os.path.splitext(os.path.basename(input_file))[0]
+
+  if tiff_type == 0:
+    print("Regular Tiff")
+    file_path = ".{}{}{}".format(os.path.sep, image_name, file_name)
+    file_path = encode_file_path(file_path)
+    tiff_file_handle = TIFF.open(file_path, mode=b"w")
+  elif tiff_type == 1:
+    print("Big Tiff")
+    file_path = ".{}{}_BIG{}".format(os.path.sep, image_name, file_name)
+    file_path = encode_file_path(file_path)
+    tiff_file_handle = TIFF.open(file_path, mode=b"w8")
+  else:
+    raise ValueError("Invalid tiff_type: {}".format(tiff_type))
+  return tiff_file_handle
+
+
+def main() -> None:
+  """Main Method.
+
+  :return: None
+  """
+  parser = argparse.ArgumentParser(
+      formatter_class=argparse.RawDescriptionHelpFormatter,
+      description="""
+    This sample code generates regular/big tiff for a desired ROI.
+    The common inputs to the file are:
+      1. Path of the iSyntax file
+      2. Regular/Big Tiff (if 0 is passed regular tiff is generated,
+          whereas if 1 is passed big tiff is generated)
+      3. Write Sparse Tiles/Do not write Sparse Tiles (if 0 is passed sparse tiff is not generated,
+          whereas if 1 is passed sparse tiff is generated)
+         Note: Sparse Tiles corresponds to the background tiles,
+               which does not belong to any data envelopes.
+      4. Start_level (The tiff file is generated from starting level.)
+    Eg:
+    Command for regular tiff from level 0:
+      python isyntax_to_tiff.py <Isyntax file path> 0 0 0
+    Command for big tiff from level 0:
+      python isyntax_to_tiff.py <Isyntax file path> 1 0 0
+    Command for regular sparse tiff from level 0:
+      python isyntax_to_tiff.py <Isyntax file path> 0 1 0
+    Command for big sparse tiff from level 0:
+      python isyntax_to_tiff.py <Isyntax file path> 1 1 0
+    IMPORTANT NOTE : This sample code uses libtiff.
+     One needs to download it for the target platform.
+
+    On Windows:
+     Download a suitable version of libtiff or build it from GitHub source.
+     Required DLL's:
+        libtiff-5.dll, libjpeg-62.dll, zlib.dll
+
+    On Ubuntu: To install libtiff, execute 'apt-get install -y libtiff5-dev'
+    On CentOS: To install libtiff, execute 'yum install -y libtiff'
+
+    Dependencies:
+        Pip modules: numpy, libtiff
+    """,
+  )
+  parser.add_argument("input", help="Image File")
+  parser.add_argument("tif", help="TIFF/BIGTIFF")
+  parser.add_argument(
+      "sparse", help="Write Sparse Tiles = 0, Do Not Write Sparse Tiles = 1"
+  )
+  parser.add_argument("startlevel", help="Starting Level")
+  parser.add_argument("jpeg_quality", help="JPEG Quality")
+  parser.add_argument("frame_width", help="Frame Width")
+  parser.add_argument("frame_height", help="Frame Height")
+  args = parser.parse_args()
+  input_file = args.input
+
+  # Initializing the pixel engine
+  backends = Backends()
+  render_backend, render_context = backends.initialize_backend("SOFTWARE")
+  pixel_engine = PixelEngine(render_backend, render_context)
+  pixel_engine["in"].open(input_file)
+  start_level = args.startlevel
+  start_level = int(start_level[0])
+  tiff_type = args.tif
+  tiff_type = int(tiff_type[0])
+  sparse = args.sparse
+  sparse = int(sparse[0])
+  jpeg_quality = args.jpeg_quality
+  jpeg_quality = int(jpeg_quality[0])
+  frame_width = args.frame_width
+  frame_width = int(frame_width[0])
+  frame_height = args.frame_height
+  frame_height = int(frame_height[0])
+  if not (0 <= sparse <= 1 and 0 <= tiff_type <= 1):
+    print("Invalid arguments passed")
+    return
+  tiff_file_handle = get_tiff_handle(tiff_type, input_file, sparse)
+
+  num_derived_levels = pixel_engine["in"]["WSI"].source_view.num_derived_levels
+  if 0 <= start_level <= num_derived_levels:
+    print("Generating TIFF, Please Wait.....")
+    result = create_tiff_from_isyntax(
+        pixel_engine,
+        tiff_file_handle,
+        start_level,
+        int(num_derived_levels) + 1,
+        sparse,
+        jpeg_quality,
+        frame_width,
+        frame_height,
+    )
+    # Close the TIFF file handle.
+    tiff_file_handle.close()
+    if result == 0:
+      print("TIFF Successfully Generated")
+    else:
+      print("Error in generating TIFF")
+  else:
+    print("Invalid start_level Input")
+  pixel_engine["in"].close()
+
+
+if __name__ == "__main__":
+  main()

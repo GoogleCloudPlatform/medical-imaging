@@ -367,9 +367,7 @@ class ImageUtilTest(parameterized.TestCase):
   ])
   def test_save_embedd_icc_profile_in_np_image(self, compression):
     cv_image = np.array([[[1, 2, 3], [4, 5, 6], [7, 8, 9]]], dtype=np.uint8)
-    icc_profile_bytes = color_conversion_util._read_internal_icc_profile(
-        'srgb', 'sRGB_v4_ICC_preference.icc'
-    )
+    icc_profile_bytes = color_conversion_util._get_srgb_iccprofile()
     encoded_bytes = image_util.encode_image(
         cv_image, compression, quality=75, icc_profile=icc_profile_bytes
     )
@@ -383,9 +381,7 @@ class ImageUtilTest(parameterized.TestCase):
   ])
   def test_save_embedd_icc_profile_in_pil_image(self, compression):
     cv_image = np.array([[[1, 2, 3], [4, 5, 6], [7, 8, 9]]], dtype=np.uint8)
-    icc_profile_bytes = color_conversion_util._read_internal_icc_profile(
-        'srgb', 'sRGB_v4_ICC_preference.icc'
-    )
+    icc_profile_bytes = color_conversion_util._get_srgb_iccprofile()
     encoded_bytes = image_util.encode_image(
         image_util._opencv_to_pil_image(cv_image),
         compression,
@@ -397,9 +393,7 @@ class ImageUtilTest(parameterized.TestCase):
 
   def test_save_embedd_icc_profile_in_gif_image_throws(self):
     cv_image = np.array([[[1, 2, 3], [4, 5, 6], [7, 8, 9]]], dtype=np.uint8)
-    icc_profile_bytes = color_conversion_util._read_internal_icc_profile(
-        'srgb', 'sRGB_v4_ICC_preference.icc'
-    )
+    icc_profile_bytes = color_conversion_util._get_srgb_iccprofile()
     with self.assertRaises(
         image_util.ImageEncodingDoesNotSupportEmbeddingICCProfileError
     ):

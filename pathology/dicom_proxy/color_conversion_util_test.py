@@ -64,13 +64,9 @@ def _set_tag_value(metadata: Mapping[str, Any], address: str, value: Any):
 
 def _test_dcm_with_icc_profile(
     icc_profile_path: str,
-    dirname: str,
-    icc_profile_filename: str,
+    icc_profile: bytes,
     colorspace: str = '',
 ) -> pydicom.FileDataset:
-  icc_profile = color_conversion_util._read_internal_icc_profile(
-      dirname, icc_profile_filename
-  )
   with pydicom.dcmread(
       shared_test_util.jpeg_encoded_dicom_instance_test_path()
   ) as dcm:
@@ -526,8 +522,7 @@ class ColorConversionUtilTest(parameterized.TestCase):
     )
     dcm = _test_dcm_with_icc_profile(
         'OpticalPathSequence/0/ICCProfile',
-        'srgb',
-        'sRGB_v4_ICC_preference.icc',
+        color_conversion_util._get_srgb_iccprofile(),
     )
     icc_profile = dcm.OpticalPathSequence[0].ICCProfile
     with dicom_store_mock.MockDicomStores(
@@ -611,29 +606,24 @@ class ColorConversionUtilTest(parameterized.TestCase):
       dict(
           testcase_name='iccprofile_bytes',
           dcm=_test_dcm_with_icc_profile(
-              'ICCProfile', 'srgb', 'sRGB_v4_ICC_preference.icc'
+              'ICCProfile', color_conversion_util._get_srgb_iccprofile()
           ),
           param_to_return=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_BYTES,
-          expected_result=color_conversion_util._read_internal_icc_profile(
-              'srgb', 'sRGB_v4_ICC_preference.icc'
-          ),
+          expected_result=color_conversion_util._get_srgb_iccprofile(),
       ),
       dict(
           testcase_name='opticalpathsq_iccprofile_bytes',
           dcm=_test_dcm_with_icc_profile(
               'OpticalPathSequence/0/ICCProfile',
-              'srgb',
-              'sRGB_v4_ICC_preference.icc',
+              color_conversion_util._get_srgb_iccprofile(),
           ),
           param_to_return=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_BYTES,
-          expected_result=color_conversion_util._read_internal_icc_profile(
-              'srgb', 'sRGB_v4_ICC_preference.icc'
-          ),
+          expected_result=color_conversion_util._get_srgb_iccprofile(),
       ),
       dict(
           testcase_name='iccprofile_path',
           dcm=_test_dcm_with_icc_profile(
-              'ICCProfile', 'srgb', 'sRGB_v4_ICC_preference.icc'
+              'ICCProfile', color_conversion_util._get_srgb_iccprofile()
           ),
           param_to_return=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_TAG_DICOM_PATH,
           expected_result='ICCProfile',
@@ -642,8 +632,7 @@ class ColorConversionUtilTest(parameterized.TestCase):
           testcase_name='opticalpathsq_iccprofile_path',
           dcm=_test_dcm_with_icc_profile(
               'OpticalPathSequence/0/ICCProfile',
-              'srgb',
-              'sRGB_v4_ICC_preference.icc',
+              color_conversion_util._get_srgb_iccprofile(),
           ),
           param_to_return=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_TAG_DICOM_PATH,
           expected_result='OpticalPathSequence/0/ICCProfile',
@@ -686,24 +675,19 @@ class ColorConversionUtilTest(parameterized.TestCase):
       dict(
           testcase_name='iccprofile_bytes',
           dcm=_test_dcm_with_icc_profile(
-              'ICCProfile', 'srgb', 'sRGB_v4_ICC_preference.icc'
+              'ICCProfile', color_conversion_util._get_srgb_iccprofile()
           ),
           param_to_return=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_BYTES,
-          expected_result=color_conversion_util._read_internal_icc_profile(
-              'srgb', 'sRGB_v4_ICC_preference.icc'
-          ),
+          expected_result=color_conversion_util._get_srgb_iccprofile(),
       ),
       dict(
           testcase_name='opticalpathsq_iccprofile_bytes',
           dcm=_test_dcm_with_icc_profile(
               'OpticalPathSequence/0/ICCProfile',
-              'srgb',
-              'sRGB_v4_ICC_preference.icc',
+              color_conversion_util._get_srgb_iccprofile(),
           ),
           param_to_return=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_BYTES,
-          expected_result=color_conversion_util._read_internal_icc_profile(
-              'srgb', 'sRGB_v4_ICC_preference.icc'
-          ),
+          expected_result=color_conversion_util._get_srgb_iccprofile(),
       ),
       dict(
           testcase_name='no_icc_profile_bytes',
@@ -714,7 +698,7 @@ class ColorConversionUtilTest(parameterized.TestCase):
       dict(
           testcase_name='iccprofile_path',
           dcm=_test_dcm_with_icc_profile(
-              'ICCProfile', 'srgb', 'sRGB_v4_ICC_preference.icc'
+              'ICCProfile', color_conversion_util._get_srgb_iccprofile()
           ),
           param_to_return=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_TAG_DICOM_PATH,
           expected_result='ICCProfile',
@@ -723,8 +707,7 @@ class ColorConversionUtilTest(parameterized.TestCase):
           testcase_name='opticalpathsq_iccprofile_path',
           dcm=_test_dcm_with_icc_profile(
               'OpticalPathSequence/0/ICCProfile',
-              'srgb',
-              'sRGB_v4_ICC_preference.icc',
+              color_conversion_util._get_srgb_iccprofile(),
           ),
           param_to_return=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_TAG_DICOM_PATH,
           expected_result='OpticalPathSequence/0/ICCProfile',
@@ -790,7 +773,7 @@ class ColorConversionUtilTest(parameterized.TestCase):
       dict(
           testcase_name='profile_bytes_loads_cache_returned_cached_path',
           dcm=_test_dcm_with_icc_profile(
-              'ICCProfile', 'srgb', 'sRGB_v4_ICC_preference.icc'
+              'ICCProfile', color_conversion_util._get_srgb_iccprofile()
           ),
           param_to_load_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_BYTES,
           param_to_query_from_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_TAG_DICOM_PATH,
@@ -799,44 +782,36 @@ class ColorConversionUtilTest(parameterized.TestCase):
       dict(
           testcase_name='profile_bytes_loads_cache_returned_cached_bytes',
           dcm=_test_dcm_with_icc_profile(
-              'ICCProfile', 'srgb', 'sRGB_v4_ICC_preference.icc'
+              'ICCProfile', color_conversion_util._get_srgb_iccprofile()
           ),
           param_to_load_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_BYTES,
           param_to_query_from_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_BYTES,
-          expected_result=color_conversion_util._read_internal_icc_profile(
-              'srgb', 'sRGB_v4_ICC_preference.icc'
-          ),
+          expected_result=color_conversion_util._get_srgb_iccprofile(),
       ),
       dict(
           testcase_name='no_returned_cached_bytes',
           dcm=_test_dcm_with_icc_profile(
-              'ICCProfile', 'srgb', 'sRGB_v4_ICC_preference.icc'
+              'ICCProfile', color_conversion_util._get_srgb_iccprofile()
           ),
           param_to_load_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_BYTES,
           param_to_query_from_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_BYTES,
-          expected_result=color_conversion_util._read_internal_icc_profile(
-              'srgb', 'sRGB_v4_ICC_preference.icc'
-          ),
+          expected_result=color_conversion_util._get_srgb_iccprofile(),
       ),
       dict(
           testcase_name='profile_path_loads_cache_returned_cached_bytes',
           dcm=_test_dcm_with_icc_profile(
               'OpticalPathSequence/0/ICCProfile',
-              'srgb',
-              'sRGB_v4_ICC_preference.icc',
+              color_conversion_util._get_srgb_iccprofile(),
           ),
           param_to_load_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_TAG_DICOM_PATH,
           param_to_query_from_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_BYTES,
-          expected_result=color_conversion_util._read_internal_icc_profile(
-              'srgb', 'sRGB_v4_ICC_preference.icc'
-          ),
+          expected_result=color_conversion_util._get_srgb_iccprofile(),
       ),
       dict(
           testcase_name='profile_path_loads_cache_returned_cached_path',
           dcm=_test_dcm_with_icc_profile(
               'OpticalPathSequence/0/ICCProfile',
-              'srgb',
-              'sRGB_v4_ICC_preference.icc',
+              color_conversion_util._get_srgb_iccprofile(),
           ),
           param_to_load_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_TAG_DICOM_PATH,
           param_to_query_from_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_TAG_DICOM_PATH,
@@ -846,8 +821,7 @@ class ColorConversionUtilTest(parameterized.TestCase):
           testcase_name='return_cached_colorspace',
           dcm=_test_dcm_with_icc_profile(
               'OpticalPathSequence/0/ICCProfile',
-              'srgb',
-              'sRGB_v4_ICC_preference.icc',
+              color_conversion_util._get_srgb_iccprofile(),
               'sRGB',
           ),
           param_to_load_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_COLOR_SPACE,
@@ -907,7 +881,7 @@ class ColorConversionUtilTest(parameterized.TestCase):
       dict(
           testcase_name='profile_bytes_loads_cache_returned_cached_path',
           dcm=_test_dcm_with_icc_profile(
-              'ICCProfile', 'srgb', 'sRGB_v4_ICC_preference.icc'
+              'ICCProfile', color_conversion_util._get_srgb_iccprofile()
           ),
           param_to_load_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_BYTES,
           param_to_query_from_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_TAG_DICOM_PATH,
@@ -916,7 +890,7 @@ class ColorConversionUtilTest(parameterized.TestCase):
       dict(
           testcase_name='profile_bytes_loads_cache_returned_cached_bytes',
           dcm=_test_dcm_with_icc_profile(
-              'ICCProfile', 'srgb', 'sRGB_v4_ICC_preference.icc'
+              'ICCProfile', color_conversion_util._get_srgb_iccprofile()
           ),
           param_to_load_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_BYTES,
           param_to_query_from_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_BYTES,
@@ -926,8 +900,7 @@ class ColorConversionUtilTest(parameterized.TestCase):
           testcase_name='profile_path_loads_cache_returned_cached_bytes',
           dcm=_test_dcm_with_icc_profile(
               'OpticalPathSequence/0/ICCProfile',
-              'srgb',
-              'sRGB_v4_ICC_preference.icc',
+              color_conversion_util._get_srgb_iccprofile(),
           ),
           param_to_load_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_TAG_DICOM_PATH,
           param_to_query_from_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_BYTES,
@@ -937,8 +910,7 @@ class ColorConversionUtilTest(parameterized.TestCase):
           testcase_name='profile_path_loads_cache_returned_cached_path',
           dcm=_test_dcm_with_icc_profile(
               'OpticalPathSequence/0/ICCProfile',
-              'srgb',
-              'sRGB_v4_ICC_preference.icc',
+              color_conversion_util._get_srgb_iccprofile(),
           ),
           param_to_load_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_TAG_DICOM_PATH,
           param_to_query_from_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_TAG_DICOM_PATH,
@@ -1003,7 +975,7 @@ class ColorConversionUtilTest(parameterized.TestCase):
       dict(
           testcase_name='icc_profile',
           dcm=_test_dcm_with_icc_profile(
-              'ICCProfile', 'srgb', 'sRGB_v4_ICC_preference.icc'
+              'ICCProfile', color_conversion_util._get_srgb_iccprofile()
           ),
           expected_path='ICCProfile',
       ),
@@ -1011,8 +983,7 @@ class ColorConversionUtilTest(parameterized.TestCase):
           testcase_name='optical_path_sequence_icc_profile',
           dcm=_test_dcm_with_icc_profile(
               'OpticalPathSequence/0/ICCProfile',
-              'srgb',
-              'sRGB_v4_ICC_preference.icc',
+              color_conversion_util._get_srgb_iccprofile(),
           ),
           expected_path='OpticalPathSequence/0/ICCProfile',
       ),
@@ -1058,22 +1029,17 @@ class ColorConversionUtilTest(parameterized.TestCase):
       dict(
           testcase_name='icc_profile',
           dcm=_test_dcm_with_icc_profile(
-              'ICCProfile', 'srgb', 'sRGB_v4_ICC_preference.icc'
+              'ICCProfile', color_conversion_util._get_srgb_iccprofile()
           ),
-          expected_bytes=color_conversion_util._read_internal_icc_profile(
-              'srgb', 'sRGB_v4_ICC_preference.icc'
-          ),
+          expected_bytes=color_conversion_util._get_srgb_iccprofile(),
       ),
       dict(
           testcase_name='optical_path_sequence_icc_profile',
           dcm=_test_dcm_with_icc_profile(
               'OpticalPathSequence/0/ICCProfile',
-              'srgb',
-              'sRGB_v4_ICC_preference.icc',
+              color_conversion_util._get_srgb_iccprofile(),
           ),
-          expected_bytes=color_conversion_util._read_internal_icc_profile(
-              'srgb', 'sRGB_v4_ICC_preference.icc'
-          ),
+          expected_bytes=color_conversion_util._get_srgb_iccprofile(),
       ),
   ])
   def test_get_series_icc_profile_bytes(
@@ -1108,17 +1074,6 @@ class ColorConversionUtilTest(parameterized.TestCase):
 
   def test_get_srgb_iccprofile(self):
     self.assertLen(color_conversion_util._get_srgb_iccprofile(), 60960)
-
-  @mock.patch.object(
-      color_conversion_util,
-      '_read_internal_icc_profile',
-      autospec=True,
-      side_effect=FileNotFoundError('file not found'),
-  )
-  def test_get_srgb_iccprofile_cannot_load_embedded_profile_fail_over_to_pil(
-      self, _
-  ):
-    self.assertLen(color_conversion_util._get_srgb_iccprofile(), 588)
 
   def test_get_rommrgb_iccprofile(self):
     self.assertLen(color_conversion_util._get_rommrgb_iccprofile(), 864)

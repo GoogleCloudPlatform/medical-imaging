@@ -27,7 +27,6 @@ Public Functions:
 import dataclasses
 import enum
 import hashlib
-import importlib
 import io
 import os
 import tempfile
@@ -35,6 +34,7 @@ import threading
 from typing import Any, List, Mapping, Optional, Union
 
 import cachetools
+from ez_wsi_dicomweb import dicom_slide
 import numpy as np
 import PIL
 from PIL import ImageCms
@@ -123,18 +123,6 @@ def _read_icc_profile_file(*file_parts: str) -> bytes:
     return f.read()
 
 
-def _read_file_resource(package: str, resource: str) -> bytes:
-  return importlib.resources.files(package).joinpath(resource).read_bytes()
-
-
-def _read_internal_icc_profile(dirname: str, filename: str) -> bytes:
-  try:
-    module_name = f'third_party.{dirname}'
-    return _read_file_resource(module_name, filename)
-  except ModuleNotFoundError as err:
-    raise FileNotFoundError(str(err)) from err
-
-
 def _does_icc_profile_file_name_match(file_name: str, search_name: str) -> bool:
   fname, ext = os.path.splitext(file_name.lower())
   return fname == search_name and ext == '.icc'
@@ -179,10 +167,7 @@ def _get_srgb_iccprofile() -> bytes:
   profile = read_icc_profile_plugin_file('srgb')
   if profile:
     return profile
-  try:
-    return _read_internal_icc_profile('srgb', 'sRGB_v4_ICC_preference.icc')
-  except FileNotFoundError:
-    return ImageCms.ImageCmsProfile(ImageCms.createProfile(_SRGB)).tobytes()
+  return dicom_slide.get_srgb_icc_profile_bytes()
 
 
 def _get_adobergb_iccprofile() -> bytes:
@@ -190,14 +175,14 @@ def _get_adobergb_iccprofile() -> bytes:
     profile = read_icc_profile_plugin_file(filename)
     if profile:
       return profile
-  return _read_internal_icc_profile('adobergb1998', 'AdobeRGB1998.icc')
+  return dicom_slide.get_adobergb_icc_profile_bytes()
 
 
 def _get_rommrgb_iccprofile() -> bytes:
   profile = read_icc_profile_plugin_file('rommrgb')
   if profile:
     return profile
-  return _read_internal_icc_profile('rommrgb', 'ISO22028-2_ROMM-RGB.icc')
+  return dicom_slide.get_rommrgb_icc_profile_bytes()
 
 
 def _create_icc_profile_transform(

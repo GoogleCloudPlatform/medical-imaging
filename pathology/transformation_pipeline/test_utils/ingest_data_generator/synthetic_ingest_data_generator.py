@@ -389,7 +389,7 @@ CURRENT_TIME_STR = time.strftime('%Y_%m_%d_%H:%M:%S', time.gmtime())
 HASH_PRIVATE_TAG = '30211001'
 OUTPUT_CSV_FILENAME = f'synth_meta_gen_utc_{CURRENT_TIME_STR}.csv'
 DICOM_EXTENSIONS = frozenset(['.dcm', '.dicom'])
-WSI_IMAGE_EXTENSIONS = frozenset(['.svs', '.tif', '.ndpi'])
+WSI_IMAGE_EXTENSIONS = frozenset(['.svs', '.tif', '.ndpi', '.bif'])
 
 
 @dataclasses.dataclass(frozen=True)

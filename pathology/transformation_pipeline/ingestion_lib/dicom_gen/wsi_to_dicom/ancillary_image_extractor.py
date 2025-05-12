@@ -323,6 +323,13 @@ def image_icc(svs_file_path: str) -> Optional[bytes]:
   Raises:
     TiffSeriesNotFoundError: if Baseline not found
   """
+  try:
+    with openslide.OpenSlide(svs_file_path) as imaging:
+      cp = imaging.color_profile  # pytype: disable=attribute-error
+      if cp is not None:
+        return cp.icc_profile.tobytes()
+  except (openslide.OpenSlideError, AttributeError):
+    pass
   return _get_icc_tag(
       svs_file_path,
       'Baseline',

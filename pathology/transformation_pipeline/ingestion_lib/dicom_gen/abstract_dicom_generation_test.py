@@ -33,7 +33,6 @@ from pathology.transformation_pipeline.ingestion_lib import redis_client
 from pathology.transformation_pipeline.ingestion_lib.dicom_gen import abstract_dicom_generation
 from pathology.transformation_pipeline.ingestion_lib.dicom_gen import uid_generator
 from pathology.transformation_pipeline.ingestion_lib.dicom_gen import wsi_dicom_file_ref
-from pathology.transformation_pipeline.ingestion_lib.dicom_gen.wsi_to_dicom import dicom_util
 from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_test_util
 
 
@@ -65,18 +64,6 @@ class AbstractDicomGenerationTest(parameterized.TestCase):
   def setUp(self):
     super().setUp()
     self._dcm_path = gen_test_util.test_file_path('test_jpeg_dicom.dcm')
-
-  @mock.patch.object(
-      dicom_util,
-      '_read_internal_icc_profile',
-      side_effect=FileNotFoundError(),
-  )
-  @flagsaver.flagsaver(default_iccprofile=ingest_const.ICCProfile.ROMMRGB)
-  def test_abstract_dicom_generation_constructor_raises_if_default_icc_profile_not_found(
-      self, _
-  ) -> None:
-    with self.assertRaises(FileNotFoundError):
-      AbstractDicomGenerationForTest('abc')
 
   @parameterized.named_parameters([
       dict(

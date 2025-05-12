@@ -1,0 +1,7 @@
+# Do not modify requirements.txt directly.
+libtiff==0.4.2
+absl-py==2.2.2
+google-cloud-pubsub==2.29.0
+google-cloud-storage==3.1.0
+google-cloud-core==2.4.3
+# LINT.ThenChange(//depot/pathology.transformation_pipeline/isyntax_transformation/requirements.txt)

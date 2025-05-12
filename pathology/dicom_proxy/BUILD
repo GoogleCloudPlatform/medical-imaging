@@ -141,7 +141,6 @@ py_library(
 py_library(
     name = "color_conversion_util",
     srcs = ["color_conversion_util.py"],
-    data = ["//third_party:icc_profiles"],
     deps = [
         ":bulkdata_util",
         ":cache_enabled_type",
@@ -163,6 +162,7 @@ py_library(
         "//pathology/shared_libs/logging_lib:cloud_logging_client",
         requirement("pillow"),
         requirement("cachetools"),
+        "//pathology/ez_wsi_dicomweb:dicom_slide",
         requirement("numpy"),
     ],
 )
@@ -649,7 +649,6 @@ py_test(
 py_test(
     name = "color_conversion_util_test",
     srcs = ["color_conversion_util_test.py"],
-    data = ["//third_party:icc_profiles"],
     deps = [
         ":bulkdata_util",
         ":cache_enabled_type",
@@ -823,7 +822,6 @@ py_test(
     srcs = ["image_util_test.py"],
     data = [
         ":image_util_test_images",
-        "//third_party:icc_profiles",
     ],
     deps = [
         ":color_conversion_util",
@@ -924,7 +922,6 @@ py_test(
 py_test(
     name = "dicom_proxy_blueprint_test",
     srcs = ["dicom_proxy_blueprint_test.py"],
-    data = ["//third_party:icc_profiles"],
     deps = [
         requirement("absl-py"),
         ":bulkdata_util",

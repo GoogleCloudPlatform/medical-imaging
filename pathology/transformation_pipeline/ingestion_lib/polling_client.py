@@ -449,12 +449,8 @@ class PollingClient(abstract_polling_client.AbstractPollingClient):
     """
     if self._is_polling_pubsub():
       response = self._pubsub_subscriber.pull(
-          request={
-              'subscription': self._current_subscription.subscription_path,
-              'max_messages': (
-                  1  # Limit the subscriber to handle 1 message at a time.
-              ),
-          },
+          subscription=self._current_subscription.subscription_path,
+          max_messages=1,
           return_immediately=False,
           retry=retry.Retry(deadline=1000),
       )

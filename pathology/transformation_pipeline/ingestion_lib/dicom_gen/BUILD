@@ -269,7 +269,6 @@ py_test(
         "//pathology/transformation_pipeline/ingestion_lib:gen_test_util",
         "//pathology/transformation_pipeline/ingestion_lib:ingest_const",
         "//pathology/transformation_pipeline/ingestion_lib:redis_client",
-        "//pathology/transformation_pipeline/ingestion_lib/dicom_gen/wsi_to_dicom:dicom_util",
         "//pathology/transformation_pipeline/ingestion_lib/dicom_util:dicom_test_util",
         requirement("pydicom"),
     ],

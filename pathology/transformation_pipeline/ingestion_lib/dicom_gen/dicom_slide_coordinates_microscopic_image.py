@@ -88,7 +88,7 @@ def _is_opaque(image) -> bool:
 
 
 def _convert_resolution_to_spacing(
-    resolution: Sequence[int], resolution_unit: tifffile.TIFF.RESUNIT
+    resolution: Sequence[int], resolution_unit: tifffile.RESUNIT
 ) -> Optional[float]:
   """Converts resolution to pixel spacing.
 
@@ -102,9 +102,9 @@ def _convert_resolution_to_spacing(
   if len(resolution) != 2:  # Invalid resolution value.
     return None
   # pytype: disable=attribute-error
-  if resolution_unit == tifffile.TIFF.RESUNIT.CENTIMETER:
+  if resolution_unit == tifffile.RESUNIT.CENTIMETER:
     unit_to_mm = 10
-  elif resolution_unit == tifffile.TIFF.RESUNIT.INCH:
+  elif resolution_unit == tifffile.RESUNIT.INCH:
     unit_to_mm = 25.4
   else:  # Resolution unit unspecified.
     return None

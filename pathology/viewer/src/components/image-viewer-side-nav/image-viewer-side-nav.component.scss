@@ -1,3 +1,5 @@
+@use 'third_party/javascript/angular_components/material' as mat;
+
 /**
  * Copyright 2024 Google LLC
  *
@@ -358,9 +360,11 @@ $light_gray: #5f6368;
 }
 
 ::ng-deep .label-autocomplete {
-  .mat-mdc-autocomplete-panel {
-    background-color: #f5f5f5;
-  }
+  @include mat.autocomplete-overrides(
+    (
+      background-color: #f5f5f5,
+    )
+  );
 }
 
 .context-menu {

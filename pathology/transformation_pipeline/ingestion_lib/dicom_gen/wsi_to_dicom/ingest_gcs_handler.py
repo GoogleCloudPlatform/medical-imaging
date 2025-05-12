@@ -84,7 +84,7 @@ def _get_ignored_gcs_upload_file_exts() -> FrozenSet[str]:
 
 _DICOM_INGEST_EXTENSIONS = frozenset(['.dicom', '.dcm', '.zip'])
 _FLAT_IMAGE_INGEST_EXTENSIONS = frozenset(['.jpg', '.jpeg', '.png'])
-_WSI_INGEST_EXTENSIONS = frozenset(['.ndpi', '.svs'])
+_WSI_INGEST_EXTENSIONS = frozenset(['.ndpi', '.svs', '.bif'])
 _TIFF_EXTENSIONS = frozenset(['.tif', '.tiff'])
 # See TIFF tags in
 # https://www.loc.gov/preservation/digital/formats/content/tiff_tags.shtml

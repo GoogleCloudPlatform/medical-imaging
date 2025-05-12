@@ -1100,9 +1100,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
   def test_return_icc_profile_bulkdata(self):
     tmp_dir = self.create_tempdir()
     dicom_path = os.path.join(tmp_dir, 'test_dicom.dcm')
-    icc_profile = color_conversion_util._read_internal_icc_profile(
-        'srgb', 'sRGB_v4_ICC_preference.icc'
-    )
+    icc_profile = color_conversion_util._get_srgb_iccprofile()
     with pydicom.dcmread(
         shared_test_util.jpeg_encoded_dicom_instance_test_path()
     ) as dcm:

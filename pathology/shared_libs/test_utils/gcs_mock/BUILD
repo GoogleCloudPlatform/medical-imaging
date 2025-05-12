@@ -35,6 +35,7 @@ py_library(
         "//pathology/shared_libs/test_utils/gcs_mock/gcs_mock_lib:client_mock",
         "//pathology/shared_libs/test_utils/gcs_mock/gcs_mock_lib:gcs_mock_types",
         "//pathology/shared_libs/test_utils/gcs_mock/gcs_mock_lib:gcs_state_mock",
+        "//pathology/shared_libs/test_utils/gcs_mock/gcs_mock_lib:transfer_manager_mock",
         requirement("google-cloud-storage"),
     ],
 )

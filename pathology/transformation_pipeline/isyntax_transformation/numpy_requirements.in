@@ -1,0 +1,3 @@
+# Do not modify numpy_requirements.txt directly.
+numpy==1.24.0
+# LINT.ThenChange(//depot/pathology.transformation_pipeline/isyntax_transformation/numpy_requirements.txt)

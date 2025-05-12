@@ -58,7 +58,6 @@ py_library(
     srcs = [
         "dicom_util.py",
     ],
-    data = ["//third_party:icc_profiles"],
     srcs_version = "PY3",
     deps = [
         "//pathology/shared_libs/logging_lib:cloud_logging_client",
@@ -73,6 +72,7 @@ py_library(
         "//pathology/transformation_pipeline/ingestion_lib/dicom_gen:wsi_dicom_file_ref",
         "//pathology/transformation_pipeline/ingestion_lib/dicom_util:pydicom_util",
         requirement("pillow"),
+        "//pathology/ez_wsi_dicomweb:dicom_slide",
         requirement("openslide-python"),
         requirement("pydicom"),
     ],

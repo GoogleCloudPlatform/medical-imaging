@@ -18,13 +18,13 @@ from __future__ import annotations
 
 import copy
 import datetime
-import importlib.resources
 import io
 import itertools
 import os
 import re
 from typing import Any, List, Mapping, MutableMapping, Optional, Sequence, Union
 
+from ez_wsi_dicomweb import dicom_slide
 import openslide
 from PIL import ImageCms
 import PIL.Image
@@ -57,18 +57,6 @@ class InvalidICCProfileError(Exception):
 def _read_icc_profile_file(*file_parts: str) -> bytes:
   with open(os.path.join(*file_parts), 'rb') as f:
     return f.read()
-
-
-def _read_file_resource(package: str, resource: str) -> bytes:
-  return importlib.resources.files(package).joinpath(resource).read_bytes()
-
-
-def _read_internal_icc_profile(dirname: str, filename: str) -> bytes:
-  try:
-    module_name = f'third_party.{dirname}'
-    return _read_file_resource(module_name, filename)
-  except ModuleNotFoundError as err:
-    raise FileNotFoundError(str(err)) from err
 
 
 def _does_icc_profile_file_name_match(file_name: str, search_name: str) -> bool:
@@ -116,10 +104,7 @@ def _get_srgb_iccprofile() -> bytes:
   profile = _read_icc_profile_plugin_file('srgb')
   if profile:
     return profile
-  try:
-    return _read_internal_icc_profile('srgb', 'sRGB_v4_ICC_preference.icc')
-  except FileNotFoundError:
-    return ImageCms.ImageCmsProfile(ImageCms.createProfile(_SRGB)).tobytes()
+  return dicom_slide.get_srgb_icc_profile_bytes()
 
 
 def _get_adobergb_iccprofile() -> bytes:
@@ -127,14 +112,14 @@ def _get_adobergb_iccprofile() -> bytes:
     profile = _read_icc_profile_plugin_file(filename)
     if profile:
       return profile
-  return _read_internal_icc_profile('adobergb1998', 'AdobeRGB1998.icc')
+  return dicom_slide.get_adobergb_icc_profile_bytes()
 
 
 def _get_rommrgb_iccprofile() -> bytes:
   profile = _read_icc_profile_plugin_file('rommrgb')
   if profile:
     return profile
-  return _read_internal_icc_profile('rommrgb', 'ISO22028-2_ROMM-RGB.icc')
+  return dicom_slide.get_rommrgb_icc_profile_bytes()
 
 
 def get_default_icc_profile_color() -> Optional[bytes]:
