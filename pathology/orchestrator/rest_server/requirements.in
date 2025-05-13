@@ -6,7 +6,7 @@ certifi==2025.1.31
 # Required to use key algorithm ES256 in IAP JWT validation.
 cryptography==44.0.1 # https://nvd.nist.gov/vuln/detail/CVE-2023-0286
 ez-wsi-dicomweb==6.0.9
-flask==3.1.0
+flask==3.1.1
 flask-cors==5.0.0
 google-api-core==2.24.1
 google-api-core[grpc]==2.24.1
