@@ -15,7 +15,7 @@
 # Bazel requirements
 absl_py==2.1.0
 brotli==1.1.0
-flask_cors==5.0.0
+flask_cors==6.0.0
 gunicorn==23.0.0
 flask_compress==1.17
 imagecodecs==2024.12.30
