@@ -10,7 +10,7 @@ dataclasses-json==0.6.7
 ez-wsi-dicomweb==6.0.15
 flask==3.1.0
 Flask-Compress==1.17
-flask-cors==5.0.1
+flask-cors==6.0.0
 google-api-python-client==2.169.0
 google-auth==2.40.1
 google-cloud-kms==3.4.1
