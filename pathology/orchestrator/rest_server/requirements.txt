@@ -8,7 +8,7 @@ absl-py==2.1.0 \
     --hash=sha256:526a04eadab8b4ee719ce68f204172ead1027549089702d99b9059f129ff1308 \
     --hash=sha256:7820790efbb316739cde8b4e19357243fc3608a152024288513dd968d7d959ff
     # via
-    #   -r /requirements.in
+    #   -r requirements.in
     #   ez-wsi-dicomweb
 blinker==1.9.0 \
     --hash=sha256:b4ce2265a7abece45e7cc896e98dbebe6cead56bcf805a3d23136d145f5445bf \
@@ -24,7 +24,7 @@ certifi==2025.1.31 \
     --hash=sha256:3d5da6925056f6f18f119200434a4780a94263f10d1c21d032a6f6b2baa20651 \
     --hash=sha256:ca78db4565a652026a4db2bcdf68f2fb589ea80d0be70e03929ed730746b84fe
     # via
-    #   -r /requirements.in
+    #   -r requirements.in
     #   requests
 cffi==1.17.1 \
     --hash=sha256:045d61c734659cc045141be4bae381a41d89b741f795af1dd018bfb532fd0df8 \
@@ -225,7 +225,7 @@ cryptography==44.0.1 \
     --hash=sha256:f4daefc971c2d1f82f03097dc6f216744a6cd2ac0f04c68fb935ea2ba2a0d420 \
     --hash=sha256:f51f5705ab27898afda1aaa430f34ad90dc117421057782022edf0600bec5f14 \
     --hash=sha256:fd0ee90072861e276b0ff08bd627abec29e32a53b2be44e41dbcdf87cbee2b00
-    # via -r /requirements.in
+    # via -r requirements.in
 dataclasses-json==0.6.7 \
     --hash=sha256:0dbf33f26c8d5305befd61b39d2b3414e8a407bedc2834dea9b8d642666fb40a \
     --hash=sha256:b6b3e528266ea45b9535223bc53ca645f5208833c29229e847b3f26a1cc55fc0
@@ -236,22 +236,22 @@ deprecated==1.2.18 \
     # via opentelemetry-api
 ez-wsi-dicomweb==6.0.9 \
     --hash=sha256:8f684d18eac04dabe79d92e9c4050fe4c97a4e93a2f01ac05c93db4f205d9029
-    # via -r /requirements.in
+    # via -r requirements.in
 flask==3.1.0 \
     --hash=sha256:5f873c5184c897c8d9d1b05df1e3d01b14910ce69607a117bd3277098a5836ac \
     --hash=sha256:d667207822eb83f1c4b50949b1623c8fc8d51f2341d65f72e1a1815397551136
     # via
-    #   -r /requirements.in
+    #   -r requirements.in
     #   flask-cors
 flask-cors==5.0.0 \
     --hash=sha256:5aadb4b950c4e93745034594d9f3ea6591f734bb3662e16e255ffbf5e89c88ef \
     --hash=sha256:b9e307d082a9261c100d8fb0ba909eec6a228ed1b60a8315fd85f783d61910bc
-    # via -r /requirements.in
+    # via -r requirements.in
 google-api-core[grpc]==2.24.1 \
     --hash=sha256:bc78d608f5a5bf853b80bd70a795f703294de656c096c0968320830a4bc280f1 \
     --hash=sha256:f8b36f5456ab0dd99a1b693a40a31d1e7757beea380ad1b38faaf8941eae9d8a
     # via
-    #   -r /requirements.in
+    #   -r requirements.in
     #   google-api-python-client
     #   google-cloud-appengine-logging
     #   google-cloud-core
@@ -262,12 +262,12 @@ google-api-core[grpc]==2.24.1 \
 google-api-python-client==2.161.0 \
     --hash=sha256:324c0cce73e9ea0a0d2afd5937e01b7c2d6a4d7e2579cdb6c384f9699d6c9f37 \
     --hash=sha256:9476a5a4f200bae368140453df40f9cda36be53fa7d0e9a9aac4cdb859a26448
-    # via -r /requirements.in
+    # via -r requirements.in
 google-auth==2.38.0 \
     --hash=sha256:8285113607d3b80a3f1543b75962447ba8a09fe85783432a784fdeef6ac094c4 \
     --hash=sha256:e7dae6694313f434a2727bf2906f27ad259bae090d7aa896590d86feec3d9d4a
     # via
-    #   -r /requirements.in
+    #   -r requirements.in
     #   ez-wsi-dicomweb
     #   google-api-core
     #   google-api-python-client
@@ -301,20 +301,20 @@ google-cloud-core==2.4.1 \
 google-cloud-logging==3.11.4 \
     --hash=sha256:1d465ac62df29fb94bba4d6b4891035e57d573d84541dd8a40eebbc74422b2f0 \
     --hash=sha256:32305d989323f3c58603044e2ac5d9cf23e9465ede511bbe90b4309270d3195c
-    # via -r /requirements.in
+    # via -r requirements.in
 google-cloud-secret-manager==2.23.0 \
     --hash=sha256:0249f433b6f0899b5e2adfc495e5b2d4a76c484937cad7c27e2b374bebf8f248 \
     --hash=sha256:fc4c28dd3e932b89d1057100c6625686a43b5ca26e6dd73ffea2afbfbbc97209
-    # via -r /requirements.in
+    # via -r requirements.in
 google-cloud-spanner==3.51.0 \
     --hash=sha256:2d01f33582526ebe7fab62034e92e722e512c21f6bc4abe27e03d86ef7ea576a \
     --hash=sha256:346c2c20f64847883464fb0de5a6f9b48ecc6f79b032a2fb3a0aa088d9a9863f
-    # via -r /requirements.in
+    # via -r requirements.in
 google-cloud-storage==3.0.0 \
     --hash=sha256:2accb3e828e584888beff1165e5f3ac61aa9088965eb0165794a82d8c7f95297 \
     --hash=sha256:f85fd059650d2dbb0ac158a9a6b304b66143b35ed2419afec2905ca522eb2c6a
     # via
-    #   -r /requirements.in
+    #   -r requirements.in
     #   ez-wsi-dicomweb
 google-crc32c==1.6.0 \
     --hash=sha256:05e2d8c9a2f853ff116db9706b4a27350587f341eda835f46db3c0a8c8ce2f24 \
@@ -355,7 +355,7 @@ googleapis-common-protos[grpc]==1.66.0 \
     --hash=sha256:c3e7b33d15fdca5374cc0a7346dd92ffa847425cc4ea941d970f13680052ec8c \
     --hash=sha256:d7abcd75fabb2e0ec9f74466401f6c119a0b498e27370e9be4c94cb7e382b8ed
     # via
-    #   -r /requirements.in
+    #   -r requirements.in
     #   google-api-core
     #   google-cloud-audit-log
     #   grpc-google-iam-v1
@@ -428,7 +428,7 @@ grpcio==1.70.0 \
     --hash=sha256:fe9dbd916df3b60e865258a8c72ac98f3ac9e2a9542dcb72b7a34d236242a5ce \
     --hash=sha256:ff4a8112a79464919bb21c18e956c54add43ec9a4850e3949da54f61c241a4a6
     # via
-    #   -r /requirements.in
+    #   -r requirements.in
     #   google-api-core
     #   googleapis-common-protos
     #   grpc-google-iam-v1
@@ -440,11 +440,11 @@ grpcio==1.70.0 \
 grpcio-health-checking==1.70.0 \
     --hash=sha256:a38c828749e58c4031f005bdb9cc3b84f538947a9a5ea4f1cf957d22f250f515 \
     --hash=sha256:ca5fc86a7c609848c3877d11b5d2d2ed27e2923151e2bf61e47051c7d3c10d1b
-    # via -r /requirements.in
+    # via -r requirements.in
 grpcio-reflection==1.70.0 \
     --hash=sha256:5b8730dbb316ebc0b592863f391a6effa8261be1b74022facfc2aa28639ddbfd \
     --hash=sha256:af46ce13e57fd7602deaef5b1d1903f6644f8982cc00f62fa9fa5b928acf6a49
-    # via -r /requirements.in
+    # via -r requirements.in
 grpcio-status==1.70.0 \
     --hash=sha256:0e7b42816512433b18b9d764285ff029bde059e9d41f8fe10a60631bd8348101 \
     --hash=sha256:fc5a2ae2b9b1c1969cc49f3262676e6854aa2398ec69cb5bd6c47cd501904a85
@@ -505,11 +505,11 @@ grpcio-tools==1.70.0 \
     --hash=sha256:f22852da12f53b02a3bdb29d0c32fcabab9c7c8f901389acffec8461083f110d \
     --hash=sha256:f7ac9b3e13ace8467a586c53580ee22f9732c355583f3c344ef8c6c0666219cc \
     --hash=sha256:fd04c93af460b1456cd12f8f85502503e1db6c4adc1b7d4bd775b12c1fd94fee
-    # via -r /requirements.in
+    # via -r requirements.in
 gunicorn==23.0.0 \
     --hash=sha256:ec400d38950de4dfd418cff8328b2c8faed0edb0d517d3394e457c317908ca4d \
     --hash=sha256:f014447a0101dc57e294f6c18ca6b40227a4c90e9bdb586042628030cba004ec
-    # via -r /requirements.in
+    # via -r requirements.in
 httplib2==0.22.0 \
     --hash=sha256:14ae0a53c1ba8f3d37e9e27cf37eabb0fb9980f435ba405d546948b009dd64dc \
     --hash=sha256:d7a10bc5ef5ab08322488bde8c726eeee5c8618723fdb399597ec58f3d82df81
@@ -700,7 +700,7 @@ numpy==2.2.1 \
     --hash=sha256:f9b57eaa3b0cd8db52049ed0330747b0364e899e8a606a624813452b8203d5f7 \
     --hash=sha256:fce4f615f8ca31b2e61aa0eb5865a21e14f5629515c9151850aa936c02a1ee51
     # via
-    #   -r /requirements.in
+    #   -r requirements.in
     #   ez-wsi-dicomweb
     #   imagecodecs
     #   opencv-python-headless
@@ -818,7 +818,7 @@ protobuf==5.29.3 \
     --hash=sha256:c027e08a08be10b67c06bf2370b99c811c466398c357e615ca88c91c07f0910f \
     --hash=sha256:daaf63f70f25e8689c072cfad4334ca0ac1d1e05a92fc15c54eb9cf23c3efd84
     # via
-    #   -r /requirements.in
+    #   -r requirements.in
     #   google-api-core
     #   google-cloud-appengine-logging
     #   google-cloud-audit-log
@@ -844,7 +844,7 @@ psutil==7.0.0 \
     --hash=sha256:a5f098451abc2828f7dc6b58d44b532b22f2088f4999a937557b603ce72b1993 \
     --hash=sha256:ba3fcef7523064a6c9da440fc4d6bd07da93ac726b5733c29027d7dc95b39d99
     # via
-    #   -r /requirements.in
+    #   -r requirements.in
     #   ez-wsi-dicomweb
 pyasn1==0.6.1 \
     --hash=sha256:0d632f46f2ba09143da3a8afe9e33fb6f92fa2320ab7e886e2d0f7672af84629 \
@@ -864,17 +864,17 @@ pydicom==3.0.1 \
     --hash=sha256:7b8be344b5b62493c9452ba6f5a299f78f8a6ab79786c729b0613698209603ec \
     --hash=sha256:db32f78b2641bd7972096b8289111ddab01fb221610de8d7afa835eb938adb41
     # via
-    #   -r /requirements.in
+    #   -r requirements.in
     #   ez-wsi-dicomweb
 pyparsing==3.2.1 \
     --hash=sha256:506ff4f4386c4cec0590ec19e6302d3aedb992fdc02c761e90416f158dacf8e1 \
     --hash=sha256:61980854fd66de3a90028d679a954d5f2623e83144b5afe5ee86f43d762e5f0a
     # via httplib2
-requests==2.32.3 \
-    --hash=sha256:55365417734eb18255590a9ff9eb97e9e1da868d4ccd6402399eaf68af20a760 \
-    --hash=sha256:70761cfe03c773ceb22aa2f671b4757976145175cdfca038c02654d061d6dcc6
+requests==2.32.4 \
+    --hash=sha256:27babd3cda2a6d50b30443204ee89830707d396671944c998b5975b031ac2b2c \
+    --hash=sha256:27d0316682c8a29834d3264820024b62a36942083d52caf2f14c0591336d3422
     # via
-    #   -r /requirements.in
+    #   -r requirements.in
     #   ez-wsi-dicomweb
     #   google-api-core
     #   google-cloud-storage
@@ -920,18 +920,18 @@ urllib3==2.3.0 \
     --hash=sha256:1cee9ad369867bfdbbb48b7dd50374c0967a0bb7710050facf0dd6911440e3df \
     --hash=sha256:f8c5449b3cf0861679ce7e0503c7b44b5ec981bec0d1d3795a07f1ba96f0204d
     # via
-    #   -r /requirements.in
+    #   -r requirements.in
     #   requests
 werkzeug==3.1.3 \
     --hash=sha256:54b78bf3716d19a65be4fceccc0d1d7b89e608834989dfae50ea87564639213e \
     --hash=sha256:60723ce945c19328679790e3282cc758aa4a6040e4bb330f53d30fa546d44746
     # via
-    #   -r /requirements.in
+    #   -r requirements.in
     #   flask
 wheel==0.45.1 \
     --hash=sha256:661e1abd9198507b1409a20c02106d9670b2576e916d58f520316666abca6729 \
     --hash=sha256:708e7481cc80179af0e556bbf0cc00b8444c7321e2700b8d8580231d13017248
-    # via -r /requirements.in
+    # via -r requirements.in
 wrapt==1.17.2 \
     --hash=sha256:08e7ce672e35efa54c5024936e559469436f8b8096253404faeb54d2a878416f \
     --hash=sha256:0a6e821770cf99cc586d33833b2ff32faebdbe886bd6322395606cf55153246c \
