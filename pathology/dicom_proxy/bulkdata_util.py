@@ -74,7 +74,7 @@ def _init_fork_module_state() -> None:
 
 
 def _does_json_have_bulkdata_uri_key(
-    dicom_dataset_metadata: Mapping[str, Any]
+    dicom_dataset_metadata: Mapping[str, Any],
 ) -> bool:
   """Returns true if DICOM JSON metadata defines key anywhere in structure.
 

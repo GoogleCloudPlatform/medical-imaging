@@ -94,13 +94,13 @@ class PydicomSingleInstanceReadCacheTest(parameterized.TestCase):
     test = shared_test_util.jpeg_encoded_pydicom_instance_cache()
     self.assertEqual(dataclasses.asdict(test.metadata), _EXPECTED_METADATA)
 
-  def test_get_encapsulated_frame_returns_expected_data(self):
+  def test_get_frame_returns_expected_data(self):
     test = shared_test_util.jpeg_encoded_pydicom_instance_cache()
-    frame_data1 = test.get_encapsulated_frame(0)
+    frame_data = test.get_frame(0)
 
-    self.assertLen(frame_data1, 8418)
+    self.assertLen(frame_data, 8418)
     self.assertEqual(
-        hashlib.md5(frame_data1).hexdigest(), 'c7c77aab4987844196bf8fad35919463'
+        hashlib.md5(frame_data).hexdigest(), 'c7c77aab4987844196bf8fad35919463'
     )
 
   def test_path(self):

@@ -450,13 +450,11 @@ def get_local_frame_list(
   try:
     if frame_numbers_start_at_index_0:
       return [
-          FrameData(dicom_instance_source.get_encapsulated_frame(index), False)
+          FrameData(dicom_instance_source.get_frame(index), False)
           for index in dicom_frames
       ]
     return [
-        FrameData(
-            dicom_instance_source.get_encapsulated_frame(index - 1), False
-        )
+        FrameData(dicom_instance_source.get_frame(index - 1), False)
         for index in dicom_frames
     ]
   except IndexError as exp:

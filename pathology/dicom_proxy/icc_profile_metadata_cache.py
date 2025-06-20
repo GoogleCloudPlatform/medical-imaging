@@ -38,8 +38,8 @@ class ICCProfileMetadata:
   hash: str  # Hash of ICC Profile bytes
 
 
-INSTANCE_MISSING_ICC_PROFILE_METADATA = icc_profile_metadata = (
-    ICCProfileMetadata('', '', '', 'DICOM_INSTANCE_HAS_NO_ICC_PROFILE')
+INSTANCE_MISSING_ICC_PROFILE_METADATA = ICCProfileMetadata(
+    '', '', '', 'DICOM_INSTANCE_HAS_NO_ICC_PROFILE'
 )
 
 # Metadata Flag Cache Const

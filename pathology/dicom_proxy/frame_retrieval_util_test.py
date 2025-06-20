@@ -232,7 +232,7 @@ class FrameRetrievalUtilTest(parameterized.TestCase):
     cache = shared_test_util.jpeg_encoded_pydicom_instance_cache()
     self.assertEqual(
         frame_retrieval_util.get_local_frame_list(cache, [0])[0],
-        _mock_get_frame_data(cache.get_encapsulated_frame(0), False),
+        _mock_get_frame_data(cache.get_frame(0), False),
     )
 
   def test_get_local_frame_list_raises_if_index_out_of_bounds(self):

@@ -433,13 +433,27 @@ class ColorConversionUtilTest(parameterized.TestCase):
 
   @parameterized.named_parameters([
       dict(
-          testcase_name='no_bulkdata_support',
+          testcase_name='no_bulkdata_support_with_instance_uid',
           store_version='v1',
+          instance_uid='1.2.3.4',
           supports_bulkdata=False,
       ),
       dict(
-          testcase_name='bulkdata_support',
+          testcase_name='no_bulkdata_support_no_instance_uid',
+          store_version='v1',
+          instance_uid='',
+          supports_bulkdata=False,
+      ),
+      dict(
+          testcase_name='bulkdata_support_instance_uid',
           store_version='v1beta1',
+          instance_uid='1.2.3.4',
+          supports_bulkdata=True,
+      ),
+      dict(
+          testcase_name='bulkdata_support_no_instance_uid',
+          store_version='v1beta1',
+          instance_uid='',
           supports_bulkdata=True,
       ),
   ])
@@ -447,7 +461,7 @@ class ColorConversionUtilTest(parameterized.TestCase):
       color_conversion_util, '_create_icc_profile_transform', autospec=True
   )
   def test_get_icc_profile_transform_for_dicom_url_cached_profile_value(
-      self, color_transform_mock, store_version, supports_bulkdata
+      self, color_transform_mock, store_version, supports_bulkdata, instance_uid
   ):
     key_value = b'1234'
     session = user_auth_util.AuthSession({})
@@ -455,7 +469,7 @@ class ColorConversionUtilTest(parameterized.TestCase):
         f'https://healthcare.googleapis.com/{store_version}/test_url'
     )
     color_transform_mock.return_value = key_value
-
+    requested_sop_instance_uid = dicom_url_util.SOPInstanceUID(instance_uid)
     # Set mock redis cache to hold reference ICC Profile metadata for instance
     # and the ICC Profile bytes.
     redis_mk = shared_test_util.RedisMock()
@@ -465,7 +479,9 @@ class ColorConversionUtilTest(parameterized.TestCase):
     )
     redis_mk.set(
         icc_profile_metadata_cache._cache_key(
-            dicom_series_url, _UNDEFINED_SOP_INSTANCE_UID, supports_bulkdata
+            dicom_series_url,
+            requested_sop_instance_uid,
+            supports_bulkdata and instance_uid,
         ),
         icc_profile_metadata.to_json().encode('utf-8'),
         nx=False,
@@ -488,7 +504,7 @@ class ColorConversionUtilTest(parameterized.TestCase):
             color_conversion_util.get_icc_profile_transform_for_dicom_url(
                 session,
                 dicom_series_url,
-                _UNDEFINED_SOP_INSTANCE_UID,
+                requested_sop_instance_uid,
                 cache_enabled_type.CachingEnabled(True),
                 proxy_const.ICCProfile.SRGB,
             ),

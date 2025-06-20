@@ -184,7 +184,6 @@ py_library(
     srcs = [
         "dicom_image_coordinate_util.py",
     ],
-    srcs_version = "PY3",
     deps = [
         ":metadata_util",
     ],
@@ -225,7 +224,6 @@ py_library(
     srcs = [
         "dicom_tag_util.py",
     ],
-    srcs_version = "PY3",
     deps = [
     ],
 )
@@ -235,7 +233,6 @@ py_library(
     srcs = [
         "dicom_url_util.py",
     ],
-    srcs_version = "PY3",
     deps = [
         ":cache_enabled_type",
         ":dicom_proxy_flags",
@@ -370,7 +367,6 @@ py_library(
     srcs = [
         "logging_util.py",
     ],
-    srcs_version = "PY3",
     deps = [
         ":dicom_proxy_flags",
         ":flask_util",
@@ -386,7 +382,6 @@ py_library(
     srcs = [
         "metadata_util.py",
     ],
-    srcs_version = "PY3",
     deps = [
         ":bulkdata_util",
         ":cache_enabled_type",
@@ -429,10 +424,8 @@ py_library(
     srcs = [
         "pydicom_single_instance_read_cache.py",
     ],
-    srcs_version = "PY3",
     deps = [
         ":metadata_util",
-        "//pathology/shared_libs/pydicom_version_util",
         requirement("pydicom"),
     ],
 )
@@ -595,8 +588,6 @@ py_library(
 py_binary(
     name = "server",
     srcs = ["server.py"],
-    python_version = "PY3",
-    srcs_version = "PY3",
     deps = [
         requirement("absl-py"),
         ":dicom_proxy_blueprint",
@@ -702,7 +693,6 @@ py_test(
     srcs = [
         "dicom_url_util_test.py",
     ],
-    srcs_version = "PY3",
     deps = [
         requirement("absl-py"),
         ":cache_enabled_type",
@@ -840,7 +830,6 @@ py_test(
     srcs = [
         "metadata_util_test.py",
     ],
-    srcs_version = "PY3",
     deps = [
         requirement("absl-py"),
         ":cache_enabled_type",

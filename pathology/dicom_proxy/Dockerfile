@@ -45,7 +45,6 @@ COPY ./pathology/bazel_requirements.txt ./pathology/__init__.py /pathology/
 COPY ./pathology/dicom_proxy/redis.conf /
 COPY ./pathology/dicom_proxy /pathology/dicom_proxy/
 COPY ./pathology/shared_libs /pathology/shared_libs/
-COPY ./third_party /third_party
 # required to run echo -e
 SHELL ["/bin/bash", "-c"]
 RUN apt-get update && \
@@ -84,9 +83,6 @@ RUN apt-get update && \
    find /pathology -type d -exec chmod 755 {} \; && \
    find /pathology -type f -exec chmod 644 {} \; && \
    chmod 644 /redis.conf && \
-# Make third_party folder and contents readable.
-   find /third_party -type d -exec chmod 755 {} \; && \
-   find /third_party -type f -exec chmod 644 {} \; && \
 # Make icc profiles copied in to icc profiles dir folder readable.
    find /icc_profiles -type d -exec chmod 755 {} \; && \
    find /icc_profiles -type f -exec chmod 644 {} \; && \

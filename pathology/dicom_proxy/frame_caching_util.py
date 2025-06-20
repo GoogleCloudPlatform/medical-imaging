@@ -194,9 +194,8 @@ def _get_encapsulated_data_frame(
 
 
 def _get_pixel_data_frame(
-    pixel_data: bytes, number_of_frames: int
+    pixel_data: bytes, frame_size: int
 ) -> Iterator[Tuple[bytes, int]]:
-  frame_size = int(len(pixel_data) / number_of_frames)
   for index, offset in enumerate(range(0, len(pixel_data), frame_size)):
     yield (pixel_data[offset : offset + frame_size], index + 1)
 
@@ -233,11 +232,23 @@ def _cache_entire_instance(dicom_instance: _DicomInstanceRequest) -> int:
     uauth = dicom_instance.user_auth
     dicom_instance_url = dicom_instance.dicom_sop_instance_url
     with pydicom.dcmread(path) as local_pydicom_instance:
-      number_of_frames = int(local_pydicom_instance.NumberOfFrames)
+      try:
+        number_of_frames = int(local_pydicom_instance.NumberOfFrames)
+      except (AttributeError, ValueError, TypeError) as _:
+        number_of_frames = 1
       transfer_syntax_uid = str(
           local_pydicom_instance.file_meta.TransferSyntaxUID
       )
       pixel_data = local_pydicom_instance.PixelData
+      try:
+        frame_size = int(
+            local_pydicom_instance.Columns
+            * local_pydicom_instance.Rows
+            * local_pydicom_instance.SamplesPerPixel
+            * int(local_pydicom_instance.BitsAllocated / 8)
+        )
+      except (AttributeError, ValueError, TypeError) as _:
+        frame_size = int(len(pixel_data) / number_of_frames)
   redis = redis_cache.RedisCache()
   frame_ttl = frame_retrieval_util.frame_cache_ttl()
   set_frame_partial = functools.partial(
@@ -253,7 +264,7 @@ def _cache_entire_instance(dicom_instance: _DicomInstanceRequest) -> int:
         pydicom_version_util.generate_frames(pixel_data, number_of_frames)
     )
   else:
-    frame_data_generator = _get_pixel_data_frame(pixel_data, number_of_frames)
+    frame_data_generator = _get_pixel_data_frame(pixel_data, frame_size)
 
   # If running locally or processing small number of frames just iterate over
   # frames and set cache from main in the thread.

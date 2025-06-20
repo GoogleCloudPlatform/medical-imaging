@@ -246,6 +246,43 @@ class DicomInstanceMetadata:
       icc_profile_metadata_cache.ICCProfileMetadata
   ]
 
+  @property
+  def has_icc_profile(self) -> bool:
+    return (
+        self._instance_icc_profile_metadata is not None
+        and self._instance_icc_profile_metadata
+        != icc_profile_metadata_cache.INSTANCE_MISSING_ICC_PROFILE_METADATA
+    )
+
+  @property
+  def icc_profile_colorspace(self) -> str:
+    # pytype: disable=attribute-error
+    return (
+        self._instance_icc_profile_metadata.color_space
+        if self.has_icc_profile
+        else ''
+    )
+    # pytype: enable=attribute-error
+
+  @property
+  def icc_profile_path(self) -> str:
+    # pytype: disable=attribute-error
+    return (
+        self._instance_icc_profile_metadata.path if self.has_icc_profile else ''
+    )
+    # pytype: enable=attribute-error
+
+  @property
+  def icc_profile_bulkdata_uri(self) -> str:
+    # pytype: disable=attribute-error
+    # Bulkdata uri is only set if the DICOM store supports bulkdata retrieval.
+    return (
+        self._instance_icc_profile_metadata.bulkdata_uri  # pytype: disable=attribute-error
+        if self.has_icc_profile
+        else ''
+    )
+    # pytype: enable=attribute-error
+
   # Source metadata used to request instance metadata.
   metadata_source: MetadataSource
 
@@ -394,16 +431,26 @@ class DicomInstanceMetadata:
     return None
 
   def init_instance_icc_profile_metadata(self) -> None:
+    """Sets instance metadata if not initialized."""
     if self._instance_icc_profile_metadata is None:
       return
     store_url = self.metadata_source.store_url
-    icc_profile_metadata_cache.set_cached_instance_icc_profile_metadata(
-        redis_cache.RedisCache(self.metadata_source.caching_enabled),
-        store_url,
-        self.metadata_source.sop_instance_uid,
-        bulkdata_util.does_dicom_store_support_bulkdata(store_url),
-        self._instance_icc_profile_metadata,
-    )
+    if (
+        icc_profile_metadata_cache.get_cached_instance_icc_profile_metadata(
+            redis_cache.RedisCache(self.metadata_source.caching_enabled),
+            store_url,
+            self.metadata_source.sop_instance_uid,
+            bulkdata_util.does_dicom_store_support_bulkdata(store_url),
+        )
+        is None
+    ):
+      icc_profile_metadata_cache.set_cached_instance_icc_profile_metadata(
+          redis_cache.RedisCache(self.metadata_source.caching_enabled),
+          store_url,
+          self.metadata_source.sop_instance_uid,
+          bulkdata_util.does_dicom_store_support_bulkdata(store_url),
+          self._instance_icc_profile_metadata,
+      )
 
 
 def _get_value(metadata: Mapping[str, Any], key: str) -> Any:

@@ -61,7 +61,6 @@ from pathology.shared_libs.logging_lib import cloud_logging_client
 # String Constants
 _RAW = 'raw'
 _RGB = 'RGB'
-_SRGB = 'sRGB'
 _VALUE = 'Value'
 
 # DICOM Tag Keywords
@@ -92,6 +91,10 @@ _cache_lock = threading.Lock()
 _icc_transform_cache = cachetools.LRUCache(
     maxsize=dicom_proxy_flags.MAX_SIZE_ICC_PROFILE_TRANSFORM_PROCESS_CACHE_FLG,
 )
+
+
+class _MissingIccProfileBulkDataUriError(Exception):
+  pass
 
 
 class UnableToLoadIccProfileError(Exception):
@@ -396,6 +399,11 @@ def _get_cached_icc_profile_bytes(
     redis_cache.RedisResult or None if hash value of icc profile bytes has
     not been determined.
   """
+  if not metadata.hash:
+    # Hash not initalized can not return bytes.
+    # Hash may not be uninitalized if cache was set and then instance metadata
+    # retrieval failed to retrieve and set bytes hash.
+    return None
   if (
       metadata.hash
       == icc_profile_metadata_cache.INSTANCE_MISSING_ICC_PROFILE_METADATA.hash
@@ -450,6 +458,191 @@ def _set_cached_icc_profile(
   )
 
 
+def _set_icc_profile_cache_and_return(
+    redis: redis_cache.RedisCache,
+    dicom_series_url: dicom_url_util.DicomSeriesUrl,
+    requested_sop_instance_uid: dicom_url_util.SOPInstanceUID,
+    return_value: _GetIccProfileReturnValue,
+    dicom_store_supports_bulk_data: bool,
+    icc_profile_metadata: icc_profile_metadata_cache.ICCProfileMetadata,
+    icc_profile_bytes: Optional[bytes],
+) -> Optional[Union[str, bytes]]:
+  """Sets ICC Profile cache and returns requested cached result."""
+  _set_cached_icc_profile(
+      redis,
+      dicom_series_url,
+      requested_sop_instance_uid,
+      dicom_store_supports_bulk_data,
+      icc_profile_bytes,
+      icc_profile_metadata,
+  )
+  if return_value == _GetIccProfileReturnValue.ICC_PROFILE_COLOR_SPACE:
+    return icc_profile_metadata.color_space
+  elif return_value == _GetIccProfileReturnValue.ICC_PROFILE_TAG_DICOM_PATH:
+    return icc_profile_metadata.path
+  elif return_value == _GetIccProfileReturnValue.ICC_PROFILE_BYTES:
+    return icc_profile_bytes
+  else:
+    raise ValueError('Unexpected enum')
+
+
+def _retrieve_instance_bulkdata_to_get_icc_profile(
+    redis: redis_cache.RedisCache,
+    session: user_auth_util.AuthSession,
+    dicom_series_url: dicom_url_util.DicomSeriesUrl,
+    requested_sop_instance_uid: dicom_url_util.SOPInstanceUID,
+    enable_caching: cache_enabled_type.CachingEnabled,
+    return_value: _GetIccProfileReturnValue,
+) -> Optional[Union[str, bytes]]:
+  """Gets ICC Profile & metadata for a instance using bulkdata."""
+  dicom_store_supports_bulk_data = True
+  cloud_logging_client.debug('Using bulkdata to retrieve ICC profile.')
+  # DICOM stores supporting bulk data return bulk data uri to the ICC
+  # profile when instance metadata is returned. If the dicom store supports
+  # bulkdata the and no instance metadata was found in the cache then
+  # re-init the icc profile metadata from the metadata stored within the
+  # the instance. The retreival of the instance metadata is itself cached
+  # to reduce its cost.
+  metadata = metadata_util.get_instance_metadata(
+      session, dicom_series_url, requested_sop_instance_uid, enable_caching
+  )
+  if not metadata.has_icc_profile:
+    _set_cached_icc_profile(
+        redis,
+        dicom_series_url,
+        requested_sop_instance_uid,
+        dicom_store_supports_bulk_data,
+        None,
+        icc_profile_metadata_cache.INSTANCE_MISSING_ICC_PROFILE_METADATA,
+    )
+    return None
+  icc_profile_metadata = icc_profile_metadata_cache.ICCProfileMetadata(
+      metadata.icc_profile_path,
+      metadata.icc_profile_colorspace,
+      metadata.icc_profile_bulkdata_uri,
+      '',
+  )
+  bulk_data_uri = icc_profile_metadata.bulkdata_uri
+  # if instance does not have uri. return None.
+  if not bulk_data_uri:
+    raise _MissingIccProfileBulkDataUriError()
+  with io.BytesIO() as bytes_read:
+    dicom_store_util.download_bulkdata(session, bulk_data_uri, bytes_read)
+    icc_profile_bytes = bytes_read.getvalue()
+    icc_profile_metadata = dataclasses.replace(
+        icc_profile_metadata,
+        hash=_icc_profile_hash_value(icc_profile_bytes),
+    )
+  return _set_icc_profile_cache_and_return(
+      redis,
+      dicom_series_url,
+      requested_sop_instance_uid,
+      return_value,
+      dicom_store_supports_bulk_data,
+      icc_profile_metadata,
+      icc_profile_bytes,
+  )
+
+
+def _retrieve_whole_instance_to_get_series_level_icc_profile(
+    redis: redis_cache.RedisCache,
+    session: user_auth_util.AuthSession,
+    dicom_series_url: dicom_url_util.DicomSeriesUrl,
+    requested_sop_instance_uid: dicom_url_util.SOPInstanceUID,
+    return_value: _GetIccProfileReturnValue,
+) -> Optional[Union[str, bytes]]:
+  """Gets ICC Profile & metadata for a series by downloading instance."""
+  dicom_store_supports_bulk_data = False
+  cloud_logging_client.debug(
+      'Retrieving whole instance to get series level ICC profile. '
+  )
+  try:
+    series_metadata = dicom_store_util.get_series_instance_tags(
+        session, dicom_series_url, additional_tags=[_IMAGE_TYPE]
+    )
+    found_sop_instance_uid = _get_instance_with_fewest_frames(
+        series_metadata, requested_sop_instance_uid
+    )
+  except dicom_store_util.DicomMetadataRequestError:
+    found_sop_instance_uid = None
+  if found_sop_instance_uid is None:
+    # No valid instance found, adding none to cache to avoid future lookups.
+    _set_cached_icc_profile(
+        redis,
+        dicom_series_url,
+        requested_sop_instance_uid,
+        dicom_store_supports_bulk_data,
+        None,
+        icc_profile_metadata_cache.INSTANCE_MISSING_ICC_PROFILE_METADATA,
+    )
+    return None
+  # Download instance and extract ICC profile and create color transform
+  # to SRGB cache transform against series.
+  with tempfile.TemporaryDirectory() as tmp:
+    output_path = os.path.join(tmp, 'tmp.dcm')
+    try:
+      dicom_store_util.download_dicom_instance(
+          session, dicom_series_url, found_sop_instance_uid, output_path
+      )
+    except dicom_store_util.DicomInstanceRequestError:
+      # Instance download failed. Return None. Instance downloaded will
+      # be retried on next call.
+      return None
+    pydicom_instance_cache = (
+        pydicom_single_instance_read_cache.PyDicomSingleInstanceCache(
+            pydicom_single_instance_read_cache.PyDicomFilePath(output_path)
+        )
+    )
+    icc_profile_bytes = pydicom_instance_cache.icc_profile
+    if icc_profile_bytes is None:
+      # No ICC profile found in instance.
+      icc_profile_metadata = (
+          icc_profile_metadata_cache.INSTANCE_MISSING_ICC_PROFILE_METADATA
+      )
+    else:
+      icc_profile_metadata = icc_profile_metadata_cache.ICCProfileMetadata(
+          pydicom_instance_cache.icc_profile_path,
+          pydicom_instance_cache.color_space,
+          '',
+          _icc_profile_hash_value(icc_profile_bytes),
+      )
+
+  # Cache frames in instance downloaded to retrieve ICC Profile.
+  frame_ttl = frame_retrieval_util.frame_cache_ttl()
+  dicom_instance_url = dicom_url_util.series_dicom_instance_url(
+      dicom_series_url, found_sop_instance_uid
+  )
+  try:
+    render_params = frame_caching_util.get_cache_render_params(
+        dicom_instance_url, pydicom_instance_cache.metadata
+    )
+    for frame_number in range(
+        1, pydicom_instance_cache.metadata.number_of_frames + 1
+    ):
+      frame_bytes = pydicom_instance_cache.get_frame(frame_number - 1)
+      frame_caching_util.set_cached_frame(
+          redis,
+          session,
+          dicom_instance_url,
+          render_params,
+          frame_ttl,
+          True,
+          frame_bytes,
+          frame_number,
+      )
+  except frame_caching_util.UnexpectedDicomTransferSyntaxError:
+    pass
+  return _set_icc_profile_cache_and_return(
+      redis,
+      dicom_series_url,
+      requested_sop_instance_uid,
+      return_value,
+      dicom_store_supports_bulk_data,
+      icc_profile_metadata,
+      icc_profile_bytes,
+  )
+
+
 @execution_timer.log_execution_time(
     'color_conversion_util.get_series_icc_profile'
 )
@@ -482,11 +675,11 @@ def _get_series_icc_profile(
     return None
   if not enable_caching:
     cloud_logging_client.warning('ICC_PROFILE caching disabled.')
-
   # test if store supports bulkdata.
   try:
     dicom_store_supports_bulk_data = (
         bulkdata_util.does_dicom_store_support_bulkdata(dicom_series_url)
+        and requested_sop_instance_uid.sop_instance_uid
     )
   except bulkdata_util.InvalidDicomStoreUrlError:
     return None
@@ -499,36 +692,6 @@ def _get_series_icc_profile(
           dicom_store_supports_bulk_data,
       )
   )
-  if dicom_store_supports_bulk_data:
-    if icc_profile_metadata is None:
-      # DICOM stores supporting bulk data return bulk data uri to the ICC
-      # profile when instance metadata is returned. If the dicom store supports
-      # bulkdata the and no instance metadata was found in the cache then
-      # re-init the icc profile metadata from the metadata stored within the
-      # the instance. The retreival of the instance metadata is itself cached
-      # to reduce its cost. So requeset the metadata and then force the ICC
-      # profile metadata to be re-initialized from the instance metadata by
-      # calling init_instance_icc_profile_metadata.
-      metadata = metadata_util.get_instance_metadata(
-          session, dicom_series_url, requested_sop_instance_uid, enable_caching
-      )
-      metadata.init_instance_icc_profile_metadata()
-      icc_profile_metadata = (
-          icc_profile_metadata_cache.get_cached_instance_icc_profile_metadata(
-              redis,
-              dicom_series_url,
-              requested_sop_instance_uid,
-              dicom_store_supports_bulk_data,
-          )
-      )
-      if icc_profile_metadata is None:
-        raise ValueError('Error could not get instance icc profile metadata')
-    bulk_data_uri = icc_profile_metadata.bulkdata_uri
-    # if instance does not have uri. return None.
-    if not bulk_data_uri:
-      return None
-  else:
-    bulk_data_uri = ''
   if icc_profile_metadata is not None:
     if return_value == _GetIccProfileReturnValue.ICC_PROFILE_COLOR_SPACE:
       return _get_cached_icc_profile_colorspace(icc_profile_metadata)
@@ -540,105 +703,55 @@ def _get_series_icc_profile(
         return result.value
     else:
       raise ValueError('Unexpected enum')
-
-  if bulk_data_uri:
-    with io.BytesIO() as bytes_read:
-      dicom_store_util.download_bulkdata(session, bulk_data_uri, bytes_read)
-      icc_profile_bytes = bytes_read.getvalue()
-    icc_profile_metadata = dataclasses.replace(
-        icc_profile_metadata,
-        hash=_icc_profile_hash_value(icc_profile_bytes),
-    )
-  else:
+  if dicom_store_supports_bulk_data:
     try:
-      series_metadata = dicom_store_util.get_series_instance_tags(
-          session, dicom_series_url, additional_tags=[_IMAGE_TYPE]
+      return _retrieve_instance_bulkdata_to_get_icc_profile(
+          redis,
+          session,
+          dicom_series_url,
+          requested_sop_instance_uid,
+          enable_caching,
+          return_value,
       )
-      found_sop_instance_uid = _get_instance_with_fewest_frames(
-          series_metadata, requested_sop_instance_uid
+    except dicom_store_util.DicomInstanceRequestError:
+      cloud_logging_client.warning(
+          'ICC Profile retrieval failed using bulk data. Using non-bulk data'
+          ' methods.'
       )
-    except dicom_store_util.DicomMetadataRequestError:
-      found_sop_instance_uid = None
-    if found_sop_instance_uid is None:
-      # No valid instance found, adding none to cache to avoid future lookups.
-      _set_cached_icc_profile(
+      pass
+    except _MissingIccProfileBulkDataUriError:
+      pass
+  result = _retrieve_whole_instance_to_get_series_level_icc_profile(
+      redis,
+      session,
+      dicom_series_url,
+      requested_sop_instance_uid,
+      return_value,
+  )
+  if not dicom_store_supports_bulk_data:
+    return result
+  # if bulkdata is supported but bulkdata download failed.
+  # copy metadata retrieved using non-bulkdata methods to bulkdata cache.
+  # the difference between the methods is bulkdata indexs the cache at
+  # the instance level to enable instance level profiles where the non-bulkdata
+  # methods index the cache at the series level.
+  icc_profile_metadata = (
+      icc_profile_metadata_cache.get_cached_instance_icc_profile_metadata(
           redis,
           dicom_series_url,
           requested_sop_instance_uid,
-          dicom_store_supports_bulk_data,
-          None,
-          icc_profile_metadata_cache.INSTANCE_MISSING_ICC_PROFILE_METADATA,
+          False,
       )
-      return None
-    # Download instance and extract ICC profile and create color transform
-    # to SRGB cache transform against series.
-    with tempfile.TemporaryDirectory() as tmp:
-      output_path = os.path.join(tmp, 'tmp.dcm')
-      dicom_store_util.download_dicom_instance(
-          session, dicom_series_url, found_sop_instance_uid, output_path
-      )
-      pydicom_instance_cache = (
-          pydicom_single_instance_read_cache.PyDicomSingleInstanceCache(
-              pydicom_single_instance_read_cache.PyDicomFilePath(output_path)
-          )
-      )
-      icc_profile_bytes = pydicom_instance_cache.icc_profile
-      if icc_profile_bytes is None:
-        # No ICC profile found in instance.
-        icc_profile_metadata = (
-            icc_profile_metadata_cache.INSTANCE_MISSING_ICC_PROFILE_METADATA
-        )
-      else:
-        icc_profile_metadata = icc_profile_metadata_cache.ICCProfileMetadata(
-            pydicom_instance_cache.icc_profile_path,
-            pydicom_instance_cache.color_space,
-            '',
-            _icc_profile_hash_value(icc_profile_bytes),
-        )
-
-    # Cache frames in instance downloaded to retrieve ICC Profile.
-    frame_ttl = frame_retrieval_util.frame_cache_ttl()
-    dicom_instance_url = dicom_url_util.series_dicom_instance_url(
-        dicom_series_url, found_sop_instance_uid
-    )
-    try:
-      render_params = frame_caching_util.get_cache_render_params(
-          dicom_instance_url, pydicom_instance_cache.metadata
-      )
-      for frame_number in range(
-          1, pydicom_instance_cache.metadata.number_of_frames + 1
-      ):
-        frame_bytes = pydicom_instance_cache.get_encapsulated_frame(
-            frame_number - 1
-        )
-        frame_caching_util.set_cached_frame(
-            redis,
-            session,
-            dicom_instance_url,
-            render_params,
-            frame_ttl,
-            True,
-            frame_bytes,
-            frame_number,
-        )
-    except frame_caching_util.UnexpectedDicomTransferSyntaxError:
-      pass
-  _set_cached_icc_profile(
-      redis,
-      dicom_series_url,
-      requested_sop_instance_uid,
-      dicom_store_supports_bulk_data,
-      icc_profile_bytes,
-      icc_profile_metadata,
   )
-  if return_value == _GetIccProfileReturnValue.ICC_PROFILE_COLOR_SPACE:
-    return icc_profile_metadata.color_space
-  elif return_value == _GetIccProfileReturnValue.ICC_PROFILE_TAG_DICOM_PATH:
-    return icc_profile_metadata.path
-  elif return_value == _GetIccProfileReturnValue.ICC_PROFILE_BYTES:
-    return icc_profile_bytes
-  else:
-    raise ValueError('Unexpected enum')
+  if icc_profile_metadata is not None:
+    icc_profile_metadata_cache.set_cached_instance_icc_profile_metadata(
+        redis,
+        dicom_series_url,
+        requested_sop_instance_uid,
+        dicom_store_supports_bulk_data,
+        icc_profile_metadata,
+    )
+  return result
 
 
 def get_series_icc_profile_colorspace(
@@ -730,6 +843,7 @@ def get_icc_profile_transform_for_dicom_url(
     try:
       dicom_store_supports_bulk_data = (
           bulkdata_util.does_dicom_store_support_bulkdata(dicom_series_url)
+          and requested_sop_instance_uid.sop_instance_uid
       )
     except bulkdata_util.InvalidDicomStoreUrlError:
       return None
@@ -748,14 +862,17 @@ def get_icc_profile_transform_for_dicom_url(
             == icc_profile_metadata_cache.INSTANCE_MISSING_ICC_PROFILE_METADATA
         ):
           return None
-        result = _icc_transform_cache.get(
-            _hash_key(icc_profile_metadata, transform)
-        )
-        if result is not None:
-          return result
+        if icc_profile_metadata.hash:
+          result = _icc_transform_cache.get(
+              _hash_key(icc_profile_metadata, transform)
+          )
+          if result is not None:
+            return result
     icc_profile = get_series_icc_profile_bytes(
         session, dicom_series_url, requested_sop_instance_uid, enable_caching
     )
+
+    cloud_logging_client.debug('Creating ICC Profile Transform')
     result = _create_icc_profile_transform(icc_profile, transform)
     if enable_caching:
       # Retrieval of ICC Profile bytes updates icc profile metadata cache.
@@ -771,6 +888,7 @@ def get_icc_profile_transform_for_dicom_url(
           icc_profile_metadata is not None
           and icc_profile_metadata
           != icc_profile_metadata_cache.INSTANCE_MISSING_ICC_PROFILE_METADATA
+          and icc_profile_metadata.hash
       ):
         _icc_transform_cache[_hash_key(icc_profile_metadata, transform)] = (
             result

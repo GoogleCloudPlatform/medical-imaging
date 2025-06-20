@@ -243,7 +243,7 @@ class DicomInstanceFramePatchUtilTest(parameterized.TestCase):
     cache = shared_test_util.jpeg_encoded_pydicom_instance_cache()
     frames = {
         fn: image_util.decode_image_bytes(
-            cache.get_encapsulated_frame(fn), cache.metadata.image_compression
+            cache.get_frame(fn), cache.metadata.image_compression
         )
         for fn in range(cache.metadata.number_of_frames)
     }
