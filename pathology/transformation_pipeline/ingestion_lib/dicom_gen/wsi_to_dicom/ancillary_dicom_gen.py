@@ -14,10 +14,13 @@
 # ==============================================================================
 """Generate Ancillary Image (Thumbnail, Marco, Label) DICOM."""
 
+import io
 import os
 from typing import Any, Dict, List, Mapping, Optional
 
 import cv2
+import numpy as np
+import PIL.Image
 import pydicom
 
 from pathology.shared_libs.logging_lib import cloud_logging_client
@@ -59,13 +62,32 @@ def _gen_ancillary_dicom_instance(
      Path to file name of generated DICOM file.
   """
   image_path = image.path
-  # get image shape
-  image_shape = cv2.imread(image_path).shape[:2]
 
   # get image bytes
   with open(image_path, 'rb') as img:
     image_bytes = img.read()
-
+  # get image shape
+  decoded_image = cv2.imdecode(
+      np.asarray(bytearray(image_bytes), dtype=np.uint8), cv2.IMREAD_COLOR
+  )
+  if decoded_image is not None:
+    image_shape = decoded_image.shape[:2]
+  else:
+    cloud_logging_client.warning(
+        'Failed to decode image with OpenCV.',
+        {'image_path': image_path, 'image_bytes': image_bytes},
+    )
+    try:
+      with PIL.Image.open(io.BytesIO(image_bytes)) as img:
+        w, h = img.size
+        image_shape = (h, w)
+    except Exception as exp:
+      cloud_logging_client.warning(
+          'Failed to decode image with PIL.',
+          {'image_path': image_path, 'image_bytes': image_bytes},
+          exp,
+      )
+      raise
   # Initialize VL Whole Slide Microscopy Image Storage header
   # 'Secondary Capture Image Storage'
   # Image bytes Implicit VR Endian: Default Transfer Syntax for DICOM
@@ -201,16 +223,24 @@ def generate_ancillary_dicom(
     instance_number = index + gen_wsi_file_count
     fname = os.path.basename(image.path)
     instance_description, _ = os.path.splitext(fname)
-    dcm_file = _gen_ancillary_dicom_instance(
-        svs_path,
-        image,
-        reference_dcm,
-        instance_description,
-        str(instance_number),
-        wsi_dcm_json,
-        private_tags,
-        additional_wsi_metadata,
-    )
+    try:
+      dcm_file = _gen_ancillary_dicom_instance(
+          svs_path,
+          image,
+          reference_dcm,
+          instance_description,
+          str(instance_number),
+          wsi_dcm_json,
+          private_tags,
+          additional_wsi_metadata,
+      )
+    except (
+        FileNotFoundError,
+        PIL.UnidentifiedImageError,
+        ValueError,
+        TypeError,
+    ):
+      continue
     ancillary_dicom_files.append(dcm_file)
     cloud_logging_client.info(f'Gen DICOM: {instance_description}')
   return ancillary_dicom_files

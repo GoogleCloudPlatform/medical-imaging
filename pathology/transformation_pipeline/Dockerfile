@@ -200,7 +200,6 @@ COPY ./pathology/bazel_requirements.txt ./pathology/__init__.py /pathology/
 # Copy Python source
 COPY ./pathology/transformation_pipeline /pathology/transformation_pipeline/
 COPY ./pathology/shared_libs /pathology/shared_libs/
-COPY ./third_party /third_party
 
 # Make python directory __init__ files for copied directories.
 RUN mv /pathology/transformation_pipeline/default_config.* / && \
@@ -208,9 +207,6 @@ RUN mv /pathology/transformation_pipeline/default_config.* / && \
     python3 -m compileall -b /pathology && \
     find /pathology -type d -exec chmod 755 {} \; && \
     find /pathology -type f -exec chmod 644 {} \; && \
-    # Make third_party folder and contents readable.
-    find /third_party -type d -exec chmod 755 {} \; && \
-    find /third_party -type f -exec chmod 644 {} \; && \
     # Make icc profiles copied in to icc profiles dir folder readable.
     find /icc_profiles -type d -exec chmod 755 {} \; && \
     find /icc_profiles -type f -exec chmod 644 {} \; && \

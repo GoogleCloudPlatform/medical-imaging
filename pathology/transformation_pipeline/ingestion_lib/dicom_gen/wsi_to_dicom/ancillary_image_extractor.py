@@ -143,7 +143,14 @@ def _extract_jpeg_directly(
   fh = tiff.filehandle
   fh.seek(offset)
   with open(image.path, 'wb') as outfile:
-    outfile.write(bytearray(fh.read(bytecount)))
+    image_bytes = bytearray(fh.read(bytecount))
+    # validate images bytes are valid jpeg
+    if (
+        cv2.imdecode(np.asarray(image_bytes, dtype=np.uint8), cv2.IMREAD_COLOR)
+        is None
+    ):
+      return False
+    outfile.write(image_bytes)
   if page.photometric.value == _TIFF_RGB_PHOTOMETRIC:  # pytype: disable=attribute-error
     image.photometric_interpretation = _RGB
   else:
@@ -421,18 +428,15 @@ def get_ancillary_images_from_svs(
     List of paths to extracted ancillary images.
   """
   # Extract Secondary capture images.
-  macro_file_path = os.path.join(ancillary_image_dir, 'macro.jpg')
-  thumbnail_file_path = os.path.join(ancillary_image_dir, 'thumbnail.jpg')
-  label_file_path = os.path.join(ancillary_image_dir, 'label.jpg')
   # Validation order corresponds to order images may be tested for barcodes.
   ancillary_images = []
-  label = AncillaryImage(label_file_path)
+  label = AncillaryImage(os.path.join(ancillary_image_dir, 'label.jpg'))
   if label_image(svs_path, label):
     ancillary_images.append(label)
-  macro = AncillaryImage(macro_file_path)
+  macro = AncillaryImage(os.path.join(ancillary_image_dir, 'macro.jpg'))
   if macro_image(svs_path, macro):
     ancillary_images.append(macro)
-  thumbnail = AncillaryImage(thumbnail_file_path)
+  thumbnail = AncillaryImage(os.path.join(ancillary_image_dir, 'thumbnail.jpg'))
   if thumbnail_image(svs_path, thumbnail):
     ancillary_images.append(thumbnail)
   return ancillary_images

@@ -25,7 +25,6 @@ package(
 py_library(
     name = "barcode_reader",
     srcs = ["barcode_reader.py"],
-    srcs_version = "PY3",
     deps = [
         "//pathology/shared_libs/logging_lib:cloud_logging_client",
         "//pathology/transformation_pipeline:ingest_flags",
@@ -41,8 +40,6 @@ py_test(
     data = [
         "//pathology/transformation_pipeline:testdata",
     ],
-    python_version = "PY3",
-    srcs_version = "PY3",
     deps = [
         requirement("absl-py"),
         ":barcode_reader",
@@ -58,7 +55,6 @@ py_library(
     srcs = [
         "dicom_util.py",
     ],
-    srcs_version = "PY3",
     deps = [
         "//pathology/shared_libs/logging_lib:cloud_logging_client",
         "//pathology/shared_libs/pydicom_version_util",
@@ -86,7 +82,6 @@ py_test(
     data = [
         "//pathology/transformation_pipeline:testdata",
     ],
-    srcs_version = "PY3",
     deps = [
         requirement("absl-py"),
         ":dicom_util",
@@ -108,7 +103,6 @@ py_library(
     srcs = [
         "gcs_storage_util.py",
     ],
-    srcs_version = "PY3",
     deps = [
         "//pathology/transformation_pipeline/ingestion_lib:cloud_storage_client",
         "//pathology/transformation_pipeline/ingestion_lib/pubsub_msgs:ingestion_complete_pubsub",
@@ -118,8 +112,6 @@ py_library(
 py_test(
     name = "gcs_storage_util_test",
     srcs = ["gcs_storage_util_test.py"],
-    python_version = "PY3",
-    srcs_version = "PY3",
     deps = [
         requirement("absl-py"),
         ":gcs_storage_util",
@@ -133,7 +125,6 @@ py_library(
     srcs = [
         "ancillary_dicom_gen.py",
     ],
-    srcs_version = "PY3",
     deps = [
         ":ancillary_image_extractor",
         ":dicom_util",
@@ -143,7 +134,9 @@ py_library(
         "//pathology/transformation_pipeline/ingestion_lib/dicom_gen:abstract_dicom_generation",
         "//pathology/transformation_pipeline/ingestion_lib/dicom_gen:dicom_private_tag_generator",
         "//pathology/transformation_pipeline/ingestion_lib/dicom_util:dicom_standard",
+        requirement("pillow"),
         requirement("opencv-python-headless"),
+        requirement("numpy"),
         requirement("pydicom"),
     ],
 )
@@ -153,7 +146,6 @@ py_library(
     srcs = [
         "ingest_base.py",
     ],
-    srcs_version = "PY3",
     deps = [
         ":decode_slideid",
         ":metadata_storage_client",
@@ -177,8 +169,6 @@ py_test(
     data = [
         "//pathology/transformation_pipeline:testdata",
     ],
-    python_version = "PY3",
-    srcs_version = "PY3",
     deps = [
         requirement("absl-py"),
         ":ingest_base",
@@ -207,7 +197,6 @@ py_library(
     srcs = [
         "wsi_pyramid_gen_config.py",
     ],
-    srcs_version = "PY3",
     deps = [
         "//pathology/shared_libs/logging_lib:cloud_logging_client",
         "//pathology/transformation_pipeline:ingest_flags",
@@ -224,8 +213,6 @@ py_test(
     data = [
         "//pathology/transformation_pipeline:testdata",
     ],
-    python_version = "PY3",
-    srcs_version = "PY3",
     deps = [
         requirement("absl-py"),
         ":wsi_pyramid_gen_config",
@@ -239,7 +226,6 @@ py_library(
     srcs = [
         "ingest_dicom.py",
     ],
-    srcs_version = "PY3",
     deps = [
         ":decode_slideid",
         ":dicom_util",
@@ -266,7 +252,6 @@ py_test(
     data = [
         "//pathology/transformation_pipeline:testdata",
     ],
-    srcs_version = "PY3",
     deps = [
         requirement("absl-py"),
         ":decode_slideid",
@@ -288,7 +273,6 @@ py_library(
     srcs = [
         "ingest_wsi_dicom.py",
     ],
-    srcs_version = "PY3",
     deps = [
         ":ancillary_image_extractor",
         ":decode_slideid",
@@ -323,7 +307,6 @@ py_test(
     data = [
         "//pathology/transformation_pipeline:testdata",
     ],
-    srcs_version = "PY3",
     deps = [
         ":dicom_util",
         ":ingest_base",
@@ -354,7 +337,6 @@ py_library(
     srcs = [
         "ingest_svs.py",
     ],
-    srcs_version = "PY3",
     deps = [
         ":ancillary_dicom_gen",
         ":ancillary_image_extractor",
@@ -380,7 +362,6 @@ py_library(
     srcs = [
         "ingest_flat_image.py",
     ],
-    srcs_version = "PY3",
     deps = [
         ":decode_slideid",
         ":dicom_util",
@@ -406,7 +387,6 @@ py_test(
     data = [
         "//pathology/transformation_pipeline:testdata",
     ],
-    srcs_version = "PY3",
     deps = [
         requirement("absl-py"),
         ":decode_slideid",
@@ -429,7 +409,6 @@ py_library(
     srcs = [
         "ingested_dicom_file_ref.py",
     ],
-    srcs_version = "PY3",
     deps = [
         "//pathology/transformation_pipeline/ingestion_lib/dicom_gen:dicom_file_ref",
         "//pathology/transformation_pipeline/ingestion_lib/dicom_gen:wsi_dicom_file_ref",
@@ -445,7 +424,6 @@ py_test(
     data = [
         "//pathology/transformation_pipeline:testdata",
     ],
-    srcs_version = "PY3",
     deps = [
         requirement("absl-py"),
         ":ingested_dicom_file_ref",
@@ -460,7 +438,6 @@ py_library(
     srcs = [
         "metadata_storage_client.py",
     ],
-    srcs_version = "PY3",
     deps = [
         "//pathology/shared_libs/logging_lib:cloud_logging_client",
         "//pathology/transformation_pipeline:ingest_flags",
@@ -482,7 +459,6 @@ py_library(
     srcs = [
         "ancillary_image_extractor.py",
     ],
-    srcs_version = "PY3",
     deps = [
         ":ingested_dicom_file_ref",
         "//pathology/shared_libs/logging_lib:cloud_logging_client",
@@ -506,7 +482,6 @@ py_test(
     data = [
         "//pathology/transformation_pipeline:testdata",
     ],
-    srcs_version = "PY3",
     deps = [
         ":ancillary_image_extractor",
         ":ingested_dicom_file_ref",
@@ -527,7 +502,6 @@ py_library(
     srcs = [
         "validate_ingested_dicom.py",
     ],
-    srcs_version = "PY3",
     deps = [
         ":ingested_dicom_file_ref",
         "//pathology/shared_libs/logging_lib:cloud_logging_client",
@@ -540,8 +514,6 @@ py_library(
 py_test(
     name = "validate_ingested_dicom_test",
     srcs = ["validate_ingested_dicom_test.py"],
-    python_version = "PY3",
-    srcs_version = "PY3",
     deps = [
         requirement("absl-py"),
         ":ingest_wsi_dicom",
@@ -560,8 +532,6 @@ py_test(
     data = [
         "//pathology/transformation_pipeline:testdata",
     ],
-    python_version = "PY3",
-    srcs_version = "PY3",
     deps = [
         requirement("absl-py"),
         ":metadata_storage_client",
@@ -577,8 +547,6 @@ py_test(
     data = [
         "//pathology/transformation_pipeline:testdata",
     ],
-    python_version = "PY3",
-    srcs_version = "PY3",
     deps = [
         requirement("absl-py"),
         ":ancillary_image_extractor",
@@ -609,7 +577,6 @@ py_library(
     srcs = [
         "ingest_gcs_handler.py",
     ],
-    srcs_version = "PY3",
     deps = [
         ":gcs_storage_util",
         ":ingest_base",
@@ -640,8 +607,6 @@ py_test(
     data = [
         "//pathology/transformation_pipeline:testdata",
     ],
-    python_version = "PY3",
-    srcs_version = "PY3",
     deps = [
         requirement("absl-py"),
         requirement("google-auth"),
@@ -674,8 +639,6 @@ py_test(
     data = [
         "//pathology/transformation_pipeline:testdata",
     ],
-    python_version = "PY3",
-    srcs_version = "PY3",
     deps = [
         requirement("absl-py"),
         ":ancillary_dicom_gen",
@@ -697,7 +660,6 @@ py_library(
     srcs = [
         "transform_types.py",
     ],
-    srcs_version = "PY3",
     visibility = ["//pathology:__subpackages__"],
 )
 
@@ -706,7 +668,6 @@ py_library(
     srcs = [
         "decode_slideid.py",
     ],
-    srcs_version = "PY3",
     deps = [
         ":ancillary_image_extractor",
         ":barcode_reader",
@@ -724,7 +685,6 @@ py_test(
     data = [
         "//pathology/transformation_pipeline:testdata",
     ],
-    srcs_version = "PY3",
     deps = [
         ":ancillary_image_extractor",
         ":barcode_reader",
@@ -742,7 +702,6 @@ py_library(
     srcs = [
         "ingest_dicom_store_handler.py",
     ],
-    srcs_version = "PY3",
     deps = [
         ":ingest_base",
         ":ingest_dicom",
@@ -767,7 +726,6 @@ py_test(
     data = [
         "//pathology/transformation_pipeline:testdata",
     ],
-    srcs_version = "PY3",
     deps = [
         requirement("absl-py"),
         ":ingest_base",
@@ -797,7 +755,6 @@ py_library(
     srcs = [
         "ingestion_complete_oof_trigger_pubsub_topic.py",
     ],
-    srcs_version = "PY3",
     deps = [
         "//pathology/transformation_pipeline:ingest_flags",
         "//pathology/transformation_pipeline/ingestion_lib:pubsub_util",
@@ -807,7 +764,6 @@ py_library(
 py_test(
     name = "ingestion_complete_oof_trigger_pubsub_topic_test",
     srcs = ["ingestion_complete_oof_trigger_pubsub_topic_test.py"],
-    srcs_version = "PY3",
     deps = [
         requirement("absl-py"),
         ":ingestion_complete_oof_trigger_pubsub_topic",
