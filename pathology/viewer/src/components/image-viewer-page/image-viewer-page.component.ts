@@ -19,7 +19,7 @@ import {Component, OnInit} from '@angular/core';
 import {MatDividerModule} from '@angular/material/divider';
 import {MatIconModule} from '@angular/material/icon';
 import {ActivatedRoute, Router} from '@angular/router';
-import ol from 'ol';
+import * as ol from 'ol';
 import {EventsKey} from 'ol/events';
 import {unByKey} from 'ol/Observable';
 import {combineLatest, ReplaySubject} from 'rxjs';

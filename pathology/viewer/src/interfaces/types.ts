@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import ol from 'ol';
+import * as ol from 'ol';
 
 /**
  * Side navigation annotation layer information.

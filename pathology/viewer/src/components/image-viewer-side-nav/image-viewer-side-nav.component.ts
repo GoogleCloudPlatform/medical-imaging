@@ -33,7 +33,7 @@ import {MatSnackBar} from '@angular/material/snack-bar';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {ActivatedRoute, Router} from '@angular/router';
 import * as ol from 'ol';
-import {Feature} from 'ol';
+import Feature from 'ol/Feature';
 import {Coordinate} from 'ol/coordinate';
 import {EventsKey} from 'ol/events';
 import {Geometry, LineString, Point, Polygon} from 'ol/geom';
@@ -44,7 +44,7 @@ import Select, {SelectEvent} from 'ol/interaction/Select';
 import Layer from 'ol/layer/Layer';
 import {unByKey} from 'ol/Observable';
 import LayerRenderer from 'ol/renderer/Layer';
-import source, {Source, Vector} from 'ol/source';
+import * as source from 'ol/source';
 import {getArea, getLength} from 'ol/sphere';
 import {Fill, RegularShape, Stroke} from 'ol/style';
 import Style, {StyleLike} from 'ol/style/Style';
@@ -174,7 +174,7 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
   disableContextMenuMergeShapes = false;
   disableLabelInput = true;
   // tslint:disable:no-any
-  drawLayer: Layer<Source, LayerRenderer<any>>|undefined = undefined;
+  drawLayer: Layer<source.Source, LayerRenderer<any>>|undefined = undefined;
   // tslint:enable:no-any
   editModeSelectedAnnotationOverlay = false;
   enableAnnotationWritting = environment.ENABLE_ANNOTATION_WRITING;
@@ -195,7 +195,7 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
   ];
   labels = new Set<AnnotationLabel>();
   // tslint:disable:no-any
-  layers: Array<Layer<Source, LayerRenderer<any>>> = [];
+  layers: Array<Layer<source.Source, LayerRenderer<any>>> = [];
   // tslint:enable:no-any
   loadingCohorts = true;
   loadingDicomAnnotations = !LOCAL_ANNOTATION_MODE;
@@ -660,8 +660,8 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
     const drawLayer = olMap.getAllLayers().find((layer) => {
       return layer.get('name') === 'draw-layer';
     });
-    const drawSource: Vector<Feature<Geometry>>|undefined =
-        drawLayer?.getSource() as Vector<Feature<Geometry>>;
+    const drawSource: source.Vector<Feature<Geometry>>|undefined =
+        drawLayer?.getSource() as source.Vector<Feature<Geometry>>;
     if (!drawSource) return;
 
     const featuresAtCoordinate = drawSource.getFeaturesAtCoordinate(coordinate);
@@ -858,7 +858,7 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
       return layer.get('name') === 'draw-layer';
     });
     if (!drawLayer) return;
-    const drawSource = drawLayer.getSource() as Vector<Feature<Geometry>>;
+    const drawSource = drawLayer.getSource() as source.Vector<Feature<Geometry>>;
     // remove recently added features.
     this.recentlyAddedFeatures.forEach((feature) => {
       drawSource.removeFeature(feature);
@@ -995,7 +995,7 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
       return layer.get('name') === 'draw-layer';
     });
     if (!drawLayer) return;
-    const drawSource = drawLayer.getSource() as Vector<Feature<Geometry>>;
+    const drawSource = drawLayer.getSource() as source.Vector<Feature<Geometry>>;
 
 
     const currentUserAnnotationInstance =
@@ -1047,7 +1047,7 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
 
       const feature: ol.Feature<Geometry> = event.feature;
       let maxIndex = 0;
-      drawSource.getFeatures().forEach((feature) => {
+      drawSource.getFeatures().forEach((feature: Feature) => {
         const featureAnnotationKey = getFeatureAnnotationKey(feature);
         maxIndex = Math.max(maxIndex, featureAnnotationKey.index);
       });
@@ -1088,7 +1088,7 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
     if (!measureLayer) return;
 
     const measureSource =
-        measureLayer.getProperties()['source'] as Vector<Feature<Geometry>>;
+        measureLayer.getProperties()['source'] as source.Vector<Feature<Geometry>>;
     if (!measureSource) return;
 
     const measureInteraction = new Draw({
@@ -1163,7 +1163,7 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
       if (this.drawLayer) {
         const drawSource =
             this.drawLayer.getSource() as source.Vector<Feature<Geometry>>;
-        drawSource.getFeatures().forEach((feature) => {
+        drawSource.getFeatures().forEach((feature: Feature) => {
           const featureAnnotationKey = getFeatureAnnotationKey(feature);
           maxIndex = Math.max(maxIndex, featureAnnotationKey.index);
         });
@@ -1284,7 +1284,7 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
 
     // get current user features
     const currentFeatures = drawSource?.getFeatures() ?? [];
-    const currentUserFeatures = currentFeatures.filter((feature) => {
+    const currentUserFeatures = currentFeatures.filter((feature: Feature) => {
       const featureId = feature.getId() as string;
       if (!featureId) return false;
 
@@ -1469,7 +1469,7 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
         (layer) => layer.get('name') === 'measure-layer');
     if (!measureLayer) return;
     const measureSource =
-        measureLayer.getProperties()['source'] as Vector<Feature<Geometry>>;
+        measureLayer.getProperties()['source'] as source.Vector<Feature<Geometry>>;
     if (!measureSource) return;
     measureSource.clear();
 
