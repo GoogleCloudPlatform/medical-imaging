@@ -721,7 +721,9 @@ class DownsampleUtilTest(parameterized.TestCase):
             params,
             None,
             _Metrics(),
-            _Compression.PNG,
+            shared_test_util.create_mock_dicom_instance_metadata(
+                '1.2.840.10008.1.2.4.50'
+            ),
         )
 
     self.assertLen(transcoded_img.images, 1)

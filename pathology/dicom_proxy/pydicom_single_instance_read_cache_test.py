@@ -41,7 +41,8 @@ _EXPECTED_METADATA = {
     'number_of_frames': 15,
     'dimension_organization_type': 'TILED_FULL',
     'dicom_transfer_syntax': '1.2.840.10008.1.2.4.50',
-    '_instance_icc_profile_metadata': None,
+    'icc_profile_colorspace': '',
+    'icc_profile_bulkdata_uri': '',
     'metadata_source': {
         'store_url': 'localhost',
         'sop_instance_uid': {

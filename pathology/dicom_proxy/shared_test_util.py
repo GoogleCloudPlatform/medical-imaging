@@ -45,6 +45,18 @@ _LocalDicomInstance = parameters_exceptions_and_return_types.LocalDicomInstance
 _RenderFrameParams = render_frame_params.RenderFrameParams
 
 
+def create_mock_dicom_instance_metadata(
+    transfer_syntax: str,
+) -> metadata_util.DicomInstanceMetadata:
+  """Creates Mock DicomInstanceMetadata with specified transfer syntax."""
+  md = mock.create_autospec(metadata_util.DicomInstanceMetadata, instance=True)
+  md.dicom_transfer_syntax = transfer_syntax
+  type(md).is_baseline_jpeg = mock.PropertyMock(
+      return_value=transfer_syntax == '1.2.840.10008.1.2.4.50'
+  )
+  return md
+
+
 def _http_status_response(status: http.HTTPStatus) -> str:
   return (f'{status.value} {status.phrase}').upper()
 

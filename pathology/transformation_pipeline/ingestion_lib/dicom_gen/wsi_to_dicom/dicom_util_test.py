@@ -87,6 +87,7 @@ class DicomUtilTest(parameterized.TestCase):
       'adobergb',
       'adobergb1998',
       'rommrgb',
+      'displayp3',
       'foo',
   ])
   def test_get_plugin_icc_profile(self, name):
@@ -105,6 +106,7 @@ class DicomUtilTest(parameterized.TestCase):
       'adobergb',
       'adobergb1998',
       'rommrgb',
+      'displayp3',
       'foo',
   ])
   def test_get_plugin_icc_profile_dir(self, name):

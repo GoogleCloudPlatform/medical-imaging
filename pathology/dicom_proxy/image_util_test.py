@@ -177,7 +177,10 @@ class ImageUtilTest(parameterized.TestCase):
     width = 100
     channels = 3
 
-    decoded_img = image_util.decode_image_bytes(imgbytes, None)
+    # Decode using opencv decoder, claim image is a JPEG.
+    decoded_img = image_util.decode_image_bytes(
+        imgbytes, '1.2.840.10008.1.2.4.50'
+    )
 
     self.assertEqual(decoded_img.shape, (height, width, channels))
     self.assertEqual(_img_bytes_hash(decoded_img), expected)
@@ -407,7 +410,9 @@ class ImageUtilTest(parameterized.TestCase):
   @mock.patch.object(PIL.Image, 'open', autospec=True)
   def test_cv2_loaded_bw_image(self, mock_pil_open):
     with open(shared_test_util.get_testdir_path('bw.jpeg'), 'rb') as infile:
-      decoded_img = image_util.decode_image_bytes(infile.read(), None)
+      decoded_img = image_util.decode_image_bytes(
+          infile.read(), '1.2.840.10008.1.2.4.50'
+      )
     np.testing.assert_array_equal(
         decoded_img, np.full((4, 4, 3), 255, dtype=np.uint8)
     )
@@ -417,7 +422,7 @@ class ImageUtilTest(parameterized.TestCase):
   def test_pil_loaded_bw_image(self, mock_cv2_imdecode):
     with open(shared_test_util.get_testdir_path('bw.jpeg'), 'rb') as infile:
       decoded_img = image_util.decode_image_bytes(
-          infile.read(), _Compression.JPEG2000
+          infile.read(), '1.2.840.10008.1.2.4.90'
       )
     np.testing.assert_array_equal(
         decoded_img, np.full((4, 4, 3), 255, dtype=np.uint8)

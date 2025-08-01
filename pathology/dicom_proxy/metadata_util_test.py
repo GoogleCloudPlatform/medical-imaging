@@ -33,7 +33,6 @@ from pathology.dicom_proxy import cache_enabled_type
 from pathology.dicom_proxy import dicom_proxy_flags
 from pathology.dicom_proxy import dicom_store_util
 from pathology.dicom_proxy import dicom_url_util
-from pathology.dicom_proxy import enum_types
 from pathology.dicom_proxy import metadata_util
 from pathology.dicom_proxy import proxy_const
 from pathology.dicom_proxy import shared_test_util
@@ -85,7 +84,8 @@ _EXPECTED_METADATA = {
     'number_of_frames': 15,
     'dimension_organization_type': 'TILED_FULL',
     'dicom_transfer_syntax': '1.2.840.10008.1.2.4.50',
-    '_instance_icc_profile_metadata': None,
+    'icc_profile_bulkdata_uri': '',
+    'icc_profile_colorspace': '',
     'metadata_source': {
         'store_url': 'https://healthcare.googleapis.com/v1',
         'sop_instance_uid': {
@@ -168,30 +168,6 @@ class MetadataUtilTest(parameterized.TestCase):
   def test_s_baseline_jpeg_true(self):
     self.assertTrue(
         shared_test_util.jpeg_encoded_dicom_instance_metadata().is_baseline_jpeg
-    )
-
-  def test_image_compression_is_jpeg(self):
-    self.assertEqual(
-        shared_test_util.jpeg_encoded_dicom_instance_metadata().image_compression,
-        enum_types.Compression.JPEG,
-    )
-
-  @parameterized.parameters(
-      ['1.2.840.10008.1.2.4.90', '1.2.840.10008.1.2.4.91']
-  )
-  def test_image_compression_is_jpeg2000(self, uid):
-    self.assertEqual(
-        shared_test_util.jpeg_encoded_dicom_instance_metadata(
-            dict(dicom_transfer_syntax=uid)
-        ).image_compression,
-        enum_types.Compression.JPEG2000,
-    )
-
-  def test_image_compression_other_is_none(self):
-    self.assertIsNone(
-        shared_test_util.jpeg_encoded_dicom_instance_metadata(
-            dict(dicom_transfer_syntax='1.2.840.10008.1.2.4.57')
-        ).image_compression
     )
 
   @parameterized.parameters(
@@ -361,7 +337,9 @@ class MetadataUtilTest(parameterized.TestCase):
               'metadata_source': {
                   'store_url': 'localhost',
                   'sop_instance_uid': {
-                      'sop_instance_uid': '1.2.276.0.7230010.3.1.4.296485376.89.1688794081.412405'
+                      'sop_instance_uid': (
+                          '1.2.276.0.7230010.3.1.4.296485376.89.1688794081.412405'
+                      )
                   },
                   'caching_enabled': False,
               }

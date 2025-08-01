@@ -20,13 +20,13 @@ import typing
 from typing import Any, Optional, Union
 
 import cv2
+from ez_wsi_dicomweb import dicom_frame_decoder
 import imagecodecs
 import numpy as np
 import PIL.Image
 
 from pathology.dicom_proxy import dicom_proxy_flags
 from pathology.dicom_proxy import enum_types
-from pathology.shared_libs.logging_lib import cloud_logging_client
 
 # Types
 _Interpolation = enum_types.Interpolation
@@ -73,53 +73,28 @@ def transcode_jpeg_to_jpxl(img: bytes) -> bytes:
   return imagecodecs.jpegxl_encode_jpeg(img, numthreads=1)
 
 
-def decode_image_bytes(
-    frame: bytes, compression_hint: Optional[_Compression]
-) -> np.ndarray:
+def decode_image_bytes(frame: bytes, dicom_transfer_syntax: str) -> np.ndarray:
   """Decode compressed image bytes to BRG image.
 
   Args:
     frame: Raw image bytes (compressed blob).
-    compression_hint: Compression format bytes encoded in; currently unused.
+    dicom_transfer_syntax: frame bytes encoded in.
 
   Returns:
     Decompressed image.
   """
-  if compression_hint == _Compression.JPEG_TRANSCODED_TO_JPEGXL:
-    # Transcode JPEGXL to JPEG and decode with JPEG pipeline.
-    try:
-      frame = transcode_jpxl_to_jpeg(frame)
-      compression_hint = _Compression.JPEG
-    except JpegxlToJpegTranscodeError:
-      # Raises Value Error if transcoding failes.
-      return cv2.cvtColor(
-          imagecodecs.jpegxl_decode(frame, numthreads=1), cv2.COLOR_RGB2BGR
-      )
-  if compression_hint == _Compression.JPEGXL:
-    return cv2.cvtColor(
-        imagecodecs.jpegxl_decode(frame, numthreads=1), cv2.COLOR_RGB2BGR
-    )
-  if compression_hint != _Compression.JPEG2000:
-    # Prefer PIL for decoding JPEG 2000
-    result = cv2.imdecode(
-        np.frombuffer(frame, dtype=np.uint8), cv2.IMREAD_COLOR
-    )
-    if result is not None:
-      return result
-    # OpenCV implementation in docker supports decoding Jpeg2000. However,
-    # internal cv2 implementation does not. Fail over to decode Jpeg2000
-    # using PIL. Log warning. This code is expected to be hit in internal tests
-    # but not in the deployed Docker where OpenCV is built to decode Jpeg2000.
-    cloud_logging_client.warning(
-        'Cannot decode image bytes using OpenCV attempting to decode using PIL'
-    )
-  with io.BytesIO(frame) as buffer:
-    with PIL.Image.open(buffer) as image:
-      if image.mode != 'RGB':
-        # if image is not RGB convert to RGB. OpenCV converts images to RGB.
-        image = image.convert(mode='RGB')
-      # Return image in BGR ordering to mimic OpenCV byte ordering.
-      return cv2.cvtColor(np.asarray(image), cv2.COLOR_BGR2RGB)
+  img = typing.cast(
+      np.ndarray,
+      dicom_frame_decoder.decode_dicom_compressed_frame_bytes(
+          frame, dicom_transfer_syntax
+      ),
+  )
+  if img.shape[2] == 1:
+    # convert monochrome to RGB
+    return np.concatenate([img, img, img], axis=-1)
+  # ez_wsi returns imaging in RGB ordering.
+  # Return image in BGR ordering (OpenCV byte ordering).
+  return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
 
 def get_cv2_interpolation_padding(

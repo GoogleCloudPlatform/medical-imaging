@@ -28,7 +28,6 @@ from pathology.dicom_proxy import dicom_proxy_flags
 from pathology.dicom_proxy import dicom_store_util
 from pathology.dicom_proxy import dicom_url_util
 from pathology.dicom_proxy import flask_util
-from pathology.dicom_proxy import iccprofile_bulk_metadata_util
 from pathology.dicom_proxy import metadata_util
 from pathology.dicom_proxy import proxy_const
 from pathology.dicom_proxy import sparse_dicom_util
@@ -288,33 +287,12 @@ def augment_instance_metadata(
   instance_request_that_includes_binary_tags = (
       is_instances_query and flask_util.includefield_binary_tags()
   )
-  bulkdata_util.test_dicom_store_metadata_for_bulkdata_uri_support(
-      dicom_web_base_url, response.data
-  )
-  if bulkdata_util.does_dicom_store_support_bulkdata(dicom_web_base_url):
-    # if store supports bulk uri then if configured alter bulk uri to proxy
-    # uri through proxy to hide underlying dicom store.
-    # otherwise leave bulk urli returned from store unchanged.
-    if dicom_proxy_flags.PROXY_DICOM_STORE_BULK_DATA_FLG.value:
-      bulkdata_util.proxy_dicom_store_bulkdata_response(
-          dicom_web_base_url, response
-      )
-  elif is_metadata_query or instance_request_that_includes_binary_tags:
-    # metadata queries return bulkuri url for binary tags
-    # If store does not support bulkuri (v1 API) then attempt to augment
-    # with ICC Profile Bulk URI.
-    try:
-      iccprofile_bulk_metadata_util.augment_dicom_iccprofile_bulkdata_metadata(
-          dicom_web_base_url,
-          study_instance_uid,
-          series_instance_uid,
-          sop_instance_uid,
-          response,
-          enable_caching=enable_caching,
-      )
-    except iccprofile_bulk_metadata_util.InvalidICCProfilePathError as ve:
-      cloud_logging_client.error('Invalid ICC profile path', ve)
-      return flask_util.exception_flask_response(ve)
+  # if configured alter bulk uri in metadata response
+  # to hide underlying dicom store.
+  if dicom_proxy_flags.PROXY_DICOM_STORE_BULK_DATA_FLG.value:
+    bulkdata_util.proxy_dicom_store_bulkdata_response(
+        dicom_web_base_url, response
+    )
   # application/dicom+json was returned
   if not _is_response_encoded_with_dicom_json_content_type(response):
     return response
@@ -325,13 +303,6 @@ def augment_instance_metadata(
 
   patch_missing_metadata_tags = False
   if instance_request_that_includes_binary_tags:
-    augment_bulk_simple_annotation_metadata = True
-  elif (
-      is_metadata_query
-      and not bulkdata_util.does_dicom_store_support_bulkdata(
-          dicom_web_base_url
-      )
-  ):
     augment_bulk_simple_annotation_metadata = True
   elif (
       is_metadata_query

@@ -25,6 +25,7 @@ import {environment} from '../../environments/environment';
 import {PathologyCohort} from '../../interfaces/cohorts';
 import {RecordIdType} from '../../interfaces/hierarchy_descriptor';
 import {RecordIdToSlideIds} from '../../interfaces/search';
+import {DICOMUriToSlideDescriptorPipe} from '../../pipes/dicom-uri-to-slide-descriptor.pipe';
 import {CohortService} from '../../services/cohort.service';
 import {DialogService} from '../../services/dialog.service';
 import {SearchService} from '../../services/search.service';
@@ -67,8 +68,8 @@ import {MatButtonModule} from '@angular/material/button';
   imports: [
     MatDialogModule, MatFormFieldModule, MatIconModule, FormsModule,
     ReactiveFormsModule, MatRadioModule, MatInputModule, MatButtonModule,
-    CommonModule
-],
+    DICOMUriToSlideDescriptorPipe, CommonModule
+  ],
   templateUrl: './dialog-cohort-create.component.html',
   styleUrl: './dialog-cohort-create.component.scss'
 })

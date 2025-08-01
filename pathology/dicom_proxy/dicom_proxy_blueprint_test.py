@@ -18,7 +18,6 @@ import contextlib
 import copy
 import http
 import json
-import os
 import re
 from typing import Iterator, Mapping, Optional
 from unittest import mock
@@ -40,7 +39,6 @@ mock.patch('flask_compress.Compress.compressed', lambda x: lambda x: x).start()
 
 from pathology.dicom_proxy import bulkdata_util  # pylint: disable=g-import-not-at-top
 from pathology.dicom_proxy import cache_enabled_type
-from pathology.dicom_proxy import color_conversion_util
 from pathology.dicom_proxy import dicom_proxy_blueprint
 from pathology.dicom_proxy import dicom_store_util
 from pathology.dicom_proxy import dicom_url_util
@@ -49,7 +47,6 @@ from pathology.dicom_proxy import flask_util
 from pathology.dicom_proxy import metadata_util
 from pathology.dicom_proxy import parameters_exceptions_and_return_types
 from pathology.dicom_proxy import proxy_const
-from pathology.dicom_proxy import pydicom_single_instance_read_cache
 from pathology.dicom_proxy import redis_cache
 from pathology.dicom_proxy import render_frame_params
 from pathology.dicom_proxy import server
@@ -781,7 +778,10 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
   def test_get_request_compression(self, accept_header, expected):
     self.assertEqual(
         dicom_proxy_blueprint._get_request_compression(
-            accept_header, _Compression.JPEG
+            accept_header,
+            shared_test_util.create_mock_dicom_instance_metadata(
+                '1.2.840.10008.1.2.4.50'
+            ),
         ),
         expected,
     )
@@ -789,7 +789,10 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
   def test_get_request_jpgxl_compression_source_not_jpeg(self):
     self.assertEqual(
         dicom_proxy_blueprint._get_request_compression(
-            'image/jxl', _Compression.JPEGXL
+            'image/jxl',
+            shared_test_util.create_mock_dicom_instance_metadata(
+                '1.2.840.10008.1.2.4.112'
+            ),
         ),
         _Compression.JPEGXL,
     )
@@ -797,7 +800,10 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
   def test_get_request_compression_throws(self):
     with self.assertRaises(ValueError):
       dicom_proxy_blueprint._get_request_compression(
-          'unexpected', _Compression.JPEG
+          'unexpected',
+          shared_test_util.create_mock_dicom_instance_metadata(
+              '1.2.840.10008.1.2.4.50'
+          ),
       )
 
   def test_parse_request_params(self):
@@ -977,7 +983,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
       # Mock DICOM store metadata request.
       mock_request.register_uri(
           'GET',
-          'https://healthcare.googleapis.com/v1/projects/test-project/locations/us-west1/datasets/bigdata/dicomStores/bigdicomstore/dicomWeb/studies/1.2.3/series/1.2.3.4/instances?includefield=ImageType',
+          'https://healthcare.googleapis.com/v1/projects/test-project/locations/us-west1/datasets/bigdata/dicomStores/bigdicomstore/dicomWeb/studies/1.2.3/series/1.2.3.4/instances/1.2.3.4.5/metadata',
           status_code=http.HTTPStatus.OK,
           text=f'[{pydicom.dcmread(local_instance.cache.path).to_json()}]',
       )
@@ -1096,60 +1102,6 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
       self.assertEqual(response.status_code, http.HTTPStatus.NOT_FOUND)
       self.assertEqual(response.content_type, 'image/png')
       self.assertEqual(response.data, b'test_data')
-
-  def test_return_icc_profile_bulkdata(self):
-    tmp_dir = self.create_tempdir()
-    dicom_path = os.path.join(tmp_dir, 'test_dicom.dcm')
-    icc_profile = color_conversion_util._get_srgb_iccprofile()
-    with pydicom.dcmread(
-        shared_test_util.jpeg_encoded_dicom_instance_test_path()
-    ) as dcm:
-      dcm.ICCProfile = icc_profile
-      dcm.save_as(dicom_path)
-
-    response = dicom_proxy_blueprint._dicom_instance_icc_profile_bulkdata(
-        _LocalDicomInstance(
-            pydicom_single_instance_read_cache.PyDicomFilePath(dicom_path)
-        )
-    )
-    multipart_data = requests_toolbelt.MultipartDecoder(
-        response.data, response.content_type
-    )
-    self.assertLen(multipart_data.parts, 1)
-    self.assertEqual(multipart_data.parts[0].content, icc_profile)
-
-  def test_get_wsi_instance_metadata_dicom_store_bulkdata_not_enabled_success(
-      self,
-  ):
-    dcm = shared_test_util.jpeg_encoded_dicom_instance()
-    expected_metadata = dcm.to_json_dict()
-    expected_metadata.update(dcm.file_meta.to_json_dict())
-    try:
-      del expected_metadata[_DICOM_PIXELDATA_TAG_ADDRESS]
-      del expected_metadata[_DICOM_FILE_META_INFORMATION_VERSION_TAG_ADDRESS]
-    except KeyError:
-      pass
-    expected_metadata = [expected_metadata]
-    metadata = _dicom_metadata_search(dcm, False)
-    md = json.loads(metadata.data.decode('utf-8'))
-    self.assertEqual(metadata.status_code, http.HTTPStatus.OK)
-    self.assertLen(md, len(expected_metadata))
-    for index, metadata in enumerate(md):
-      self.assertEqual(metadata, expected_metadata[index])
-
-  def test_get_wsi_annotation_metadata_dicom_store_bulkdata_not_enabled_success(
-      self,
-  ):
-    dcm = shared_test_util.wsi_dicom_annotation_instance()
-    expected_metadata = dcm.to_json_dict()
-    expected_metadata.update(dcm.file_meta.to_json_dict())
-    expected_metadata = [expected_metadata]
-    metadata = _dicom_metadata_search(dcm, False)
-    md = json.loads(metadata.data.decode('utf-8'))
-    self.assertEqual(metadata.status_code, http.HTTPStatus.OK)
-    self.assertLen(md, len(expected_metadata))
-    for index, metadata in enumerate(md):
-      self.assertEqual(metadata, expected_metadata[index])
 
   @parameterized.named_parameters([
       dict(
@@ -1292,13 +1244,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
     finally:
       bulkdata_util._is_debugging = True
 
-  @mock.patch.object(
-      bulkdata_util,
-      'does_dicom_store_support_bulkdata',
-      autospec=True,
-      return_value=True,
-  )
-  def test_get_wsi_annotation_instance_tags_success(self, _):
+  def test_get_wsi_annotation_instance_tags_success(self):
     dcm = shared_test_util.wsi_dicom_annotation_instance()
     expected_metadata = dcm.to_json_dict()
     expected_metadata.update(dcm.file_meta.to_json_dict())
@@ -1310,13 +1256,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
     for index, metadata in enumerate(md):
       self.assertEqual(metadata, expected_metadata[index])
 
-  @mock.patch.object(
-      bulkdata_util,
-      'does_dicom_store_support_bulkdata',
-      autospec=True,
-      return_value=True,
-  )
-  def test_get_wsi_instance_tags_success(self, _):
+  def test_get_wsi_instance_tags_success(self):
     dcm = shared_test_util.jpeg_encoded_dicom_instance()
     expected_metadata = dcm.to_json_dict()
     expected_metadata.update(dcm.file_meta.to_json_dict())
@@ -1344,13 +1284,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
       self.assertEqual(metadata, expected_metadata[index])
 
   @flagsaver.flagsaver(enable_augmented_study_search=True)
-  @mock.patch.object(
-      bulkdata_util,
-      'does_dicom_store_support_bulkdata',
-      autospec=True,
-      return_value=True,
-  )
-  def test_get_wsi_study_tags_success(self, _):
+  def test_get_wsi_study_tags_success(self):
     dcm = shared_test_util.jpeg_encoded_dicom_instance()
     expected_metadata = dcm.to_json_dict()
     expected_metadata.update(dcm.file_meta.to_json_dict())
@@ -1381,13 +1315,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
       self.assertEqual(metadata, expected_metadata[index])
 
   @flagsaver.flagsaver(enable_augmented_series_search=True)
-  @mock.patch.object(
-      bulkdata_util,
-      'does_dicom_store_support_bulkdata',
-      autospec=True,
-      return_value=True,
-  )
-  def test_get_wsi_series_tags_success(self, _):
+  def test_get_wsi_series_tags_success(self):
     dcm = shared_test_util.jpeg_encoded_dicom_instance()
     expected_metadata = dcm.to_json_dict()
     expected_metadata.update(dcm.file_meta.to_json_dict())

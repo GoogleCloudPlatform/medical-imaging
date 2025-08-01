@@ -1,5 +1,5 @@
 # LINT.IfChange
-pyOpenSSL==25.0.0
-cryptography==44.0.1
-typing-extensions==4.12.2
+pyOpenSSL==25.1.0
+cryptography==45.0.5
+typing-extensions==4.14.1
 # LINT.ThenChange(//depot/pathology.base_docker_images/base_py_debian_docker/requirements.txt)

@@ -36,7 +36,6 @@ from pathology.dicom_proxy import enum_types
 from pathology.dicom_proxy import execution_timer
 from pathology.dicom_proxy import flask_util
 from pathology.dicom_proxy import frame_caching_util
-from pathology.dicom_proxy import iccprofile_bulk_metadata_util
 from pathology.dicom_proxy import logging_util
 from pathology.dicom_proxy import metadata_augmentation
 from pathology.dicom_proxy import metadata_util
@@ -186,13 +185,14 @@ def _parse_iccprofile(args: Mapping[str, str]) -> _ICCProfile:
 
 
 def _get_request_compression(
-    accept_header: Optional[str], instance_compression: _Compression
+    accept_header: Optional[str],
+    dicom_instance_metadata: metadata_util.DicomInstanceMetadata,
 ) -> _Compression:
   """Returns the image compression format specified in the request.
 
   Args:
     accept_header: Request http accept header value.
-    instance_compression: Compression format of the DICOM instance.
+    dicom_instance_metadata: DICOM instance metadata for instance requested.
 
   Returns:
     Requested compression format.
@@ -214,7 +214,7 @@ def _get_request_compression(
   if '*/*' in accept_header:
     return _Compression.JPEG
   if 'image/jxl' in accept_header:
-    if instance_compression == _Compression.JPEG:
+    if dicom_instance_metadata.is_baseline_jpeg:
       return _Compression.JPEG_TRANSCODED_TO_JPEGXL
     else:
       return _Compression.JPEGXL
@@ -241,7 +241,7 @@ def _parse_embed_icc_profile(args: Mapping[str, str]) -> bool:
 def _parse_request_params(
     args: Mapping[str, str],
     header: Mapping[str, str],
-    instance_compression: _Compression,
+    dicom_instance_metadata: metadata_util.DicomInstanceMetadata,
 ) -> _RenderFrameParams:
   """Returns RenderedFrameParams initialized from HTTP request arguments.
 
@@ -249,7 +249,7 @@ def _parse_request_params(
     args: Argument key/value mapping passed to url.  Returns initialized
       RenderedFrameParams class.
     header: Passed to HTTP request.
-    instance_compression: Compression format of the DICOM instance.
+    dicom_instance_metadata: Instance metadata for DICOM being read.
 
   Raises:
     ValueError: Error in parameter definition.
@@ -266,7 +266,7 @@ def _parse_request_params(
       downsample,
       interpolation,
       _get_request_compression(
-          header.get(flask_util.ACCEPT_HEADER_KEY), instance_compression
+          header.get(flask_util.ACCEPT_HEADER_KEY), dicom_instance_metadata
       ),
       jpeg_quality,
       iccprofile,
@@ -332,7 +332,7 @@ def _get_rendered_frames(
     params = _parse_request_params(
         instance_request.url_args,
         instance_request.url_header,
-        instance_request.metadata.image_compression,
+        instance_request.metadata,
     )
   except ValueError as exp:
     cloud_logging_client.error('Exception parsing request params.', exp)
@@ -681,7 +681,7 @@ def _rendered_wsi_instance(
     params = _parse_request_params(
         instance_request.url_args,
         instance_request.url_header,
-        instance_request.metadata.image_compression,
+        instance_request.metadata,
     )
   except ValueError as exp:
     cloud_logging_client.error('Exception parsing request params.', exp)
@@ -1344,48 +1344,6 @@ def _general_path(
   return dicom_store_util.dicom_store_proxy()
 
 
-def _dicom_instance_icc_profile_bulkdata(
-    instance_request: _DicomInstanceRequest,
-) -> flask.Response:
-  """Return DICOM instance ICCProfile bulkdata.
-
-  Args:
-    instance_request: DICOM instance requesting ICCProfile bulkdata.
-
-  Returns:
-    ICCProfile bulkdata.
-  """
-  try:
-    # validate the user can read metadata for instance before returning.
-    _ = instance_request.metadata
-    icc_profile_bytes = instance_request.icc_profile()
-  except metadata_util.ReadDicomMetadataError as exp:
-    cloud_logging_client.error('Reading DICOM metadata.', exp)
-    return flask_util.exception_flask_response(exp)
-  if icc_profile_bytes is None:
-    cloud_logging_client.error('ICCProfile is not found.')
-    return flask_util.exception_flask_response('ICCProfile is not found.')
-  multipart_data = requests_toolbelt.MultipartEncoder(
-      fields=[(
-          'icc_profile.icc',
-          (
-              None,
-              icc_profile_bytes,
-              'application/octet-stream',
-          ),
-      )]
-  )
-  return flask.Response(
-      response=multipart_data.read(),
-      headers={
-          'Content-Type': (
-              f'multipart/related; boundary={multipart_data.boundary_value}'
-          )
-      },
-      direct_passthrough=True,
-  )
-
-
 @dicom_proxy.route(
     f'{dicom_url_util.DICOM_WEB_INSTANCE_URL_DEFAULT_VERSION}/{bulkdata_util.PROXY_BULK_DATA_URI}/<path:path>',
     methods=flask_util.GET_AND_POST_METHODS,
@@ -1447,24 +1405,6 @@ def _get_bulkdata(
       },
       _get_masked_flask_headers(),
   )
-  dicom_web_base_url = dicom_url_util.DicomWebBaseURL(
-      store_api_version, projectid, location, datasetid, dicomstore
-  )
-  if bulkdata_util.does_dicom_store_support_bulkdata(dicom_web_base_url):
-    cloud_logging_client.debug(
-        'DICOM store supports bulkdata proxying request.'
-    )
-    return dicom_store_util.dicom_store_proxy()
-  instance_request = _create_dicom_instance_web_request(
-      dicom_web_base_url,
-      study_instance_uid,
-      series_instance_uid,
-      sop_instance_uid,
-  )
-  if path.endswith(iccprofile_bulk_metadata_util.ICCPROFILE_DICOM_TAG_KEYWORD):
-    cloud_logging_client.debug('Performing ICC profile bulkdata retreval.')
-    return _dicom_instance_icc_profile_bulkdata(instance_request)
-  cloud_logging_client.debug('Performing bulkdata retrieval using proxy.')
   return dicom_store_util.dicom_store_proxy()
 
 

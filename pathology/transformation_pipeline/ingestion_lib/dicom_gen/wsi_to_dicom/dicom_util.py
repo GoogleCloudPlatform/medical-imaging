@@ -122,6 +122,13 @@ def _get_rommrgb_iccprofile() -> bytes:
   return dicom_slide.get_rommrgb_icc_profile_bytes()
 
 
+def _get_displayp3_iccprofile() -> bytes:
+  profile = _read_icc_profile_plugin_file('displayp3')
+  if profile:
+    return profile
+  return dicom_slide.get_displayp3_icc_profile_bytes()
+
+
 def get_default_icc_profile_color() -> Optional[bytes]:
   """Returns default ICC profile to that should be used if none is provided."""
   default_icc_profile = ingest_flags.DEFAULT_ICC_PROFILE_FLG.value
@@ -135,6 +142,8 @@ def get_default_icc_profile_color() -> Optional[bytes]:
       profile = _get_adobergb_iccprofile()
     elif default_icc_profile == ingest_const.ICCProfile.ROMMRGB:
       profile = _get_rommrgb_iccprofile()
+    elif default_icc_profile == ingest_const.ICCProfile.DISPLAYP3:
+      profile = _get_displayp3_iccprofile()
     elif default_icc_profile == ingest_const.ICCProfile.NONE:
       # Not recommended, ICC Profile are required for all WSI imaging that
       # do not encode monochrome imaging.

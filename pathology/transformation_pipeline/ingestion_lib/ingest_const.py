@@ -208,6 +208,7 @@ class ICCProfile:
   ROMMRGB = 'ROMMRGB'
   NONE = 'NONE'
   SRGB = 'SRGB'
+  DISPLAYP3 = 'DISPLAYP3'
 
 
 class DicomImageTransferSyntax:

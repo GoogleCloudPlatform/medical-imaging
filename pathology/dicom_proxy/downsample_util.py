@@ -97,7 +97,7 @@ class _TranscodedRenderedDicomFrames(_RenderedDicomFrames):
       params: _RenderFrameParams,
       source_frames: Optional[frame_retrieval_util.FrameImages],
       metrics: _Metrics,
-      source_image_compression: Optional[enum_types.Compression],
+      source_dicom_metadata: metadata_util.DicomInstanceMetadata,
   ):
     """Constructor.
 
@@ -109,7 +109,7 @@ class _TranscodedRenderedDicomFrames(_RenderedDicomFrames):
       source_frames: Source frame imaging used to construct images from
         downsampled patches.  None of the frames is List[bytes].
       metrics: metrics to measure implementation
-      source_image_compression: Compression format source imaging is encoded in.
+      source_dicom_metadata: Metadata for source DICOM.
     """
     if source_frames is None:
       is_frame_patch = False
@@ -118,7 +118,9 @@ class _TranscodedRenderedDicomFrames(_RenderedDicomFrames):
       is_frame_patch = True
       # Images decoded using OpenCV into BGR ordering
       decoded_source_frames = {
-          num: image_util.decode_image_bytes(img, source_image_compression)
+          num: image_util.decode_image_bytes(
+              img, source_dicom_metadata.dicom_transfer_syntax
+          )
           for num, img in source_frames.images.items()
       }
 
@@ -130,8 +132,7 @@ class _TranscodedRenderedDicomFrames(_RenderedDicomFrames):
         ).get_downsampled_image(decoded_source_frames)
       elif (
           icc_profile_transform is None
-          and source_image_compression
-          == enum_types.Compression.JPEG_TRANSCODED_TO_JPEGXL
+          and source_dicom_metadata.is_jpg_transcoded_to_jpegxl
           and params.compression == enum_types.Compression.JPEG
       ):
         # transcoding JPEGXL derieved from JPEG to JPEG with no icc profile
@@ -140,10 +141,12 @@ class _TranscodedRenderedDicomFrames(_RenderedDicomFrames):
           encoded_images.append(image_util.transcode_jpxl_to_jpeg(image))
           continue
         except image_util.JpegxlToJpegTranscodeError:
-          image = image_util.decode_image_bytes(image, source_image_compression)
+          image = image_util.decode_image_bytes(
+              image, source_dicom_metadata.dicom_transfer_syntax
+          )
       elif (
           icc_profile_transform is None
-          and source_image_compression == enum_types.Compression.JPEG
+          and source_dicom_metadata.is_baseline_jpeg
           and (
               params.compression == enum_types.Compression.JPEGXL
               or params.compression
@@ -154,7 +157,9 @@ class _TranscodedRenderedDicomFrames(_RenderedDicomFrames):
         encoded_images.append(image_util.transcode_jpeg_to_jpxl(image))
         continue
       else:
-        image = image_util.decode_image_bytes(image, source_image_compression)
+        image = image_util.decode_image_bytes(
+            image, source_dicom_metadata.dicom_transfer_syntax
+        )
       if icc_profile_transform is None:
         icc_profile = None
       else:
@@ -427,7 +432,7 @@ def _get_frames_no_downsampling(
       params,
       None,
       metrics,
-      dicom_instance_source.metadata.image_compression,
+      dicom_instance_source.metadata,
   )
 
 
@@ -637,7 +642,7 @@ def get_rendered_dicom_frames(
         params,
         minibatch_frame_request.frames_retrieved,
         metrics,
-        dicom_instance_source.metadata.image_compression,
+        dicom_instance_source.metadata,
     )
 
     metrics.mini_batch_requests += 1
@@ -751,7 +756,7 @@ def downsample_dicom_instance(
         )
       else:
         decoded_image = image_util.decode_image_bytes(
-            undecoded_image, dicom_instance.metadata.image_compression
+            undecoded_image, dicom_instance.metadata
         )
       if instance_image is None:
         instance_image = np.zeros(

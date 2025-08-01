@@ -68,3 +68,4 @@ class ICCProfile:
   SRGB = enum_types.ICCProfile('SRGB')
   ADOBERGB = enum_types.ICCProfile('ADOBERGB')
   ROMMRGB = enum_types.ICCProfile('ROMMRGB')
+  DISPLAYP3 = enum_types.ICCProfile('DISPLAYP3')

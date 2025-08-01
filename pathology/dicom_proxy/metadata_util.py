@@ -22,7 +22,7 @@ import math
 import os
 import sys
 import threading
-from typing import Any, List, Mapping, Optional, Union
+from typing import Any, List, Mapping, Union
 import uuid
 
 import cachetools
@@ -35,8 +35,6 @@ from pathology.dicom_proxy import cache_enabled_type
 from pathology.dicom_proxy import dicom_proxy_flags
 from pathology.dicom_proxy import dicom_store_util
 from pathology.dicom_proxy import dicom_url_util
-from pathology.dicom_proxy import enum_types
-from pathology.dicom_proxy import icc_profile_metadata_cache
 from pathology.dicom_proxy import redis_cache
 from pathology.dicom_proxy import user_auth_util
 from pathology.shared_libs.logging_lib import cloud_logging_client
@@ -84,6 +82,8 @@ _VALUE = 'Value'
 _VL_WHOLE_SLIDE_MICROSCOPY_IMAGE_IOD = '1.2.840.10008.5.1.4.1.1.77.1.6'
 _MICROSCOPY_BULK_SIMPLE_ANNOTATIONS_IOD = '1.2.840.10008.5.1.4.1.1.91.1'
 
+_JPEG_TRANSCODED_TO_JPEGXL_TRANSFER_SYNTAX = '1.2.840.10008.1.2.4.111'
+_JPEG_BASELINE_TRANSFER_SYNTAX = '1.2.840.10008.1.2.4.50'
 _IMPLICIT_VR_ENDIAN = '1.2.840.10008.1.2'
 _EXPLICIT_VR_LITTLE_ENDIAN = '1.2.840.10008.1.2.1'
 _DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN = '1.2.840.10008.1.2.1.99'
@@ -213,6 +213,16 @@ class MetadataSource:
 
 @dataclasses_json.dataclass_json
 @dataclasses.dataclass(frozen=True)
+class _ICCProfileMetadata:
+  color_space: str  # 00282002
+  bulkdata_uri: str  # 00282000
+
+
+_MISSING_ICC_PROFILE_METADATA = _ICCProfileMetadata('', '')
+
+
+@dataclasses_json.dataclass_json
+@dataclasses.dataclass(frozen=True)
 class DicomInstanceMetadata:
   """DICOM Instance Metadata."""
 
@@ -232,56 +242,12 @@ class DicomInstanceMetadata:
   lossy_compression_method: str  # 00282114
   dimension_organization_type: str  # 00209311  TILED_FULL
   dicom_transfer_syntax: str  # 00020010
-
-  # Instance icc_profile metadata should not be accessed directly.
-  # contains metadata discovered when instance metadata was read and will only
-  # contain values for DICOM stores supporting bukdata retrieval. It is used
-  # internally to reinitalize ICC Profile metadata cache.
-  #
-  # Access instance ICC profile metadata using accessors on the
-  # Classes derived from DICOM Instance Request or through methods
-  # (get_series_icc_profile_colorspace, get_series_icc_profile_bytes,
-  #  and get_series_icc_profile_path) exposed on color_conversion_util module.
-  _instance_icc_profile_metadata: Optional[
-      icc_profile_metadata_cache.ICCProfileMetadata
-  ]
+  icc_profile_colorspace: str
+  icc_profile_bulkdata_uri: str
 
   @property
   def has_icc_profile(self) -> bool:
-    return (
-        self._instance_icc_profile_metadata is not None
-        and self._instance_icc_profile_metadata
-        != icc_profile_metadata_cache.INSTANCE_MISSING_ICC_PROFILE_METADATA
-    )
-
-  @property
-  def icc_profile_colorspace(self) -> str:
-    # pytype: disable=attribute-error
-    return (
-        self._instance_icc_profile_metadata.color_space
-        if self.has_icc_profile
-        else ''
-    )
-    # pytype: enable=attribute-error
-
-  @property
-  def icc_profile_path(self) -> str:
-    # pytype: disable=attribute-error
-    return (
-        self._instance_icc_profile_metadata.path if self.has_icc_profile else ''
-    )
-    # pytype: enable=attribute-error
-
-  @property
-  def icc_profile_bulkdata_uri(self) -> str:
-    # pytype: disable=attribute-error
-    # Bulkdata uri is only set if the DICOM store supports bulkdata retrieval.
-    return (
-        self._instance_icc_profile_metadata.bulkdata_uri  # pytype: disable=attribute-error
-        if self.has_icc_profile
-        else ''
-    )
-    # pytype: enable=attribute-error
+    return bool(self.icc_profile_bulkdata_uri)
 
   # Source metadata used to request instance metadata.
   metadata_source: MetadataSource
@@ -361,7 +327,8 @@ class DicomInstanceMetadata:
         self.lossy_compression_method,
         self.dimension_organization_type,
         self.dicom_transfer_syntax,
-        self._instance_icc_profile_metadata,
+        self.icc_profile_colorspace,
+        self.icc_profile_bulkdata_uri,
         self.metadata_source,
     )
 
@@ -381,7 +348,7 @@ class DicomInstanceMetadata:
     Returns:
       True if DICOM metadata appears to be lossy jpeg.
     """
-    return self.dicom_transfer_syntax == '1.2.840.10008.1.2.4.50'
+    return self.dicom_transfer_syntax == _JPEG_BASELINE_TRANSFER_SYNTAX
 
   @property
   def is_jpeg2000(self) -> bool:
@@ -404,7 +371,7 @@ class DicomInstanceMetadata:
     """
     return self.dicom_transfer_syntax in (
         '1.2.840.10008.1.2.4.110',
-        '1.2.840.10008.1.2.4.111',
+        _JPEG_TRANSCODED_TO_JPEGXL_TRANSFER_SYNTAX,
         '1.2.840.10008.1.2.4.112',
     )
 
@@ -415,42 +382,9 @@ class DicomInstanceMetadata:
     Returns:
       True if DICOM metadata appears to be jpeg transcoded to jpegxl.
     """
-    return self.dicom_transfer_syntax == '1.2.840.10008.1.2.4.111'
-
-  @property
-  def image_compression(self) -> Optional[enum_types.Compression]:
-    """Returns compression encoding of source image bytes; None = Unknown."""
-    if self.is_baseline_jpeg:
-      return enum_types.Compression.JPEG
-    if self.is_jpeg2000:
-      return enum_types.Compression.JPEG2000
-    if self.is_jpg_transcoded_to_jpegxl:
-      return enum_types.Compression.JPEG_TRANSCODED_TO_JPEGXL
-    if self.is_jpegxl:
-      return enum_types.Compression.JPEGXL
-    return None
-
-  def init_instance_icc_profile_metadata(self) -> None:
-    """Sets instance metadata if not initialized."""
-    if self._instance_icc_profile_metadata is None:
-      return
-    store_url = self.metadata_source.store_url
-    if (
-        icc_profile_metadata_cache.get_cached_instance_icc_profile_metadata(
-            redis_cache.RedisCache(self.metadata_source.caching_enabled),
-            store_url,
-            self.metadata_source.sop_instance_uid,
-            bulkdata_util.does_dicom_store_support_bulkdata(store_url),
-        )
-        is None
-    ):
-      icc_profile_metadata_cache.set_cached_instance_icc_profile_metadata(
-          redis_cache.RedisCache(self.metadata_source.caching_enabled),
-          store_url,
-          self.metadata_source.sop_instance_uid,
-          bulkdata_util.does_dicom_store_support_bulkdata(store_url),
-          self._instance_icc_profile_metadata,
-      )
+    return (
+        self.dicom_transfer_syntax == _JPEG_TRANSCODED_TO_JPEGXL_TRANSFER_SYNTAX
+    )
 
 
 def _get_value(metadata: Mapping[str, Any], key: str) -> Any:
@@ -554,24 +488,19 @@ def _get_int_value(metadata: Mapping[str, Any], key: str) -> int:
 
 
 def _get_iccprofile_and_colorspace_(
-    path: str,
     metadata: Mapping[str, Any],
-) -> List[icc_profile_metadata_cache.ICCProfileMetadata]:
+) -> List[_ICCProfileMetadata]:
   """Returns ICC Profile metadata, if any, from DICOM Dataset."""
   color_space = _get_str_value(metadata, _COLOR_SPACE_DICOM_ADDRRESS_TAG)
   icc_profile_address = _get_bulkdatauri(metadata, _ICC_PROFILE_ADDRESS_TAG)
   if icc_profile_address:
-    return [
-        icc_profile_metadata_cache.ICCProfileMetadata(
-            path, color_space, icc_profile_address, ''
-        )
-    ]
+    return [_ICCProfileMetadata(color_space, icc_profile_address)]
   return []
 
 
 def _init_instance_icc_profile_from_metadata(
     metadata: Mapping[str, Any],
-) -> List[icc_profile_metadata_cache.ICCProfileMetadata]:
+) -> List[_ICCProfileMetadata]:
   """Returns a list of refs to ICC profile metadata defined in a DICOM instance.
 
   Args:
@@ -584,15 +513,9 @@ def _init_instance_icc_profile_from_metadata(
     result_list = []
     optical_path_sequence = metadata.get(_OPTICAL_PATH_SEQ_TAG)
     if optical_path_sequence is not None:
-      for index, optical_path in enumerate(
-          optical_path_sequence.get(_VALUE, [])
-      ):
-        result_list.extend(
-            _get_iccprofile_and_colorspace_(
-                f'OpticalPathSequence/{index}/ICCProfile', optical_path
-            )
-        )
-    result_list.extend(_get_iccprofile_and_colorspace_('ICCProfile', metadata))
+      for optical_path in optical_path_sequence.get(_VALUE, []):
+        result_list.extend(_get_iccprofile_and_colorspace_(optical_path))
+    result_list.extend(_get_iccprofile_and_colorspace_(metadata))
     if len(result_list) > 1:
       cloud_logging_client.warning(
           'DICOM instance defines multiple ICC Profiles; server side correction'
@@ -653,25 +576,9 @@ def _init_metadata_from_json(
   dicom_transfer_syntax = _get_str_value(metadata, _DICOM_TRANSFER_SYNTAX)
 
   icc_profiles = _init_instance_icc_profile_from_metadata(metadata)
-  has_bulk_data_icc_profile = any(
-      [bool(profile.bulkdata_uri) for profile in icc_profiles]
+  icc_profile_metadata = (
+      icc_profiles[0] if icc_profiles else _MISSING_ICC_PROFILE_METADATA
   )
-  if has_bulk_data_icc_profile:
-    bulkdata_util.set_dicom_store_supports_bulkdata(store_url)
-  else:
-    bulkdata_util.test_dicom_store_metadata_for_bulkdata_uri_support(
-        store_url, metadata
-    )
-  if icc_profiles:
-    instance_icc_profile_metadata = icc_profiles[0]
-  elif bulkdata_util.does_dicom_store_support_bulkdata(store_url):
-    instance_icc_profile_metadata = (
-        icc_profile_metadata_cache.INSTANCE_MISSING_ICC_PROFILE_METADATA
-    )
-  else:
-    # Instance may have ICC Profile metadata but none was detected in JASON at
-    # time of metadata retrieval.
-    instance_icc_profile_metadata = None
   md = DicomInstanceMetadata(
       sop_class_uid,
       total_pixel_matrix_columns,
@@ -688,14 +595,14 @@ def _init_metadata_from_json(
       lossy_compression_method,
       dimension_organization_type,
       dicom_transfer_syntax,
-      instance_icc_profile_metadata,
+      icc_profile_metadata.color_space,
+      icc_profile_metadata.bulkdata_uri,
       MetadataSource(
           store_url,
           dicom_url_util.SOPInstanceUID(sop_instance_uid),
           caching_enabled,
       ),
   )
-  md.init_instance_icc_profile_metadata()
   return md
 
 

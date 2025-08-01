@@ -87,7 +87,6 @@ py_library(
         ":dicom_store_util",
         ":dicom_url_util",
         ":flask_util",
-        ":iccprofile_bulk_metadata_util",
         ":metadata_util",
         ":proxy_const",
         ":sparse_dicom_util",
@@ -142,15 +141,12 @@ py_library(
     name = "color_conversion_util",
     srcs = ["color_conversion_util.py"],
     deps = [
-        ":bulkdata_util",
         ":cache_enabled_type",
         ":dicom_proxy_flags",
         ":dicom_store_util",
         ":dicom_url_util",
         ":enum_types",
         ":execution_timer",
-        ":frame_caching_util",
-        ":frame_retrieval_util",
         ":icc_color_transform",
         ":icc_profile_metadata_cache",
         ":image_util",
@@ -175,7 +171,6 @@ py_library(
         ":dicom_url_util",
         ":redis_cache",
         requirement("cachetools"),
-        requirement("dataclasses_json"),
     ],
 )
 
@@ -334,29 +329,14 @@ py_library(
 )
 
 py_library(
-    name = "iccprofile_bulk_metadata_util",
-    srcs = ["iccprofile_bulk_metadata_util.py"],
-    deps = [
-        ":bulkdata_util",
-        ":cache_enabled_type",
-        ":color_conversion_util",
-        ":dicom_url_util",
-        ":flask_util",
-        ":user_auth_util",
-        requirement("Flask"),
-        requirement("requests-toolbelt"),
-    ],
-)
-
-py_library(
     name = "image_util",
     srcs = ["image_util.py"],
     deps = [
         ":dicom_proxy_flags",
         ":enum_types",
-        "//pathology/shared_libs/logging_lib:cloud_logging_client",
         requirement("pillow"),
         requirement("opencv-python-headless"),
+        "//pathology/ez_wsi_dicomweb:dicom_frame_decoder",
         requirement("imagecodecs"),
         requirement("numpy"),
     ],
@@ -388,8 +368,6 @@ py_library(
         ":dicom_proxy_flags",
         ":dicom_store_util",
         ":dicom_url_util",
-        ":enum_types",
-        ":icc_profile_metadata_cache",
         ":redis_cache",
         ":user_auth_util",
         "//pathology/shared_libs/logging_lib:cloud_logging_client",
@@ -509,7 +487,6 @@ py_library(
         ":execution_timer",
         ":flask_util",
         ":frame_caching_util",
-        ":iccprofile_bulk_metadata_util",
         ":logging_util",
         ":metadata_augmentation",
         ":metadata_util",
@@ -641,7 +618,6 @@ py_test(
     name = "color_conversion_util_test",
     srcs = ["color_conversion_util_test.py"],
     deps = [
-        ":bulkdata_util",
         ":cache_enabled_type",
         ":color_conversion_util",
         ":dicom_url_util",
@@ -775,7 +751,6 @@ py_test(
         ":frame_retrieval_util_test_images",
     ],
     deps = [
-        requirement("absl-py"),
         ":cache_enabled_type",
         ":dicom_url_util",
         ":enum_types",
@@ -786,23 +761,12 @@ py_test(
         ":render_frame_params",
         ":shared_test_util",
         ":user_auth_util",
+        requirement("pillow"),
+        requirement("absl-py"),
+        requirement("opencv-python-headless"),
+        requirement("numpy"),
         requirement("redis"),
         requirement("requests_mock"),
-        requirement("requests-toolbelt"),
-    ],
-)
-
-py_test(
-    name = "iccprofile_bulk_metadata_util_test",
-    srcs = ["iccprofile_bulk_metadata_util_test.py"],
-    deps = [
-        requirement("absl-py"),
-        ":bulkdata_util",
-        ":cache_enabled_type",
-        ":color_conversion_util",
-        ":dicom_url_util",
-        ":flask_util",
-        ":iccprofile_bulk_metadata_util",
         requirement("requests-toolbelt"),
     ],
 )
@@ -836,7 +800,6 @@ py_test(
         ":dicom_proxy_flags",
         ":dicom_store_util",
         ":dicom_url_util",
-        ":enum_types",
         ":metadata_util",
         ":proxy_const",
         ":shared_test_util",
@@ -915,7 +878,6 @@ py_test(
         requirement("absl-py"),
         ":bulkdata_util",
         ":cache_enabled_type",
-        ":color_conversion_util",
         ":dicom_proxy_blueprint",
         ":dicom_store_util",
         ":dicom_url_util",
@@ -924,7 +886,6 @@ py_test(
         ":metadata_util",
         ":parameters_exceptions_and_return_types",
         ":proxy_const",
-        ":pydicom_single_instance_read_cache",
         ":redis_cache",
         ":render_frame_params",
         ":server_lib",
@@ -1025,8 +986,6 @@ py_test(
         requirement("absl-py"),
         ":dicom_url_util",
         ":icc_profile_metadata_cache",
-        ":redis_cache",
-        ":shared_test_util",
         ":user_auth_util",
         requirement("cachetools"),
     ],

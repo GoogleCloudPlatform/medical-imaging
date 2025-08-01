@@ -15,12 +15,16 @@
 """Tests for frame retrieval util."""
 import dataclasses
 import http.client
+import io
 import re
 from typing import Dict, List, Optional
 from unittest import mock
 
 from absl.testing import absltest
 from absl.testing import parameterized
+import cv2
+import numpy as np
+import PIL.Image
 import redis
 import requests_mock
 import requests_toolbelt
@@ -302,7 +306,9 @@ class FrameRetrievalUtilTest(parameterized.TestCase):
       if frame_data.compression != _Compression.JPEG:
         # If image not returned as JPEG convert to JPEG
         # this conversion is done to make images visible in cider and critque.
-        img = image_util.decode_image_bytes(img, frame_data.compression)
+        with PIL.Image.open(io.BytesIO(img)) as img:
+          # Read image using PIL and convert to OpenCV BGR Colorspace.
+          img = cv2.cvtColor(np.asarray(img), cv2.COLOR_RGB2BGR)
         img = image_util.encode_image(img, _Compression.JPEG, 95, None)
       with open(
           shared_test_util.get_testdir_path(

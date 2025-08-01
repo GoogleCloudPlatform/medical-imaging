@@ -29,7 +29,6 @@ from PIL import ImageCms
 import pydicom
 import redis
 
-from pathology.dicom_proxy import bulkdata_util
 from pathology.dicom_proxy import cache_enabled_type
 from pathology.dicom_proxy import color_conversion_util
 from pathology.dicom_proxy import dicom_url_util
@@ -180,6 +179,11 @@ class ColorConversionUtilTest(parameterized.TestCase):
           transform=proxy_const.ICCProfile.ROMMRGB,
           expected_bytes=color_conversion_util._get_rommrgb_iccprofile(),
       ),
+      dict(
+          testcase_name='displayp3',
+          transform=proxy_const.ICCProfile.DISPLAYP3,
+          expected_bytes=color_conversion_util._get_displayp3_iccprofile(),
+      ),
   ])
   def test_create_icc_profile_color_transform(
       self, transform: enum_types.ICCProfile, expected_bytes: bytes
@@ -203,6 +207,7 @@ class ColorConversionUtilTest(parameterized.TestCase):
       'srgb',
       'adobergb',
       'rommrgb',
+      'displayp3',
       'foo',
   ])
   def test_read_icc_profile_plugin_dir(self, name):
@@ -229,6 +234,7 @@ class ColorConversionUtilTest(parameterized.TestCase):
       'srgb',
       'adobergb',
       'rommrgb',
+      'displayp3',
       'foo',
   ])
   def test_get_plugin_icc_profile(self, name):
@@ -308,52 +314,6 @@ class ColorConversionUtilTest(parameterized.TestCase):
 
     self.assertFalse(color_conversion_util._is_wsi_instance(metadata))
 
-  def test_get_instance_with_fewest_frames(self):
-    metadata_list = []
-    for frame_number in range(4):
-      metadata = shared_test_util.jpeg_encoded_dicom_instance_json()
-      _set_tag_value(
-          metadata,
-          color_conversion_util._SOP_INSTANCE_UID_DICOM_TAG_ADDRESS,
-          f'1.2.3.{frame_number}',
-      )
-      _set_tag_value(
-          metadata, _NUMBER_OF_FRAMES_DICOM_TAG_ADDRESS, frame_number
-      )
-      metadata_list.append(metadata)
-
-    inst = color_conversion_util._get_instance_with_fewest_frames(
-        metadata_list, _UNDEFINED_SOP_INSTANCE_UID
-    )
-
-    self.assertIsNotNone(inst)
-    self.assertEqual(inst.sop_instance_uid, '1.2.3.1')
-
-  def test_get_instance_with_fewest_frames_returns_none_if_not_found(self):
-    metadata_list = []
-    for frame_number in range(4):
-      metadata = shared_test_util.jpeg_encoded_dicom_instance_json()
-      _set_tag_value(
-          metadata,
-          color_conversion_util._SOP_INSTANCE_UID_DICOM_TAG_ADDRESS,
-          f'1.2.3.{frame_number}',
-      )
-      _set_tag_value(
-          metadata,
-          color_conversion_util._SOP_CLASS_UID_DICOM_TAG_ADDRESS,
-          '1.2.3',
-      )
-      _set_tag_value(
-          metadata, _NUMBER_OF_FRAMES_DICOM_TAG_ADDRESS, frame_number
-      )
-      metadata_list.append(metadata)
-
-    self.assertIsNone(
-        color_conversion_util._get_instance_with_fewest_frames(
-            metadata_list, _UNDEFINED_SOP_INSTANCE_UID
-        )
-    )
-
   def test_is_wsi_instance_true_image_type_fails_if_image_type_invalid(self):
     metadata = shared_test_util.jpeg_encoded_dicom_instance_json()
     img_type = 'ORIGINAL\\SECONDARY\\VOLUME'
@@ -408,7 +368,7 @@ class ColorConversionUtilTest(parameterized.TestCase):
   @mock.patch.object(
       redis.Redis,
       'get',
-      return_value=icc_profile_metadata_cache.INSTANCE_MISSING_ICC_PROFILE_METADATA.to_json().encode(
+      return_value=icc_profile_metadata_cache.INSTANCE_MISSING_ICC_PROFILE_METADATA.encode(
           'utf-8'
       ),
       autospec=True,
@@ -431,59 +391,30 @@ class ColorConversionUtilTest(parameterized.TestCase):
         )
     )
 
-  @parameterized.named_parameters([
-      dict(
-          testcase_name='no_bulkdata_support_with_instance_uid',
-          store_version='v1',
-          instance_uid='1.2.3.4',
-          supports_bulkdata=False,
-      ),
-      dict(
-          testcase_name='no_bulkdata_support_no_instance_uid',
-          store_version='v1',
-          instance_uid='',
-          supports_bulkdata=False,
-      ),
-      dict(
-          testcase_name='bulkdata_support_instance_uid',
-          store_version='v1beta1',
-          instance_uid='1.2.3.4',
-          supports_bulkdata=True,
-      ),
-      dict(
-          testcase_name='bulkdata_support_no_instance_uid',
-          store_version='v1beta1',
-          instance_uid='',
-          supports_bulkdata=True,
-      ),
-  ])
   @mock.patch.object(
       color_conversion_util, '_create_icc_profile_transform', autospec=True
   )
   def test_get_icc_profile_transform_for_dicom_url_cached_profile_value(
-      self, color_transform_mock, store_version, supports_bulkdata, instance_uid
+      self, color_transform_mock
   ):
     key_value = b'1234'
     session = user_auth_util.AuthSession({})
     dicom_series_url = dicom_url_util.DicomSeriesUrl(
-        f'https://healthcare.googleapis.com/{store_version}/test_url'
+        'https://healthcare.googleapis.com/v1beta1/test_url'
     )
     color_transform_mock.return_value = key_value
-    requested_sop_instance_uid = dicom_url_util.SOPInstanceUID(instance_uid)
+    requested_sop_instance_uid = dicom_url_util.SOPInstanceUID('1.2.3.4')
     # Set mock redis cache to hold reference ICC Profile metadata for instance
     # and the ICC Profile bytes.
     redis_mk = shared_test_util.RedisMock()
     mock_hash = 'mock_icc_profile_byteshash'
-    icc_profile_metadata = icc_profile_metadata_cache.ICCProfileMetadata(
-        'path', 'srgb', 'bulkdata_uri', mock_hash
-    )
+    icc_profile_metadata = icc_profile_metadata_cache.ICCProfileHash(mock_hash)
     redis_mk.set(
         icc_profile_metadata_cache._cache_key(
             dicom_series_url,
             requested_sop_instance_uid,
-            supports_bulkdata and instance_uid,
         ),
-        icc_profile_metadata.to_json().encode('utf-8'),
+        icc_profile_metadata.encode('utf-8'),
         nx=False,
         ex=24,
     )
@@ -493,23 +424,17 @@ class ColorConversionUtilTest(parameterized.TestCase):
         nx=False,
         ex=24,
     )
-    with mock.patch.object(
-        bulkdata_util,
-        'does_dicom_store_support_bulkdata',
-        autospec=True,
-        return_value=supports_bulkdata,
-    ):
-      with mock.patch('redis.Redis', autospec=True, return_value=redis_mk):
-        self.assertEqual(
-            color_conversion_util.get_icc_profile_transform_for_dicom_url(
-                session,
-                dicom_series_url,
-                requested_sop_instance_uid,
-                cache_enabled_type.CachingEnabled(True),
-                proxy_const.ICCProfile.SRGB,
-            ),
-            key_value,
-        )
+    with mock.patch('redis.Redis', autospec=True, return_value=redis_mk):
+      self.assertEqual(
+          color_conversion_util.get_icc_profile_transform_for_dicom_url(
+              session,
+              dicom_series_url,
+              requested_sop_instance_uid,
+              cache_enabled_type.CachingEnabled(True),
+              proxy_const.ICCProfile.SRGB,
+          ),
+          key_value,
+      )
     color_transform_mock.assert_called_once_with(
         key_value, proxy_const.ICCProfile.SRGB
     )
@@ -553,7 +478,7 @@ class ColorConversionUtilTest(parameterized.TestCase):
                   dicom_url_util.StudyInstanceUID(dcm.StudyInstanceUID),
                   dicom_url_util.SeriesInstanceUID(dcm.SeriesInstanceUID),
               ),
-              _UNDEFINED_SOP_INSTANCE_UID,
+              dicom_url_util.SOPInstanceUID(dcm.SOPInstanceUID),
               cache_enabled_type.CachingEnabled(False),
               proxy_const.ICCProfile.SRGB,
           ),
@@ -570,10 +495,9 @@ class ColorConversionUtilTest(parameterized.TestCase):
     dicom_series_url = dicom_url_util.DicomSeriesUrl(
         'https://healthcare.googleapis.com/v1/cached_result'
     )
+    sop_instance_uid = dicom_url_util.SOPInstanceUID('1.2.3.4')
     mock_hash = 'mock_icc_profile_byteshash'
-    icc_profile_metadata = icc_profile_metadata_cache.ICCProfileMetadata(
-        'path', 'srgb', 'bulkdata_uri', mock_hash
-    )
+    icc_profile_metadata = icc_profile_metadata_cache.ICCProfileHash(mock_hash)
     hash_key = color_conversion_util._hash_key(
         icc_profile_metadata, proxy_const.ICCProfile.SRGB
     )
@@ -583,15 +507,14 @@ class ColorConversionUtilTest(parameterized.TestCase):
       icc_profile_metadata_cache.set_cached_instance_icc_profile_metadata(
           redis_cache.RedisCache(cache_enabled_type.CachingEnabled(True)),
           dicom_series_url,
-          _UNDEFINED_SOP_INSTANCE_UID,
-          does_dicom_store_support_bulkdata=False,
+          sop_instance_uid,
           metadata=icc_profile_metadata,
       )
       self.assertEqual(
           color_conversion_util.get_icc_profile_transform_for_dicom_url(
               session,
               dicom_series_url,
-              _UNDEFINED_SOP_INSTANCE_UID,
+              sop_instance_uid,
               cache_enabled_type.CachingEnabled(True),
               proxy_const.ICCProfile.SRGB,
           ),
@@ -602,20 +525,19 @@ class ColorConversionUtilTest(parameterized.TestCase):
       proxy_const.ICCProfile.SRGB,
       proxy_const.ICCProfile.ADOBERGB,
       proxy_const.ICCProfile.ROMMRGB,
+      proxy_const.ICCProfile.DISPLAYP3,
   ])
   def test_iccprofile_transform_cache_tools_hash_key(
       self, transform: enum_types.ICCProfile
   ):
     mock_hash = 'mock_icc_profile_byteshash'
-    icc_profile_metadata = icc_profile_metadata_cache.ICCProfileMetadata(
-        'path', 'srgb', 'bulkdata_uri', mock_hash
-    )
+    icc_profile_hash = icc_profile_metadata_cache.ICCProfileHash(mock_hash)
     self.assertEqual(
         color_conversion_util._hash_key(
-            icc_profile_metadata,
+            icc_profile_hash,
             transform,
         ),
-        f'cache_tools_{icc_profile_metadata.hash}_{transform}_ICCPROFILE_TRANSFORM',
+        f'cache_tools_{icc_profile_hash}_{transform}_ICCPROFILE_TRANSFORM',
     )
 
   @parameterized.named_parameters([
@@ -624,7 +546,6 @@ class ColorConversionUtilTest(parameterized.TestCase):
           dcm=_test_dcm_with_icc_profile(
               'ICCProfile', color_conversion_util._get_srgb_iccprofile()
           ),
-          param_to_return=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_BYTES,
           expected_result=color_conversion_util._get_srgb_iccprofile(),
       ),
       dict(
@@ -633,31 +554,12 @@ class ColorConversionUtilTest(parameterized.TestCase):
               'OpticalPathSequence/0/ICCProfile',
               color_conversion_util._get_srgb_iccprofile(),
           ),
-          param_to_return=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_BYTES,
           expected_result=color_conversion_util._get_srgb_iccprofile(),
       ),
-      dict(
-          testcase_name='iccprofile_path',
-          dcm=_test_dcm_with_icc_profile(
-              'ICCProfile', color_conversion_util._get_srgb_iccprofile()
-          ),
-          param_to_return=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_TAG_DICOM_PATH,
-          expected_result='ICCProfile',
-      ),
-      dict(
-          testcase_name='opticalpathsq_iccprofile_path',
-          dcm=_test_dcm_with_icc_profile(
-              'OpticalPathSequence/0/ICCProfile',
-              color_conversion_util._get_srgb_iccprofile(),
-          ),
-          param_to_return=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_TAG_DICOM_PATH,
-          expected_result='OpticalPathSequence/0/ICCProfile',
-      ),
   ])
-  def test_get_series_icc_profile_from_store_not_using_bulk_data(
+  def test_get_instance_icc_profile_from_store(
       self,
       dcm: pydicom.FileDataset,
-      param_to_return: color_conversion_util._GetIccProfileReturnValue,
       expected_result: Union[bytes, str],
   ):
     baseurl = dicom_url_util.DicomWebBaseURL(
@@ -673,89 +575,7 @@ class ColorConversionUtilTest(parameterized.TestCase):
       mocked_dicom_stores[baseurl.full_url].add_instance(dcm)
       redis_mk = shared_test_util.RedisMock()
       with mock.patch('redis.Redis', autospec=True, return_value=redis_mk):
-        result = color_conversion_util._get_series_icc_profile(
-            user_auth_util.AuthSession({}),
-            dicom_url_util.base_dicom_series_url(
-                baseurl,
-                dicom_url_util.StudyInstanceUID(dcm.StudyInstanceUID),
-                dicom_url_util.SeriesInstanceUID(dcm.SeriesInstanceUID),
-            ),
-            _UNDEFINED_SOP_INSTANCE_UID,
-            cache_enabled_type.CachingEnabled(True),
-            param_to_return,
-        )
-        self.assertLen(redis_mk, 17)
-      self.assertEqual(result, expected_result)
-
-  @parameterized.named_parameters([
-      dict(
-          testcase_name='iccprofile_bytes',
-          dcm=_test_dcm_with_icc_profile(
-              'ICCProfile', color_conversion_util._get_srgb_iccprofile()
-          ),
-          param_to_return=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_BYTES,
-          expected_result=color_conversion_util._get_srgb_iccprofile(),
-      ),
-      dict(
-          testcase_name='opticalpathsq_iccprofile_bytes',
-          dcm=_test_dcm_with_icc_profile(
-              'OpticalPathSequence/0/ICCProfile',
-              color_conversion_util._get_srgb_iccprofile(),
-          ),
-          param_to_return=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_BYTES,
-          expected_result=color_conversion_util._get_srgb_iccprofile(),
-      ),
-      dict(
-          testcase_name='no_icc_profile_bytes',
-          dcm=shared_test_util.jpeg_encoded_dicom_instance(),
-          param_to_return=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_BYTES,
-          expected_result=None,
-      ),
-      dict(
-          testcase_name='iccprofile_path',
-          dcm=_test_dcm_with_icc_profile(
-              'ICCProfile', color_conversion_util._get_srgb_iccprofile()
-          ),
-          param_to_return=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_TAG_DICOM_PATH,
-          expected_result='ICCProfile',
-      ),
-      dict(
-          testcase_name='opticalpathsq_iccprofile_path',
-          dcm=_test_dcm_with_icc_profile(
-              'OpticalPathSequence/0/ICCProfile',
-              color_conversion_util._get_srgb_iccprofile(),
-          ),
-          param_to_return=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_TAG_DICOM_PATH,
-          expected_result='OpticalPathSequence/0/ICCProfile',
-      ),
-  ])
-  @mock.patch.object(
-      bulkdata_util,
-      'does_dicom_store_support_bulkdata',
-      autospec=True,
-      return_value=True,
-  )
-  def test_get_series_icc_profile_from_store_using_bulk_data(
-      self,
-      unused_mock,
-      dcm: pydicom.FileDataset,
-      param_to_return: color_conversion_util._GetIccProfileReturnValue,
-      expected_result: Union[bytes, str],
-  ):
-    baseurl = dicom_url_util.DicomWebBaseURL(
-        MOCK_TEST_API_VERSION,
-        'mock_project',
-        'earth',
-        'mock_dateset',
-        'mock_store',
-    )
-    with dicom_store_mock.MockDicomStores(
-        baseurl.full_url
-    ) as mocked_dicom_stores:
-      mocked_dicom_stores[baseurl.full_url].add_instance(dcm)
-      redis_mk = shared_test_util.RedisMock()
-      with mock.patch('redis.Redis', autospec=True, return_value=redis_mk):
-        result = color_conversion_util._get_series_icc_profile(
+        result = color_conversion_util.get_instance_icc_profile_bytes(
             user_auth_util.AuthSession({}),
             dicom_url_util.base_dicom_series_url(
                 baseurl,
@@ -764,92 +584,35 @@ class ColorConversionUtilTest(parameterized.TestCase):
             ),
             dicom_url_util.SOPInstanceUID(dcm.SOPInstanceUID),
             cache_enabled_type.CachingEnabled(True),
-            param_to_return,
         )
+        self.assertLen(redis_mk, 3)
       self.assertEqual(result, expected_result)
-
-  @parameterized.parameters([
-      color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_TAG_DICOM_PATH,
-      color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_BYTES,
-  ])
-  def test_get_series_icc_profile_invalid_ur_returns_none(
-      self, param_to_return
-  ):
-    self.assertIsNone(
-        color_conversion_util._get_series_icc_profile(
-            user_auth_util.AuthSession({}),
-            'invalid_url',
-            dicom_url_util.SOPInstanceUID('123'),
-            cache_enabled_type.CachingEnabled(True),
-            param_to_return,
-        )
-    )
 
   @parameterized.named_parameters([
       dict(
-          testcase_name='profile_bytes_loads_cache_returned_cached_path',
+          testcase_name='iccprofile_bytes',
           dcm=_test_dcm_with_icc_profile(
               'ICCProfile', color_conversion_util._get_srgb_iccprofile()
           ),
-          param_to_load_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_BYTES,
-          param_to_query_from_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_TAG_DICOM_PATH,
-          expected_result='ICCProfile',
-      ),
-      dict(
-          testcase_name='profile_bytes_loads_cache_returned_cached_bytes',
-          dcm=_test_dcm_with_icc_profile(
-              'ICCProfile', color_conversion_util._get_srgb_iccprofile()
-          ),
-          param_to_load_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_BYTES,
-          param_to_query_from_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_BYTES,
           expected_result=color_conversion_util._get_srgb_iccprofile(),
       ),
       dict(
-          testcase_name='no_returned_cached_bytes',
-          dcm=_test_dcm_with_icc_profile(
-              'ICCProfile', color_conversion_util._get_srgb_iccprofile()
-          ),
-          param_to_load_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_BYTES,
-          param_to_query_from_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_BYTES,
-          expected_result=color_conversion_util._get_srgb_iccprofile(),
-      ),
-      dict(
-          testcase_name='profile_path_loads_cache_returned_cached_bytes',
+          testcase_name='opticalpathsq_iccprofile_bytes',
           dcm=_test_dcm_with_icc_profile(
               'OpticalPathSequence/0/ICCProfile',
               color_conversion_util._get_srgb_iccprofile(),
           ),
-          param_to_load_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_TAG_DICOM_PATH,
-          param_to_query_from_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_BYTES,
           expected_result=color_conversion_util._get_srgb_iccprofile(),
       ),
       dict(
-          testcase_name='profile_path_loads_cache_returned_cached_path',
-          dcm=_test_dcm_with_icc_profile(
-              'OpticalPathSequence/0/ICCProfile',
-              color_conversion_util._get_srgb_iccprofile(),
-          ),
-          param_to_load_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_TAG_DICOM_PATH,
-          param_to_query_from_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_TAG_DICOM_PATH,
-          expected_result='OpticalPathSequence/0/ICCProfile',
-      ),
-      dict(
-          testcase_name='return_cached_colorspace',
-          dcm=_test_dcm_with_icc_profile(
-              'OpticalPathSequence/0/ICCProfile',
-              color_conversion_util._get_srgb_iccprofile(),
-              'sRGB',
-          ),
-          param_to_load_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_COLOR_SPACE,
-          param_to_query_from_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_COLOR_SPACE,
-          expected_result='sRGB',
+          testcase_name='no_icc_profile_bytes',
+          dcm=shared_test_util.jpeg_encoded_dicom_instance(),
+          expected_result=None,
       ),
   ])
-  def test_get_series_icc_profile_from_redis_cache(
+  def test_get_instance_icc_profile_from_store_using_bulk_data(
       self,
       dcm: pydicom.FileDataset,
-      param_to_load_cache: color_conversion_util._GetIccProfileReturnValue,
-      param_to_query_from_cache: color_conversion_util._GetIccProfileReturnValue,
       expected_result: Union[bytes, str],
   ):
     baseurl = dicom_url_util.DicomWebBaseURL(
@@ -865,51 +628,78 @@ class ColorConversionUtilTest(parameterized.TestCase):
       mocked_dicom_stores[baseurl.full_url].add_instance(dcm)
       redis_mk = shared_test_util.RedisMock()
       with mock.patch('redis.Redis', autospec=True, return_value=redis_mk):
-        color_conversion_util._get_series_icc_profile(
+        result = color_conversion_util.get_instance_icc_profile_bytes(
             user_auth_util.AuthSession({}),
             dicom_url_util.base_dicom_series_url(
                 baseurl,
                 dicom_url_util.StudyInstanceUID(dcm.StudyInstanceUID),
                 dicom_url_util.SeriesInstanceUID(dcm.SeriesInstanceUID),
             ),
-            _UNDEFINED_SOP_INSTANCE_UID,
+            dicom_url_util.SOPInstanceUID(dcm.SOPInstanceUID),
             cache_enabled_type.CachingEnabled(True),
-            param_to_load_cache,
         )
-        self.assertLen(redis_mk, 17)
+      self.assertEqual(result, expected_result)
+
+  def test_get_instance_icc_profile_invalid_ur_returns_none(self):
+    self.assertIsNone(
+        color_conversion_util.get_instance_icc_profile_bytes(
+            user_auth_util.AuthSession({}),
+            'invalid_url',
+            dicom_url_util.SOPInstanceUID('123'),
+            cache_enabled_type.CachingEnabled(True),
+        )
+    )
+
+  def test_get_instance_icc_profile_from_redis_cache(self):
+    dcm = _test_dcm_with_icc_profile(
+        'ICCProfile', color_conversion_util._get_srgb_iccprofile(), 'sRGB'
+    )
+    expected_result = color_conversion_util._get_srgb_iccprofile()
+    baseurl = dicom_url_util.DicomWebBaseURL(
+        MOCK_TEST_API_VERSION,
+        'mock_project',
+        'earth',
+        'mock_dateset',
+        'mock_store',
+    )
+    with dicom_store_mock.MockDicomStores(
+        baseurl.full_url
+    ) as mocked_dicom_stores:
+      mocked_dicom_stores[baseurl.full_url].add_instance(dcm)
+      redis_mk = shared_test_util.RedisMock()
+      with mock.patch('redis.Redis', autospec=True, return_value=redis_mk):
+        color_conversion_util.get_instance_icc_profile_bytes(
+            user_auth_util.AuthSession({}),
+            dicom_url_util.base_dicom_series_url(
+                baseurl,
+                dicom_url_util.StudyInstanceUID(dcm.StudyInstanceUID),
+                dicom_url_util.SeriesInstanceUID(dcm.SeriesInstanceUID),
+            ),
+            dicom_url_util.SOPInstanceUID(dcm.SOPInstanceUID),
+            cache_enabled_type.CachingEnabled(True),
+        )
+        self.assertLen(redis_mk, 3)
         self.assertEqual(
-            color_conversion_util._get_series_icc_profile(
+            color_conversion_util.get_instance_icc_profile_bytes(
                 user_auth_util.AuthSession({}),
                 dicom_url_util.base_dicom_series_url(
                     baseurl,
                     dicom_url_util.StudyInstanceUID(dcm.StudyInstanceUID),
                     dicom_url_util.SeriesInstanceUID(dcm.SeriesInstanceUID),
                 ),
-                _UNDEFINED_SOP_INSTANCE_UID,
+                dicom_url_util.SOPInstanceUID(dcm.SOPInstanceUID),
                 cache_enabled_type.CachingEnabled(True),
-                param_to_query_from_cache,
             ),
             expected_result,
         )
-        self.assertLen(redis_mk, 17)
+        self.assertLen(redis_mk, 3)
 
   @parameterized.named_parameters([
-      dict(
-          testcase_name='profile_bytes_loads_cache_returned_cached_path',
-          dcm=_test_dcm_with_icc_profile(
-              'ICCProfile', color_conversion_util._get_srgb_iccprofile()
-          ),
-          param_to_load_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_BYTES,
-          param_to_query_from_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_TAG_DICOM_PATH,
-          expected_missing_value='',
-      ),
       dict(
           testcase_name='profile_bytes_loads_cache_returned_cached_bytes',
           dcm=_test_dcm_with_icc_profile(
               'ICCProfile', color_conversion_util._get_srgb_iccprofile()
           ),
-          param_to_load_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_BYTES,
-          param_to_query_from_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_BYTES,
           expected_missing_value=None,
       ),
       dict(
@@ -918,26 +708,12 @@ class ColorConversionUtilTest(parameterized.TestCase):
               'OpticalPathSequence/0/ICCProfile',
               color_conversion_util._get_srgb_iccprofile(),
           ),
-          param_to_load_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_TAG_DICOM_PATH,
-          param_to_query_from_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_BYTES,
           expected_missing_value=None,
       ),
-      dict(
-          testcase_name='profile_path_loads_cache_returned_cached_path',
-          dcm=_test_dcm_with_icc_profile(
-              'OpticalPathSequence/0/ICCProfile',
-              color_conversion_util._get_srgb_iccprofile(),
-          ),
-          param_to_load_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_TAG_DICOM_PATH,
-          param_to_query_from_cache=color_conversion_util._GetIccProfileReturnValue.ICC_PROFILE_TAG_DICOM_PATH,
-          expected_missing_value='',
-      ),
   ])
-  def test_get_series_icc_profile_from_missing_instance_returns_none(
+  def test_get_instance_icc_profile_from_missing_instance_returns_none(
       self,
       dcm: pydicom.FileDataset,
-      param_to_load_cache: color_conversion_util._GetIccProfileReturnValue,
-      param_to_query_from_cache: color_conversion_util._GetIccProfileReturnValue,
       expected_missing_value: Optional[str],
   ):
     baseurl = dicom_url_util.DicomWebBaseURL(
@@ -951,7 +727,7 @@ class ColorConversionUtilTest(parameterized.TestCase):
       redis_mk = shared_test_util.RedisMock()
       with mock.patch('redis.Redis', autospec=True, return_value=redis_mk):
         self.assertIsNone(
-            color_conversion_util._get_series_icc_profile(
+            color_conversion_util.get_instance_icc_profile_bytes(
                 user_auth_util.AuthSession({}),
                 dicom_url_util.base_dicom_series_url(
                     baseurl,
@@ -960,12 +736,11 @@ class ColorConversionUtilTest(parameterized.TestCase):
                 ),
                 _UNDEFINED_SOP_INSTANCE_UID,
                 cache_enabled_type.CachingEnabled(True),
-                param_to_load_cache,
             )
         )
-        self.assertLen(redis_mk, 1)
+        self.assertEmpty(redis_mk)
         self.assertEqual(
-            color_conversion_util._get_series_icc_profile(
+            color_conversion_util.get_instance_icc_profile_bytes(
                 user_auth_util.AuthSession({}),
                 dicom_url_util.base_dicom_series_url(
                     baseurl,
@@ -974,65 +749,10 @@ class ColorConversionUtilTest(parameterized.TestCase):
                 ),
                 _UNDEFINED_SOP_INSTANCE_UID,
                 cache_enabled_type.CachingEnabled(True),
-                param_to_query_from_cache,
             ),
             expected_missing_value,
         )
-        self.assertLen(redis_mk, 1)
-
-  @parameterized.named_parameters([
-      dict(
-          testcase_name='no_icc_profile',
-          dcm=pydicom.dcmread(
-              shared_test_util.jpeg_encoded_dicom_instance_test_path()
-          ),
-          expected_path='',
-      ),
-      dict(
-          testcase_name='icc_profile',
-          dcm=_test_dcm_with_icc_profile(
-              'ICCProfile', color_conversion_util._get_srgb_iccprofile()
-          ),
-          expected_path='ICCProfile',
-      ),
-      dict(
-          testcase_name='optical_path_sequence_icc_profile',
-          dcm=_test_dcm_with_icc_profile(
-              'OpticalPathSequence/0/ICCProfile',
-              color_conversion_util._get_srgb_iccprofile(),
-          ),
-          expected_path='OpticalPathSequence/0/ICCProfile',
-      ),
-  ])
-  def test_get_series_icc_profile_path(
-      self, dcm: pydicom.FileDataset, expected_path: str
-  ):
-    baseurl = dicom_url_util.DicomWebBaseURL(
-        MOCK_TEST_API_VERSION,
-        'mock_project',
-        'earth',
-        'mock_dateset',
-        'mock_store',
-    )
-    with dicom_store_mock.MockDicomStores(
-        baseurl.full_url
-    ) as mocked_dicom_stores:
-      mocked_dicom_stores[baseurl.full_url].add_instance(dcm)
-      redis_mk = shared_test_util.RedisMock()
-      with mock.patch('redis.Redis', autospec=True, return_value=redis_mk):
-        self.assertEqual(
-            color_conversion_util.get_series_icc_profile_path(
-                user_auth_util.AuthSession({}),
-                dicom_url_util.base_dicom_series_url(
-                    baseurl,
-                    dicom_url_util.StudyInstanceUID(dcm.StudyInstanceUID),
-                    dicom_url_util.SeriesInstanceUID(dcm.SeriesInstanceUID),
-                ),
-                _UNDEFINED_SOP_INSTANCE_UID,
-                cache_enabled_type.CachingEnabled(True),
-            ),
-            expected_path,
-        )
+        self.assertEmpty(redis_mk)
 
   @parameterized.named_parameters([
       dict(
@@ -1058,7 +778,7 @@ class ColorConversionUtilTest(parameterized.TestCase):
           expected_bytes=color_conversion_util._get_srgb_iccprofile(),
       ),
   ])
-  def test_get_series_icc_profile_bytes(
+  def test_get_instance_icc_profile_bytes(
       self, dcm: pydicom.FileDataset, expected_bytes: bytes
   ):
     baseurl = dicom_url_util.DicomWebBaseURL(
@@ -1075,14 +795,14 @@ class ColorConversionUtilTest(parameterized.TestCase):
       redis_mk = shared_test_util.RedisMock()
       with mock.patch('redis.Redis', autospec=True, return_value=redis_mk):
         self.assertEqual(
-            color_conversion_util.get_series_icc_profile_bytes(
+            color_conversion_util.get_instance_icc_profile_bytes(
                 user_auth_util.AuthSession({}),
                 dicom_url_util.base_dicom_series_url(
                     baseurl,
                     dicom_url_util.StudyInstanceUID(dcm.StudyInstanceUID),
                     dicom_url_util.SeriesInstanceUID(dcm.SeriesInstanceUID),
                 ),
-                _UNDEFINED_SOP_INSTANCE_UID,
+                dicom_url_util.SOPInstanceUID(dcm.SOPInstanceUID),
                 cache_enabled_type.CachingEnabled(True),
             ),
             expected_bytes,
@@ -1093,6 +813,9 @@ class ColorConversionUtilTest(parameterized.TestCase):
 
   def test_get_rommrgb_iccprofile(self):
     self.assertLen(color_conversion_util._get_rommrgb_iccprofile(), 864)
+
+  def test_get_displayp3_iccprofile(self):
+    self.assertLen(color_conversion_util._get_displayp3_iccprofile(), 536)
 
   def test_get_srgb_iccprofile_from_plugin(self):
     expected = b'test'
@@ -1121,6 +844,16 @@ class ColorConversionUtilTest(parameterized.TestCase):
     with flagsaver.flagsaver(third_party_icc_profile_directory=tdir.full_path):
       self.assertEqual(
           color_conversion_util._get_rommrgb_iccprofile(), expected
+      )
+
+  def test_get_displayp3_iccprofile_from_plugin(self):
+    expected = b'test'
+    tdir = self.create_tempdir()
+    with open(os.path.join(tdir, 'displayp3.icc'), 'wb') as tfile:
+      tfile.write(expected)
+    with flagsaver.flagsaver(third_party_icc_profile_directory=tdir.full_path):
+      self.assertEqual(
+          color_conversion_util._get_displayp3_iccprofile(), expected
       )
 
   def test_get_srgb_iccprofile_from_plugin_directory(self):
@@ -1158,6 +891,18 @@ class ColorConversionUtilTest(parameterized.TestCase):
           color_conversion_util._get_rommrgb_iccprofile(), expected
       )
 
+  def test_get_displayp3_iccprofile_from_plugin_directory(self):
+    expected = b'test'
+    tdir = self.create_tempdir()
+    path = os.path.join(tdir, 'displayp3')
+    os.mkdir(path)
+    with open(os.path.join(path, 'name.icc'), 'wb') as tfile:
+      tfile.write(expected)
+    with flagsaver.flagsaver(third_party_icc_profile_directory=tdir.full_path):
+      self.assertEqual(
+          color_conversion_util._get_displayp3_iccprofile(), expected
+      )
+
   def test_init_fork_module_state(self):
     color_conversion_util._cache_lock = 'mock'
     color_conversion_util._icc_transform_cache = 'mock'
@@ -1172,44 +917,6 @@ class ColorConversionUtilTest(parameterized.TestCase):
     color_conversion_util._icc_transform_cache['foo'] = 'bar'
     color_conversion_util._clear_cache_before_fork()
     self.assertEmpty(color_conversion_util._icc_transform_cache)
-
-  @parameterized.named_parameters([
-      dict(
-          testcase_name='has_icc_profile',
-          md=icc_profile_metadata_cache.ICCProfileMetadata(
-              'ICCProfile', 'sRGB', 'http://bulkdata', '1234'
-          ),
-          expected='sRGB',
-      ),
-      dict(
-          testcase_name='missing_icc_profile',
-          md=icc_profile_metadata_cache.INSTANCE_MISSING_ICC_PROFILE_METADATA,
-          expected='',
-      ),
-  ])
-  def test_get_cached_icc_profile_colorspace(self, md, expected):
-    self.assertEqual(
-        color_conversion_util._get_cached_icc_profile_colorspace(md), expected
-    )
-
-  @parameterized.named_parameters([
-      dict(
-          testcase_name='has_icc_profile',
-          md=icc_profile_metadata_cache.ICCProfileMetadata(
-              'ICCProfile', 'sRGB', 'http://bulkdata', '1234'
-          ),
-          expected='ICCProfile',
-      ),
-      dict(
-          testcase_name='missing_icc_profile',
-          md=icc_profile_metadata_cache.INSTANCE_MISSING_ICC_PROFILE_METADATA,
-          expected='',
-      ),
-  ])
-  def test_get_cached_icc_profile_path(self, md, expected):
-    self.assertEqual(
-        color_conversion_util._get_cached_icc_profile_path(md), expected
-    )
 
   def test_get_cached_icc_profile_bytes_missing_value(self):
     redis_mk = shared_test_util.RedisMock()
@@ -1232,12 +939,7 @@ class ColorConversionUtilTest(parameterized.TestCase):
     )
     with mock.patch('redis.Redis', autospec=True, return_value=redis_mk):
       redis_result = color_conversion_util._get_cached_icc_profile_bytes(
-          icc_profile_metadata_cache.ICCProfileMetadata(
-              'ICCProfile',
-              'sRGB',
-              'http://bulkdata',
-              mk_icc_profile_hash_value,
-          ),
+          icc_profile_metadata_cache.ICCProfileHash(mk_icc_profile_hash_value),
           redis_cache.RedisCache(),
       )
       self.assertEqual(redis_result.value, mk_profile_bytes)  # pytype: disable=attribute-error
@@ -1247,12 +949,7 @@ class ColorConversionUtilTest(parameterized.TestCase):
     redis_mk = shared_test_util.RedisMock()
     with mock.patch('redis.Redis', autospec=True, return_value=redis_mk):
       redis_result = color_conversion_util._get_cached_icc_profile_bytes(
-          icc_profile_metadata_cache.ICCProfileMetadata(
-              'ICCProfile',
-              'sRGB',
-              'http://bulkdata',
-              mk_icc_profile_hash_value,
-          ),
+          icc_profile_metadata_cache.ICCProfileHash(mk_icc_profile_hash_value),
           redis_cache.RedisCache(),
       )
       self.assertIsNone(redis_result)
@@ -1268,25 +965,19 @@ class ColorConversionUtilTest(parameterized.TestCase):
     with mock.patch('redis.Redis', autospec=True, return_value=redis_mk):
       series_url = dicom_url_util.DicomSeriesUrl('http://series_url')
       instance = dicom_url_util.SOPInstanceUID('1.2.3')
-      does_dicom_store_support_bulkdata = True
       color_conversion_util._set_cached_icc_profile(
           redis_cache.RedisCache(),
           series_url,
           instance,
-          does_dicom_store_support_bulkdata,
           None,
           icc_profile_metadata_cache.INSTANCE_MISSING_ICC_PROFILE_METADATA,
       )
     self.assertLen(redis_mk._redis, 1)
     self.assertEqual(
         redis_mk.get(
-            icc_profile_metadata_cache._cache_key(
-                series_url, instance, does_dicom_store_support_bulkdata
-            )
+            icc_profile_metadata_cache._cache_key(series_url, instance)
         ),
-        icc_profile_metadata_cache.INSTANCE_MISSING_ICC_PROFILE_METADATA.to_json(
-            sort_keys=True
-        ).encode(
+        icc_profile_metadata_cache.INSTANCE_MISSING_ICC_PROFILE_METADATA.encode(
             'utf-8'
         ),
     )
@@ -1296,29 +987,25 @@ class ColorConversionUtilTest(parameterized.TestCase):
     with mock.patch('redis.Redis', autospec=True, return_value=redis_mk):
       series_url = dicom_url_util.DicomSeriesUrl('http://series_url')
       instance = dicom_url_util.SOPInstanceUID('1.2.3')
-      does_dicom_store_support_bulkdata = True
       icc_profile_hash_value = 'hash_value'
       icc_profile_bytes = b'1234'
-      profile_metadata = icc_profile_metadata_cache.ICCProfileMetadata(
-          'ICCProfile', 'sRGB', 'http://bulkdata', icc_profile_hash_value
+      profile_metadata = icc_profile_metadata_cache.ICCProfileHash(
+          icc_profile_hash_value
       )
 
       color_conversion_util._set_cached_icc_profile(
           redis_cache.RedisCache(),
           series_url,
           instance,
-          does_dicom_store_support_bulkdata,
           icc_profile_bytes,
           profile_metadata,
       )
     self.assertLen(redis_mk._redis, 2)
     self.assertEqual(
         redis_mk.get(
-            icc_profile_metadata_cache._cache_key(
-                series_url, instance, does_dicom_store_support_bulkdata
-            )
+            icc_profile_metadata_cache._cache_key(series_url, instance)
         ),
-        profile_metadata.to_json(sort_keys=True).encode('utf-8'),
+        profile_metadata.encode('utf-8'),
     )
     self.assertEqual(
         redis_mk.get(

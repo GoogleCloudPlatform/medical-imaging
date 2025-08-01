@@ -142,7 +142,7 @@ class DicomInstanceWebRequest(dicom_instance_request.DicomInstanceRequest):
     )
 
   def icc_profile(self) -> Optional[bytes]:
-    return color_conversion_util.get_series_icc_profile_bytes(
+    return color_conversion_util.get_instance_icc_profile_bytes(
         self._user_auth,
         self._dicom_series_url,
         self._instance,
@@ -150,12 +150,7 @@ class DicomInstanceWebRequest(dicom_instance_request.DicomInstanceRequest):
     )
 
   def icc_profile_color_space(self) -> str:
-    return color_conversion_util.get_series_icc_profile_colorspace(
-        self._user_auth,
-        self._dicom_series_url,
-        self._instance,
-        self._enable_caching,
-    )
+    return self.metadata.icc_profile_colorspace
 
   def icc_profile_transform(
       self, transform: enum_types.ICCProfile
