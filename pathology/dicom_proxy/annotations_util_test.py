@@ -16,13 +16,11 @@
 
 from __future__ import annotations
 
-from concurrent import futures
 import contextlib
 import copy
 import functools
 import http
 import json
-import typing
 from typing import List, Mapping, Optional
 from unittest import mock
 import uuid
@@ -2070,144 +2068,6 @@ class AnnotationsUtilTest(parameterized.TestCase):
     self.assertTrue(
         annotations_util._are_emails_different(email, 'abc@foo.com')
     )
-
-  @parameterized.named_parameters([
-      dict(testcase_name='empty_metadata', metadata={}),
-      dict(
-          testcase_name='missing_study',
-          metadata={
-              '0020000E': {'Value': ['series']},
-              '00080018': {'Value': ['sopinstance']},
-              '00080016': {'Value': ['1.2.840.10008.5.1.4.1.1.91.1']},
-          },
-      ),
-      dict(
-          testcase_name='missing_series',
-          metadata={
-              '0020000D': {'Value': ['study']},
-              '00080018': {'Value': ['sopinstance']},
-              '00080016': {'Value': ['1.2.840.10008.5.1.4.1.1.91.1']},
-          },
-      ),
-      dict(
-          testcase_name='missing_sopinstance',
-          metadata={
-              '0020000D': {'Value': ['study']},
-              '0020000E': {'Value': ['series']},
-              '00080016': {'Value': ['1.2.840.10008.5.1.4.1.1.91.1']},
-          },
-      ),
-  ])
-  def test_download_return_annotation_metadata_not_start_update(self, metadata):
-    metadata_unchanged = copy.deepcopy(metadata)
-    with dicom_store_util.MetadataThreadPoolDownloadManager(
-        5, 3 * pow(2, 30)
-    ) as mgr:
-      self.assertEqual(
-          json.loads(
-              annotations_util.download_return_annotation_metadata(
-                  dicom_url_util.DicomWebBaseURL(
-                      MOCK_TEST_API_VERSION,
-                      'prj',
-                      'loc',
-                      'dset',
-                      'dstore',
-                  ),
-                  dicom_url_util.StudyInstanceUID(''),
-                  dicom_url_util.SeriesInstanceUID(''),
-                  dicom_url_util.SOPInstanceUID(''),
-                  metadata,
-                  False,
-                  mgr,
-              )
-          ),
-          metadata_unchanged,
-      )
-
-  def test_download_return_annotation_metadata_returns_future(self):
-    dcm = shared_test_util.wsi_dicom_annotation_instance()
-    expected = dcm.to_json_dict()
-    expected.update(dcm.file_meta.to_json_dict())
-    metadata = {
-        '0020000D': {'Value': [dcm.StudyInstanceUID]},
-        '0020000E': {'Value': [dcm.SeriesInstanceUID]},
-        '00080018': {'Value': [dcm.SOPInstanceUID]},
-        '00080016': {'Value': ['1.2.840.10008.5.1.4.1.1.91.1']},
-    }
-    with _MockDicomStoreTest(validate_iap=True) as mk_test:
-      with dicom_store_util.MetadataThreadPoolDownloadManager(
-          3, 3 * pow(2, 30)
-      ) as mgr:
-        mk_test.mocked_dicomstore.add_instance(dcm)
-        metadata_future = typing.cast(
-            futures.Future[str],
-            annotations_util.download_return_annotation_metadata(
-                mk_test.dicomweb_base_url,
-                dicom_url_util.StudyInstanceUID(dcm.StudyInstanceUID),
-                dicom_url_util.SeriesInstanceUID(dcm.SeriesInstanceUID),
-                dicom_url_util.SOPInstanceUID(dcm.SOPInstanceUID),
-                metadata,
-                False,
-                mgr,
-            ),
-        )
-    self.assertEqual(json.loads(metadata_future.result()), expected)
-
-  def test_download_return_annotation_metadata_returns_str(self):
-    dcm = shared_test_util.wsi_dicom_annotation_instance()
-    expected = dcm.to_json_dict()
-    expected.update(dcm.file_meta.to_json_dict())
-    metadata = {
-        '0020000D': {'Value': [dcm.StudyInstanceUID], 'vr': 'UI'},
-        '0020000E': {'Value': [dcm.SeriesInstanceUID], 'vr': 'UI'},
-        '00080018': {'Value': [dcm.SOPInstanceUID], 'vr': 'UI'},
-        '00080016': {'Value': ['1.2.840.10008.5.1.4.1.1.91.1'], 'vr': 'UI'},
-    }
-    with _MockDicomStoreTest(validate_iap=True) as mk_test:
-      with dicom_store_util.MetadataThreadPoolDownloadManager(
-          1, 3 * pow(2, 30)
-      ) as mgr:
-        mk_test.mocked_dicomstore.add_instance(dcm)
-        metadata = annotations_util.download_return_annotation_metadata(
-            mk_test.dicomweb_base_url,
-            dicom_url_util.StudyInstanceUID(dcm.StudyInstanceUID),
-            dicom_url_util.SeriesInstanceUID(dcm.SeriesInstanceUID),
-            dicom_url_util.SOPInstanceUID(dcm.SOPInstanceUID),
-            metadata,
-            False,
-            mgr,
-        )
-    self.assertEqual(json.loads(metadata), expected)
-
-  @parameterized.parameters([True, False])
-  def test_download_return_annotation_metadata_patch(self, patch_metadata):
-    dcm = shared_test_util.wsi_dicom_annotation_instance()
-    expected = dcm.to_json_dict()
-    expected.update(dcm.file_meta.to_json_dict())
-    metadata = {
-        '0020000D': {'Value': [dcm.StudyInstanceUID], 'vr': 'UI'},
-        '0020000E': {'Value': [dcm.SeriesInstanceUID], 'vr': 'UI'},
-        '00080018': {'Value': [dcm.SOPInstanceUID], 'vr': 'UI'},
-        '00080016': {'Value': ['1.2.840.10008.5.1.4.1.1.91.1'], 'vr': 'UI'},
-        '11111111': {'Value': ['INVALID_TAG'], 'vr': 'CS'},
-    }
-    with _MockDicomStoreTest(validate_iap=True) as mk_test:
-      with dicom_store_util.MetadataThreadPoolDownloadManager(
-          1, 3 * pow(2, 30)
-      ) as mgr:
-        mk_test.mocked_dicomstore.add_instance(dcm)
-        metadata = annotations_util.download_return_annotation_metadata(
-            mk_test.dicomweb_base_url,
-            dicom_url_util.StudyInstanceUID(dcm.StudyInstanceUID),
-            dicom_url_util.SeriesInstanceUID(dcm.SeriesInstanceUID),
-            dicom_url_util.SOPInstanceUID(dcm.SOPInstanceUID),
-            metadata,
-            patch_metadata,
-            mgr,
-        )
-    metadata = json.loads(metadata)
-    self.assertIn('00020013', metadata)
-    self.assertEqual('11111111' in metadata, patch_metadata)
 
 
 if __name__ == '__main__':

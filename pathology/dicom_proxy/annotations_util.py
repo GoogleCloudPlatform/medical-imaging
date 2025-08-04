@@ -13,7 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 """Flask blueprint for Annotations using the DICOM Proxy."""
-from concurrent import futures
 import dataclasses
 import http
 import io
@@ -21,7 +20,7 @@ import json
 import os
 import re
 import tempfile
-from typing import Any, IO, List, Mapping, MutableMapping, Optional, Set, Union
+from typing import IO, List, Mapping, Set, Union
 from xml.etree import ElementTree as ET
 
 import flask
@@ -34,7 +33,6 @@ from pathology.dicom_proxy import dicom_store_util
 from pathology.dicom_proxy import dicom_tag_util
 from pathology.dicom_proxy import dicom_url_util
 from pathology.dicom_proxy import flask_util
-from pathology.dicom_proxy import metadata_util
 from pathology.dicom_proxy import proxy_const
 from pathology.dicom_proxy import user_auth_util
 from pathology.shared_libs.logging_lib import cloud_logging_client
@@ -67,9 +65,7 @@ _DICOM_STORE_ID = re.compile(
     re.IGNORECASE,
 )
 _SOP_CLASS_UID_DICOM_TAG_ADDRESS = '00080016'
-_SQ = 'SQ'
 _VALUE = 'Value'
-_VR = 'vr'
 
 
 def _norm_dicom_store_url(store_url: str) -> str:
@@ -998,134 +994,3 @@ def store_instance(
         base_log,
     )
     return dicom_store_util.dicom_store_proxy()
-
-
-def _patch_metadata(
-    old_md: MutableMapping[str, Any], new_md: Mapping[str, Any]
-) -> MutableMapping[str, Any]:
-  """Patch previously retrieved metadata with whole instance metadata.
-
-  Temporary patch for bug in DICOM store. Remove/Disable when store supports
-  returning metadata for short binary tags.
-
-  Args:
-    old_md: Metadata downloaded from the store in metadata transaction.
-    new_md: Metadata retrieved store by downloading the instance.
-
-  Returns:
-    Metadata downloaded from the store in metadata transaction supplemented with
-      metadata that was missing and drescribed in the metadata retrieved by
-      downloading the instace.
-  """
-  for key, new_md_datset in new_md.items():
-    if key not in old_md:
-      old_md[key] = new_md_datset
-      cloud_logging_client.debug(f'Patching metadata key: {key}')
-    else:
-      old_md_dataset = old_md[key]
-      try:
-        if old_md_dataset[_VR] != _SQ or new_md_datset[_VR] != _SQ:
-          continue
-        old_md_value = old_md_dataset[_VALUE]
-        new_md_value = new_md_datset[_VALUE]
-      except KeyError:
-        continue
-      if len(old_md_value) != len(new_md_value):
-        cloud_logging_client.error(
-            'Metadata SQ lengths are not identical leaving sq unchanged.',
-            {
-                'old_metadata_sq_len': len(old_md_value),
-                'new_metadata_sq_len': len(new_md_value),
-            },
-        )
-        continue
-      for index, dset in enumerate(new_md_value):
-        old_md_value[index] = _patch_metadata(old_md_value[index], dset)
-  return old_md
-
-
-def _get_annotation_metadata(
-    user_auth: user_auth_util.AuthSession,
-    dicom_web_base_url: dicom_url_util.DicomWebBaseURL,
-    uid: metadata_util.MetadataUID,
-    old_metadata: Optional[MutableMapping[str, Any]],
-    manager: dicom_store_util.MetadataThreadPoolDownloadManager,
-) -> str:
-  """Download and return annotation metadata.
-
-  Args:
-    user_auth: User authentication used to connect to store.
-    dicom_web_base_url: Base DICOMweb URL for store.
-    uid: DICOM Study, Series, and Instance UID.
-    old_metadata: Optional DICOM instance json formatted metadata to merge
-      response with.
-    manager: Dicom instance thread pool manager.
-
-  Returns:
-    Metadata as JSON formatted string.
-
-  Raises:
-    dicom_store_util.DicomInstanceMetadataRetrievalError: Unable to retrieve
-      metadata for DICOM instance from the store.
-  """
-  instance_metadata = dicom_store_util.download_instance_return_metadata(
-      user_auth,
-      dicom_web_base_url,
-      uid.study_instance_uid,
-      uid.series_instance_uid,
-      uid.sop_instance_uid,
-      ['PixelData'],
-  )
-  if old_metadata is not None:
-    instance_metadata = _patch_metadata(old_metadata, instance_metadata)
-  instance_metadata = json.dumps(instance_metadata, sort_keys=True)
-  manager.inc_data_downloaded(len(instance_metadata))
-  return instance_metadata
-
-
-def download_return_annotation_metadata(
-    dicom_web_base_url: dicom_url_util.DicomWebBaseURL,
-    study_uid: dicom_url_util.StudyInstanceUID,
-    series_uid: dicom_url_util.SeriesInstanceUID,
-    instance_uid: dicom_url_util.SOPInstanceUID,
-    metadata: MutableMapping[str, Any],
-    patch_missing_metadata_tags: bool,
-    manager: dicom_store_util.MetadataThreadPoolDownloadManager,
-) -> Union[futures.Future[str], str]:
-  """Tests if instance describes WSI annotation and returns instance metadata.
-
-  Args:
-    dicom_web_base_url: Base DICOMweb URL for store.
-    study_uid: StudyInstanceUID for request or if empty init from metadata.
-    series_uid: SeriesInstanceUID for request or if empty init from metadata.
-    instance_uid: SOPInstanceUID for request or if empty init from metadata.
-    metadata: DICOM instance json formatted metadata,
-    patch_missing_metadata_tags: Metadata for missing tags; short term fix for
-      DICOM store bug which results in store omitting short binary tags from
-      bulk uri response.
-    manager: Dicom instance thread pool manager.
-
-  Returns:
-    Metadata as JSON formatted string.
-
-  Raises:
-    dicom_store_util.DicomInstanceMetadataRetrievalError: Unable to retrieve
-      metadata for DICOM instance from the store.
-  """
-  uid = metadata_util.get_metadata_uid(
-      study_uid, series_uid, instance_uid, metadata
-  )
-  if not uid.is_defined():
-    return json.dumps(metadata, sort_keys=True)
-  cloud_logging_client.debug(
-      'Returning metadata for bulk microscopy simple annotation'
-  )
-  user_auth = user_auth_util.AuthSession(flask_util.get_headers())
-  return manager.submit(
-      _get_annotation_metadata,
-      user_auth,
-      dicom_web_base_url,
-      uid,
-      metadata if patch_missing_metadata_tags else None,
-      manager,
-  )

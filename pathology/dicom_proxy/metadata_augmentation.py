@@ -22,7 +22,6 @@ from typing import Any, Iterator, List, Mapping, MutableMapping, Sequence, Set, 
 
 import flask
 
-from pathology.dicom_proxy import annotations_util
 from pathology.dicom_proxy import bulkdata_util
 from pathology.dicom_proxy import dicom_proxy_flags
 from pathology.dicom_proxy import dicom_store_util
@@ -284,9 +283,6 @@ def augment_instance_metadata(
     # Unrecognized query not expected ever to occur.
     cloud_logging_client.warning('Unexpected query', {'query': base_url})
     return response
-  instance_request_that_includes_binary_tags = (
-      is_instances_query and flask_util.includefield_binary_tags()
-  )
   # if configured alter bulk uri in metadata response
   # to hide underlying dicom store.
   if dicom_proxy_flags.PROXY_DICOM_STORE_BULK_DATA_FLG.value:
@@ -296,43 +292,18 @@ def augment_instance_metadata(
   # application/dicom+json was returned
   if not _is_response_encoded_with_dicom_json_content_type(response):
     return response
-
   # the response is empty just return
   if not response.data:
     return response
 
-  patch_missing_metadata_tags = False
-  if instance_request_that_includes_binary_tags:
-    augment_bulk_simple_annotation_metadata = True
-  elif (
-      is_metadata_query
-      and dicom_proxy_flags.ENABLE_ANNOTATION_BULKDATA_METADATA_PATCH.value
-  ):
-    # temporary fix for bug in dicom store where store does not short binary
-    # tags
-    patch_missing_metadata_tags = True
-    augment_bulk_simple_annotation_metadata = True
-  else:
-    augment_bulk_simple_annotation_metadata = False
-
-  if is_metadata_query:
-    correct_sparse_dicom_metadata = True
-  elif (
+  correct_sparse_dicom_metadata = is_metadata_query or (
       is_instances_query
       and sparse_dicom_util.do_includefields_request_perframe_functional_group_seq()
-  ):
-    correct_sparse_dicom_metadata = True
-  else:
-    correct_sparse_dicom_metadata = False
-
+  )
   response_status_code = response.status_code
   response_mimetype = response.content_type
   try:
-    if (
-        downsample <= 1.0
-        and not augment_bulk_simple_annotation_metadata
-        and not correct_sparse_dicom_metadata
-    ):
+    if downsample <= 1.0 and not correct_sparse_dicom_metadata:
       if not dicom_proxy_flags.ENABLE_AUGMENTED_INSTANCE_SEARCH_FLG.value:
         return response
       # Decode JSON response and augment metadata.
@@ -381,22 +352,6 @@ def augment_instance_metadata(
       instance_metadata_list.reverse()
       for _ in range(metadata_length):
         metadata = instance_metadata_list.pop()
-        if (
-            augment_bulk_simple_annotation_metadata
-            and metadata_util.is_bulk_microscopy_simple_annotation(metadata)
-        ):
-          output_list.append(
-              annotations_util.download_return_annotation_metadata(
-                  dicom_web_base_url,
-                  study_instance_uid,
-                  series_instance_uid,
-                  sop_instance_uid,
-                  metadata,
-                  patch_missing_metadata_tags,
-                  thread_pool_mgr,
-              )
-          )
-          continue
         if metadata_util.is_vl_wholeside_microscopy_iod(metadata):
           if correct_sparse_dicom_metadata and metadata_util.is_sparse_dicom(
               metadata

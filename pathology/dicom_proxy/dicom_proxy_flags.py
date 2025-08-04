@@ -539,12 +539,3 @@ BULK_DATA_PROXY_URL_FLG = flags.DEFINE_string(
     'If defined sets base url for proxy bulk data responses',
 )
 
-ENABLE_ANNOTATION_BULKDATA_METADATA_PATCH = flags.DEFINE_boolean(
-    'enable_annotation_bulkdata_metadata_patch',
-    secret_flag_utils.get_bool_secret_or_env(
-        'ENABLE_ANNOTATION_BULKDATA_METADATA_PATCH'
-    ),
-    'If true downloads dicom metadata for annotations and merges it with store'
-    ' returned metadata to fix store bug which results in store not returning'
-    ' short binary tags.',
-)

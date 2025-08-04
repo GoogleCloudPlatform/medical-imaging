@@ -1107,7 +1107,11 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
       dict(
           testcase_name='WSI_ANNOTATION',
           dcm=shared_test_util.wsi_dicom_annotation_instance(),
-          expected_bulkdata_tags=[],
+          expected_bulkdata_tags=[
+              '/00020001',
+              '/006A0002/0/00660016',
+              '/006A0002/0/00660040',
+          ],
       ),
       dict(
           testcase_name='WSI_INSTANCE',
@@ -1179,28 +1183,35 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
     )
     self.assertEqual(result.status_code, http.HTTPStatus.BAD_REQUEST)
 
-  def test_get_sparse_dicom_metadata_search(self):
+  @parameterized.parameters([True, False])
+  def test_get_sparse_dicom_metadata_search(
+      self, remove_per_frame_functional_groups_sequence
+  ):
     dcm = _mock_sparse_dicom()
     instance_search_metadata = dcm.to_json_dict()
     instance_search_metadata.update(dcm.file_meta.to_json_dict())
-    expected_metadata = copy.deepcopy(instance_search_metadata)
-    del expected_metadata['00020001']
-    del expected_metadata['7FE00010']
-    expected_metadata = [expected_metadata]
-    del instance_search_metadata['52009230']
+    expected_metadata = [copy.deepcopy(instance_search_metadata)]
+    if remove_per_frame_functional_groups_sequence:
+      # remove per frame functional groups sequence from the initally returned
+      # metadata will force metadata to be retrieved via metadata augmentation
+      # instance download.
+      # Remove PerFrameFunctionalGroupsSequence tag from metadata returned
+      # in the inital metadata query.
+      del instance_search_metadata['52009230']
     result = _dicom_metadata_search(
-        dcm,
+        _mock_sparse_dicom(),
         False,
         mock_dicom_store_response=dicom_store_mock.MockHttpResponse(
-            f'studies/{dcm.StudyInstanceUID}/series/{dcm.SeriesInstanceUID}/dcm.SOPInstanceUID/metadata',
+            f'studies/{dcm.StudyInstanceUID}/series/{dcm.SeriesInstanceUID}/instances/{dcm.SOPInstanceUID}/metadata',
             dicom_store_mock.RequestMethod.GET,
             http.HTTPStatus.OK,
             json.dumps(instance_search_metadata).encode('utf-8'),
+            dicom_store_mock.ContentType.APPLICATION_DICOM_JSON,
         ),
     )
     self.assertEqual(result.status_code, http.HTTPStatus.OK)
     md = json.loads(result.data.decode('utf-8'))
-    self.assertLen(md, len(expected_metadata))
+    self.assertLen(md, len(expected_metadata), expected_metadata)
     for index, metadata in enumerate(md):
       self.assertEqual(metadata, expected_metadata[index])
 
@@ -1243,18 +1254,6 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
       self.assertEqual(md, expected_bulkdata_tags)
     finally:
       bulkdata_util._is_debugging = True
-
-  def test_get_wsi_annotation_instance_tags_success(self):
-    dcm = shared_test_util.wsi_dicom_annotation_instance()
-    expected_metadata = dcm.to_json_dict()
-    expected_metadata.update(dcm.file_meta.to_json_dict())
-    expected_metadata = [expected_metadata]
-    metadata = _dicom_instance_search(dcm, True)
-    md = json.loads(metadata.data.decode('utf-8'))
-    self.assertEqual(metadata.status_code, http.HTTPStatus.OK)
-    self.assertLen(md, len(expected_metadata))
-    for index, metadata in enumerate(md):
-      self.assertEqual(metadata, expected_metadata[index])
 
   def test_get_wsi_instance_tags_success(self):
     dcm = shared_test_util.jpeg_encoded_dicom_instance()
@@ -1343,51 +1342,31 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
     for index, metadata in enumerate(md):
       self.assertEqual(metadata, expected_metadata[index])
 
-  @parameterized.named_parameters([
-      dict(
-          testcase_name='dicom_store_error',
-          dicom_store_http_response=http.HTTPStatus.BAD_REQUEST,
-          dicom_store_http_bytes=b'',
-          expected_msg='Error occured retrieving DICOM metadata.',
-      ),
-      dict(
-          testcase_name='dicom_read_error',
-          dicom_store_http_response=http.HTTPStatus.OK,
-          dicom_store_http_bytes=b'1234',
-          expected_msg='Error occured retrieving DICOM metadata.',
-      ),
-  ])
-  def test_get_annotation_instance_tags_dicom_store_error(
-      self,
-      *unused_mocks,
-      dicom_store_http_response,
-      dicom_store_http_bytes,
-      expected_msg,
-  ):
-    dcm = shared_test_util.wsi_dicom_annotation_instance()
-    metadata = _dicom_instance_search(
-        dcm,
-        True,
+  @flagsaver.flagsaver(max_augmented_metadata_download_size=1)
+  @mock.patch(
+      'redis.Redis', autospec=True, return_value=shared_test_util.RedisMock()
+  )
+  def test_get_sparse_dicom_read_exceeds_size_limit(self, _):
+    # remove PerFrameFunctionalGroupsSequence from dcm to force metadata
+    # augmentation
+    dcm = _mock_sparse_dicom()
+    del dcm['PerFrameFunctionalGroupsSequence']
+    metadata = _dicom_metadata_search(
+        _mock_sparse_dicom(),
+        False,
+        # metadata returned by the inital metadata query.
         mock_dicom_store_response=dicom_store_mock.MockHttpResponse(
-            f'studies/{dcm.StudyInstanceUID}/series/{dcm.SeriesInstanceUID}/instances/{dcm.SOPInstanceUID}',
+            f'studies/{dcm.StudyInstanceUID}/series/{dcm.SeriesInstanceUID}/instances/{dcm.SOPInstanceUID}/metadata',
             dicom_store_mock.RequestMethod.GET,
-            dicom_store_http_response,
-            dicom_store_http_bytes,
+            http.HTTPStatus.OK,
+            json.dumps(dcm.to_json_dict()).encode('utf-8'),
+            dicom_store_mock.ContentType.APPLICATION_DICOM_JSON,
         ),
     )
-    self.assertEqual(
-        metadata.status_code, http.HTTPStatus.INTERNAL_SERVER_ERROR
-    )
-    self.assertEqual(metadata.data.decode('utf-8'), expected_msg)
-
-  @flagsaver.flagsaver(max_augmented_metadata_download_size=100)
-  def test_get_annotation_instance_read_exceeds_size_limit(self):
-    dcm = shared_test_util.wsi_dicom_annotation_instance()
-    metadata = _dicom_instance_search(dcm, False)
     self.assertEqual(metadata.status_code, http.HTTPStatus.BAD_REQUEST)
     self.assertEqual(
         metadata.data.decode('utf-8'),
-        'DICOM instance metadata retrieval exceeded 100 byte limit.',
+        'DICOM instance metadata retrieval exceeded 1 byte limit.',
     )
 
   @parameterized.named_parameters([

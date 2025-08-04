@@ -65,7 +65,6 @@ py_library(
         ":dicom_tag_util",
         ":dicom_url_util",
         ":flask_util",
-        ":metadata_util",
         ":proxy_const",
         ":user_auth_util",
         "//pathology/shared_libs/logging_lib:cloud_logging_client",
@@ -81,7 +80,6 @@ py_library(
     name = "metadata_augmentation",
     srcs = ["metadata_augmentation.py"],
     deps = [
-        ":annotations_util",
         ":bulkdata_util",
         ":dicom_proxy_flags",
         ":dicom_store_util",
