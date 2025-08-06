@@ -64,6 +64,7 @@ export class SearchPageComponent implements OnInit, OnChanges, OnDestroy {
   diagnosticReports: DiagnosticReport[] = [];
   loading = false;
   searchInitiated = false;
+  displayHeader = true;
   patient: Patient|undefined = undefined;
   searchText = new FormControl<string>('', {nonNullable: true});
 
@@ -115,6 +116,16 @@ export class SearchPageComponent implements OnInit, OnChanges, OnDestroy {
     if (this.searchOnLoad && this.searchTextDefault) {
       this.search();
     }
+    if (this.forceUpperCase) {
+      this.searchText.valueChanges
+        .pipe(takeUntil(this.destroyed$))
+        .subscribe(value => {
+          const upper = value.toUpperCase();
+          if (value !== upper) {
+            this.searchText.setValue(upper, { emitEvent: false });
+          }
+        });
+    }
   }
 
   ngOnDestroy() {
@@ -160,10 +171,12 @@ export class SearchPageComponent implements OnInit, OnChanges, OnDestroy {
       this.searchService.resetSearchResults();
       this.router.navigate([]);
       this.searchInitiated = false;
+      this.displayHeader = true;
       return;
     }
 
     this.searchInitiated = true;
+    this.displayHeader = false;
     if (this.route.snapshot.queryParamMap.get('q') !== searchText) {
       this.router.navigate([], {queryParams: {'q': searchText}});
     }
