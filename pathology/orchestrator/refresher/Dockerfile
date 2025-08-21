@@ -21,6 +21,7 @@ FROM ${BASE_CONTAINER}
 # Spanner needs this. Set to actual project.
 # ENV GOOGLE_CLOUD_PROJECT="dpas-digipat"
 
+USER root
 COPY ./pathology/shared_libs/docker_setup/setuptools_requirements.txt pathology/orchestrator/refresher/requirements.txt /
 # Run create_requirements_txt.sh to build requirements.txt from requirements.in
 RUN python3 -m pip install -r setuptools_requirements.txt --require-hashes && \

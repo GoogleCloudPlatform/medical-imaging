@@ -18,6 +18,7 @@
 ARG BASE_CONTAINER
 FROM ${BASE_CONTAINER}
 
+USER root
 ENV PYTHONPATH "${PYTHONPATH}:/"
 # Spanner needs this. Set to actual project.
 # ENV GOOGLE_CLOUD_PROJECT="dpas-digipat"
