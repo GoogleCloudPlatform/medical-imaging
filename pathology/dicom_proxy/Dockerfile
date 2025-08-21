@@ -1,4 +1,3 @@
-
 # Copyright 2023 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,6 +17,8 @@
 # E.g. docker build ../ --file=./Dockerfile
 ARG BASE_CONTAINER
 FROM ${BASE_CONTAINER}
+
+USER root
 WORKDIR /
 # Add additional ICC Profiles to the container here.
 ENV THIRD_PARTY_ICC_PROFILE_DIRECTORY='/icc_profiles'

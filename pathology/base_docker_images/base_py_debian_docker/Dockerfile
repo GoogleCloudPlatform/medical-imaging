@@ -184,4 +184,12 @@ RUN apt-get purge -y curl apt-utils && apt-get -y autoremove && \
   /usr/lib/google-cloud-sdk/bin/gcloud-crc32c \
   /usr/lib/google-cloud-sdk/bin/anthoscli
 
+# Remove test key material included by 3rd-party libraries
+RUN find /usr/lib/google-cloud-sdk/platform/gsutil/third_party \
+         /usr/local/lib/python3.13/test/certdata \
+         /usr/src/python/Lib/test/certdata \
+         -type f \( -name "*.pem" -o -name "*.key" \) -delete
+
 ENV CLOUDSDK_CONFIG=/home/NonRootUser/.config/gcloud
+
+USER NonRootUser

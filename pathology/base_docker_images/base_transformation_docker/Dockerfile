@@ -21,6 +21,8 @@
 ARG BASE_CONTAINER
 FROM ${BASE_CONTAINER}
 
+USER root
+
 RUN apt-get update && \
     apt-get install -y \
       apt-utils \
@@ -132,3 +134,5 @@ RUN apt-get purge --autoremove -y \
       libgdk-pixbuf2.0-dev \
       libglib2.0-dev && \
     apt-get autoremove -y
+
+USER NonRootUser

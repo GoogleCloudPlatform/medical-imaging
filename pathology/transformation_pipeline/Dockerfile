@@ -21,6 +21,7 @@
 ARG BASE_CONTAINER
 FROM ${BASE_CONTAINER}
 
+USER root
 WORKDIR /
 
 # Add additional ICC Profiles to the container here.
