@@ -374,25 +374,48 @@ export class OlTileViewerComponent implements OnChanges {
 
 
   initializeOpenLayerSlideViewer(slideInfo: SlideInfo) {
-    // Calculate image dimensions and resolutions for each level
-    let resolutions: number[] = [];
-    let tileSizes: number[] = [];
-    slideInfo.levelMap.forEach(level => {
-      const levelWidthMeters = level.width * level.pixelWidth! * 1e-3;
-
-      resolutions.push(levelWidthMeters / level.width);
-      tileSizes.push(level.tileSize);
-    });
-    resolutions = resolutions.reverse();
-    tileSizes = tileSizes.reverse();
-
-    // Calculate the extent based on the highest resolution level (zoom level 0)
-    const baseLevel = slideInfo.levelMap[slideInfo.levelMap.length - 1];
-    const size = {
-      x: baseLevel.width * baseLevel.pixelWidth! * 1e-3,
-      y: baseLevel.height * baseLevel.pixelHeight! * 1e-3,
+    // Pair levels so resolutions and tileSizes stay aligned after sorting.
+    type Entry = {
+      resX: number;
+      resY: number;
+      tileSize: number | [number, number];
+      width: number;
+      height: number;
+      level: Level;
     };
-    const extent = [0, -size.y, size.x, 0];
+
+    const entries: Entry[] = slideInfo.levelMap.map((l) => ({
+      resX: +(l.pixelWidth! * 1e-3).toFixed(12),
+      resY: +(l.pixelHeight! * 1e-3).toFixed(12),
+      tileSize: l.tileSize,
+      width: l.width,
+      height: l.height,
+      level: l,
+    }));
+
+    // Sort strictly descending by resolution (largest meters/px first).
+    entries.sort((a, b) => b.resX - a.resX);
+
+    // Dedupe near-equal resolutions to avoid OL assertion errors.
+    const uniq: Entry[] = [];
+    for (const e of entries) {
+      const last = uniq[uniq.length - 1];
+      if (!last || Math.abs(last.resX - e.resX) > 1e-12) {
+        uniq.push(e);
+      }
+    }
+
+    const resolutions = uniq.map((e) => e.resX);
+    const tileSizes = uniq.map((e) => e.tileSize);
+    const zToLevel: Level[] = uniq.map((e) => e.level); // keep z -> level aligned
+
+    // Use the finest level (smallest meters/px) for extent
+    const finest = uniq[uniq.length - 1];
+    const size = {
+      x: finest.width * finest.resX,
+      y: finest.height * finest.resY,
+    };
+    const extent: [number, number, number, number] = [0, -size.y, size.x, 0];
 
     // Create the TileGrid
     const tileGrid =
@@ -403,16 +426,25 @@ export class OlTileViewerComponent implements OnChanges {
     };
 
     const tileLoadFunction = (imageTile: Tile) => {
-      const [z, x, y] = imageTile.tileCoord;
-      const slideLevelsByZoom = [...slideInfo.levelMap];
-      // OpenLayers most zoomed out layer is 0. Reversed of how levelMap
-      // stores it.
-      const slideLevel: Level = slideLevelsByZoom.reverse()[z];
-      const {tileSize} = slideLevel;
+      const coord = imageTile.tileCoord;
+      if (!coord) {
+        imageTile.setState(TileState.ERROR);
+        return;
+      }
+      const [z, x, y] = coord;
 
-      const tilesPerWidth = Math.ceil(Number(slideLevel?.width) / tileSize);
-      const tilesPerHeight = Math.ceil(Number(slideLevel?.height) / tileSize);
+      // Map z to the correct (aligned) level
+      const slideLevel = zToLevel[z];
+      if (!slideLevel) {
+        imageTile.setState(TileState.ERROR);
+        return;
+      }
 
+      const { tileSize } = slideLevel;
+      const ts = typeof tileSize === 'number' ? tileSize : tileSize[0];
+      const tilesPerWidth = Math.ceil(Number(slideLevel.width) / ts);
+      const tilesPerHeight = Math.ceil(Number(slideLevel.height) / ts);
+      
       // Frame number is computed by location at X (x+1 for offset), plus number
       // of tiles in previous rows (y*tilesPerWidth).
       const frame = (x + 1) + (tilesPerWidth * y);
@@ -421,14 +453,14 @@ export class OlTileViewerComponent implements OnChanges {
         imageTile.setState(TileState.ERROR);
       }
 
-      const instanceUid = slideLevel?.properties[0].instanceUid ?? '';
+      const instanceUid = slideLevel?.properties[0]?.instanceUid ?? '';
       const downSampleMultiplier = slideLevel.downSampleMultiplier ?? 0;
       const path = (this.slideDescriptor?.id as string) ?? '';
 
       const isYOutOfBound = (y + 1) === tilesPerHeight &&
-          slideLevel.height % slideLevel.tileSize !== 0;
+      (slideLevel.height % ts) !== 0;
       const isXOutOfBound = (x + 1) === tilesPerWidth &&
-          slideLevel.width % slideLevel.tileSize !== 0;
+      (slideLevel.width % ts) !== 0;
       this.dicomwebService
           .getEncodedImageTile(
               path, instanceUid, frame, downSampleMultiplier, this.iccProfile)
@@ -446,11 +478,11 @@ export class OlTileViewerComponent implements OnChanges {
                 }
               }),
               catchError((e) => {
-                imageTile.setState(TileState.ERROR);
-                return e;
-              }),
-              )
-          .subscribe();
+            imageTile.setState(TileState.ERROR);
+            return e;
+          }),
+        )
+        .subscribe();
     };
 
     const projection = new Projection({
@@ -530,7 +562,8 @@ export class OlTileViewerComponent implements OnChanges {
     });
 
 
-    const initialZoom = this.getInitialZoomByContainer(slideInfo.levelMap);
+  // Compute initial zoom using the z-aligned levels to match the resolutions array
+  const initialZoom = this.getInitialZoomByContainer(zToLevel);
 
     let olMap: ol.Map|undefined = undefined;
 
@@ -538,7 +571,7 @@ export class OlTileViewerComponent implements OnChanges {
       const thumbnailInitialZoom = 0;
       olMap = new ol.Map({
         target: this.olMapContainer.nativeElement,
-        layers: [
+                layers: [
           slideLayer,
         ],
         controls: [],
@@ -581,7 +614,7 @@ export class OlTileViewerComponent implements OnChanges {
     const mousePositionControl = new MousePosition({
       coordinateFormat: (coordinate) => {
         if (!coordinate) return '';
-        // Convert meteres to millimetre.
+        // Convert meters to millimetre.
         coordinate[0] = coordinate[0] * 1000;
         coordinate[1] = coordinate[1] * 1000;
 
