@@ -52,7 +52,7 @@
       <button 
           mat-icon-button 
           matTooltip="Close" 
-          mat-dialog-close
+          (click)="dialogRef.close()"
           cdkFocusInitial 
           aria-label="Close quickview" 
           class="quickview-dialog-close-button">
@@ -64,6 +64,7 @@
             mat-dialog-close mat-icon-button aria-label="Open full image" 
             class="quickview-dialog-open-full-image-button"
             matTooltip="Expand" 
+            (click)="dialogRef.close()"
            >
           <mat-icon >open_in_full</mat-icon>
         </button>
