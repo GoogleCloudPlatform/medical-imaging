@@ -16,7 +16,7 @@
 
 import {HttpStatusCode} from '@angular/common/http';
 import {Injectable, OnDestroy} from '@angular/core';
-import {ActivatedRoute, Router} from '@angular/router';
+import {ActivatedRoute, NavigationStart, Router} from '@angular/router';
 import * as ol from 'ol';
 import {Feature} from 'ol';
 import {Coordinate} from 'ol/coordinate';
@@ -24,7 +24,7 @@ import {Geometry, LineString, Point, Polygon} from 'ol/geom';
 import {Modify} from 'ol/interaction';
 import {Vector} from 'ol/source';
 import {BehaviorSubject, combineLatest, EMPTY, forkJoin, Observable, of, ReplaySubject} from 'rxjs';
-import {catchError, distinctUntilChanged, map, switchMap, takeUntil, tap} from 'rxjs/operators';
+import {catchError, distinctUntilChanged, filter, map, switchMap, takeUntil, tap} from 'rxjs/operators';
 
 import {CohortPageParams, DEFAULT_VIEWER_URL, ImageViewerPageParams} from '../app/app.routes';
 import {environment} from '../environments/environment';
@@ -47,6 +47,7 @@ import {UserService} from '../services/user.service';
 export class ImageViewerPageStore implements OnDestroy {
     caseId = '';
     iccProfile$ = new BehaviorSubject<IccProfileType>(IccProfileType.ADOBERGB);
+    private lastSeries?: string;
 
 
     isMultiViewSlidePicker$ = new BehaviorSubject<boolean>(false);
@@ -712,6 +713,18 @@ export class ImageViewerPageStore implements OnDestroy {
     }
 
     private setupRouteHandling() {
+        this.router.events
+            .pipe(
+                takeUntil(this.destroy$),
+                filter((e): e is NavigationStart => e instanceof NavigationStart),
+                tap((e) => {
+                    if (!e.url.startsWith(DEFAULT_VIEWER_URL)) {
+                        this.resetMultiViewState(true);
+                    }
+                }),
+            )
+            .subscribe();
+
         this.activatedRoute.queryParams
             .pipe(
                 takeUntil(this.destroy$),
@@ -786,6 +799,10 @@ export class ImageViewerPageStore implements OnDestroy {
                             });
                     }
 
+                    if (series !== this.lastSeries) {
+                        this.resetMultiViewState(false);
+                    }
+
                     const splitViewSlideDescriptors = series.split(',').map((a => {
                         if (!a) return undefined;
                         return { id: a };
@@ -802,9 +819,38 @@ export class ImageViewerPageStore implements OnDestroy {
                         splitViewSlideDescriptors[this.multiViewScreenSelectedIndex$
                             .value] ??
                         splitViewSlideDescriptors[0]);
+
+                    // Track last series to detect slide/case changes
+                    this.lastSeries = series;
                 }),
             )
             .subscribe();
+    }
+
+    /**
+     * Reset multiview UI state.
+     * @param full When true, also reset screens and descriptors (leaving viewer).
+     */
+    private resetMultiViewState(full: boolean) {
+        // Always close the picker and set selected index to 0
+        if (this.isMultiViewSlidePicker$.value) {
+            this.isMultiViewSlidePicker$.next(false);
+        }
+        if (this.multiViewScreenSelectedIndex$.value !== 0) {
+            this.multiViewScreenSelectedIndex$.next(0);
+        }
+
+        if (full) {
+            if (this.multiViewScreens$.value !== 1) {
+                this.multiViewScreens$.next(1);
+            }
+            if (this.splitViewSlideDescriptors$.value.length) {
+                this.splitViewSlideDescriptors$.next([]);
+            }
+            if (this.selectedSplitViewSlideDescriptor$.value) {
+                this.selectedSplitViewSlideDescriptor$.next(undefined);
+            }
+        }
     }
 
     private fetchSlideInfo(slideDescriptorId: string) {
