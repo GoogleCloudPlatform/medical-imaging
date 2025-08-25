@@ -68,6 +68,7 @@ export enum IccProfileType {
   ADOBERGB = 'adobergb',  // Adobe RGB
   ROMMRGB = 'rommrgb',
   SRGB = 'srgb',
+  DISPLAYP3 = 'displayp3',
 }
 
 /**
@@ -80,6 +81,7 @@ export const iccProfileTypeToLabel = new Map<IccProfileType, string>([
   [IccProfileType.ADOBERGB, 'Adobe RGB'],
   [IccProfileType.ROMMRGB, 'Reference Output Medium Metric (ROMM RGB)'],
   [IccProfileType.SRGB, 'Standard RGB'],
+  [IccProfileType.DISPLAYP3, 'Display P3']
 ]);
 
 /** Unknown case id for non-deid cases.  */
