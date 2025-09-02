@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import dataclasses
+from typing import Optional, Sequence
 
 from pathology.dicom_proxy import cache_enabled_type
 from pathology.dicom_proxy import enum_types
@@ -24,6 +25,58 @@ from pathology.dicom_proxy import proxy_const
 # Types
 _Compression = enum_types.Compression
 _Interpolation = enum_types.Interpolation
+
+
+@dataclasses.dataclass(frozen=True)
+class Viewport:
+  """Viewport for rendering.
+
+  Data structure storing request parameters for implementing:
+  https://dicom.nema.org/medical/dicom/current/output/chtml/part18/sect_8.3.5.html#sect_8.3.5.1.3
+  """
+
+  _parameter: Sequence[str]
+
+  def vw(self) -> int:
+    return abs(int(self._parameter[0]))
+
+  def vh(self) -> int:
+    return abs(int(self._parameter[1]))
+
+  def sx(self) -> int:
+    try:
+      return abs(int(self._parameter[2]))
+    except (ValueError, IndexError) as _:
+      return 0
+
+  def sy(self) -> int:
+    try:
+      return abs(int(self._parameter[3]))
+    except (ValueError, IndexError) as _:
+      return 0
+
+  def sw(self, default: int) -> int:
+    try:
+      return int(self._parameter[4])
+    except (ValueError, IndexError) as _:
+      return default
+
+  def sh(self, default: int) -> int:
+    try:
+      return int(self._parameter[5])
+    except (ValueError, IndexError) as _:
+      return default
+
+  def is_defined(self) -> bool:
+    """Returns True if the viewport is defined."""
+    if not self._parameter:
+      return False
+    try:
+      _ = self.vw()
+      _ = self.vh()
+      return True
+    except (ValueError, IndexError) as _:
+      return False
 
 
 @dataclasses.dataclass
@@ -40,6 +93,15 @@ class RenderFrameParams:
       cache_enabled_type.CachingEnabled(True)
   )  # debug flag to disable caching.
   embed_iccprofile: bool = True  # Disable embedding ICCProfile in images.
+  viewport: Optional[Viewport] = None  # Viewport for rendering.
+
+  def is_viewport_defined(self) -> bool:
+    """Returns True if the viewport is defined."""
+    return self.viewport is not None and self.viewport.is_defined()
 
   def copy(self) -> RenderFrameParams:
-    return RenderFrameParams(**dataclasses.asdict(self))
+    base_dict = dataclasses.asdict(self)
+    base_dict['enable_caching'] = self.enable_caching
+    if self.viewport is not None:
+      base_dict['viewport'] = Viewport(**dataclasses.asdict(self.viewport))
+    return RenderFrameParams(**base_dict)

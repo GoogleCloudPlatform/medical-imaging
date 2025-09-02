@@ -1,32 +1,32 @@
 FROM ubuntu:20.04
 
-COPY ./phillips_isyntax_sdk.zip /phillips_isyntax_sdk.zip
+COPY ./philips_isyntax_sdk.zip /philips_isyntax_sdk.zip
 
 # Unzip the Philips SDK
 RUN apt-get update && \
     apt-get install --no-install-recommends -y unzip && \
-    unzip  /phillips_isyntax_sdk.zip && \
+    unzip  /philips_isyntax_sdk.zip && \
     cd /PathologySDK_2.0-L1_Packages/Ubuntu20.04 && \
     unzip philips-pathologysdk-2.0-L1-ubuntu20_04_py38_commercial && \
     cd /PathologySDK_2.0-L1_Packages/SampleCodes && \
     unzip PythonTools && \
-    mv /PathologySDK_2.0-L1_Packages/Ubuntu20.04/philips-pathologysdk-2.0-L1-ubuntu20_04_py38_commercial /phillips_sdk && \
+    mv /PathologySDK_2.0-L1_Packages/Ubuntu20.04/philips-pathologysdk-2.0-L1-ubuntu20_04_py38_commercial /philips_sdk && \
     mv /PathologySDK_2.0-L1_Packages/SampleCodes/PythonTools /pythontools && \
     rm -rf /PathologySDK_2.0-L1_Packages
 
 # Patch the Philips SDK installer
-COPY ./pathology/transformation_pipeline/isyntax_transformation/sdk_patch/InstallPathologySDK.sh /phillips_sdk
+COPY ./pathology/transformation_pipeline/isyntax_transformation/sdk_patch/InstallPathologySDK.sh /philips_sdk
 # Patch the Philips SDK Python Tools
 COPY ./pathology/transformation_pipeline/isyntax_transformation/sdk_patch/isyntax_to_tiff.patch /pythontools/isyntax_to_tiff.py
 COPY ./pathology/transformation_pipeline/isyntax_transformation/sdk_patch/libtiff_interface.patch /pythontools/libtiff_interface.py
 
-# RUN phillips_sdk/InstallPathologySDK.sh
+# RUN philips_sdk/InstallPathologySDK.sh
 RUN apt-get update && \
     apt-get install --no-install-recommends -y nano && \
     apt-get install --no-install-recommends -y tzdata && \
     echo 'America/Chicago' > /etc/timezone && \
     dpkg-reconfigure -f noninteractive tzdata && \
-    cd /phillips_sdk && \
+    cd /philips_sdk && \
     chmod +x ./InstallPathologySDK.sh && \
     ./InstallPathologySDK.sh
 

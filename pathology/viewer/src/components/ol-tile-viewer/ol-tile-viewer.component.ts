@@ -375,23 +375,24 @@ export class OlTileViewerComponent implements OnChanges {
 
   initializeOpenLayerSlideViewer(slideInfo: SlideInfo) {
     // Pair levels so resolutions and tileSizes stay aligned after sorting.
-    type Entry = {
+    interface Entry {
       resX: number;
       resY: number;
-      tileSize: number | [number, number];
+      tileSize: number|[number, number];
       width: number;
       height: number;
       level: Level;
-    };
+    }
 
-    const entries: Entry[] = slideInfo.levelMap.map((l) => ({
-      resX: +(l.pixelWidth! * 1e-3).toFixed(12),
-      resY: +(l.pixelHeight! * 1e-3).toFixed(12),
-      tileSize: l.tileSize,
-      width: l.width,
-      height: l.height,
-      level: l,
-    }));
+    const entries: Entry[] =
+        slideInfo.levelMap.map((l) => ({
+                                 resX: +(l.pixelWidth! * 1e-3).toFixed(12),
+                                 resY: +(l.pixelHeight! * 1e-3).toFixed(12),
+                                 tileSize: l.tileSize,
+                                 width: l.width,
+                                 height: l.height,
+                                 level: l,
+                               }));
 
     // Sort strictly descending by resolution (largest meters/px first).
     entries.sort((a, b) => b.resX - a.resX);
@@ -407,7 +408,8 @@ export class OlTileViewerComponent implements OnChanges {
 
     const resolutions = uniq.map((e) => e.resX);
     const tileSizes = uniq.map((e) => e.tileSize);
-    const zToLevel: Level[] = uniq.map((e) => e.level); // keep z -> level aligned
+    const zToLevel: Level[] =
+        uniq.map((e) => e.level);  // keep z -> level aligned
 
     // Use the finest level (smallest meters/px) for extent
     const finest = uniq[uniq.length - 1];
@@ -439,12 +441,12 @@ export class OlTileViewerComponent implements OnChanges {
         imageTile.setState(TileState.ERROR);
         return;
       }
+      const {tileSize} = slideLevel;
 
-      const { tileSize } = slideLevel;
       const ts = typeof tileSize === 'number' ? tileSize : tileSize[0];
       const tilesPerWidth = Math.ceil(Number(slideLevel.width) / ts);
       const tilesPerHeight = Math.ceil(Number(slideLevel.height) / ts);
-      
+
       // Frame number is computed by location at X (x+1 for offset), plus number
       // of tiles in previous rows (y*tilesPerWidth).
       const frame = (x + 1) + (tilesPerWidth * y);
@@ -457,10 +459,10 @@ export class OlTileViewerComponent implements OnChanges {
       const downSampleMultiplier = slideLevel.downSampleMultiplier ?? 0;
       const path = (this.slideDescriptor?.id as string) ?? '';
 
-      const isYOutOfBound = (y + 1) === tilesPerHeight &&
-      (slideLevel.height % ts) !== 0;
-      const isXOutOfBound = (x + 1) === tilesPerWidth &&
-      (slideLevel.width % ts) !== 0;
+      const isYOutOfBound =
+          (y + 1) === tilesPerHeight && (slideLevel.height % ts) !== 0;
+      const isXOutOfBound =
+          (x + 1) === tilesPerWidth && (slideLevel.width % ts) !== 0;
       this.dicomwebService
           .getEncodedImageTile(
               path, instanceUid, frame, downSampleMultiplier, this.iccProfile)
@@ -478,11 +480,11 @@ export class OlTileViewerComponent implements OnChanges {
                 }
               }),
               catchError((e) => {
-            imageTile.setState(TileState.ERROR);
-            return e;
-          }),
-        )
-        .subscribe();
+                imageTile.setState(TileState.ERROR);
+                return e;
+              }),
+              )
+          .subscribe();
     };
 
     const projection = new Projection({
@@ -562,8 +564,9 @@ export class OlTileViewerComponent implements OnChanges {
     });
 
 
-  // Compute initial zoom using the z-aligned levels to match the resolutions array
-  const initialZoom = this.getInitialZoomByContainer(zToLevel);
+    // Compute initial zoom using the z-aligned levels to match the resolutions
+    // array
+    const initialZoom = this.getInitialZoomByContainer(zToLevel);
 
     let olMap: ol.Map|undefined = undefined;
 
@@ -571,7 +574,7 @@ export class OlTileViewerComponent implements OnChanges {
       const thumbnailInitialZoom = 0;
       olMap = new ol.Map({
         target: this.olMapContainer.nativeElement,
-                layers: [
+        layers: [
           slideLayer,
         ],
         controls: [],

@@ -58,3 +58,4 @@ class TileServerHttpParams(enum.Enum):
   INTERPOLATION = _HttpParam('interpolation', 'area')
   QUALITY = _HttpParam('quality', '95')
   EMBED_ICCPROFILE = _HttpParam('embed_iccprofile', 'true')
+  VIEWPORT = _HttpParam('viewport', '')

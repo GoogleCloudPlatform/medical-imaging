@@ -358,7 +358,9 @@ $light_gray: #5f6368;
 }
 
 ::ng-deep .label-autocomplete {
-  background-color: #f5f5f5;
+  .mat-mdc-autocomplete-panel {
+    background-color: #f5f5f5;
+  }
 }
 
 .context-menu {

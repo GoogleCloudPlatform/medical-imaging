@@ -724,7 +724,6 @@ export class ImageViewerPageStore implements OnDestroy {
                 }),
             )
             .subscribe();
-
         this.activatedRoute.queryParams
             .pipe(
                 takeUntil(this.destroy$),
@@ -819,7 +818,6 @@ export class ImageViewerPageStore implements OnDestroy {
                         splitViewSlideDescriptors[this.multiViewScreenSelectedIndex$
                             .value] ??
                         splitViewSlideDescriptors[0]);
-
                     // Track last series to detect slide/case changes
                     this.lastSeries = series;
                 }),

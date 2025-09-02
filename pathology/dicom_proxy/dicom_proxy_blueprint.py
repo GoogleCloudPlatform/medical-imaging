@@ -62,6 +62,7 @@ _DownsamplingFrameRequestError = (
 _ICCProfile = enum_types.ICCProfile
 _Interpolation = enum_types.Interpolation
 _RenderFrameParams = render_frame_params.RenderFrameParams
+_Viewport = render_frame_params.Viewport
 
 # Constants
 _DIMENSION_ORG_ERR = (
@@ -92,6 +93,27 @@ dicom_proxy = flask.Blueprint(
 )
 compress = flask_compress.Compress()
 _VALID_FRAME_CHARS = re.compile('[^0-9, ]')
+
+
+def _parse_viewport(args: Mapping[str, str]) -> _Viewport:
+  """Parses viewport from request args.
+
+  Support:
+  https://dicom.nema.org/medical/dicom/current/output/chtml/part18/sect_8.3.5.html#sect_8.3.5.1.3
+
+  Args:
+    args: HTTP request args.
+
+  Returns:
+    Viewport defined by the request or undefined Viewport if not defined in the
+    request.
+  """
+  viewport_params = flask_util.get_parameter_value(
+      args, enum_types.TileServerHttpParams.VIEWPORT
+  )
+  if not viewport_params:
+    return _Viewport([])
+  return _Viewport([v.strip() for v in viewport_params.split(',')])
 
 
 def _parse_interpolation(args: Mapping[str, str]) -> _Interpolation:
@@ -254,26 +276,18 @@ def _parse_request_params(
   Raises:
     ValueError: Error in parameter definition.
   """
-  downsample = flask_util.parse_downsample(args)
-  # https://dicom.nema.org/medical/dicom/current/output/chtml/part18/sect_8.3.5.html#sect_8.3.5.1.2
-  jpeg_quality = _parse_compression_quality(args)
-  interpolation = _parse_interpolation(args)
-  # https://dicom.nema.org/medical/dicom/2019a/output/chtml/part18/sect_6.5.8.html#sect_6.5.8.1.2.5
-  iccprofile = _parse_iccprofile(args)
-  enable_caching = flask_util.parse_cache_enabled(args)
-  embed_iccprofile = _parse_embed_icc_profile(args)
-  result = _RenderFrameParams(
-      downsample,
-      interpolation,
+  return _RenderFrameParams(
+      flask_util.parse_downsample(args),
+      _parse_interpolation(args),
       _get_request_compression(
           header.get(flask_util.ACCEPT_HEADER_KEY), dicom_instance_metadata
       ),
-      jpeg_quality,
-      iccprofile,
-      enable_caching,
-      embed_iccprofile,
+      _parse_compression_quality(args),
+      _parse_iccprofile(args),
+      flask_util.parse_cache_enabled(args),
+      _parse_embed_icc_profile(args),
+      _parse_viewport(args),
   )
-  return result
 
 
 @execution_timer.log_execution_time('_create_dicom_instance_web_request')

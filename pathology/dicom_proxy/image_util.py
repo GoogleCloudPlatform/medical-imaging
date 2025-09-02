@@ -24,9 +24,11 @@ from ez_wsi_dicomweb import dicom_frame_decoder
 import imagecodecs
 import numpy as np
 import PIL.Image
+import PIL.ImageOps
 
 from pathology.dicom_proxy import dicom_proxy_flags
 from pathology.dicom_proxy import enum_types
+from pathology.dicom_proxy import render_frame_params
 
 # Types
 _Interpolation = enum_types.Interpolation
@@ -202,6 +204,69 @@ def _opencv_to_pil_image(img: np.ndarray) -> PILImage:
     # image loaded with opencv swap from BGR to RGB
     mode = 'RGB'
   return PILImage(PIL.Image.fromarray(bgr2rgb(img, copy=copy), mode=mode))
+
+
+def transform_image_viewport(
+    image: Union[np.ndarray, PILImage],
+    viewport: Optional[render_frame_params.Viewport],
+) -> Union[PILImage, np.ndarray]:
+  """Transforms image to viewport to enable DICOM viewport rendering.
+
+  Behavior defined in DICOM standard:
+  https://dicom.nema.org/medical/dicom/current/output/chtml/part18/sect_8.3.5.html#sect_8.3.5.1.3
+
+  Args:
+    image: Image to transform, accepts either PIL or OpenCV formatted image.
+    viewport: Viewport to transform image to.
+
+  Returns:
+    Transformed image, transformed images are returned in as PIL formatted
+    images. If viewport is not defined the original image (PIL/OpenCV) is
+    returned.
+  """
+  if viewport is None or not viewport.is_defined():
+    return image
+  vw = viewport.vw()
+  vh = viewport.vh()
+  sx = viewport.sx()
+  sy = viewport.sy()
+  if isinstance(image, np.ndarray):
+    image = _opencv_to_pil_image(image)
+  image = typing.cast(PILImage, image)
+  width, height = image.image.size
+  sw = viewport.sw(width)
+  sh = viewport.sh(height)
+  abs_sw = abs(sw)
+  abs_sh = abs(sh)
+  # clamp cropped region to image bounds
+  sx = min(max(0, sx), width - 1)
+  sy = min(max(0, sy), height - 1)
+  abs_sw -= max(abs_sw + sx - width, 0)
+  abs_sh -= max(abs_sh + sy - height, 0)
+  image.image = image.image.crop((sx, sy, sx + abs_sw, sy + abs_sh))
+  if sw < 0 and sh < 0:
+    image.image = image.image.transpose(PIL.Image.Transpose.ROTATE_180)
+  elif sw < 0:
+    image.image = image.image.transpose(PIL.Image.Transpose.FLIP_LEFT_RIGHT)
+  elif sh < 0:
+    image.image = image.image.transpose(PIL.Image.Transpose.FLIP_TOP_BOTTOM)
+  sw = abs_sw
+  sh = abs_sh
+  if vw == sw and vh == sh:
+    return image
+  width_ratio = vw / sw
+  height_ratio = vh / sh
+  if width_ratio >= height_ratio:
+    if height_ratio != 1:
+      image.image = image.image.resize(
+          (min(max(int(round(sw * height_ratio, 0)), 1), vw), vh)
+      )
+  else:
+    if width_ratio != 1:
+      image.image = image.image.resize(
+          (vw, min(max(int(round(sh * width_ratio, 0)), 1), vh))
+      )
+  return image
 
 
 def _encode_png(

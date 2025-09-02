@@ -71,8 +71,6 @@ from typing import Any, List, Tuple
 
 from backends import Backends
 from libtiff_interface import TIFF
-from libtiff_interface import TIFF_TILE_HEIGHT
-from libtiff_interface import TIFF_TILE_WIDTH
 import numpy as np
 from pixelengine import PixelEngine
 
@@ -167,6 +165,8 @@ def tiff_tile_processor(
     patch_identifier: List[Tuple[int, int]],
     tiff_file_handle: TIFF,
     sparse: int,
+    frame_width: int,
+    frame_height: int,
 ) -> None:
   """Tiff Tile Processor.
 
@@ -178,6 +178,8 @@ def tiff_tile_processor(
       engine
     tiff_file_handle: Tiff file handle
     sparse: Sparse Flag
+    frame_width: Width of frames in output tiff
+    frame_height: Height of frames in output tiff
 
   Returns:
     None
@@ -204,7 +206,7 @@ def tiff_tile_processor(
     bb_list = view.data_envelopes(level).as_rectangles()
   samples_per_pixel = 3  # As we queried RGB for Pixel Data
   patch_data_size = int(
-      (TIFF_TILE_WIDTH * TIFF_TILE_HEIGHT * samples_per_pixel)
+      (frame_width * frame_height * samples_per_pixel)
   )
   data_envelopes = view.data_envelopes(level)
   # Requesting all the patches together may result in large memory footprint.
@@ -239,8 +241,8 @@ def tiff_tile_processor(
         y_spatial = patch_id[1]
         region.get(patch)
         # Set the spatial location to paste in the TIFF file
-        x_value = x_spatial * TIFF_TILE_WIDTH
-        y_value = y_spatial * TIFF_TILE_HEIGHT
+        x_value = x_spatial * frame_width
+        y_value = y_spatial * frame_height
         write_tiff_tile(
             tiff_file_handle,
             [x_value, y_value],
@@ -253,7 +255,7 @@ def tiff_tile_processor(
         )
 
 
-def calculate_tiff_dimensions(view: Any, start_level: int) -> Tuple[int, int]:
+def calculate_tiff_dimensions(view: Any, start_level: int, frame_width: int, frame_height: int) -> Tuple[int, int]:
   """Set the TIFF tile size.
 
   Note that TIFF mandates tile size in multiples of 16
@@ -262,6 +264,8 @@ def calculate_tiff_dimensions(view: Any, start_level: int) -> Tuple[int, int]:
   Args:
     view: Source View
     start_level: Starting Level
+    frame_width: Width of frames in output tiff
+    frame_height: Height of frames in output tiff
 
   Returns:
     tiff_dim_x, tiff_dim_y
@@ -280,8 +284,8 @@ def calculate_tiff_dimensions(view: Any, start_level: int) -> Tuple[int, int]:
   # Normalize the Image Dimension from the coarsest level
   #  so that a downscale factor of 2 is maintained across levels
   # Size Normalization
-  tiff_dim_x = round_up(range_x, TIFF_TILE_WIDTH * x_step)
-  tiff_dim_y = round_up(range_y, TIFF_TILE_HEIGHT * y_step)
+  tiff_dim_x = round_up(range_x, frame_width * x_step)
+  tiff_dim_y = round_up(range_y, frame_height * y_step)
   return (tiff_dim_x, tiff_dim_y)
 
 
@@ -327,7 +331,7 @@ def create_tiff_from_isyntax(
     None
   """
   view = pixel_engine["in"]["WSI"].source_view
-  tiff_dim_x, tiff_dim_y = calculate_tiff_dimensions(view, start_level)
+  tiff_dim_x, tiff_dim_y = calculate_tiff_dimensions(view, start_level, frame_width, frame_height)
 
   #  Scanned Tissue Area
   # Level 0 represents 40x scan factor
@@ -343,8 +347,8 @@ def create_tiff_from_isyntax(
 
     # As the index representation is always in Base Level i.e. Level0, but
     # the step size increase with level as (2**level)
-    width_patch_level = TIFF_TILE_WIDTH * (2**level)
-    height_patch_level = TIFF_TILE_HEIGHT * (2**level)
+    width_patch_level = frame_width * (2**level)
+    height_patch_level = frame_height * (2**level)
 
     num_patches_x = round_up(tiff_dim_x, width_patch_level) / width_patch_level
     num_patches_y = (
@@ -381,7 +385,7 @@ def create_tiff_from_isyntax(
     # Extract and Write TIFF Tiles
     print("      - Requesting Patches.")
     tiff_tile_processor(
-        pixel_engine, level, patches, patch_identifier, tiff_file_handle, sparse
+        pixel_engine, level, patches, patch_identifier, tiff_file_handle, sparse, frame_width, frame_height
     )
     print("      - Patches extracted to disk")
     tiff_file_handle.write_directory()
@@ -539,12 +543,9 @@ def main() -> None:
   tiff_type = int(tiff_type[0])
   sparse = args.sparse
   sparse = int(sparse[0])
-  jpeg_quality = args.jpeg_quality
-  jpeg_quality = int(jpeg_quality[0])
-  frame_width = args.frame_width
-  frame_width = int(frame_width[0])
-  frame_height = args.frame_height
-  frame_height = int(frame_height[0])
+  jpeg_quality = int(args.jpeg_quality)
+  frame_width = int(args.frame_width)
+  frame_height = int(args.frame_height)
   if not (0 <= sparse <= 1 and 0 <= tiff_type <= 1):
     print("Invalid arguments passed")
     return

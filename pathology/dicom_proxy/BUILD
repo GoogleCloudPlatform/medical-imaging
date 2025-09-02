@@ -54,6 +54,14 @@ filegroup(
     ]),
 )
 
+filegroup(
+    name = "rendered_instance_and_frame_images",
+    srcs = glob([
+        "testdata/rendered_frame/*.jpeg",
+        "testdata/rendered_instance/*.jpeg",
+    ]),
+)
+
 # ==================================================
 # Libraries.
 py_library(
@@ -332,6 +340,7 @@ py_library(
     deps = [
         ":dicom_proxy_flags",
         ":enum_types",
+        ":render_frame_params",
         requirement("pillow"),
         requirement("opencv-python-headless"),
         "//pathology/ez_wsi_dicomweb:dicom_frame_decoder",
@@ -779,6 +788,7 @@ py_test(
         ":color_conversion_util",
         ":enum_types",
         ":image_util",
+        ":render_frame_params",
         ":shared_test_util",
         requirement("pillow"),
         requirement("absl-py"),
@@ -872,8 +882,8 @@ py_test(
 py_test(
     name = "dicom_proxy_blueprint_test",
     srcs = ["dicom_proxy_blueprint_test.py"],
+    data = [":rendered_instance_and_frame_images"],
     deps = [
-        requirement("absl-py"),
         ":bulkdata_util",
         ":cache_enabled_type",
         ":dicom_proxy_blueprint",
@@ -891,7 +901,10 @@ py_test(
         ":user_auth_util",
         "//pathology/shared_libs/iap_auth_lib:auth",
         "//pathology/shared_libs/test_utils/dicom_store_mock",
+        requirement("pillow"),
+        requirement("absl-py"),
         requirement("Flask"),
+        requirement("numpy"),
         requirement("pydicom"),
         requirement("redis"),
         requirement("requests_mock"),

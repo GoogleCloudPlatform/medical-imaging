@@ -90,7 +90,6 @@ PLANARCONFIG = 1
 YCBCRHORIZONTAL = 2
 YCBCRVERTICAL = 2
 
-
 TIFFTAGS = {
     TIFFTAG_IMAGEWIDTH: (ctypes.c_uint32, lambda _d: _d.value),
     TIFFTAG_IMAGELENGTH: (ctypes.c_uint32, lambda _d: _d.value),

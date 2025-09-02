@@ -620,7 +620,7 @@ def transform_image_color(
   Returns:
     Image returned unchanged as numpy array if no transform is defined.
     Otherwise, Returns PILImage encoding raw pixels (RGB) transformed to target
-    colorspace(currently only sRGB).
+    colorspace.
   """
   if (
       icc_profile_transform is None
@@ -629,12 +629,7 @@ def transform_image_color(
     return buffer
   # image color conversion transform conducted in PIL RGB color space
   image_util.bgr2rgb(buffer)
-  img = PIL.Image.frombuffer(
-      _RGB,
-      (buffer.shape[1], buffer.shape[0]),
-      buffer.tobytes(),
-      decoder_name=_RAW,
-  )
+  img = PIL.Image.fromarray(buffer)
   ImageCms.applyTransform(
       img, icc_profile_transform.color_transform, inPlace=True
   )

@@ -81,7 +81,7 @@ export const iccProfileTypeToLabel = new Map<IccProfileType, string>([
   [IccProfileType.ADOBERGB, 'Adobe RGB'],
   [IccProfileType.ROMMRGB, 'Reference Output Medium Metric (ROMM RGB)'],
   [IccProfileType.SRGB, 'Standard RGB'],
-  [IccProfileType.DISPLAYP3, 'Display P3']
+  [IccProfileType.DISPLAYP3, 'Display P3'],
 ]);
 
 /** Unknown case id for non-deid cases.  */

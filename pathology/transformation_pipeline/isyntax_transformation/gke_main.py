@@ -16,13 +16,14 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import subprocess
 import tempfile
 import threading
 import time
-from typing import Sequence
+from typing import Optional, Sequence
 
 from absl import app as absl_app
 from absl import flags
@@ -69,8 +70,17 @@ INGEST_FAILED_URI_FLG = flags.DEFINE_string(
 OUTPUT_BUCKET_FLG = flags.DEFINE_string(
     'output_bucket',
     secret_flag_utils.get_secret_or_env('OUTPUT_BUCKET', ''),
-    'GS style path that defines output bucket generated isyntax fiels are'
+    'GS style path that defines output bucket generated isyntax files are'
     ' uploaded to.',
+)
+
+DELETE_FROM_SOURCE_BUCKET__FLG = flags.DEFINE_bool(
+    'delete_from_source_bucket',
+    secret_flag_utils.get_bool_secret_or_env(
+        'DELETE_FROM_SOURCE_BUCKET', False
+    ),
+    'Delete isyntax files from source bucket after successful conversion and'
+    ' upload to output bucket.',
 )
 
 JPEG_QUALITY_FLG = flags.DEFINE_integer(
@@ -100,7 +110,7 @@ class PubSubKeepAliveThread:
 
   def __init__(
       self,
-      pubsub_subscriber: pubsub_v1.SubscriberClient,
+      pubsub_subscriber: Optional[pubsub_v1.SubscriberClient],
       subscription_path: str,
       ack_id: str,
   ):
@@ -111,6 +121,8 @@ class PubSubKeepAliveThread:
     self._thread_running = False
 
   def __enter__(self) -> PubSubKeepAliveThread:
+    if self._pubsub_subscriber is None:
+      return self
     self._thread = threading.Thread(target=self._keep_alive)
     self._thread.start()
     return self
@@ -124,6 +136,8 @@ class PubSubKeepAliveThread:
 
   def _keep_alive(self):
     """Thread to keep pub/sub message alive."""
+    if self._pubsub_subscriber is None:
+      return
     count = 0
     while self._thread_running:
       time.sleep(1)
@@ -141,23 +155,22 @@ class PubSubKeepAliveThread:
 
 
 def _convert_isyntax_to_tiff(
-    client: storage.Client,
-    local_filename: str,
+    client: storage.Client, local_filename: str, source_blob_file_name: str
 ) -> bool:
   """Coverts isyntax file to tiff file.
 
   Args:
     client: Storage client to use for uploading converted file.
     local_filename: Local filename of isyntax file to convert.
+    source_blob_file_name: Source blob file name of isyntax file to convert.
 
   Returns:
     True if conversion was successful, False otherwise.
   """
-  blob_path, ext = os.path.splitext(local_filename)
-  if ext != '.isyntax':
+  source_blob_name, ext = os.path.splitext(source_blob_file_name)
+  if ext.lower() != '.isyntax':
     cloud_logging_client.error(f'Unexpected filename: {local_filename}')
     return False
-  upload_blob_path = f'{blob_path}.tiff'
 
   current_dir = os.getcwd()
   try:
@@ -192,11 +205,16 @@ def _convert_isyntax_to_tiff(
         f'ISyntax conversion failed. {local_upload_filename} does not exist.'
     )
     return False
-  blob = storage.Blob.from_string(OUTPUT_BUCKET_FLG.value)
-  bucket_name = blob.bucket.name
-  base_blob_path = blob.name.rstrip('/')
+  upload_blob_path = f'{source_blob_name}.tiff'
   upload_blob_path = upload_blob_path.lstrip('/')
-  upload_blob_path = f'{base_blob_path}/{upload_blob_path}'
+  output_bucket = OUTPUT_BUCKET_FLG.value
+  try:
+    blob = storage.Blob.from_string(OUTPUT_BUCKET_FLG.value)
+    bucket_name = blob.bucket.name
+    base_blob_path = blob.name.rstrip('/')
+    upload_blob_path = f'{base_blob_path}/{upload_blob_path}'
+  except ValueError:
+    bucket_name = storage.Bucket.from_string(output_bucket).name.rstrip('/')
   cloud_logging_client.info(
       'Uploading converted file to bucket:'
       f' gs://{bucket_name}/{upload_blob_path}'
@@ -208,10 +226,12 @@ def _convert_isyntax_to_tiff(
 
 
 def _ack(
-    pubsub_subscriber: pubsub_v1.SubscriberClient,
+    pubsub_subscriber: Optional[pubsub_v1.SubscriberClient],
     subscription_path,
     message: pubsub_v1.types.ReceivedMessage,
 ) -> None:
+  if pubsub_subscriber is None:
+    return
   pubsub_subscriber.acknowledge(
       request={
           'subscription': subscription_path,
@@ -220,59 +240,70 @@ def _ack(
   )
 
 
-def main(unused_argv: Sequence[str]) -> None:
+def main(argv: Sequence[str]) -> None:
   cloud_logging_client.set_per_thread_log_signatures(False)
   cloud_logging_client.set_log_trace_key(_ISYNTAX_CONVERSION_TRACE_ID)
-  while _GKE_RUNNING:
-    with pubsub_v1.SubscriberClient() as pubsub_subscriber:
-      subscription_path = pubsub_subscriber.subscription_path(
-          PUBSUB_SUBSCRIPTION_PROJECT_ID_FLG.value,
-          PUBSUB_SUBSCRIPTION_FLG.value,
-      )
-      response = pubsub_subscriber.pull(
-          request={
-              'subscription': subscription_path,
-              'max_messages': 1,
-          },
-          return_immediately=False,
-          retry=retry.Retry(deadline=1000),
-      )
-      if not response.received_messages:
-        cloud_logging_client.clear_log_signature()
-        cloud_logging_client.info('No messages received from pub/sub.')
-        time.sleep(30)
-        continue
-      message = response.received_messages[0]
-      cloud_logging_client.set_log_signature({
-          _PUBSUB_MESSAGE_ID: message.message_id,
-          _ISYNTAX_CONVERSION_TRACE_ID: message.message_id,
-      })
-      event_type = message.attributes.get('eventType', '')
-      if event_type != 'OBJECT_FINALIZE':
-        cloud_logging_client.info(
-            f'Ignoring pub/sub msg with event type: {event_type}'
+  blob_list = list(argv[1:]) if len(argv) > 1 else []
+  process_file_list = bool(blob_list)
+  while _GKE_RUNNING and (not process_file_list or blob_list):
+    with contextlib.ExitStack() as stack:
+      if process_file_list:
+        pubsub_subscriber = None
+        blob = storage.Blob.from_string(blob_list.pop())
+        filename = blob.name
+        bucket_name = blob.bucket.name
+        subscription_path = ''
+        message = pubsub_v1.types.ReceivedMessage()
+      else:
+        pubsub_subscriber = stack.enter_context(pubsub_v1.SubscriberClient())
+        subscription_path = pubsub_subscriber.subscription_path(
+            PUBSUB_SUBSCRIPTION_PROJECT_ID_FLG.value,
+            PUBSUB_SUBSCRIPTION_FLG.value,
         )
-        _ack(pubsub_subscriber, subscription_path, message)
-        continue
-      try:
-        pubsub_msg_data_dict = json.loads(message.data.decode('utf-8'))
-      except json.JSONDecodeError as json_decode_exception:
-        cloud_logging_client.error(
-            'Error decoding pub/sub msg.', json_decode_exception
+        response = pubsub_subscriber.pull(
+            request={
+                'subscription': subscription_path,
+                'max_messages': 1,
+            },
+            return_immediately=False,
+            retry=retry.Retry(deadline=1000),
         )
-        _ack(pubsub_subscriber, subscription_path, message)
-        continue
-      try:
-        filename = pubsub_msg_data_dict['name']
-        bucket_name = pubsub_msg_data_dict['bucket']
-      except (ValueError, TypeError, KeyError) as pub_sub_msg_decode_exp:
-        cloud_logging_client.error(
-            'Error decoding pub/sub msg.',
-            pubsub_msg_data_dict,
-            pub_sub_msg_decode_exp,
-        )
-        _ack(pubsub_subscriber, subscription_path, message)
-        continue
+        if not response.received_messages:
+          cloud_logging_client.clear_log_signature()
+          cloud_logging_client.info('No messages received from pub/sub.')
+          time.sleep(30)
+          continue
+        message = response.received_messages[0]
+        cloud_logging_client.set_log_signature({
+            _PUBSUB_MESSAGE_ID: message.message_id,
+            _ISYNTAX_CONVERSION_TRACE_ID: message.message_id,
+        })
+        event_type = message.attributes.get('eventType', '')
+        if event_type != 'OBJECT_FINALIZE':
+          cloud_logging_client.info(
+              f'Ignoring pub/sub msg with event type: {event_type}'
+          )
+          _ack(pubsub_subscriber, subscription_path, message)
+          continue
+        try:
+          pubsub_msg_data_dict = json.loads(message.data.decode('utf-8'))
+        except json.JSONDecodeError as json_decode_exception:
+          cloud_logging_client.error(
+              'Error decoding pub/sub msg.', json_decode_exception
+          )
+          _ack(pubsub_subscriber, subscription_path, message)
+          continue
+        try:
+          filename = pubsub_msg_data_dict['name']
+          bucket_name = pubsub_msg_data_dict['bucket']
+        except (ValueError, TypeError, KeyError) as pub_sub_msg_decode_exp:
+          cloud_logging_client.error(
+              'Error decoding pub/sub msg.',
+              pubsub_msg_data_dict,
+              pub_sub_msg_decode_exp,
+          )
+          _ack(pubsub_subscriber, subscription_path, message)
+          continue
       cloud_logging_client.info(
           f'Received pub/sub msg; filename: {filename}, bucket_name:'
           f' {bucket_name}'
@@ -286,8 +317,8 @@ def main(unused_argv: Sequence[str]) -> None:
         ):
           local_filename = os.path.join(tmp_dir, os.path.basename(filename))
           try:
-            bucket.blob(filename).download_to_file(local_filename)
-            success = _convert_isyntax_to_tiff(client, local_filename)
+            bucket.blob(filename).download_to_filename(local_filename)
+            success = _convert_isyntax_to_tiff(client, local_filename, filename)
           except:
             success = False
             raise
@@ -299,11 +330,15 @@ def main(unused_argv: Sequence[str]) -> None:
               dest_uri = INGEST_FAILED_URI_FLG.value
               status = 'failed'
             source_uri = f'gs://{bucket_name}/{filename}'
-            if cloud_storage_client.copy_blob_to_uri(
-                source_uri=source_uri,
-                dst_uri=dest_uri,
-                local_source=local_filename,
-                destination_blob_filename=filename,
+            if (
+                dest_uri
+                and cloud_storage_client.copy_blob_to_uri(
+                    source_uri=source_uri,
+                    dst_uri=dest_uri,
+                    local_source=local_filename,
+                    destination_blob_filename=filename,
+                )
+                and DELETE_FROM_SOURCE_BUCKET__FLG.value
             ):
               cloud_storage_client.del_blob(
                   uri=source_uri, ignore_file_not_found=True

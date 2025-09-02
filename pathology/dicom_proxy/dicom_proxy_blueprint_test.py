@@ -17,6 +17,7 @@
 import contextlib
 import copy
 import http
+import io
 import json
 import re
 from typing import Iterator, Mapping, Optional
@@ -27,6 +28,8 @@ from absl.testing import absltest
 from absl.testing import flagsaver
 from absl.testing import parameterized
 import flask
+import numpy as np
+import PIL.Image
 import pydicom
 import redis
 import requests_mock
@@ -73,6 +76,12 @@ _MOCK_DICOM_STORE_API_VERSION = 'v1'
 _MOCK_DICOMWEBBASE_URL = dicom_url_util.DicomWebBaseURL(
     'v1', 'proj', 'loc', 'dset', 'dstore'
 )
+
+
+def _decode_image(img: bytes) -> np.ndarray:
+  with io.BytesIO(img) as img_bytes:
+    with PIL.Image.open(img_bytes) as pil_image:
+      return np.asarray(pil_image)
 
 
 def _mock_sparse_dicom() -> pydicom.FileDataset:
@@ -476,19 +485,26 @@ def _dicom_series_search(
 @mock.patch.object(flask_util, 'get_full_request_url', autospec=True)
 @flagsaver.flagsaver(validate_iap=False)
 def _get_frame_instance(
-    add_dicom: bool,
     is_rendered_request: bool,
     mk_get_url,
+    mk_get_first_key_args,
     *unused_mocks,
+    parameters: Optional[Mapping[str, str]] = None,
 ):
   dcm = shared_test_util.jpeg_encoded_dicom_instance()
   base_url = _MOCK_DICOMWEBBASE_URL
   mk_get_url.return_value = base_url.full_url
+  parameters = {} if parameters is None else parameters
+  mk_get_first_key_args.return_value = parameters
+  url = base_url.full_url
+  if parameters is not None and parameters:
+    params = ','.join([f'{key}={value}' for key, value in parameters.items()])
+    url = f'{url}?{params}'
+  mk_get_url.return_value = url
   with dicom_store_mock.MockDicomStores(
       base_url.full_url
   ) as mocked_dicom_store:
-    if add_dicom:
-      mocked_dicom_store[base_url.full_url].add_instance(dcm)
+    mocked_dicom_store[base_url.full_url].add_instance(dcm)
     return dicom_proxy_blueprint._get_frame_instance(
         base_url.dicom_store_api_version,
         base_url.gcp_project_id,
@@ -521,15 +537,25 @@ def _get_frame_instance(
 )
 @mock.patch.object(flask_util, 'get_full_request_url', autospec=True)
 @flagsaver.flagsaver(validate_iap=False)
-def _get_instance_rendered(add_dicom: bool, mk_get_url, *unused_mocks):
+def _get_instance_rendered(
+    mk_get_url,
+    mk_get_first_key_args,
+    *unused_mocks,
+    parameters: Optional[Mapping[str, str]] = None,
+):
   dcm = shared_test_util.jpeg_encoded_dicom_instance()
   base_url = _MOCK_DICOMWEBBASE_URL
-  mk_get_url.return_value = base_url.full_url
+  parameters = {} if parameters is None else parameters
+  mk_get_first_key_args.return_value = parameters
+  url = base_url.full_url
+  if parameters is not None and parameters:
+    params = ','.join([f'{key}={value}' for key, value in parameters.items()])
+    url = f'{url}?{params}'
+  mk_get_url.return_value = url
   with dicom_store_mock.MockDicomStores(
       base_url.full_url
   ) as mocked_dicom_store:
-    if add_dicom:
-      mocked_dicom_store[base_url.full_url].add_instance(dcm)
+    mocked_dicom_store[base_url.full_url].add_instance(dcm)
     return dicom_proxy_blueprint._rendered_instance(
         base_url.dicom_store_api_version,
         base_url.gcp_project_id,
@@ -620,6 +646,12 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
 
   def setUp(self):
     super().setUp()
+
+    # Mock flask_compressed to disable in unit tests.
+    self.enter_context(
+        mock.patch('flask_compress.Compress.after_request', lambda x, y: y)
+    )
+
     self.saved_flag_values = flagsaver.save_flag_values()
     # Mock IAP
     self._mock_iap_headers = self.enter_context(
@@ -1033,7 +1065,6 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
         shared_test_util.jpeg_encoded_pydicom_instance_cache(),
         {'downsample': '2.0'},
     )
-
     result = dicom_proxy_blueprint._rendered_wsi_instance(local_instance)
 
     self.assertEqual(result.status, shared_test_util.http_ok_status())
@@ -1412,13 +1443,105 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
       )
 
   def test_get_frame_instance(self):
-    self.assertLen(_get_frame_instance(True, False).data, 8604)
+    self.assertLen(_get_frame_instance(False).data, 8604)
 
   def test_get_frame_instance_rendered_request(self):
-    self.assertLen(_get_frame_instance(True, True).data, 8418)
+    self.assertLen(_get_frame_instance(True).data, 8418)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='baseline',
+          param={},
+          ground_truth_filename='baseline_rendered_frame.jpeg',
+      ),
+      dict(
+          testcase_name='scaled_viewport',
+          param={'viewport': '128,128'},
+          ground_truth_filename='scaled_viewport.jpeg',
+      ),
+      dict(
+          testcase_name='hz_flipped_scaled_viewport',
+          param={'viewport': '128,128,,,-256,256'},
+          ground_truth_filename='hz_flipped_scaled_viewport.jpeg',
+      ),
+      dict(
+          testcase_name='vz_flipped_scaled_viewport',
+          param={'viewport': '128,128,,,256,-256'},
+          ground_truth_filename='vz_flipped_scaled_viewport.jpeg',
+      ),
+      dict(
+          testcase_name='flipped_both_scaled_viewport',
+          param={'viewport': '128,128,,,-256,-256'},
+          ground_truth_filename='flipped_both_scaled_viewport.jpeg',
+      ),
+      dict(
+          testcase_name='cropped_scaled_viewport',
+          param={'viewport': '128,128,100,20,128,128'},
+          ground_truth_filename='cropped_scaled_viewport.jpeg',
+      ),
+      dict(
+          testcase_name='cropped_patch_scaled_viewport',
+          param={'viewport': '128,128,100,20,100,200'},
+          ground_truth_filename='cropped_patch_scaled_viewport.jpeg',
+      ),
+  ])
+  def test_get_frame_rendered_viewport(self, param, ground_truth_filename):
+    ground_truth_path = shared_test_util.get_testdir_path(
+        'rendered_frame', ground_truth_filename
+    )
+    img = _decode_image(_get_frame_instance(True, parameters=param).data)
+    with open(ground_truth_path, 'rb') as f:
+      ground_truth_image = _decode_image(f.read())
+    np.testing.assert_array_almost_equal(img, ground_truth_image)
 
   def test_get_instance_rendered(self):
-    self.assertLen(_get_instance_rendered(True).data, 180747)
+    self.assertLen(_get_instance_rendered().data, 180747)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='baseline',
+          param={},
+          ground_truth_filename='baseline_rendered_instance.jpeg',
+      ),
+      dict(
+          testcase_name='scaled_viewport',
+          param={'viewport': '256,256'},
+          ground_truth_filename='scaled_viewport.jpeg',
+      ),
+      dict(
+          testcase_name='hz_flipped_scaled_viewport',
+          param={'viewport': '256,256,,,-1152,700'},
+          ground_truth_filename='hz_flipped_scaled_viewport.jpeg',
+      ),
+      dict(
+          testcase_name='vz_flipped_scaled_viewport',
+          param={'viewport': '256,256,,,1152,-700'},
+          ground_truth_filename='vz_flipped_scaled_viewport.jpeg',
+      ),
+      dict(
+          testcase_name='flipped_both_scaled_viewport',
+          param={'viewport': '256,256,,,-1152,-700'},
+          ground_truth_filename='flipped_both_scaled_viewport.jpeg',
+      ),
+      dict(
+          testcase_name='cropped_scaled_viewport',
+          param={'viewport': '256,256,100,20,1152,700'},
+          ground_truth_filename='cropped_scaled_viewport.jpeg',
+      ),
+      dict(
+          testcase_name='cropped_patch_scaled_viewport',
+          param={'viewport': '256,256,100,20,100,200'},
+          ground_truth_filename='cropped_patch_scaled_viewport.jpeg',
+      ),
+  ])
+  def test_get_instance_rendered_viewport(self, param, ground_truth_filename):
+    ground_truth_path = shared_test_util.get_testdir_path(
+        'rendered_instance', ground_truth_filename
+    )
+    img = _decode_image(_get_instance_rendered(parameters=param).data)
+    with open(ground_truth_path, 'rb') as f:
+      ground_truth_image = _decode_image(f.read())
+    np.testing.assert_array_almost_equal(img, ground_truth_image)
 
   @parameterized.parameters(['', '?a=132'])
   def test_missing_series_uid_redirect(self, param):
@@ -1502,6 +1625,31 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
       )
     url = f'{root}/tile/{base_url}/studies/{dcm.StudyInstanceUID}/series/{dcm.SeriesInstanceUID}/instances/{dcm.SOPInstanceUID}/frames/1{expected_suffix}'
     self.assertIn(url.encode('utf-8'), response.data)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='undefined_viewport',
+          param={},
+          expected=render_frame_params.Viewport([]),
+      ),
+      dict(
+          testcase_name='empty_viewport',
+          param={'viewport': ''},
+          expected=render_frame_params.Viewport([]),
+      ),
+      dict(
+          testcase_name='basic_viewport',
+          param={'viewport': '1,2'},
+          expected=render_frame_params.Viewport(['1', '2']),
+      ),
+      dict(
+          testcase_name='full_viewport',
+          param={'viewport': '1,2,3,4,5,6'},
+          expected=render_frame_params.Viewport(['1', '2', '3', '4', '5', '6']),
+      ),
+  ])
+  def test_parse_viewport(self, param, expected):
+    self.assertEqual(dicom_proxy_blueprint._parse_viewport(param), expected)
 
 
 if __name__ == '__main__':

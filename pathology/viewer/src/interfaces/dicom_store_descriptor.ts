@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { environment } from "../environments/environment";
+import {environment} from "../environments/environment";
 
 /**
  * The DicomStores this service communicates with.
@@ -70,16 +70,14 @@ export function addDicomStorePrefixIfMissing(slideId: string) {
   // If already fully-qualified, leave unchanged
   for (const base of stores) {
     if (slideId === base || slideId.startsWith(base + '/')) {
-      return slideId;
-    }
+    return slideId;
   }
-
+    }
   // Only process if "/studies" exists in the path
   const parts = slideId.split('/studies');
   if (parts.length < 2) {
     return slideId;
   }
-
   // The server-relative prefix before the first "/studies"
   const serverPath = parts[0].replace(/\/+$/, '');
   if (!serverPath) {

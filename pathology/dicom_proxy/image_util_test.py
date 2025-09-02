@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """Tests for image util."""
+
 import hashlib
 import io
 from unittest import mock
@@ -27,6 +28,7 @@ import PIL.Image
 from pathology.dicom_proxy import color_conversion_util
 from pathology.dicom_proxy import enum_types
 from pathology.dicom_proxy import image_util
+from pathology.dicom_proxy import render_frame_params
 from pathology.dicom_proxy import shared_test_util
 
 # Types
@@ -428,6 +430,152 @@ class ImageUtilTest(parameterized.TestCase):
         decoded_img, np.full((4, 4, 3), 255, dtype=np.uint8)
     )
     mock_cv2_imdecode.assert_not_called()
+
+  @parameterized.parameters([
+      None,
+      render_frame_params.Viewport([]),
+  ])
+  def test_transform_cv2_image_viewport_nop(self, undefined_viewport):
+    test_img = np.zeros((100, 100, 3), dtype=np.uint8)
+    self.assertIs(
+        image_util.transform_image_viewport(test_img, undefined_viewport),
+        test_img,
+    )
+
+  @parameterized.parameters([
+      None,
+      render_frame_params.Viewport([]),
+  ])
+  def test_transform_pil_image_viewport_nop(self, undefined_viewport):
+    image = image_util.PILImage(
+        PIL.Image.fromarray(np.zeros((100, 100, 3), dtype=np.uint8))
+    )
+    self.assertIs(
+        image_util.transform_image_viewport(image, undefined_viewport).image,
+        image.image,
+    )
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='equal_size',
+          viewport=render_frame_params.Viewport(['10', '100']),
+          expected_dim=(10, 100),
+      ),
+      dict(
+          testcase_name='grow_height',
+          viewport=render_frame_params.Viewport(['20', '150']),
+          expected_dim=(15, 150),
+      ),
+      dict(
+          testcase_name='grow_width',
+          viewport=render_frame_params.Viewport(['15', '200']),
+          expected_dim=(15, 150),
+      ),
+      dict(
+          testcase_name='grow',
+          viewport=render_frame_params.Viewport(['20', '200']),
+          expected_dim=(20, 200),
+      ),
+      dict(
+          testcase_name='shrink_width',
+          viewport=render_frame_params.Viewport(['5', '75']),
+          expected_dim=(5, 50),
+      ),
+      dict(
+          testcase_name='shrink_height',
+          viewport=render_frame_params.Viewport(['8', '50']),
+          expected_dim=(5, 50),
+      ),
+      dict(
+          testcase_name='shrink',
+          viewport=render_frame_params.Viewport(['5', '50']),
+          expected_dim=(5, 50),
+      ),
+      dict(
+          testcase_name='non_uniform_width',
+          viewport=render_frame_params.Viewport(['5', '200']),
+          expected_dim=(5, 50),
+      ),
+      dict(
+          testcase_name='non_uniform_height',
+          viewport=render_frame_params.Viewport(['20', '50']),
+          expected_dim=(5, 50),
+      ),
+  ])
+  def test_transform_image_viewport_non_uniform_resize(
+      self, viewport, expected_dim
+  ):
+    img = np.zeros((100, 10, 3), dtype=np.uint8)
+    self.assertEqual(
+        image_util.transform_image_viewport(img, viewport).image.size,
+        expected_dim,
+    )
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='flip_both',
+          viewport=render_frame_params.Viewport(['2', '2', '', '', '-2', '-2']),
+          expected=np.asarray([[4, 3], [2, 1]], dtype=np.uint8),
+      ),
+      dict(
+          testcase_name='flip_left_right',
+          viewport=render_frame_params.Viewport(['2', '2', '', '', '-2', '2']),
+          expected=np.asarray([[2, 1], [4, 3]], dtype=np.uint8),
+      ),
+      dict(
+          testcase_name='flip_top_bottom',
+          viewport=render_frame_params.Viewport(
+              ['2', '2', '0', '0', '2', '-2']
+          ),
+          expected=np.asarray([[3, 4], [1, 2]], dtype=np.uint8),
+      ),
+      dict(
+          testcase_name='unchanged_1',
+          viewport=render_frame_params.Viewport(['2', '2', '0', '0', '2', '2']),
+          expected=np.asarray([[1, 2], [3, 4]], dtype=np.uint8),
+      ),
+      dict(
+          testcase_name='unchanged_2',
+          viewport=render_frame_params.Viewport(['2', '2', '0', '0']),
+          expected=np.asarray([[1, 2], [3, 4]], dtype=np.uint8),
+      ),
+      dict(
+          testcase_name='unchanged_3',
+          viewport=render_frame_params.Viewport(['2', '2']),
+          expected=np.asarray([[1, 2], [3, 4]], dtype=np.uint8),
+      ),
+      dict(
+          testcase_name='crop_1',
+          viewport=render_frame_params.Viewport(['1', '1', '1', '1', '1', '1']),
+          expected=np.asarray([[4]], dtype=np.uint8),
+      ),
+      dict(
+          testcase_name='crop_2',
+          viewport=render_frame_params.Viewport(['1', '1', '0', '0', '1', '1']),
+          expected=np.asarray([[1]], dtype=np.uint8),
+      ),
+      dict(
+          testcase_name='crop_3',
+          viewport=render_frame_params.Viewport(['1', '1', '1', '0', '1', '1']),
+          expected=np.asarray([[2]], dtype=np.uint8),
+      ),
+      dict(
+          testcase_name='crop_4',
+          viewport=render_frame_params.Viewport(['1', '1', '0', '1', '1', '1']),
+          expected=np.asarray([[3]], dtype=np.uint8),
+      ),
+      dict(
+          testcase_name='crop_scale',
+          viewport=render_frame_params.Viewport(['2', '2', '1', '1', '1', '1']),
+          expected=np.asarray([[4, 4], [4, 4]], dtype=np.uint8),
+      ),
+  ])
+  def test_transform_image_viewport(self, viewport, expected):
+    img = np.asarray([[1, 2], [3, 4]], dtype=np.uint8)
+    np.testing.assert_array_equal(
+        np.asarray(image_util.transform_image_viewport(img, viewport).image),
+        expected,
+    )
 
 
 if __name__ == '__main__':

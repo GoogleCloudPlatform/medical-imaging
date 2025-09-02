@@ -132,6 +132,7 @@ class _TranscodedRenderedDicomFrames(_RenderedDicomFrames):
         ).get_downsampled_image(decoded_source_frames)
       elif (
           icc_profile_transform is None
+          and not params.is_viewport_defined()
           and source_dicom_metadata.is_jpg_transcoded_to_jpegxl
           and params.compression == enum_types.Compression.JPEG
       ):
@@ -146,6 +147,7 @@ class _TranscodedRenderedDicomFrames(_RenderedDicomFrames):
           )
       elif (
           icc_profile_transform is None
+          and not params.is_viewport_defined()
           and source_dicom_metadata.is_baseline_jpeg
           and (
               params.compression == enum_types.Compression.JPEGXL
@@ -169,7 +171,7 @@ class _TranscodedRenderedDicomFrames(_RenderedDicomFrames):
         icc_profile = icc_profile_transform.rendered_icc_profile
       encoded_images.append(
           image_util.encode_image(
-              image,
+              image_util.transform_image_viewport(image, params.viewport),
               params.compression,
               params.quality,
               icc_profile if params.embed_iccprofile else None,
@@ -421,6 +423,7 @@ def _get_frames_no_downsampling(
   if (
       params.compression == source_frames.compression
       and icc_profile_transform is None
+      and not params.is_viewport_defined()
   ):
     metrics.images_transcoded = False
     return _RenderedDicomFrames(result, params, metrics)
@@ -686,9 +689,14 @@ def downsample_dicom_instance(
       params, dicom_instance.icc_profile_color_space()
   )
   orig_params = params  # original unmodified params.
-  if decode_image_as_numpy:
+  if decode_image_as_numpy or params.is_viewport_defined():
     params = params.copy()  # copy params to preserve parameter values
-    params.compression = enum_types.Compression.NUMPY
+    if decode_image_as_numpy:
+      params.compression = enum_types.Compression.NUMPY
+    if params.is_viewport_defined():
+      # Disable viewport definition for instance frame rendering.
+      # Viewport rendering is applied after instance image is generated.
+      params.viewport = None
   ds_meta = dicom_instance.metadata.downsample(params.downsample)
   width = ds_meta.total_pixel_matrix_columns
   height = ds_meta.total_pixel_matrix_rows
@@ -788,7 +796,9 @@ def downsample_dicom_instance(
   return _RenderedDicomFrames(
       [
           image_util.encode_image(
-              instance_image,
+              image_util.transform_image_viewport(
+                  instance_image, orig_params.viewport
+              ),
               orig_params.compression,  # type: ignore
               orig_params.quality,
               icc_profile if orig_params.embed_iccprofile else None,

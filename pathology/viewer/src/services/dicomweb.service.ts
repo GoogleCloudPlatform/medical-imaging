@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 
-import { Case, Patient, RECORD_ID_TYPE_META, RecordIdType, Slide } from '../interfaces/hierarchy_descriptor';
-import { DicomModality, DicomModel, DicomTag, PersonName, formatDate, formatName, isPatients } from '../interfaces/dicom_descriptor';
-import { Observable, defer, merge, throwError } from 'rxjs';
-import { catchError, filter, first, map, mergeAll, switchMap, toArray } from 'rxjs/operators';
+import {Case, Patient, RECORD_ID_TYPE_META, RecordIdType, Slide} from '../interfaces/hierarchy_descriptor';
+import {DicomModality, DicomModel, DicomTag, PersonName, formatDate, formatName, isPatients} from '../interfaces/dicom_descriptor';
+import {Observable, defer, merge, throwError} from 'rxjs';
+import {catchError, filter, first, map, mergeAll, switchMap, toArray} from 'rxjs/operators';
 
-import { AuthService } from './auth.service';
-import { HttpClient } from '@angular/common/http';
-import { Injectable } from '@angular/core';
-import { LogService } from './log.service';
-import { PathologySlide } from '../interfaces/slide_descriptor';
-import { encodeByteArray } from '../utils/crypt';
-import { environment } from '../environments/environment';
-import { DicomWebUrlConfig, constructDicomWebUrl, parseDICOMwebUrl } from '../interfaces/dicomweb';
+import {AuthService} from './auth.service';
+import {HttpClient} from '@angular/common/http';
+import {Injectable} from '@angular/core';
+import {LogService} from './log.service';
+import {PathologySlide} from '../interfaces/slide_descriptor';
+import {encodeByteArray} from '../utils/crypt';
+import {environment} from '../environments/environment';
+import {DicomWebUrlConfig, constructDicomWebUrl, parseDICOMwebUrl} from '../interfaces/dicomweb';
 import {CompressionType} from '../interfaces/types';
 
 const DICOM_URI_VALIDATOR = new RegExp('^.*studies/[0-9.]*');
