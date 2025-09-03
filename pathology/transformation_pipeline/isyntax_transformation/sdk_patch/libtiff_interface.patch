@@ -89,6 +89,12 @@ SAMPLESPERPIXEL = 3
 PLANARCONFIG = 1
 YCBCRHORIZONTAL = 2
 YCBCRVERTICAL = 2
+TIFFTAG_RESOLUTION_UNIT = 296
+RESOLUTION_UNIT_CENTIMETER = 3
+MICRONS_PER_CM = 10000
+TIFFTAG_XRESOLUTION = 282
+TIFFTAG_YRESOLUTION = 283
+
 
 TIFFTAGS = {
     TIFFTAG_IMAGEWIDTH: (ctypes.c_uint32, lambda _d: _d.value),
@@ -105,6 +111,9 @@ TIFFTAGS = {
     TIFFTAG_JPEGQUALITY: (ctypes.c_int, lambda _d: _d.value),
     TIFFTAG_JPEGCOLORMODE: (ctypes.c_int, lambda _d: _d.value),
     TIFFTAG_YCBCRSUBSAMPLING: (ctypes.c_int, lambda _d: _d.value),
+    TIFFTAG_RESOLUTION_UNIT: (ctypes.c_uint16, lambda _d: _d.value),
+    TIFFTAG_XRESOLUTION: (ctypes.c_double, lambda _d: _d.value),
+    TIFFTAG_YRESOLUTION: (ctypes.c_double, lambda _d: _d.value),
 }
 
 
@@ -228,6 +237,8 @@ class TIFF(ctypes.c_void_p):
       jpeg_quality: int,
       frame_width: int,
       frame_height: int,
+      x_resolution: float,
+      y_resolution: float,
   ) -> None:
     """Setting tiff file common attributes.
 
@@ -238,6 +249,8 @@ class TIFF(ctypes.c_void_p):
       jpeg_quality: JPEG Quality
       frame_width: JPEG Frame Width
       frame_height: JPEG Frame Height
+      x_resolution: Micrometers per pixel in X dim of highest resolution.
+      y_resolution: Micrometers per pixel of Y dim of highest resolution.
 
     Returns:
       None
@@ -264,6 +277,15 @@ class TIFF(ctypes.c_void_p):
     self.set_attribute(TIFFTAG_COMPRESSION, COMPRESSION_JPEG)
     self.set_attribute(TIFFTAG_JPEGQUALITY, jpeg_quality)
     self.set_attribute(TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT)
+    self.set_attribute(TIFFTAG_RESOLUTION_UNIT, RESOLUTION_UNIT_CENTIMETER)
+    self.set_attribute(
+        TIFFTAG_XRESOLUTION,
+    (MICRONS_PER_CM / x_resolution) / level_scale_factor,
+    )
+    self.set_attribute(
+        TIFFTAG_YRESOLUTION,
+        (MICRONS_PER_CM / y_resolution) / level_scale_factor,
+    )
 
     # To choose bewteen RGB and YCbCr color model, uncomment the following line,
     # self.set_attribute(TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB)

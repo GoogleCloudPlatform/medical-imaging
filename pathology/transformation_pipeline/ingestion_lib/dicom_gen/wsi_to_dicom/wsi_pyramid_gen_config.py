@@ -156,7 +156,7 @@ def get_openslide_pixel_spacing(filename: str) -> float:
           float(open_sld.properties[openslide.PROPERTY_NAME_MPP_X]) / 1000.0
       )
       return float(max(rows, columns))
-  except (openslide.OpenSlideError, AttributeError) as exp:
+  except (openslide.OpenSlideError, AttributeError, KeyError) as exp:
     raise MissingPixelSpacingError(
         f'Could not determine pixel spacing in image: {filename}.',
         ingest_const.ErrorMsgs.MISSING_PIXEL_SPACING,

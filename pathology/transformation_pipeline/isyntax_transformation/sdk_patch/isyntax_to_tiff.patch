@@ -255,6 +255,28 @@ def tiff_tile_processor(
         )
 
 
+def calculate_tiff_pixel_spacing(view: Any) -> Tuple[float, float]:
+  x_spacing = None
+  y_spacing = None
+  for index, name in enumerate(view.dimension_names):
+    if name == 'x':
+      x_spacing = float(view.scale[index])
+      if view.dimension_units[index].lower() != 'micrometer':
+        raise ValueError('X dimension is not in micrometers.')
+      if y_spacing is not None:
+        break
+    elif name == 'y':
+      y_spacing = float(view.scale[index])
+      if view.dimension_units[index].lower() != 'micrometer':
+        raise ValueError('Y dimension is not in micrometers.')
+      if x_spacing is not None:
+        break
+  if x_spacing is None or y_spacing is None:
+    raise ValueError("Could not find x or y spacing in view")
+  return (x_spacing,  y_spacing)
+
+
+
 def calculate_tiff_dimensions(view: Any, start_level: int, frame_width: int, frame_height: int) -> Tuple[int, int]:
   """Set the TIFF tile size.
 
@@ -332,6 +354,8 @@ def create_tiff_from_isyntax(
   """
   view = pixel_engine["in"]["WSI"].source_view
   tiff_dim_x, tiff_dim_y = calculate_tiff_dimensions(view, start_level, frame_width, frame_height)
+  x_spacing, y_spacing = calculate_tiff_pixel_spacing(view)
+  print("x_spacing: {}, y_spacing: {}".format(x_spacing, y_spacing))
 
   #  Scanned Tissue Area
   # Level 0 represents 40x scan factor
@@ -374,6 +398,8 @@ def create_tiff_from_isyntax(
         jpeg_quality,
         frame_width,
         frame_height,
+        x_spacing,
+        y_spacing,
     )
     patches, patch_identifier = create_patch_list(
         int(num_patches_x),
