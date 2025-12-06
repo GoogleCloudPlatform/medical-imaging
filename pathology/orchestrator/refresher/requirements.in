@@ -15,6 +15,6 @@ grpcio-tools==1.70.0
 protobuf==5.29.3
 psutil==7.0.0
 requests==2.32.3 # https://nvd.nist.gov/vuln/detail/CVE-2023-32681
-urllib3==2.3.0 # https://nvd.nist.gov/vuln/detail/CVE-2023-43804
+urllib3==2.6.0 # https://nvd.nist.gov/vuln/detail/CVE-2023-43804
 wheel==0.45.1 # https://nvd.nist.gov/vuln/detail/CVE-2022-40898
 # LINT.ThenChange(//depot/pathology.orchestrator/refresher/requirements.txt)
