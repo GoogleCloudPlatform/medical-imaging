@@ -601,7 +601,7 @@ def _copy_file_to_image_ingestion_dir(source: str, dest: str) -> None:
       dest = os.path.join(dest, bucket_path.lstrip('/'))
     try:
       subprocess.run(
-          ['gsutil', '-m', 'cp', '-r', source.rstrip('/'), dest.rstrip('/')],
+          ['gcloud', 'storage', 'cp', '--recursive', source.rstrip('/'), dest.rstrip('/')],
           check=True,
       )
     except subprocess.CalledProcessError:
