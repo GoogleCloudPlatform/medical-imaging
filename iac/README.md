@@ -771,12 +771,12 @@ the sample CSV from
 
 ```sh
 # Copy metadata CSV
-gsutil cp \
+gcloud storage cp \
 gs://dpas-external-assets-bucket/transformation/sample_metadata.csv \
 gs://${PROJECT_ID?}-transformation-input-metadata/
 
 # Copy image
-gsutil cp \
+gcloud storage cp \
 <your local path>/JP2K-33003-2.svs \
 gs://${PROJECT_ID?}-transformation-input-images/GO-1694041298474-1-A-0_JP2K-33003-2.svs
 ```

@@ -236,10 +236,10 @@ class StartLocalhostTest(parameterized.TestCase):
     start_local._copy_file_to_image_ingestion_dir(source, dest)
     mock_run.assert_called_once_with(
         [
-            'gsutil',
-            '-m',
+            'gcloud',
+            'storage',
             'cp',
-            '-r',
+            '--recursive',
             'gs://mock_bucket/bucket_folder/file.txt',
             '/temp/dir/dir_folder/bucket_folder/file.txt',
         ],
@@ -257,10 +257,10 @@ class StartLocalhostTest(parameterized.TestCase):
     start_local._copy_file_to_image_ingestion_dir(source, dest)
     mock_run.assert_called_once_with(
         [
-            'gsutil',
-            '-m',
+            'gcloud',
+            'storage',
             'cp',
-            '-r',
+            '--recursive',
             'gs://mock_bucket/bucket_folder/file.txt',
             '/temp/dir/dir_folder/bucket_folder/file.txt',
         ],
