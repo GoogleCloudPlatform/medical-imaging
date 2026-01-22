@@ -23,9 +23,11 @@
 
 Generated Json used in: dicom_standard_util.py
 """
+
 import collections
 import json
 import os
+import sys
 from typing import Any, Dict, List, Optional, Union
 
 from absl import logging
@@ -168,6 +170,7 @@ class JsonWriter:
   @classmethod
   def write_iod_json(
       cls,
+      out_dir: str,
       name: str,
       json_header_txt: str,
       obj: Union[
@@ -181,13 +184,12 @@ class JsonWriter:
     """Writes iod structure out to formatted file json file.
 
     Args:
+      out_dir: Directory to write file to.
       name: name of file to write
       json_header_txt: header for JSON file
       obj: object to write
     """
-    output_path = os.path.abspath(
-        os.path.join(os.getcwd(), '..', '..', '..', f'{name}.json')
-    )
+    output_path = os.path.abspath(os.path.join(out_dir, f'{name}.json'))
     with open(output_path, 'wt') as outfile:
       outfile.write('{\n')
       outfile.write(json_header_txt)
@@ -226,14 +228,18 @@ def split_tables(tables: TableDefType, splits: int) -> List[TableDefType]:
 
 
 if __name__ == '__main__':
+  output_dir = sys.argv[1]
   logging.set_verbosity(logging.INFO)
   iod_parser = DicomIodXmlParser()
   iod_def = iod_parser.parse_spec()
-  JsonWriter.write_iod_json('dicom_iod', iod_parser.header_txt, iod_def.iod)
   JsonWriter.write_iod_json(
-      'dicom_modules', iod_parser.header_txt, iod_def.modules
+      output_dir, 'dicom_iod', iod_parser.header_txt, iod_def.iod
   )
   JsonWriter.write_iod_json(
+      output_dir, 'dicom_modules', iod_parser.header_txt, iod_def.modules
+  )
+  JsonWriter.write_iod_json(
+      output_dir,
       'dicom_iod_func_groups',
       iod_parser.header_txt,
       iod_def.iod_functional_groups,
@@ -242,20 +248,26 @@ if __name__ == '__main__':
   split_tables = split_tables(iod_def.tables, 3)
   for f_index, table_part in enumerate(split_tables):
     JsonWriter.write_iod_json(
-        f'dicom_tables_part_{f_index+1}', iod_parser.header_txt, table_part
+        output_dir,
+        f'dicom_tables_part_{f_index+1}',
+        iod_parser.header_txt,
+        table_part,
     )
 
   iod_uid_parser = DicomIodUidXmlParser()
   iod_class_uid_mapping = iod_uid_parser.parse_spec()
   JsonWriter.write_iod_json(
-      'dicom_iod_class_uid', iod_uid_parser.header_txt, iod_class_uid_mapping
+      output_dir,
+      'dicom_iod_class_uid',
+      iod_uid_parser.header_txt,
+      iod_class_uid_mapping,
   )
   if iod_parser.header_txt != iod_uid_parser.header_txt:
     raise DicomIodGeneratorError('Versions of DICOM Standard do not match.')
   tag_parser = dicom_tag_xml_parser.DicomTagXmlParser()
   parsed_dicom_tags = tag_parser.parse_spec()
   JsonWriter.write_iod_json(
-      'dicom_tags', tag_parser.header_txt, parsed_dicom_tags
+      output_dir, 'dicom_tags', tag_parser.header_txt, parsed_dicom_tags
   )
   if iod_parser.header_txt != tag_parser.header_txt:
     raise DicomIodGeneratorError('Versions of DICOM Standard do not match.')

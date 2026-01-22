@@ -14,15 +14,14 @@
 # ==============================================================================
 # Base Debian Docker container for wsi image ingestion
 #
-# Debian 12.11-slim + Python 3.13.5
+# Debian 13.3-slim + Python 3.14.2
 #
-FROM debian:12.11-slim
+FROM debian:13.3-slim
 
-# Start Python 3.13.5 install.
-# docker install code from offical python 3.13.5 DOCKER image.
-# https://github.com/docker-library/python/blob/3fae0a14ac171f46e47d7ce41567e40524af5bcc/3.13/slim-bookworm/Dockerfile
+# Start Python 3.14.2 install.
+# docker install code from offical python 3.14.2 DOCKER image.
+# https://github.com/docker-library/python/blob/2fc7ce5fa65ed3321256f9b45054733a6958aebe/3.14/slim-trixie/Dockerfile
 
-# ensure local python is preferred over distribution python
 RUN set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
@@ -30,11 +29,10 @@ RUN set -eux; \
     netbase \
     tzdata \
   ; \
-  rm -rf /var/lib/apt/lists/*
+  apt-get dist-clean
 
-ENV GPG_KEY 7169605F62C751356D054A26A821E680E5FA6305
-ENV PYTHON_VERSION 3.13.5
-ENV PYTHON_SHA256 93e583f243454e6e9e4588ca2c2662206ad961659863277afcdb96801647d640
+ENV PYTHON_VERSION 3.14.2
+ENV PYTHON_SHA256 ce543ab854bc256b61b71e9b27f831ffd1bfd60a479d639f8be7f9757cf573e9
 
 RUN set -eux; \
   \
@@ -55,6 +53,7 @@ RUN set -eux; \
     libreadline-dev \
     libsqlite3-dev \
     libssl-dev \
+    libzstd-dev \
     make \
     tk-dev \
     uuid-dev \
@@ -63,14 +62,8 @@ RUN set -eux; \
     zlib1g-dev \
   ; \
   \
-  wget -O python.tar.xz "https://www.python.org/ftp/python/3.13.5/Python-3.13.5.tar.xz"; \
+  wget -O python.tar.xz "https://www.python.org/ftp/python/3.14.2/Python-3.14.2.tar.xz"; \
   echo "$PYTHON_SHA256 *python.tar.xz" | sha256sum -c -; \
-  wget -O python.tar.xz.asc "https://www.python.org/ftp/python/3.13.5/Python-3.13.5.tar.xz.asc"; \
-  GNUPGHOME="$(mktemp -d)"; export GNUPGHOME; \
-  gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys "$GPG_KEY"; \
-  gpg --batch --verify python.tar.xz.asc python.tar.xz; \
-  gpgconf --kill all; \
-  rm -rf "$GNUPGHOME" python.tar.xz.asc; \
   mkdir -p /usr/src/python; \
   tar --extract --directory /usr/src/python --strip-components=1 --file python.tar.xz; \
   rm python.tar.xz; \
@@ -83,7 +76,7 @@ RUN set -eux; \
     --enable-optimizations \
     --enable-option-checking=fatal \
     --enable-shared \
-    $(test "$gnuArch" != 'riscv64-linux-musl' && echo '--with-lto') \
+    $(test "${gnuArch%%-*}" != 'riscv64' && echo '--with-lto') \
     --with-ensurepip \
   ; \
   nproc="$(nproc)"; \
@@ -128,13 +121,14 @@ RUN set -eux; \
   find /usr/local -type f -executable -not \( -name '*tkinter*' \) -exec ldd '{}' ';' \
     | awk '/=>/ { so = $(NF-1); if (index(so, "/usr/local/") == 1) { next }; gsub("^/(usr/)?", "", so); printf "*%s\n", so }' \
     | sort -u \
-    | xargs -r dpkg-query --search \
-    | cut -d: -f1 \
+    | xargs -rt dpkg-query --search \
+# https://manpages.debian.org/bookworm/dpkg/dpkg-query.1.en.html#S (we ignore diversions and it'll be really unusual for more than one package to provide any given .so file)
+    | awk 'sub(":$", "", $1) { print $1 }' \
     | sort -u \
     | xargs -r apt-mark manual \
   ; \
   apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
-  rm -rf /var/lib/apt/lists/*; \
+  apt-get dist-clean; \
   \
   export PYTHONDONTWRITEBYTECODE=1; \
   python3 --version; \
@@ -148,7 +142,7 @@ RUN set -eux; \
     [ ! -e "/usr/local/bin/$dst" ]; \
     ln -svT "$src" "/usr/local/bin/$dst"; \
   done
-# End Python 3.13.5 install
+# End Python 3.14.2 install
 
 # Add gcloud to base container
 # Add public key for gcloud
@@ -186,7 +180,7 @@ RUN apt-get purge -y curl apt-utils && apt-get -y autoremove && \
 
 # Remove test key material included by 3rd-party libraries
 RUN find /usr/lib/google-cloud-sdk/platform/gsutil/third_party \
-         /usr/local/lib/python3.13/test/certdata \
+         /usr/local/lib/python3.14/test/certdata \
          /usr/src/python/Lib/test/certdata \
          -type f \( -name "*.pem" -o -name "*.key" \) -delete
 

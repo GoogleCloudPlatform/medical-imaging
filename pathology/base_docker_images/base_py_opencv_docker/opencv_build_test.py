@@ -28,7 +28,7 @@ except ImportError:
 
 # Const
 _EXPECTED_LIB_JPEG_TURBO = ' /opt/libjpeg-turbo/lib64/libjpeg.a (ver 62)'
-_EXPECTED_LIB_JPEG2000_DECODER = 'OpenJPEG (ver 2.5.3)'
+_EXPECTED_LIB_JPEG2000_DECODER = 'OpenJPEG (ver 2.5.4)'
 
 lib_jpeg_turbo_installed = None
 jpeg2000_decoder_installed = None

@@ -70,12 +70,11 @@ RUN apt-get update && \
        /setuptools_requirements.txt && \
     update-ca-certificates && \
     apt-get purge -y \
-      libldap-2.4-2 \
+      libldap2 \
       libldap-common \
       make \
       build-essential \
-      nasm \
-      libsqlite3-0 && \
+      nasm && \
     apt autoremove -y && \
     rm /usr/bin/apt /usr/bin/apt-get && \
     mv /pathology/dicom_proxy/start_server.sh /start_server.sh && \

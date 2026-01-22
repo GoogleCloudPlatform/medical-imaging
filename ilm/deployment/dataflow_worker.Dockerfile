@@ -17,10 +17,10 @@
 #
 # We need to pass Beam SDK as a local file to workers due to private VPC
 # requirements, so we copy from a SDK image (see go/beam-sdk-containers).
-FROM gcr.io/cloud-dataflow/v1beta3/beam_python3.12_sdk:2.63.0 AS beam_sdk
+FROM gcr.io/cloud-dataflow/v1beta3/beam_python3.13_sdk:2.70.0 AS beam_sdk
 
 # See go/beam-sdk-containers#python-sdk-images for more info about base images.
-FROM gcr.io/cloud-dataflow/v1beta3/beam_python3.12_sdk:2.63.0
+FROM gcr.io/cloud-dataflow/v1beta3/beam_python3.13_sdk:2.70.0
 
 ARG WORKDIR=/dataflow/template
 COPY ilm/deployment/requirements.txt /requirements.txt

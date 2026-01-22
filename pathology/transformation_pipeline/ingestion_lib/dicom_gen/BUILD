@@ -19,10 +19,7 @@ licenses(["notice"])
 
 package(
     default_applicable_licenses = ["//pathology:license"],
-    default_visibility = [
-        "//pathology/dicom_proxy:__subpackages__",
-        "//pathology/transformation_pipeline:__subpackages__",
-    ],
+    default_visibility = ["//pathology/transformation_pipeline:__subpackages__"],
 )
 
 py_library(

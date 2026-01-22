@@ -82,7 +82,6 @@ _INSTANCE_NUMBER = '00200013'
 _IMAGE_TYPE = '00080008'
 _TOTAL_PIXEL_MATRIX_COLUMNS = '00480006'
 _TOTAL_PIXEL_MATRIX_ROWS = '00480007'
-_MOCK_DICOM_GEN_UID = '1.2.3.9'
 
 
 def _test_json_dicom_metadata(
@@ -254,7 +253,7 @@ class _IngestWsiDicomTest(contextlib.ExitStack):
     )
     self.enter_context(dicom_store_mock.MockDicomStores(self._dicom_store_url))
     self.dicom_gen = abstract_dicom_generation.GeneratedDicomFiles(
-        self._input_file_container_path, f'gs://input/{ self._filename}'
+        self._input_file_container_path, f'gs://input/{self._filename}'
     )
     self.handler: ingest_gcs_handler.IngestGcsPubSubHandler = None
 

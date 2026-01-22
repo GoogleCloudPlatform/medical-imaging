@@ -1,5 +1,5 @@
 {
-  "header" : {"dicom_standard_version": {"Version": "2024e"}},
+  "header" : {"dicom_standard_version": {"Version": "2025e"}},
 
   "dicom_modules": {
      "C.2.1": [
@@ -484,6 +484,12 @@
      ],
      "C.8.8.30": [
         {"name": "C.8.8.30-1", "caption": "RT Brachy Application Setup Delivery Instruction Module Attributes"}
+     ],
+     "C.8.8.31": [
+        {"name": "C.8.8.31-1", "caption": "RT Beams Salvage Record Module Attributes"}
+     ],
+     "C.8.8.32": [
+        {"name": "C.8.8.32-1", "caption": "RT Ion Beams Salvage Record Module Attributes"}
      ],
      "C.8.9.1": [
         {"name": "C.8-60", "caption": "PET Series Module Attributes"}
@@ -1727,6 +1733,9 @@
      "C.36.2.2.22": [
         {"name": "C.36.2.2.22-1", "caption": "Patient Position Acquisition Device Macro Attributes"}
      ],
+     "C.36.2.2.23": [
+        {"name": "C.36.2.2.23-1", "caption": "RT Salvage Session Beam Macro Attributes"}
+     ],
      "C.36.2.3.1": [
         {"name": "C.36.2.3.1-1", "caption": "RT Patient Position Scope Macro Attributes"}
      ],
@@ -1774,6 +1783,9 @@
      ],
      "C.36.2.4.12": [
         {"name": "C.36.2.4.12-1", "caption": "RT Equipment Mapping and Plan Reference Macro Attributes"}
+     ],
+     "C.36.2.5.1": [
+        {"name": "C.36.2.5.1-1", "caption": "RT Dose Calculation Model Macro Attributes"}
      ],
      "C.36.3": [
         {"name": "C.36.3-1", "caption": "Enhanced RT Series Module Attributes"}
@@ -1879,6 +1891,30 @@
      ],
      "C.38.3": [
         {"name": "C.38.3-1", "caption": "Inventory Creation Module Attributes"}
+     ],
+     "C.39.1": [
+        {"name": "C.39.1-1", "caption": "Waveform Presentation State Relationship Module"}
+     ],
+     "C.39.2": [
+        {"name": "C.39.2-1", "caption": "Structured Waveform Annotation Module Attributes"}
+     ],
+     "C.39.3": [
+        {"name": "C.39.3-1", "caption": "Textual Waveform Annotation Module Attributes"}
+     ],
+     "C.39.4": [
+        {"name": "C.39.4-1", "caption": "Displayed Waveform Segment Module Attributes"}
+     ],
+     "C.39.5": [
+        {"name": "C.39.5-1", "caption": "Montage Activation Module Attributes"}
+     ],
+     "C.39.6": [
+        {"name": "C.39.6-1", "caption": "Waveform Presentation Montage Module Attributes"}
+     ],
+     "C.39.7": [
+        {"name": "C.39.7-1", "caption": "Montage Channel Macro Attributes"}
+     ],
+     "C.39.8": [
+        {"name": "C.39.8-1", "caption": "Temporal Range Macro Attributes"}
      ]
   }
 }

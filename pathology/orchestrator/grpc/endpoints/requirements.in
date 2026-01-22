@@ -1,9 +1,9 @@
 # Do not modify requirements.txt directly. Run
 # generate_requirements.sh to build requirements.txt from this file.
 # LINT.IfChange
-absl-py==2.1.0
-google-cloud-logging==3.11.4
-googleapis-common-protos==1.66.0  # Error building protos with v1.67.0
-grpcio==1.70.0
-grpcio-tools==1.70.0
+absl-py==2.3.1
+google-cloud-logging==3.13.0
+googleapis-common-protos==1.72.0  # Error building protos with v1.67.0
+grpcio==1.76.0
+grpcio-tools==1.76.0
 # LINT.ThenChange(//depot/pathology.orchestrator/grpc/endpoints/requirements.txt)

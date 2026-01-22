@@ -19,6 +19,7 @@ All classes should:
 
    def parse_spec(self) -> Any:
 """
+
 import dataclasses
 import json
 import re
@@ -128,13 +129,13 @@ class DicomAbstractXmlParser:
     """
     if text:
       if isinstance(text, str):
+        text = text.replace('\u2013', '-')
         if re.fullmatch(r'^[\x00-\x7F]+$', text) is None:
           raise DicomIodGeneratorError(
               f'Text: {text} contains unicode. Ascii encoding: {ascii(text)}'
           )
       elif isinstance(text, list):
-        for item in text:
-          DicomAbstractXmlParser.unicode_check(item)
+        return [DicomAbstractXmlParser.unicode_check(item) for item in text]
       else:
         raise DicomIodGeneratorError('Unexpected type.')
     return text

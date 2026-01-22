@@ -22,10 +22,10 @@ WORKDIR /
 USER root
 
 # Copy SDK entrypoint binary from Apache Beam image.
-COPY --from=apache/beam_python3.12_sdk:2.63.0 /opt/apache/beam /opt/apache/beam
+COPY --from=apache/beam_python3.13_sdk:2.70.0 /opt/apache/beam /opt/apache/beam
 
 # Configure the Flex Template.
-COPY --from=gcr.io/dataflow-templates-base/python311-template-launcher-base:latest /opt/google/dataflow/python_template_launcher /opt/google/dataflow/python_template_launcher
+COPY --from=gcr.io/dataflow-templates-base/python313-template-launcher-base:latest /opt/google/dataflow/python_template_launcher /opt/google/dataflow/python_template_launcher
 COPY ./dataflow_main.py /transformation_pipeline/dataflow_main.py
 ENV FLEX_TEMPLATE_PYTHON_PY_FILE="/transformation_pipeline/dataflow_main.py"
 

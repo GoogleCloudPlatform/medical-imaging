@@ -13,8 +13,10 @@
 # limitations under the License.
 # ==============================================================================
 """Parses DICOM IOD from XML spec."""
+
 import dataclasses
 import json
+import re
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from absl import logging
@@ -25,6 +27,10 @@ from pathology.transformation_pipeline.ingestion_lib.dicom_util.spec.util.lib.ut
 
 DicomIodGeneratorError = dicom_iod_generator_exception.DicomIodGeneratorError
 unicode_check = dicom_abstract_xml_parser.DicomAbstractXmlParser.unicode_check
+
+_FUNCTIONAL_GROUP_MACRO_REGEX = re.compile(
+    r'^.*Include .* more Functional Group Macros.*$', re.IGNORECASE
+)
 
 
 @dataclasses.dataclass
@@ -405,7 +411,7 @@ class DicomIodXmlParser(dicom_abstract_xml_parser.DicomAbstractXmlParser):
             first_line = parsed_row[0]
           # Functional groups are referenced in text and not linked by section.
           # Test for text reference and add custom linked resource.
-          if 'Include one or more Functional Group Macros' in first_line:  # pytype: disable=attribute-error
+          if _FUNCTIONAL_GROUP_MACRO_REGEX.fullmatch(first_line):  # pytype: disable=attribute-error
             prefix_offset = first_line.index('Include') + len('Include')
             obj = LinkedObject(
                 prefix=first_line[:prefix_offset],

@@ -38,13 +38,13 @@ RUN apt-get update && \
       libsqlite3-dev \
       valgrind \
       libjsoncpp-dev \
-      libgdk-pixbuf2.0-dev \
+      libgdk-pixbuf-2.0-dev \
       libglib2.0-dev
 
 WORKDIR /
 
-#Install Abseil TS 20250512.1
-ARG ABSEIL_VERSION="20250512.1"
+#Install  v TS 20260107.0
+ARG ABSEIL_VERSION="20260107.0"
 RUN wget -O abseil.zip "https://github.com/abseil/abseil-cpp/archive/refs/tags/${ABSEIL_VERSION}.zip" && \
     unzip abseil.zip && \
     rm abseil.zip && \
@@ -69,9 +69,9 @@ RUN wget -O "dcmtk-${DCMTK_VERSION}.zip" "https://github.com/DCMTK/dcmtk/archive
 ENV DCMDICTPATH="/usr/local/share/dcmtk-${DCMTK_VERSION}/dicom.dic"
 ENV PATH=/usr/local/bin:$PATH
 
-#Install Boost 1.88.0
-ARG BOOST_VERSION="1.88.0"
-ARG BOOST_UNDERSCORE="1_88_0"
+#Install Boost 1.90.0
+ARG BOOST_VERSION="1.90.0"
+ARG BOOST_UNDERSCORE="1_90_0"
 RUN wget -O "boost_${BOOST_UNDERSCORE}.tar.gz" "https://archives.boost.io/release/${BOOST_VERSION}/source/boost_${BOOST_UNDERSCORE}.tar.gz" > /dev/null && \
     tar xvzf "boost_${BOOST_UNDERSCORE}.tar.gz"  > /dev/null && \
     rm "boost_${BOOST_UNDERSCORE}.tar.gz" && \

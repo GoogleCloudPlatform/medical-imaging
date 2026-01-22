@@ -16,10 +16,7 @@ load("@pathology_cloud_deps//:requirements.bzl", "requirement")
 
 licenses(["notice"])
 
-package(
-    default_applicable_licenses = ["//pathology:license"],
-    default_visibility = ["//pathology:__subpackages__"],
-)
+package(default_applicable_licenses = ["//pathology:license"])
 
 py_binary(
     name = "convert_annotation_to_dicom",

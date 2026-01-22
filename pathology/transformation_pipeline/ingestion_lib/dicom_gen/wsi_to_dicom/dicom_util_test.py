@@ -830,12 +830,15 @@ class DicomUtilTest(parameterized.TestCase):
     expected_tags = additional_expected_tags | expected_tags
     ds = pydicom.Dataset()
     ds.SOPClassUID = ingest_const.DicomSopClasses.WHOLE_SLIDE_IMAGE.uid
+    ds.ImageType = ['VOLUME']
     ds.AlternateContainerIdentifierSequence = [pydicom.Dataset()]
     with flagsaver.flagsaver(
         create_null_type2c_dicom_tag_if_metadata_if_undefined=add_type2c
     ):
       dicom_util.add_missing_type2_dicom_metadata(ds)
-    self.assertEqual(_get_dicom_tags(ds) - {'SOPClassUID'}, expected_tags)
+    self.assertEqual(
+        _get_dicom_tags(ds) - {'SOPClassUID', 'ImageType'}, expected_tags
+    )
 
   def test_add_missing_type2_dicom_metadata_doesnt_overwrite_existing_tags(
       self,

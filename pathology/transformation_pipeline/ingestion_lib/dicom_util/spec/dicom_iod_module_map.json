@@ -157,6 +157,8 @@
   "Video Photographic Image Storage": "Video Photographic Image IOD Modules",
   "Visual Acuity Measurements Storage": "Visual Acuity Measurements IOD Modules",
   "Volume Rendering Volumetric Presentation State Storage": "Volume Rendering Volumetric Presentation State IOD Modules",
+  "Waveform Acquisition Presentation State Storage": "Waveform Acquisition Presentation State IOD Modules",
+  "Waveform Presentation State Storage": "Waveform Presentation State IOD Modules",
   "Waveform Annotation SR Storage": "Waveform Annotation SR IOD Modules",
   "Wide Field Ophthalmic Photography 3D Coordinates Image Storage": "Wide Field Ophthalmic Photography 3D Coordinates Image IOD Modules",
   "Wide Field Ophthalmic Photography Stereographic Projection Image Storage": "Wide Field Ophthalmic Photography Stereographic Projection Image IOD Modules",

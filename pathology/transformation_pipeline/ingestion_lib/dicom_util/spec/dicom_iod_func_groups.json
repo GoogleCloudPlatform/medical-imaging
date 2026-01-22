@@ -1,5 +1,5 @@
 {
-  "header" : {"dicom_standard_version": {"Version": "2024e"}},
+  "header" : {"dicom_standard_version": {"Version": "2025e"}},
 
   "dicom_iod_func_groups": {
      "Multi-frame Grayscale Byte Secondary Capture Image IOD Modules": [
@@ -202,6 +202,7 @@
         {"name": "Derivation Image", "ref": "sect_C.7.6.16.2.6", "usage":"C"},
         {"name": "Frame Anatomy", "ref": "sect_C.7.6.16.2.8", "usage":"M"},
         {"name": "Cardiac Synchronization", "ref": "sect_C.7.6.16.2.7", "usage":"C"},
+        {"name": "Frame VOI LUT With LUT", "ref": "sect_C.7.6.16.2.10b", "usage":"U"},
         {"name": "Contrast/Bolus Usage", "ref": "sect_C.7.6.16.2.12", "usage":"C"},
         {"name": "Ophthalmic Frame Location", "ref": "sect_C.8.17.10.1", "usage":"U"}
      ],
@@ -475,7 +476,7 @@
         {"name": "Photoacoustic Excitation Characteristics", "ref": "sect_C.8.34.5.1", "usage":"U"},
         {"name": "Photoacoustic Image Frame Type", "ref": "sect_C.8.34.5.2", "usage":"M"},
         {"name": "Photoacoustic Image Data Type", "ref": "sect_C.8.34.5.3", "usage":"M"},
-        {"name": "Photoacoustic Reconstruction Algorithm Macro Attributes", "ref": "sect_C.8.34.5.4", "usage":"U"}
+        {"name": "Photoacoustic Reconstruction Algorithm", "ref": "sect_C.8.34.5.4", "usage":"U"}
      ],
      "Confocal Microscopy Image IOD Modules": [
         {"name": "Pixel Measures", "ref": "sect_C.7.6.16.2.1", "usage":"M"},

@@ -1,5 +1,5 @@
 {
-  "header" : {"dicom_standard_version": {"Version": "2024e"}},
+  "header" : {"dicom_standard_version": {"Version": "2025e"}},
 
   "dicom_iod_class_uid": {
      "Computed Radiography Image Storage": "1.2.840.10008.5.1.4.1.1.1",
@@ -42,6 +42,8 @@
      "Electrooculogram Waveform Storage": "1.2.840.10008.5.1.4.1.1.9.7.3",
      "Sleep Electroencephalogram Waveform Storage": "1.2.840.10008.5.1.4.1.1.9.7.4",
      "Body Position Waveform Storage": "1.2.840.10008.5.1.4.1.1.9.8.1",
+     "Waveform Presentation State Storage": "1.2.840.10008.5.1.4.1.1.9.100.1",
+     "Waveform Acquisition Presentation State Storage": "1.2.840.10008.5.1.4.1.1.9.100.2",
      "Grayscale Softcopy Presentation State Storage": "1.2.840.10008.5.1.4.1.1.11.1",
      "Color Softcopy Presentation State Storage": "1.2.840.10008.5.1.4.1.1.11.2",
      "Pseudo-Color Softcopy Presentation State Storage": "1.2.840.10008.5.1.4.1.1.11.3",

@@ -2,35 +2,37 @@
 # generate_requirements.sh to build requirements.txt from this file.
 # LINT.IfChange
 absl-py==2.3.1
-certifi==2025.7.14
-cryptography==45.0.5
+certifi==2026.1.4
+cryptography==46.0.3
 dataclasses-json==0.6.7
-ez-wsi-dicomweb==6.0.21
-google-api-python-client==2.177.0
-google-cloud-core==2.4.3
-google-cloud-logging==3.12.1
-google-cloud-pubsub==2.31.0
-google-cloud-storage==3.2.0
-googleapis-common-protos==1.70.0
-google-cloud-bigquery==3.35.1
-google-cloud-secret-manager==2.24.0
-imagecodecs==2025.3.30
-numpy==2.3.2
-openslide-python==1.4.2
-pandas==2.3.1
-Pillow==11.3.0
-psutil==7.0.0
+ez-wsi-dicomweb==6.1.5
+# Manually exclude ez-wsi-dicomweb OpenCV dependency.
+# OpenCV built from source in docker.
+google-api-python-client==2.188.0
+google-cloud-core==2.5.0
+google-cloud-logging==3.13.0
+google-cloud-pubsub==2.34.0
+google-cloud-storage==3.8.0
+googleapis-common-protos==1.72.0
+google-cloud-bigquery==3.40.0
+google-cloud-secret-manager==2.26.0
+imagecodecs==2026.1.14
+numpy==2.4.1
+openslide-python==1.4.3
+pandas==2.3.3
+Pillow==12.1.0
+psutil==7.2.1
 pydicom==3.0.1
-pyyaml==6.0.2
-redis==6.2.0
-requests==2.32.4
-tifffile==2025.6.11
+pyyaml==6.0.3
+redis==7.1.0
+requests==2.32.5
+tifffile==2026.1.14
 
 # Libs below required for localhost mode execution
-cachetools==5.5.2
-google-auth==2.40.3
-google_auth_httplib2==0.2.0
-httplib2==0.22.0
+cachetools==6.2.4
+google-auth==2.47.0
+google_auth_httplib2==0.3.0
+httplib2==0.31.1
 requests_mock==1.12.1
 requests_toolbelt==1.0.0
 # LINT.ThenChange(//depot/pathology.transformation_pipeline/requirements.txt)

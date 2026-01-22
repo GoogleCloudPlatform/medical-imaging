@@ -506,8 +506,7 @@ class DICOMDataset:
             for module_table_lines in self.get_module_tables(iod_module_list):
               module_table_lines = copy.copy(module_table_lines)
               module_table_lines.reverse()
-              for line in module_table_lines:
-                line_stack.append(line)
+              line_stack.extend(module_table_lines)
           else:
             lnk_tbl = self._dicom_standard.get_table(table_line.table_name)
             linked_tablelines = copy.copy(lnk_tbl.table_lines)

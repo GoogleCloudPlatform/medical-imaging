@@ -198,7 +198,6 @@ class PydicomUtilTest(parameterized.TestCase):
             'StudyInstanceUID',
             'Modality',
             'SeriesInstanceUID',
-            'FrameOfReferenceUID',
             'Manufacturer',
             'ManufacturerModelName',
             'DeviceSerialNumber',

@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """Utility functions for pydicom."""
+
 from __future__ import annotations
 
 import dataclasses
@@ -21,6 +22,7 @@ from typing import List, Optional, Sequence, Set, Union
 import pydicom
 
 from pathology.shared_libs.logging_lib import cloud_logging_client
+from pathology.transformation_pipeline.ingestion_lib import ingest_const
 from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_iod_util
 from pathology.transformation_pipeline.ingestion_lib.dicom_util import dicom_standard
 
@@ -203,6 +205,25 @@ def get_undefined_dicom_tags_by_type(
   Raises:
     UndefinedIODError: Could not identify IOD.
   """
+  if ds.SOPClassUID == ingest_const.DicomSopClasses.WHOLE_SLIDE_IMAGE.uid:
+    # Add conditional module requirements defined in 2025e standard changes.
+    # For WSI DICOM.
+    try:
+      image_type = ds.ImageType
+    except (AttributeError, TypeError, ValueError):
+      image_type = []
+    add_required_modules = []
+    if (
+        ingest_const.VOLUME in image_type
+        or ingest_const.THUMBNAIL in image_type
+    ):
+      add_required_modules.append('Frame of Reference')
+    elif ingest_const.LABEL in image_type:
+      add_required_modules.append('Slide Label')
+    if add_required_modules:
+      if require_modules is not None:
+        add_required_modules.extend(require_modules)
+      require_modules = add_required_modules
   iod_name = dicom_standard.dicom_standard_util().get_sop_classid_name(
       ds.SOPClassUID
   )

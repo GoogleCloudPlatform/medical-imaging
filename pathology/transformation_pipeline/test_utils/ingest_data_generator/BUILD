@@ -17,8 +17,6 @@ load("@pathology_cloud_deps//:requirements.bzl", "requirement")
 
 licenses(["notice"])
 
-package(default_visibility = ["//pathology:__subpackages__"])
-
 py_binary(
     name = "synthetic_ingest_data_generator",
     srcs = ["synthetic_ingest_data_generator.py"],

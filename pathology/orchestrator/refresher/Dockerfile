@@ -29,10 +29,16 @@ RUN python3 -m pip install -r setuptools_requirements.txt --require-hashes && \
   python3 -m pip uninstall -y pip && \
   # https://nvd.nist.gov/vuln/detail/CVE-2023-0361
   apt-get upgrade -y libgnutls30 && \
-  apt-get remove -y libsqlite3-0 && \
   apt-get -y autoremove --purge zlib1g-dev && \
   apt autoremove -y && \
-  rm requirements.txt setuptools_requirements.txt
+  rm requirements.txt setuptools_requirements.txt && \
+  # Long runing operations proto getting installed incorrectly by
+  # googleapis-common-protos. It is being installed as operations_proto.proto
+  # where it should be installed as operations.proto. As a temporary fix, make a
+  # copy of the file with the correct name.
+  if [ -f /usr/local/lib/python3.14/site-packages/google/longrunning/operations_proto.proto ]; then \
+    cp /usr/local/lib/python3.14/site-packages/google/longrunning/operations_proto.proto /usr/local/lib/python3.14/site-packages/google/longrunning/operations.proto; \
+  fi
 
 COPY ./pathology/__init__.py /pathology/
 COPY pathology/orchestrator/*.py /pathology/orchestrator/

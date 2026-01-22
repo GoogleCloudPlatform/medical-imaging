@@ -119,12 +119,12 @@ class AncillaryDicomGenTest(parameterized.TestCase):
         ['ORIGINAL', 'PRIMARY', 'BARCODE_CANT_READ', 'NONE'],
     )
 
-  @parameterized.parameters(
-      ('label', 'LABEL'),
-      ('thumbnail', 'THUMBNAIL'),
-      ('macro', 'OVERVIEW'),
-      ('other', 'OTHER'),
-  )
+  @parameterized.named_parameters([
+      dict(testcase_name='label', label='label', imagetype='LABEL'),
+      dict(testcase_name='thumbnail', label='thumbnail', imagetype='THUMBNAIL'),
+      dict(testcase_name='macro', label='macro', imagetype='OVERVIEW'),
+      dict(testcase_name='other', label='other', imagetype='OTHER'),
+  ])
   @mock.patch.object(
       dicom_util,
       '_get_colorspace_description_from_iccprofile_bytes',
@@ -134,9 +134,7 @@ class AncillaryDicomGenTest(parameterized.TestCase):
   @flagsaver.flagsaver(
       pod_hostname='1234', dicom_guid_prefix=uid_generator.TEST_UID_PREFIX
   )
-  def test_gen_ancillary_dicom_instance_succeeds(
-      self, label, imagetype, unused_mock
-  ):
+  def test_gen_ancillary_dicom_instance_succeeds(self, _, label, imagetype):
     out_dir = self.create_tempdir()
     test_img_path = gen_test_util.test_file_path('barcode_datamatrix.jpeg')
     test_img = os.path.join(out_dir, 'barcode_datamatrix.jpeg')
@@ -193,7 +191,10 @@ class AncillaryDicomGenTest(parameterized.TestCase):
         ),
     )
     self.assertEqual(dcm.FrameOfReferenceUID, '2.3.5')
-    self.assertEmpty(dcm.PositionReferenceIndicator)
+    if imagetype == 'THUMBNAIL':
+      self.assertEmpty(dcm.PositionReferenceIndicator)
+    else:
+      self.assertNotIn('PositionReferenceIndicator', dcm)
 
 
 if __name__ == '__main__':

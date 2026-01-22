@@ -155,7 +155,7 @@ RUN apt-get update && \
                     libcairo-script-interpreter2 \
                     libjpeg62-turbo \
                     libjpeg62-turbo-dev \
-                    libjsoncpp25 && \
+                    libjsoncpp26 && \
 # Patch security issues in dbus (10-7-2022)
 # https://security-tracker.debian.org/tracker/CVE-2022-42010
 # https://security-tracker.debian.org/tracker/CVE-2022-42011

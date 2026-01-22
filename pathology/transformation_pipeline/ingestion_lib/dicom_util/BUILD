@@ -84,6 +84,7 @@ py_library(
         ":dicom_iod_util",
         ":dicom_standard",
         "//pathology/shared_libs/logging_lib:cloud_logging_client",
+        "//pathology/transformation_pipeline/ingestion_lib:ingest_const",
         requirement("pydicom"),
     ],
 )

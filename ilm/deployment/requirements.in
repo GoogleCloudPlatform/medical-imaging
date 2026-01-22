@@ -1,19 +1,19 @@
 # Do not modify requirements.txt directly. Run
 #   $ pip-compile --generate-hashes requirements.in
 # to build requirements.txt from this file.
-apache-beam==2.62.0
-apache-beam[gcp]==2.62.0
-cryptography==44.0.1
+apache-beam==2.70.0
+apache-beam[gcp]==2.70.0
+cryptography==46.0.3
 dataclasses-json==0.6.7
 future==1.0.0
-google-auth==2.38.0
-google-cloud-logging==3.11.4
+google-auth==2.47.0
+google-cloud-logging==3.13.0
 google-cloud-storage==2.19.0
-orjson==3.10.15
-Pillow==11.1.0
-pyarrow==16.1.0
-pymysql==1.1.1
-sqlparse==0.5.3
-absl-py==2.1.0
-numpy==2.0.2
-pandas==2.2.3
+orjson==3.11.5
+Pillow==12.1.0
+pyarrow==18.1.0
+pymysql==1.1.2
+sqlparse==0.5.5
+absl-py==2.3.1
+numpy==2.2.6
+pandas==2.3.3

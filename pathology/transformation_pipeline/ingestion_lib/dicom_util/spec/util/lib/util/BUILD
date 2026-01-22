@@ -26,7 +26,6 @@ py_library(
     deps = [
         requirement("absl-py"),
         ":dicom_iod_generator_exception",
-        "//pathology/transformation_pipeline/ingestion_lib/dicom_util:dicom_standard_util",
     ],
 )
 

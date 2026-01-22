@@ -363,7 +363,10 @@ class DICOMStandardUtilTest(parameterized.TestCase):
             'C - Required if the SOP Instance was created in response to'
             ' a Frame-Level retrieve request'
         ),
-        'Frame of Reference': 'M',
+        'Frame of Reference': (
+            'C - Required if Image Type Value 3 is VOLUME or THUMBNAIL. May be'
+            ' present otherwise.'
+        ),
         'General Acquisition': 'M',
         'General Equipment': 'M',
         'General Image': 'M',
