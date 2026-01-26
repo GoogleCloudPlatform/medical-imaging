@@ -103,7 +103,7 @@ google-api-core==2.24.0
 requests==2.32.3
 google-auth==2.37.0
 googleapis-common-protos==1.66.0
-protobuf==5.29.1
+protobuf==5.29.5
 proto-plus==1.25.0
 urllib3==2.3.0
 charset-normalizer==3.4.0
