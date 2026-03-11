@@ -41,6 +41,7 @@ class RpcMethodName(enum.Enum):
   GET_PATHOLOGY_SLIDE = 18
   LIST_PATHOLOGY_SLIDES = 19
   GET_OPERATION = 20
+  SNAPSHOT_PATHOLOGY_COHORT = 21
 
 
 def get_structured_log(
