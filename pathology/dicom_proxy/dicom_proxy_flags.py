@@ -49,9 +49,7 @@ API_PORT_FLG = flags.DEFINE_integer('port', 8080, 'port to listen on')
 
 ORIGINS_FLG = flags.DEFINE_multi_string(
     'origins',
-    secret_flag_utils.get_secret_or_env(
-        'ORIGINS', 'http://localhost:5432'
-    ),  # Default host:port for local DPAS web host.
+    secret_flag_utils.get_secret_or_env('ORIGINS', 'http://localhost:5432').split(','),
     'Sites to allow requests from for CORS.',
 )
 
@@ -108,6 +106,12 @@ DISABLE_ICC_PROFILE_CORRECTION_FLG = flags.DEFINE_boolean(
     'disable_icc_profile_color_correction',
     secret_flag_utils.get_bool_secret_or_env('DISABLE_ICC_PROFILE_CORRECTION'),
     'Disable iccprofile color correction.',
+)
+
+ALLOW_CREDENTIALS_FLG = flags.DEFINE_boolean(
+    'allow_credentials',
+    secret_flag_utils.get_bool_secret_or_env('ALLOW_CREDENTIALS', False),
+    'Allow credentials.',
 )
 
 # ICC Profile Cache Config.
