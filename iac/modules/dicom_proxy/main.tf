@@ -20,7 +20,7 @@ resource "google_redis_instance" "dicom_proxy_redis_instance" {
   tier                    = "BASIC"
   memory_size_gb          = var.redis_config.memory_gb
   region                  = var.region
-  redis_version           = "REDIS_7_0"
+  redis_version           = "REDIS_7_2"
   auth_enabled            = var.redis_config.enable_auth
   transit_encryption_mode = var.redis_config.enable_transit_encryption ? "SERVER_AUTHENTICATION" : "DISABLED"
   authorized_network      = var.redis_config.network
