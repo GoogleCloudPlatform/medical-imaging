@@ -1110,7 +1110,7 @@ def _series_search(
 
 @dicom_proxy.route(
     f'{dicom_url_util.DICOM_WEB_BASE_URL_DEFAULT_VERSION}/studies',
-    methods=flask_util.GET_AND_POST_METHODS,
+    methods=['GET'],
     defaults={
         'store_api_version': dicom_proxy_flags.DEFAULT_DICOM_STORE_API_VERSION,
     },
@@ -1119,7 +1119,7 @@ def _series_search(
 )
 @dicom_proxy.route(
     f'{dicom_url_util.DICOM_WEB_BASE_URL}/studies',
-    methods=flask_util.GET_AND_POST_METHODS,
+    methods=['GET'],
     endpoint='_studies_search',
     strict_slashes=False,
 )
