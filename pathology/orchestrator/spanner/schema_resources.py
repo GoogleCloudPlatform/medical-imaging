@@ -35,6 +35,8 @@ class OrchestratorTables(enum.Enum):
   OPERATIONS = 7
   COHORT_USER_ACCESS = 8
   SAVED_COHORTS = 9
+  EXPORT_COHORT_SNAPSHOTS = 10
+  EXPORT_SLIDES = 11
 
 
 ORCHESTRATOR_TABLE_NAMES = {
@@ -47,6 +49,8 @@ ORCHESTRATOR_TABLE_NAMES = {
     OrchestratorTables.OPERATIONS: 'Operations',
     OrchestratorTables.COHORT_USER_ACCESS: 'CohortUserAccess',
     OrchestratorTables.SAVED_COHORTS: 'SavedCohorts',
+    OrchestratorTables.EXPORT_COHORT_SNAPSHOTS: 'ExportCohortSnapshots',
+    OrchestratorTables.EXPORT_SLIDES: 'ExportSlides',
 }
 
 # Column Headers.
@@ -94,6 +98,16 @@ COHORTS_BY_USER_ID_ACCESS = 'CohortsByUserIdAccess'
 DICOM_STORE_WEB_URL = 'DicomStoreWebUrl'
 AES_KEY = 'AesKey'
 
+#ExportCohortSnapshots
+SNAPSHOT_ID = 'SnapshotId'
+EXPORTER_USER_ID = 'ExporterUserId'
+COHORT_ID = 'CohortId'
+EXPORT_TIME = 'ExportTime'
+
+# ExportSlides
+SNAPSHOT_ID = 'SnapshotId'
+SCAN_UNIQUE_ID = 'ScanUniqueId'
+
 USERS_COLS = [USER_ID]
 USER_ALIASES_COLS = [USER_ALIAS, USER_ID, ALIAS_TYPE]
 COHORTS_COLS = [
@@ -102,6 +116,8 @@ COHORTS_COLS = [
     EXPIRE_TIME
 ]
 COHORTS_BY_CREATOR_USER_ID_COLS = [CREATOR_USER_ID, COHORT_ID]
+EXPORT_COHORT_SNAPSHOT_COLS = [SNAPSHOT_ID, EXPORTER_USER_ID, COHORT_ID, EXPORT_TIME]
+EXPORT_SLIDES_COLS = [SNAPSHOT_ID, SCAN_UNIQUE_ID]
 
 # CreatorUserId, CohortAccess, ExpireTime are not updated in an update call.
 COHORTS_UPDATE_COLS = [

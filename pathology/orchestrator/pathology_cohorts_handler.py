@@ -432,6 +432,34 @@ def _add_slide_to_cohort(
   return int(slide.scan_unique_id)
 
 
+def _add_slide_to_export_snapshot(
+    transaction, slide: slides_pb2.PathologySlide, snapshot_id: int
+) -> int:
+  """Adds a PathologySlide to the Spanner ExportSlides table.  
+    This table captures a snapshot of the slides in a cohort at the time of export.
+
+  Args:
+    transaction: Transaction to run Spanner read/writes on.
+    slide: PathologySlide to add.
+    snapshot_id: Id of snapshot to add slide to.
+
+  Returns:
+    ScanUniqueId of slide.
+
+  Raises:
+    exceptions.NotFound if slide does not exist.
+  """
+  transaction.insert_or_update(
+      ORCHESTRATOR_TABLE_NAMES[
+          schema_resources.OrchestratorTables.EXPORT_SLIDES
+      ],
+      schema_resources.EXPORT_SLIDES_COLS,
+      [[snapshot_id, int(slide.scan_unique_id)]],
+  )
+
+  return int(slide.scan_unique_id)
+
+
 def _build_cohort_from_row(
     cohort_row: Dict[str, Any],
 ) -> cohorts_pb2.PathologyCohort:
@@ -577,6 +605,52 @@ def _copy_cohort(
       _add_slide_to_cohort(transaction, target_slide, target_cohort_id)
 
   return target_cohort_id
+
+def _snapshot_cohort(
+    transaction,
+    cohort: cohorts_pb2.PathologyCohort,
+    exporter_id: int,
+) -> int:
+  """Creates a snapshot of a cohort at the time of export.
+
+  Args:
+    transaction: Transaction to run spanner read/writes on.
+    cohort: Cohort to snapshot.
+    exporter_id: User Id of user exporting cohort.
+
+  Returns:
+    int - Snapshot id of cohort at time of export.
+  """
+
+  target_snapshot_id = (
+      id_generator.OrchestratorIdGenerator.generate_new_id_for_table(
+          transaction,
+          ORCHESTRATOR_TABLE_NAMES[schema_resources.OrchestratorTables.EXPORT_COHORT_SNAPSHOTS],
+          schema_resources.EXPORT_COHORT_SNAPSHOT_COLS,
+      )
+  )
+
+  cohort_id = pathology_resources_util.get_id_from_name(cohort.name)
+
+  transaction.insert(
+      ORCHESTRATOR_TABLE_NAMES[schema_resources.OrchestratorTables.EXPORT_COHORT_SNAPSHOTS],
+      schema_resources.EXPORT_COHORT_SNAPSHOT_COLS,
+      [[
+          target_snapshot_id,
+          exporter_id,
+          cohort_id,
+          spanner.COMMIT_TIMESTAMP,
+      ]],
+  )
+
+  # If slides are present, add mappings for slides.
+  if cohort.slides:
+    for slide in cohort.slides:
+      slide.scan_unique_id = str(
+        _add_slide_to_export_snapshot(transaction, slide, target_snapshot_id)
+      )
+
+  return target_snapshot_id
 
 
 def _insert_cohort_in_table(
@@ -1795,7 +1869,7 @@ class PathologyCohortsHandler:
         raise rpc_status.RpcFailureError(
             rpc_status.build_rpc_method_status_and_log(
                 grpc.StatusCode.PERMISSION_DENIED,
-                f'User does not have permission to access cohort {cohort_id}'
+                f'User {alias} does not have permission to access cohort {cohort_id}'
                 ' or it does not exist.',
             )
         )
@@ -2260,6 +2334,8 @@ class PathologyCohortsHandler:
     Returns:
       ExportPathologyCohortResponse
     """
+    self.snapshot_pathology_cohort(request, alias)
+
     resource_name = request.name
     cloud_logging_client.set_log_signature(
         logging_util.get_structured_log(
@@ -2625,6 +2701,45 @@ class PathologyCohortsHandler:
     )
 
     return cohort_copy
+  
+  def snapshot_pathology_cohort(
+      self, request: cohorts_pb2.ExportPathologyCohortRequest, alias: str
+  ) -> None:
+    """Creates a snapshot of a pathology cohort when an export is requested.
+    
+    Args:
+      request: A ExportPathologyCohortRequest with cohort to export.
+      alias: Alias of rpc caller.
+
+    Raises:
+      RpcFailureError on failure.
+    """
+    resource_name = request.name
+    cloud_logging_client.set_log_signature(
+        logging_util.get_structured_log(
+            logging_util.RpcMethodName.SNAPSHOT_PATHOLOGY_COHORT, resource_name
+        )
+    )
+    
+    current_user = self._users_handler.identify_current_user(alias)
+   
+    cohort_to_snapshot = self.get_pathology_cohort(
+        cohorts_pb2.GetPathologyCohortRequest(name=resource_name), alias
+    )
+
+    cloud_logging_client.info(
+        f'Creating Export Snapshot of PathologyCohort with resource name: {resource_name}.'
+    )
+
+    self._spanner_client.run_in_transaction(
+        _snapshot_cohort,
+        cohort_to_snapshot,
+        current_user.user_id,
+    )
+
+    cloud_logging_client.info(
+        f'Created Snapshot of Exported Cohort for PathologyCohort with resource name: {resource_name}.'
+    )
 
   def share_pathology_cohort(
       self, request: cohorts_pb2.SharePathologyCohortRequest, alias: str
