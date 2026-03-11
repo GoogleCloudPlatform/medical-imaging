@@ -21,7 +21,6 @@ import os
 from absl import app as absl_app
 from absl import flags
 import flask
-import flask_cors
 from google.api_core import exceptions
 from gunicorn.app.base import BaseApplication
 import requests
@@ -40,6 +39,7 @@ from pathology.shared_libs.build_version import build_version
 from pathology.shared_libs.flags import secret_flag_utils
 from pathology.shared_libs.iap_auth_lib import auth
 from pathology.shared_libs.logging_lib import cloud_logging_client
+from flask import request, make_response
 
 
 GUNICORN_WORKER_CLASS_FLG = flags.DEFINE_string(
@@ -82,6 +82,38 @@ _USER_INFO_REQUEST_URL = 'https://www.googleapis.com/userinfo/v2/me'
 _AUTH_HEADER_KEY = 'Authorization'
 _DEFAULT_COHORT_VIEW = 'PATHOLOGY_COHORT_VIEW_UNSPECIFIED'
 
+def _get_link_token(request_message, default=''):
+    if not request_message.link_token:
+        request_message.link_token = flask.request.args.get('linkToken', default, type=str)
+
+def _get_view(request_message, default=_DEFAULT_COHORT_VIEW):
+    if not request_message.view:
+        view = flask.request.args.get('view', default=default, type=str)
+        request_message.view = cohorts_pb2.PathologyCohortView.Value(view)
+        
+def _get_filter(request_message, default=''):
+    if not request_message.filter:
+        request_message.filter = flask.request.args.get('filter', default, type=str)
+
+@flask_app.before_request
+def handle_options_request():
+    """Handle preflight CORS requests manually."""
+    if request.method == 'OPTIONS':
+        response = make_response()
+        response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', '')
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PATCH, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        return response
+
+@flask_app.after_request
+def add_cors_headers(response):
+    """Add CORS headers to all responses."""
+    origin = request.headers.get('Origin', '')
+    if origin in ORIGINS_FLG:
+        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+    return response
 
 def _convert_user_id_to_name(user_id: str) -> str:
   """Returns the resource name of the user given the user id."""
@@ -107,7 +139,7 @@ def _log_request(request: flask.Request, user_email: str) -> None:
   """Logs incoming method."""
   try:
     cloud_logging_client.info(
-        f'Calling DPAS API function {request.method}.',
+        f'Calling API function {request.method}.',
         {
             'user_email': user_email,
             'httpRequest': {
@@ -161,7 +193,6 @@ def healthcheck():
 # TODO: Refactor this into a Flask blueprint.
 @flask_app.route('/api/v1alpha:identifyCurrentUser', methods=['POST'])
 @auth.validate_iap
-@flask_cors.cross_origin(origins=ORIGINS_FLG, supports_credentials=True)
 def identify_current_user():
   """Process identify_current_user."""
   user_email = _get_user_email()
@@ -183,7 +214,6 @@ def identify_current_user():
     methods=['POST'],
 )
 @auth.validate_iap
-@flask_cors.cross_origin(origins=ORIGINS_FLG, supports_credentials=True)
 def create_pathology_cohort(user_id: str) -> flask.Response:
   """Process create_pathology_cohort."""
   user_email = _get_user_email()
@@ -210,19 +240,16 @@ def create_pathology_cohort(user_id: str) -> flask.Response:
     methods=['GET'],
 )
 @auth.validate_iap
-@flask_cors.cross_origin(origins=ORIGINS_FLG, supports_credentials=True)
 def get_pathology_cohort(user_id: str, cohort_id: str) -> flask.Response:
   """Process get_pathology_cohort."""
   user_email = _get_user_email()
   _log_request(flask.request, user_email)
-  view = flask.request.args.get('view', default=_DEFAULT_COHORT_VIEW, type=str)
-  link_token = flask.request.args.get('linkToken', default=None, type=str)
   cohorts_handler = pathology_cohorts_handler.PathologyCohortsHandler()
   request = cohorts_pb2.GetPathologyCohortRequest(
-      name=f'{_convert_user_id_to_name(user_id)}/pathologyCohorts/{cohort_id}',
-      view=cohorts_pb2.PathologyCohortView.Value(view),
-      link_token=link_token,
+      name=f'{_convert_user_id_to_name(user_id)}/pathologyCohorts/{cohort_id}'
   )
+  _get_view(request)
+  _get_link_token(request)
   try:
     response = cohorts_handler.get_pathology_cohort(request, user_email)
     json_response = json_format.MessageToJson(response)
@@ -238,19 +265,16 @@ def get_pathology_cohort(user_id: str, cohort_id: str) -> flask.Response:
     methods=['GET'],
 )
 @auth.validate_iap
-@flask_cors.cross_origin(origins=ORIGINS_FLG, supports_credentials=True)
 def list_pathology_cohorts(user_id: str) -> flask.Response:
   """Process list_pathology_cohorts."""
   user_email = _get_user_email()
   _log_request(flask.request, user_email)
-  view = flask.request.args.get('view', default=_DEFAULT_COHORT_VIEW, type=str)
-  access_filter = flask.request.args.get('filter', default='', type=str)
   cohorts_handler = pathology_cohorts_handler.PathologyCohortsHandler()
   request = cohorts_pb2.ListPathologyCohortsRequest(
       parent=_convert_user_id_to_name(user_id),
-      view=cohorts_pb2.PathologyCohortView.Value(view),
-      filter=access_filter,
   )
+  _get_view(request)
+  _get_filter(request)
   try:
     response = cohorts_handler.list_pathology_cohorts(request, user_email)
     json_response = json_format.MessageToJson(response)
@@ -266,7 +290,6 @@ def list_pathology_cohorts(user_id: str) -> flask.Response:
     methods=['PATCH'],
 )
 @auth.validate_iap
-@flask_cors.cross_origin(origins=ORIGINS_FLG, supports_credentials=True)
 def update_pathology_cohort(user_id: str, cohort_id: str) -> flask.Response:
   """Process update_pathology_cohort."""
   user_email = _get_user_email()
@@ -279,22 +302,12 @@ def update_pathology_cohort(user_id: str, cohort_id: str) -> flask.Response:
       f'{_convert_user_id_to_name(user_id)}/pathologyCohorts/{cohort_id}'
   )
 
-  # Use link token from request body, if not present, retrieve query parameter.
-  if not update_request.link_token:
-    update_request.link_token = flask.request.args.get(
-        'linkToken', default='', type=str
-    )
-
-  # Use view from request body, if not present, retrieve query parameter.
-  if not update_request.view:
-    view = flask.request.args.get(
-        'view', default=_DEFAULT_COHORT_VIEW, type=str
-    )
-    update_request.view = cohorts_pb2.PathologyCohortView.Value(view)
+  _get_link_token(update_request)
+  _get_view(update_request)
 
   try:
     response = cohorts_handler.update_pathology_cohort(
-        update_request, _get_user_email()
+        update_request, user_email
     )
     json_response = json_format.MessageToJson(response)
     return flask.Response(
@@ -309,7 +322,6 @@ def update_pathology_cohort(user_id: str, cohort_id: str) -> flask.Response:
     methods=['DELETE'],
 )
 @auth.validate_iap
-@flask_cors.cross_origin(origins=ORIGINS_FLG, supports_credentials=True)
 def delete_pathology_cohort(user_id: str, cohort_id: str) -> flask.Response:
   """Process delete_pathology_cohort."""
   user_email = _get_user_email()
@@ -337,7 +349,6 @@ def delete_pathology_cohort(user_id: str, cohort_id: str) -> flask.Response:
     methods=['POST'],
 )
 @auth.validate_iap
-@flask_cors.cross_origin(origins=ORIGINS_FLG, supports_credentials=True)
 def undelete_pathology_cohort(user_id: str, cohort_id: str) -> flask.Response:
   """Process undelete_pathology_cohort."""
   user_email = _get_user_email()
@@ -365,7 +376,6 @@ def undelete_pathology_cohort(user_id: str, cohort_id: str) -> flask.Response:
     methods=['POST'],
 )
 @auth.validate_iap
-@flask_cors.cross_origin(origins=ORIGINS_FLG, supports_credentials=True)
 def export_pathology_cohort(user_id: str, cohort_id: str) -> flask.Response:
   """Process export_pathology_cohort."""
   user_email = _get_user_email()
@@ -401,7 +411,6 @@ def export_pathology_cohort(user_id: str, cohort_id: str) -> flask.Response:
     methods=['POST'],
 )
 @auth.validate_iap
-@flask_cors.cross_origin(origins=ORIGINS_FLG, supports_credentials=True)
 def transfer_deid_pathology_cohort(
     user_id: str, cohort_id: str
 ) -> flask.Response:
@@ -439,7 +448,6 @@ def transfer_deid_pathology_cohort(
     methods=['POST'],
 )
 @auth.validate_iap
-@flask_cors.cross_origin(origins=ORIGINS_FLG, supports_credentials=True)
 def copy_pathology_cohort(user_id: str, cohort_id: str) -> flask.Response:
   """Process copy_pathology_cohort."""
   user_email = _get_user_email()
@@ -452,20 +460,8 @@ def copy_pathology_cohort(user_id: str, cohort_id: str) -> flask.Response:
       f'{_convert_user_id_to_name(user_id)}/pathologyCohorts/{cohort_id}'
   )
 
-  # Use link token from request body, if not present, retrieve query parameter.
-  if not copy_request.link_token:
-    copy_request.link_token = flask.request.args.get(
-        'linkToken', default='', type=str
-    )
-
-  # Use view from request body, if not present, retrieve query parameter.
-  # View can optionally be supplied as a query parameter to maintain the
-  # standard with GET.
-  if not copy_request.view:
-    view = flask.request.args.get(
-        'view', default=_DEFAULT_COHORT_VIEW, type=str
-    )
-    copy_request.view = cohorts_pb2.PathologyCohortView.Value(view)
+  _get_link_token(copy_request)
+  _get_view(copy_request)
 
   try:
     response = cohorts_handler.copy_pathology_cohort(copy_request, user_email)
@@ -482,7 +478,6 @@ def copy_pathology_cohort(user_id: str, cohort_id: str) -> flask.Response:
     methods=['POST'],
 )
 @auth.validate_iap
-@flask_cors.cross_origin(origins=ORIGINS_FLG, supports_credentials=True)
 def share_pathology_cohort(user_id: str, cohort_id: str) -> flask.Response:
   """Process share_pathology_cohort."""
   user_email = _get_user_email()
@@ -495,11 +490,7 @@ def share_pathology_cohort(user_id: str, cohort_id: str) -> flask.Response:
       f'{_convert_user_id_to_name(user_id)}/pathologyCohorts/{cohort_id}'
   )
 
-  # Use view from request body, if not present, retrieve query parameter.
-  if not share_request.view:
-    share_request.view = cohorts_pb2.PathologyCohortView.Value(
-        flask.request.args.get('view', default=_DEFAULT_COHORT_VIEW, type=str)
-    )
+  _get_view(share_request)
   try:
     response = cohorts_handler.share_pathology_cohort(share_request, user_email)
     json_response = json_format.MessageToJson(response)
@@ -515,7 +506,6 @@ def share_pathology_cohort(user_id: str, cohort_id: str) -> flask.Response:
     methods=['POST'],
 )
 @auth.validate_iap
-@flask_cors.cross_origin(origins=ORIGINS_FLG, supports_credentials=True)
 def save_pathology_cohort(user_id: str, cohort_id: str) -> flask.Response:
   """Process save_pathology_cohort."""
   user_email = _get_user_email()
@@ -543,7 +533,6 @@ def save_pathology_cohort(user_id: str, cohort_id: str) -> flask.Response:
     methods=['POST'],
 )
 @auth.validate_iap
-@flask_cors.cross_origin(origins=ORIGINS_FLG, supports_credentials=True)
 def unsave_pathology_cohort(user_id: str, cohort_id: str) -> flask.Response:
   """Process unsave_pathology_cohort."""
   user_email = _get_user_email()
@@ -571,7 +560,6 @@ def unsave_pathology_cohort(user_id: str, cohort_id: str) -> flask.Response:
 # PathologySlides Methods.
 @flask_app.route('/api/v1alpha/pathologySlides', methods=['POST'])
 @auth.validate_iap
-@flask_cors.cross_origin(origins=ORIGINS_FLG, supports_credentials=True)
 def create_pathology_slide() -> flask.Response:
   """Process create_pathology_slide."""
   user_email = _get_user_email()
@@ -594,7 +582,6 @@ def create_pathology_slide() -> flask.Response:
     '/api/v1alpha/pathologySlides/<string:scan_uid>', methods=['GET']
 )
 @auth.validate_iap
-@flask_cors.cross_origin(origins=ORIGINS_FLG, supports_credentials=True)
 def get_pathology_slide(scan_uid: str) -> flask.Response:
   """Process get_pathology_slide."""
   user_email = _get_user_email()
@@ -614,15 +601,13 @@ def get_pathology_slide(scan_uid: str) -> flask.Response:
 
 
 @flask_app.route('/api/v1alpha/pathologySlides', methods=['GET'])
-@auth.validate_iap
-@flask_cors.cross_origin(origins=ORIGINS_FLG, supports_credentials=True)
 def list_pathology_slides() -> flask.Response:
   """Process list_pathology_slides."""
   user_email = _get_user_email()
   _log_request(flask.request, user_email)
-  dicom_filter = flask.request.args.get('filter', default='', type=str)
   slides_handler = pathology_slides_handler.PathologySlidesHandler()
-  request = slides_pb2.ListPathologySlidesRequest(filter=dicom_filter)
+  request = slides_pb2.ListPathologySlidesRequest()
+  _get_filter(request)
   try:
     response = slides_handler.list_pathology_slides(request)
     json_response = json_format.MessageToJson(response)
@@ -635,7 +620,6 @@ def list_pathology_slides() -> flask.Response:
 
 @flask_app.route('/api/v1alpha/operations/<string:op_id>', methods=['GET'])
 @auth.validate_iap
-@flask_cors.cross_origin(origins=ORIGINS_FLG, supports_credentials=True)
 def get_operation(op_id: str) -> flask.Response:
   """Process get_operation."""
   user_email = _get_user_email()
@@ -686,12 +670,6 @@ class GunicornApplication(BaseApplication):
 
 def main(unused_argv):
   build_version.init_cloud_logging_build_version()
-  flask_cors.CORS(
-      flask_app,
-      origins=ORIGINS_FLG,
-      supports_credentials=True,
-      resources={r'/dpas/*': {'origins': ORIGINS_FLG}},
-  )
   GunicornApplication(flask_app).run()
 
 
