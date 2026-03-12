@@ -55,7 +55,6 @@ import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatIconModule} from '@angular/material/icon';
 import {FormsModule, ReactiveFormsModule} from '@angular/forms';
 import {MatRadioModule} from '@angular/material/radio';
-import {CommonModule} from '@angular/common';
 import {MatInputModule} from '@angular/material/input';
 import {MatButtonModule} from '@angular/material/button';
 
@@ -64,11 +63,9 @@ import {MatButtonModule} from '@angular/material/button';
  */
 @Component({
   selector: 'dialog-cohort-create',
-  standalone: true,
   imports: [
     MatDialogModule, MatFormFieldModule, MatIconModule, FormsModule,
-    ReactiveFormsModule, MatRadioModule, MatInputModule, MatButtonModule,
-    DICOMUriToSlideDescriptorPipe, CommonModule
+    ReactiveFormsModule, MatRadioModule, MatInputModule, MatButtonModule
   ],
   templateUrl: './dialog-cohort-create.component.html',
   styleUrl: './dialog-cohort-create.component.scss'
@@ -161,7 +158,7 @@ export class DialogCohortCreateComponent {
               switchMap((recordSlides: RecordIdToSlideIds[]) => {
                 const snackMessage =
                     this.editMode ? 'Appending ids...' : 'Creating cohort...';
-                this.snackBar.open(snackMessage);
+                this.dialogService.info(snackMessage);
 
                 return this.editMode ? this.appendIdsToCohort(recordSlides) :
                                        this.createCohort(recordSlides);
@@ -177,17 +174,17 @@ export class DialogCohortCreateComponent {
   modifyCohortDisplayNameAndDescription(
       displayName: string, description: string) {
     this.modifyCohortLoading = true;
-    this.snackBar.open('Saving display name and description...');
+    this.dialogService.info('Saving display name and description...');
     return this.cohortService
         .updateCohortDisplayNameAndDescription(displayName, description)
         .pipe(
             takeUntil(this.destroyed$), tap((success) => {
               if (success) {
-                this.snackBar.open('Display name and description saved.');
+                this.dialogService.info('Display name and description saved.');
                 this.cohortService.reloadSelectedCohort();
                 this.dialogService.close();
               } else {
-                this.snackBar.dismiss();
+                this.dialogService.error('Failed to save display name and description.');
               }
             }),
             finalize(() => {
@@ -236,7 +233,7 @@ export class DialogCohortCreateComponent {
       return of([]);
     }
 
-    this.snackBar.open('Validating ids...');
+    this.dialogService.info('Validating ids...');
     return this.searchService
         .getSlideDicomPathFromListOfRecordIds(ids, this.idType)
         .pipe(

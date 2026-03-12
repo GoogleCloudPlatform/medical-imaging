@@ -42,10 +42,18 @@ The tissue viewer page empowers users to delve into WSI imagery streamed from a 
 
 ## To set up project and dependencies
 
+Prerequisites:
+
+- Node.js 20 or newer
+- npm 10 or newer
+- Docker, if you want to build and run the production container
+
 ```shell
 git clone https://github.com/GoogleCloudPlatform/medical-imaging
-cd medical-imaging/pathology/viewer`
-npm install
+cd medical-imaging/pathology/viewer
+
+# Recommended for reproducible installs (requires package-lock.json)
+npm ci
 ```
 
 ## Development server
@@ -56,7 +64,7 @@ To execute the application locally, pointing to a development environment:
 npm run start
 ```
 
-Navigate to `http://localhost:5432/`. The application will automatically reload if you change any of the source files.
+Navigate to `https://localhost:5432/`. The development server uses a local self-signed certificate, so your browser may show a certificate warning the first time. The application will automatically reload if you change any of the source files.
 
 ## Viewer Configuration
 
@@ -72,8 +80,8 @@ find case ID and patient ID to display in the
 [IDC data explorer](https://portal.imaging.datacommons.cancer.gov/explore/filters/?Modality_op=OR&Modality=SM).
 Examples:
 
-- [TCGA-A6-2671](http://localhost:5432/search?q=TCGA-A6-2671)
-- [TCGA-EJ-7781](http://localhost:5432/search?q=TCGA-EJ-7781)
+- [TCGA-A6-2671](https://localhost:5432/search?q=TCGA-A6-2671)
+- [TCGA-EJ-7781](https://localhost:5432/search?q=TCGA-EJ-7781)
 
 > _NOTE_: The IDC is intended for limited user viewing only and is not meant for
 > image downloads. Read more [here](https://learn.canceridc.dev/portal/proxy-policy).
@@ -84,12 +92,26 @@ Run `npm run build` to build the project. The build artifacts will be stored in 
 
 Some of those methods require a docker container. We created the Dockerfile and nginx.conf to serve the static files from a docker container as an example.
 
+Before building the container, make sure your production configuration in `src/environments/environment.ts` is set for the backend you want the published image to use. The Docker image serves the production build and does not read runtime environment variables.
+
 To build the docker container and run it locally:
 
 ```shell
 docker build -t path-viewer .
-docker run -p 5432:5432 path-viewer
-# http://localhost:5432` in a local browser.
+docker run --rm -p 5432:5432 path-viewer
+# Open http://localhost:5432 in a local browser.
+```
+
+Note that the example nginx container serves plain HTTP on port 5432. If you need HTTPS, authentication-aware ingress, or custom headers, terminate TLS in front of the container or adapt the nginx configuration.
+
+## Quick sanity checks
+
+```shell
+# Production build
+npm run build
+
+# Unit tests (requires a browser; CI typically uses ChromeHeadless)
+npm test
 ```
 
 # Viewer Configuration Parameters & Data Requirements
@@ -111,7 +133,7 @@ The OAuth scopes required by this viewer are:
 * `https://www.googleapis.com/auth/cloud-healthcare` - OAuth scope provides access to the Google Cloud Healthcare API. This API enables applications to interact with healthcare data stored in a Dicom Store, and FHIR Store.
 * `email` - Used to identify the annotations created by the user. See option to store hash email rather than store the email address along with the DICOM annotation.
 
-> _TIP_: Under the Authorized JavaScript origins section, add: `http://localhost:5432` for this to work with the [development server](#development-server). 
+> _TIP_: Under the Authorized JavaScript origins section, add: `https://localhost:5432` for this to work with the [development server](#development-server). If you also use the example Docker container locally, add `http://localhost:5432` as well.
 
 ## Configuring Angular Routing
 

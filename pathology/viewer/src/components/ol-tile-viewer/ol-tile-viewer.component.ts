@@ -22,8 +22,9 @@ import {FullScreen, MousePosition, OverviewMap, ScaleLine} from 'ol/control';
 import {defaults as controlDefaults} from 'ol/control/defaults';
 import {format as coordinateFormat} from 'ol/coordinate';
 import {getCenter} from 'ol/extent';
-import {Geometry} from 'ol/geom';
+import {Geometry, SimpleGeometry} from 'ol/geom';
 import {DragRotateAndZoom, Draw, Link} from 'ol/interaction';
+import {RotationControl} from '../rotation-controls/rotation-control';
 import ImageLayer from 'ol/layer/Image';
 import TileLayer from 'ol/layer/Tile';
 import VectorLayer from 'ol/layer/Vector';
@@ -41,6 +42,7 @@ import {Level, type SlideDescriptor, type SlideInfo} from '../../interfaces/slid
 import {CompressionType, IccProfileType} from '../../interfaces/types';
 import {DicomwebService} from '../../services/dicomweb.service';
 import {ImageViewerPageStore} from '../../stores/image-viewer-page.store';
+import {AnnotationStyleService} from '../../services/annotation-style.service';
 import {metersToMagnification} from '../../utils/zoom_name_to_val';
 
 /**
@@ -67,43 +69,19 @@ export const MEASURE_STROKE_STYLE = new Style({
 });
 
 /**
- * Stroke style for drawing tool.
- */
-export const DRAW_STROKE_STYLE = new Style({
-  fill: new Fill({
-    color: 'transparent',
-  }),
-  stroke: new Stroke({
-    color: 'yellow',
-    width: 2,
-  }),
-  image: new RegularShape({
-    fill: new Fill({
-      color: 'transparent',
-    }),
-    stroke: new Stroke({
-      color: 'yellow',
-      width: 2,
-    }),
-    points: 4,
-    radius: 5,
-    angle: Math.PI / 4,
-  }),
-});
-
-/**
  * Renders slide/image tiles using open layers and DICOM Proxy.
  */
 @Component({
-  selector: 'ol-tile-viewer',
-  standalone: true,
-  imports: [CommonModule],
-  templateUrl: './ol-tile-viewer.component.html',
-  styleUrl: './ol-tile-viewer.component.scss'
+    selector: 'ol-tile-viewer',
+    imports: [CommonModule],
+    templateUrl: './ol-tile-viewer.component.html',
+    styleUrl: './ol-tile-viewer.component.scss'
 })
 export class OlTileViewerComponent implements OnChanges {
   readonly ENABLE_SERVER_INTERPOLATION: boolean =
       environment.ENABLE_SERVER_INTERPOLATION ?? false;
+  
+  drawStrokeStyle: Style;
 
   @Input({required: true}) slideDescriptor!: SlideDescriptor;
   @Input({required: true}) slideInfo?: SlideInfo;
@@ -135,7 +113,9 @@ export class OlTileViewerComponent implements OnChanges {
       private readonly dicomwebService: DicomwebService,
       private readonly olTileViewerElementRef: ElementRef,
       private readonly cdRef: ChangeDetectorRef,
+      private readonly annotationStyleService: AnnotationStyleService,
   ) {
+    this.drawStrokeStyle = this.annotationStyleService.getDrawStrokeStyle();
     // Add a resize event listener to the window
     window.addEventListener('resize', () => {
       this.updateTextBoxWidth();  // Update width when the window is resized
@@ -372,6 +352,25 @@ export class OlTileViewerComponent implements OnChanges {
     }
   }
 
+    getAllCoordinates() {
+    const allLayers = this.olMap?.getAllLayers() ?? [];
+    if (allLayers.length !== 2) return;
+    const drawLayer = allLayers.find((layer) => {
+      return layer.get('name') === 'draw-layer';
+    }) as VectorLayer<Vector<Feature<SimpleGeometry>>>|
+        undefined;
+
+    if (!drawLayer) return;
+
+    const coordinates =
+        drawLayer!.getSource()?.getFeatures()?.map((feature) => {
+          const featureGeometry = feature.getGeometry()!;
+          const coordinates = featureGeometry.getCoordinates();
+
+          return coordinates;
+        });
+    return coordinates;
+  }
 
   initializeOpenLayerSlideViewer(slideInfo: SlideInfo) {
     // Pair levels so resolutions and tileSizes stay aligned after sorting.
@@ -427,13 +426,8 @@ export class OlTileViewerComponent implements OnChanges {
       return '';
     };
 
-    const tileLoadFunction = (imageTile: Tile) => {
-      const coord = imageTile.tileCoord;
-      if (!coord) {
-        imageTile.setState(TileState.ERROR);
-        return;
-      }
-      const [z, x, y] = coord;
+     const tileLoadFunction = (imageTile: Tile) => {
+      const [z, x, y] = imageTile.tileCoord;
 
       // Map z to the correct (aligned) level
       const slideLevel = zToLevel[z];
@@ -544,7 +538,7 @@ export class OlTileViewerComponent implements OnChanges {
     const drawSource = new Vector<Feature<Geometry>>({wrapX: false});
     const drawLayer = new VectorLayer({
       source: drawSource,
-      style: [DRAW_STROKE_STYLE],
+      style: [this.drawStrokeStyle],
       properties: {
         name: 'draw-layer',
         title: 'Annotations',
@@ -566,7 +560,7 @@ export class OlTileViewerComponent implements OnChanges {
 
     // Compute initial zoom using the z-aligned levels to match the resolutions
     // array
-    const initialZoom = this.getInitialZoomByContainer(zToLevel);
+    const initialZoom = this.getInitialZoomByContainer(slideInfo.levelMap);
 
     let olMap: ol.Map|undefined = undefined;
 
@@ -632,6 +626,7 @@ export class OlTileViewerComponent implements OnChanges {
     olMap.addInteraction(linkInteraction);
     olMap.addInteraction(new DragRotateAndZoom());
     olMap.addControl(new FullScreen());
+    olMap.addControl(new RotationControl());
 
     this.olMap = olMap;
 

@@ -14,15 +14,21 @@
  limitations under the License.
 -->
 
-<div mat-dialog-title>
-    <mat-icon color="warn">warning</mat-icon>
-    <span>{{ title }}</span>
-  </div>
-  <div mat-dialog-content>
-    <div>{{ message }}</div>
-    <div *ngIf="copyLogsToClipboard">When reporting this issue, please include the log by using the button below.</div>
-  </div>
-  <div mat-dialog-actions>
-    <button *ngIf="copyLogsToClipboard" mat-stroked-button color="primary" (click)="copyLogs()">Copy logs to clipboard</button>
-    <button mat-flat-button color="primary" (click)="dismiss()">Close</button>
-  </div>
+<div class="snack-title">
+  <mat-icon color="warn">warning</mat-icon>
+  <span class="snack-title-text">{{ title }}</span>
+</div>
+
+<div class="snack-content">
+  <div class="snack-message">{{ message }}</div>
+  @if (copyLogsToClipboard) {
+    <div class="snack-copy-note">When reporting this issue, please include the log by using the button below.</div>
+  }
+</div>
+
+<div class="snack-actions">
+  @if (copyLogsToClipboard) {
+    <button mat-stroked-button color="primary" (click)="copyLogs()">Copy logs to clipboard</button>
+  }
+  <button mat-flat-button color="primary" (click)="dismiss()">Close</button>
+</div>

@@ -22,19 +22,16 @@ import {DialogService} from '../../services/dialog.service';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { FormsModule } from '@angular/forms';
-import { CommonModule } from '@angular/common';
 
 /**
  * The dialog for users to delete an existing cohort with.
  */
 @Component({
   selector: 'dialog-cohort-delete',
-  standalone: true,
   imports: [
     MatDialogModule,
     MatButtonModule,
     FormsModule,
-    CommonModule,
   ],
   templateUrl: './dialog-cohort-delete.component.html',
   styleUrl: './dialog-cohort-delete.component.scss'

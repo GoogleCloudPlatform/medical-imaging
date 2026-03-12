@@ -17,7 +17,7 @@
 import {COMMA, ENTER} from '@angular/cdk/keycodes';
 import {Overlay, OverlayRef} from '@angular/cdk/overlay';
 import {CommonModule} from '@angular/common';
-import {Component, ElementRef, HostListener, OnDestroy, OnInit, TemplateRef, ViewChild, ViewContainerRef} from '@angular/core';
+import {Component, ElementRef, HostListener, OnDestroy, OnInit, TemplateRef, ViewChild, ViewContainerRef, signal, computed} from '@angular/core';
 import {FormControl, FormsModule, ReactiveFormsModule} from '@angular/forms';
 import {MatAutocompleteModule, MatAutocompleteSelectedEvent} from '@angular/material/autocomplete';
 import {MatButtonModule} from '@angular/material/button';
@@ -33,7 +33,7 @@ import {MatSnackBar} from '@angular/material/snack-bar';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {ActivatedRoute, Router} from '@angular/router';
 import * as ol from 'ol';
-import Feature from 'ol/Feature';
+import {Feature} from 'ol';
 import {Coordinate} from 'ol/coordinate';
 import {EventsKey} from 'ol/events';
 import {Geometry, LineString, Point, Polygon} from 'ol/geom';
@@ -44,13 +44,12 @@ import Select, {SelectEvent} from 'ol/interaction/Select';
 import Layer from 'ol/layer/Layer';
 import {unByKey} from 'ol/Observable';
 import LayerRenderer from 'ol/renderer/Layer';
-import * as source from 'ol/source';
+import { Source, Vector } from 'ol/source';
 import {getArea, getLength} from 'ol/sphere';
 import {Fill, RegularShape, Stroke} from 'ol/style';
 import Style, {StyleLike} from 'ol/style/Style';
-import {combineLatest, Observable, ReplaySubject} from 'rxjs';
-import {catchError, map, startWith, takeUntil, tap} from 'rxjs/operators';
-
+import {combineLatest, Observable, ReplaySubject, throwError} from 'rxjs';
+import {catchError, map, startWith, takeUntil, tap, finalize} from 'rxjs/operators';
 import {ImageViewerPageParams} from '../../app/app.routes';
 import {environment} from '../../environments/environment';
 import {AnnotationGroup, DicomAnnotation, DicomAnnotationInstance, ReferencedSeries} from '../../interfaces/annotation_descriptor';
@@ -68,45 +67,14 @@ import {WindowService} from '../../services/window.service';
 import {ImageViewerPageStore} from '../../stores/image-viewer-page.store';
 import {areFeaturesCovered, areFeaturesIntersecting, differenceFeatures, getFeatureAnnotationKey, getRightMostCoordinate, unionFeatures} from '../../utils/ol_helper';
 import {InspectPageComponent} from '../inspect-page/inspect-page.component';
-import {DRAW_STROKE_STYLE, MEASURE_STROKE_STYLE, OlTileViewerComponent} from '../ol-tile-viewer/ol-tile-viewer.component';
+import {MEASURE_STROKE_STYLE, OlTileViewerComponent} from '../ol-tile-viewer/ol-tile-viewer.component';
 import {SlideMetadataComponentComponent} from '../slide-metadata-component/slide-metadata-component.component';
+import {AnnotationStyleService} from '../../services/annotation-style.service';
 
 const ANNOTATION_DETAILS_OVERLAY_ID = 'annotationDetailsOverlay';
 const CONTEXT_MENU_OVERLAY_ID = 'contextMenuOverlay';
 const HELP_TOOLTIP_OVERLAY_ID = 'helpTooltipOverlay';
 const MEASURE_TOOLTIP_OVERLAY_ID = 'measureTooltipOverlay';
-
-const DEFAULT_DRAWING_STYLE = new Style({
-  fill: new Fill({
-    color: 'transparent',
-  }),
-  stroke: new Stroke({
-    color: 'black',
-    width: 3,
-  }),
-});
-
-const SELECT_STYLE = new Style({
-  fill: new Fill({
-    color: 'transparent',
-  }),
-  stroke: new Stroke({
-    color: 'yellow',
-    width: 3,
-  }),
-  image: new RegularShape({
-    fill: new Fill({
-      color: 'transparent',
-    }),
-    stroke: new Stroke({
-      color: 'yellow',
-      width: 3,
-    }),
-    points: 4,
-    radius: 5,
-    angle: Math.PI / 4,
-  }),
-});
 
 declare interface AnnotationLabel {
   name: string;
@@ -134,7 +102,6 @@ const LOCAL_ANNOTATION_MODE = !environment.ANNOTATIONS_DICOM_STORE_BASE_URL;
  */
 @Component({
   selector: 'image-viewer-side-nav',
-  standalone: true,
   imports: [
     MatDialogModule, MatIconModule, MatDividerModule, FormsModule,
     ReactiveFormsModule, MatFormFieldModule, MatSelectModule,
@@ -164,17 +131,25 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
   annotationNoteCtrl = new FormControl('');
   annotationOverlayActionCurrent: AnnotationOverlayAction =
       AnnotationOverlayAction.NONE;
+  // Annotation styles - initialized in constructor from service
+  DEFAULT_DRAWING_STYLE!: Style;
+  SELECT_STYLE!: Style;
+  CONTEXT_SELECT_STYLE!: Style;
+  MEASURE_DESELECTED_STYLE!: Style;
+  MEASURE_SELECTED_STYLE!: Style;
+  MEASURE_CONTEXT_SELECT_STYLE!: Style;
+  DRAW_STROKE_STYLE!: Style;
   contextMenuOverlay?: ol.Overlay = undefined;
+  isProcessingContextMenu = false;
   currentUser = '';
   debugMode = false;
   dicomAnnotationModel?: DicomModel;
-  disableAnnotationTools = false;
   disableContextDelete = false;
   disableContextMenuAdoptShapes = false;
   disableContextMenuMergeShapes = false;
   disableLabelInput = true;
   // tslint:disable:no-any
-  drawLayer: Layer<source.Source, LayerRenderer<any>>|undefined = undefined;
+  drawLayer: Layer<Source, LayerRenderer<any>>|undefined = undefined;
   // tslint:enable:no-any
   editModeSelectedAnnotationOverlay = false;
   enableAnnotationWritting = environment.ENABLE_ANNOTATION_WRITING;
@@ -183,7 +158,6 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
   enablePointTool = false;
   enableSplitView = true;
   filteredLabels: Observable<AnnotationLabel[]>;
-  hasAnnotationReadAccess = LOCAL_ANNOTATION_MODE;
   hasCaseIdInCohortCases = false;
   hasLabelOrOverviewImage = false;
   initialChange = true;
@@ -195,10 +169,9 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
   ];
   labels = new Set<AnnotationLabel>();
   // tslint:disable:no-any
-  layers: Array<Layer<source.Source, LayerRenderer<any>>> = [];
+  layers: Array<Layer<Source, LayerRenderer<any>>> = [];
   // tslint:enable:no-any
   loadingCohorts = true;
-  loadingDicomAnnotations = !LOCAL_ANNOTATION_MODE;
   measureDrawing?: ol.Feature<Geometry>;
   measureDrawingGeometryChangeListener: EventsKey|undefined = undefined;
   measureTooltip?: ol.Overlay = undefined;
@@ -210,6 +183,11 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
   private readonly destroyed$ = new ReplaySubject<boolean>(1);
   protected activeInteraction: Draw|null = null;
   readonly viewerMenuAction = ViewerMenuAction;
+  readonly loadingDicom = signal<boolean>(!LOCAL_ANNOTATION_MODE);
+  readonly hasAnnotationAccess = signal<boolean>(LOCAL_ANNOTATION_MODE);
+  readonly disableAnnotations = computed(() =>
+    !this.hasAnnotationAccess() && !this.loadingDicom()
+  );
   recentlyAddedFeatures: Array<ol.Feature<Geometry>> = [];
   recentlyRemovedFeatures: Array<ol.Feature<Geometry>> = [];
   selectFeatureAvailable = true;
@@ -228,6 +206,14 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
   sideNavDrawLayers: SideNavLayer[] = [];
   toggleSideNavLayerStyleByLayer =
       new Map<ol.Feature<Geometry>, Style|StyleLike|undefined>();
+  hiddenSideNavLayerFeatures = new Set<ol.Feature<Geometry>>();
+  primarySelected = new Set<ol.Feature<Geometry>>();
+  contextSelected: Array<ol.Feature<Geometry>> = [];
+  lastToolBeforeSave?: ViewerMenuAction;
+  isSavingAnnotation = false;
+  isSlideDetailsDialogOpen = false;
+  private saveLockTimeoutId?: number;
+  private readonly SAVE_LOCK_TIMEOUT_MS = 15000;
 
   constructor(
       private readonly activatedRoute: ActivatedRoute,
@@ -242,7 +228,15 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
       public overlay: Overlay,
       public viewContainerRef: ViewContainerRef,
       private readonly snackBar: MatSnackBar,
+      private readonly annotationStyleService: AnnotationStyleService,
   ) {
+    this.DEFAULT_DRAWING_STYLE = this.annotationStyleService.getDefaultDrawingStyle();
+    this.SELECT_STYLE = this.annotationStyleService.getSelectStyle();
+    this.CONTEXT_SELECT_STYLE = this.annotationStyleService.getContextSelectStyle();
+    this.MEASURE_DESELECTED_STYLE = this.annotationStyleService.getMeasureDeselectedStyle();
+    this.MEASURE_SELECTED_STYLE = this.annotationStyleService.getMeasureSelectedStyle();
+    this.MEASURE_CONTEXT_SELECT_STYLE = this.annotationStyleService.getMeasureContextSelectStyle();
+    this.DRAW_STROKE_STYLE = this.annotationStyleService.getDrawStrokeStyle();
     this.filteredLabels = this.annotationLabelCtrl.valueChanges.pipe(
         startWith(null),
         map((label: string|null) =>
@@ -445,16 +439,16 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
 
 
     if (environment.ENABLE_ANNOTATIONS) {
-      if (isDraw) {
+      if (isDraw && !this.isSavingAnnotation) {
         this.onDrawPolygonsTool(ViewerMenuAction.DRAW_POLYGON);
       }
-      if (isRectangle) {
+      if (isRectangle && !this.isSavingAnnotation) {
         this.onDrawPolygonsTool(ViewerMenuAction.DRAW_BOX);
       }
-      if (isPoint) {
+      if (isPoint && !this.isSavingAnnotation) {
         this.onDrawPolygonsTool(ViewerMenuAction.DRAW_POINT);
       }
-      if (isMeasure) {
+      if (isMeasure && !this.isSavingAnnotation) {
         this.onMeasureTool();
       }
     }
@@ -469,7 +463,9 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
     this.destroyed$.complete();
   }
 
-  ngOnInit() {
+  ngOnInit() {    
+    this.setupAnnotationSignals();
+    this.setupCohortLoading();
     this.setupCurrentUser();
     this.setupSelectedSplitViewSlideDescriptor();
     this.setupSlideMetaData();
@@ -478,50 +474,34 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
     this.onSelectTool();
     // Setup overlay for displaying details for selected annotation.
     this.setupOverlays();
-    this.setupLoading();
-    if (!LOCAL_ANNOTATION_MODE) {
-      this.setupAnnotationAccess();
-    }
     this.setupSelectedCohortCases();
     this.setupQueryParams();
     this.disableAnnotationsInMultiscreen();
   }
 
-  private setupAnnotationAccess() {
-    combineLatest([
-      this.imageViewerPageStore.selectedSplitViewSlideDescriptor$,
-      this.imageViewerPageStore.hasAnnotationReadAccessBySlideDescriptorId$,
-    ])
-        .pipe(
-            takeUntil(this.destroyed$),
-            tap(([
-                  selectedSplitViewSlideDescriptor,
-                  hasAnnotationReadAccessBySlideDescriptorId
-                ]) => {
-              const selectedSplitViewSlideDescriptorId =
-                  selectedSplitViewSlideDescriptor?.id as string ?? '';
-              this.hasAnnotationReadAccess =
-                  hasAnnotationReadAccessBySlideDescriptorId.get(
-                      selectedSplitViewSlideDescriptorId) ??
-                  false;
-              this.disableAnnotationTools = !this.hasAnnotationReadAccess;
-            }),
-            )
-        .subscribe();
-  }
-
-  private setupLoading() {
-    this.cohortService.loading$.subscribe((loading) => {
-      this.loadingCohorts = loading;
-    });
+  private setupAnnotationSignals() {
     if (!LOCAL_ANNOTATION_MODE) {
-      this.imageViewerPageStore.loadingDicomAnnotations$
-          .pipe(tap((loading: boolean) => {
-            this.loadingDicomAnnotations = loading;
-          }))
-          .subscribe();
+      combineLatest([
+        this.imageViewerPageStore.selectedSplitViewSlideDescriptor$,
+        this.imageViewerPageStore.hasAnnotationReadAccessBySlideDescriptorId$
+      ])
+      .pipe(takeUntil(this.destroyed$))
+      .subscribe(([descriptor, accessMap]) => {
+        const id = descriptor?.id ?? '';
+        const access = accessMap.get(id) ?? false;
+        this.hasAnnotationAccess.set(access);
+      });
     }
   }
+
+  private setupCohortLoading() {
+    this.cohortService.loading$
+      .pipe(takeUntil(this.destroyed$))
+      .subscribe((loading) => {
+        this.loadingCohorts = loading;
+      });
+  }
+
   private setupOverlays() {
     this.selectedAnnotationOverlay = new ol.Overlay({
       id: ANNOTATION_DETAILS_OVERLAY_ID,
@@ -592,17 +572,24 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
     const olMap = this.olMap;
 
     if (!olMap) return;
-    const features = this.getSelectedFeatures(olMap);
-    // Add merged polygon
-    if (features.length < 2) return;
-    differenceFeatures(features[0], features[1], olMap);
+    const features =
+      this.selectedContextMenuFeatures.length >= 2
+        ? this.selectedContextMenuFeatures
+        : this.getSelectedFeatures(olMap);
 
-    this.saveAnnotation();
+    if (features.length < 2) return;
+    differenceFeatures(features[1], features[0], olMap);
+
+    this.saveAnnotation(true);
     this.selectedAnnotationOverlay?.setPosition(undefined);
     this.contextMenuOverlay?.setPosition(undefined);
+    this.clearAllSelections();
   }
 
   annotationSelected(selectEvent: SelectEvent) {
+    if (this.isProcessingContextMenu) {
+      return;
+    }
     if (!selectEvent.target) return;
     const selectInteraction: Select = selectEvent.target as Select;
 
@@ -654,72 +641,124 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
   contextMenuOpened(evt: MouseEvent) {
     const olMap = this.olMap;
     if (!olMap) return;
-
-    const coordinate = olMap.getEventCoordinate(evt);
-    if (!coordinate) return;
-    const drawLayer = olMap.getAllLayers().find((layer) => {
-      return layer.get('name') === 'draw-layer';
-    });
-    const drawSource: source.Vector<Feature<Geometry>>|undefined =
-        drawLayer?.getSource() as source.Vector<Feature<Geometry>>;
-    if (!drawSource) return;
-
-    const featuresAtCoordinate = drawSource.getFeaturesAtCoordinate(coordinate);
-
-    let select = olMap.getInteractions().getArray().filter((interaction) => {
-      return interaction instanceof Select;
-    })[0] as Select;
-    if (!select) {
-      select = new Select();
-      olMap.addInteraction(select);
+    
+    if (this.selectedViewerAction === ViewerMenuAction.MEASURE) {
+      return;
     }
+    
+    evt.preventDefault();
 
-    const selectedCollection = select.getFeatures();
+    this.isProcessingContextMenu = true;
 
-    if (selectedCollection.getArray().length === 0) {
-      selectedCollection.extend(featuresAtCoordinate);
-    }
-    if (selectedCollection.getArray().length === 1 &&
-        featuresAtCoordinate.length) {
+    try {
+      const coordinate = olMap.getEventCoordinate(evt);
+      if (!coordinate) return;
+      const drawLayer = olMap.getAllLayers().find((layer) => {
+        return layer.get('name') === 'draw-layer';
+      });
+      const drawSource: Vector<Feature<Geometry>>|undefined =
+          drawLayer?.getSource() as Vector<Feature<Geometry>>;
+      if (!drawSource) return;
+
+      const pixel = olMap.getEventPixel(evt) as [number, number];
+      const layerFilter = (layer: Layer) => 
+        layer.get('name') === 'draw-layer' || layer.get('name') === 'measure-layer';
+
+      const underCursor =
+        (olMap.getFeaturesAtPixel(pixel, { layerFilter, hitTolerance: 5 }) as Feature<Geometry>[] | undefined) ?? [];
+
+      const clickedFeature = this.resolveClickedFeature(olMap, pixel, underCursor);
+
+      let select = olMap.getInteractions().getArray().filter((interaction) => {
+        return interaction instanceof Select;
+      })[0] as Select;
+      if (!select) {
+        select = new Select({ style: null });
+        olMap.addInteraction(select);
+      }
+      const selectedCollection = select.getFeatures();
       selectedCollection.clear();
-      selectedCollection.extend(featuresAtCoordinate);
-    }
 
-    this.disableContextDelete = true;
-    this.disableContextMenuAdoptShapes = true;
-    this.disableContextMenuMergeShapes = true;
+      let orderedPair: Feature<Geometry>[] = [];
+      if (clickedFeature) {
+        const isMeasurement = this.isMeasurementFeature(clickedFeature);
+        let searchSource: Vector<Feature<Geometry>> | undefined;
+        
+        if (isMeasurement) {
+          orderedPair = [clickedFeature];
+        } else {
+          searchSource = drawSource;
+          const otherFeature =
+            underCursor.find((f) => f !== clickedFeature) ??
+            (clickedFeature.getGeometry()?.getType() === 'Polygon' 
+              ? searchSource?.getFeatures().find((f) => f !== clickedFeature && areFeaturesIntersecting(f, clickedFeature!, olMap)) 
+              : undefined) ?? null;
+          
+          if (otherFeature) {
+            orderedPair = [clickedFeature, otherFeature];
+          } else {
+            orderedPair = [clickedFeature];
+          }
+        }
+      } else {
+        const featuresAtCoordinate = drawSource.getFeaturesAtCoordinate(coordinate);
+        orderedPair = featuresAtCoordinate.slice(0, 2);
+      }
 
-    const features = this.getSelectedFeatures(olMap);
-    this.selectedContextMenuFeatures = features ?? [];
+      if (orderedPair.length === 0) {
+        return;
+      }
 
-    const allFeaturesByCurrentUser = features.every((feature) => {
-      return getFeatureAnnotationKey(feature).annotatorId === this.currentUser;
-    });
-    if (allFeaturesByCurrentUser) {
-      this.disableContextDelete = false;
-    }
+      if (orderedPair.length) {
+        selectedCollection.extend(orderedPair);
+      }
 
-    this.contextMenuOverlay?.setPosition(coordinate);
-    if (features.length < 2) {
+      this.setContextPair(orderedPair);
+      this.disableContextDelete = true;
       this.disableContextMenuAdoptShapes = true;
       this.disableContextMenuMergeShapes = true;
-      return;
-    }
 
-    const feature1 = features[0];
-    const feature2 = features[1];
-    const featuresIntersecting: boolean =
-        areFeaturesIntersecting(feature1, feature2, olMap);
-    const featuresCovered: boolean =
-        areFeaturesCovered(feature1, feature2, olMap);
+      const features = this.getSelectedFeatures(olMap);
+      this.selectedContextMenuFeatures = orderedPair.length >= 2 ? orderedPair : features ?? [];
 
-    if (!featuresIntersecting) {
-      this.disableContextMenuAdoptShapes = true;
-      this.disableContextMenuMergeShapes = true;
-      return;
-    }
+      const featuresForDelete = orderedPair.length > 0 ? orderedPair : features;
+      const hasMeasurements = featuresForDelete.some((feature) => this.isMeasurementFeature(feature));
+      
+      if (hasMeasurements) {
+        this.disableContextDelete = false;
+      } else if (features.length > 0) {
+        const allAnnotationsByCurrentUser = features.every((feature) => {
+          return getFeatureAnnotationKey(feature).annotatorId === this.currentUser;
+        });
+        if (allAnnotationsByCurrentUser) {
+          this.disableContextDelete = false;
+        }
+      }
 
-    if (features.length >= 2) {
+      this.contextMenuOverlay?.setPosition(coordinate);
+      if (features.length < 2) {
+        this.disableContextMenuAdoptShapes = true;
+        this.disableContextMenuMergeShapes = true;
+        return;
+      }
+
+      const [feature1, feature2] = this.selectedContextMenuFeatures.length >= 2
+        ? this.selectedContextMenuFeatures
+        : [features[0], features[1]];
+
+      const featuresIntersecting: boolean = areFeaturesIntersecting(feature1, feature2, olMap);
+      const featuresCovered: boolean = areFeaturesCovered(feature1, feature2, olMap);
+
+      if (!featuresIntersecting) {
+        this.disableContextMenuAdoptShapes = true;
+        this.disableContextMenuMergeShapes = true;
+        return;
+      }
+
+      const allFeaturesByCurrentUser = features.every((feature) => {
+        return getFeatureAnnotationKey(feature).annotatorId === this.currentUser;
+      });
+
       if (allFeaturesByCurrentUser) {
         this.disableContextMenuAdoptShapes = false;
         this.disableContextMenuMergeShapes = false;
@@ -734,8 +773,94 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
       if (featuresCovered) {
         this.disableContextMenuAdoptShapes = true;
       }
-      return;
+    } finally {
+      this.isProcessingContextMenu = false;
     }
+  }
+
+  private setPrimarySelection(features: Array<ol.Feature<Geometry>>) {
+    this.clearAllSelections();
+    this.primarySelected.clear();
+
+    features.forEach(f => {
+      this.primarySelected.add(f);
+      if (this.hiddenSideNavLayerFeatures.has(f)) {
+        return;
+      }
+      if (!this.contextSelected.includes(f)) {
+        const style = this.getStyleForFeature(f, true);
+        f.setStyle(style);
+      }
+    });
+  }
+
+  private setContextPair(features: Array<ol.Feature<Geometry>>) {
+    this.contextSelected.forEach(f => {
+      if (this.hiddenSideNavLayerFeatures.has(f)) {
+        return;
+      }
+      if (this.primarySelected.has(f)) {
+        f.setStyle(this.SELECT_STYLE);
+      } else {
+        const style = this.getStyleForFeature(f, false);
+        f.setStyle(style);
+      }
+    });
+
+    this.contextSelected = features.slice(0, 2);
+    this.selectedContextMenuFeatures = this.contextSelected;
+    this.contextSelected.forEach(f => {
+      if (!this.hiddenSideNavLayerFeatures.has(f)) {
+        const contextStyle = this.getContextStyleForFeature(f);
+        f.setStyle(contextStyle);
+      }
+    });
+  }
+
+  private clearAllSelections() {
+    this.contextSelected.forEach(f => {
+      if (this.hiddenSideNavLayerFeatures.has(f)) {
+        return;
+      }
+      const style = this.getStyleForFeature(f, false);
+      f.setStyle(style);
+    });
+    this.primarySelected.forEach(f => {
+      if (this.hiddenSideNavLayerFeatures.has(f)) {
+        return;
+      }
+      const style = this.getStyleForFeature(f, false);
+      f.setStyle(style);
+    });
+    this.contextSelected = [];
+    this.primarySelected.clear();
+  }
+
+  isMeasurementFeature(feature: ol.Feature<Geometry>): boolean {
+    if (!this.olMap) return false;
+    const measureLayer = this.olMap.getAllLayers().find(
+        (layer) => layer.get('name') === 'measure-layer');
+    if (!measureLayer) return false;
+
+    const measureSource =
+        measureLayer.getProperties()['source'] as Vector<Feature<Geometry>>;
+    if (!measureSource) return false;
+
+    return measureSource.getFeatures().includes(feature);
+  }
+
+  private getStyleForFeature(feature: ol.Feature<Geometry>, isSelected: boolean): Style {
+    if (this.isMeasurementFeature(feature)) {
+      return isSelected ? this.MEASURE_SELECTED_STYLE : this.MEASURE_DESELECTED_STYLE;
+    }
+    return isSelected ? this.SELECT_STYLE : this.DEFAULT_DRAWING_STYLE;
+  }
+
+  private getContextStyleForFeature(feature: ol.Feature<Geometry>): Style {
+    if (this.isMeasurementFeature(feature)) {
+      return this.MEASURE_CONTEXT_SELECT_STYLE;
+    }
+    return this.CONTEXT_SELECT_STYLE;
   }
 
   getSelectedSlideId() {
@@ -754,6 +879,7 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
     const slideInfo = this.getSlideInfo();
     if (!slideInfo) return;
 
+    this.clearAllSelections();
     const sopInstanceUid = slideInfo.levelMap[0].properties[0].instanceUid;
 
     if (!sopInstanceUid) {
@@ -833,22 +959,19 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
       annotationGroupSequence: annotationGroups,
     };
 
-    this.imageViewerPageStore
+    return this.imageViewerPageStore
         .createOrModifyDicomAnnotation(
             this.getSelectedSlideId(),
             dicomAnnotation,
             )
         .pipe(
             catchError((error) => {
-              this.snackBar.open('Failed to write annotation', 'Dismiss', {
-                duration: 3000,
-              });
+              this.dialogService.error('Failed to write annotation');
               // Remove recently added feature.
               this.handleRecentFeature();
-              return error;
+              return throwError(() => error);
             }),
-            )
-        .subscribe();
+            );
   }
 
   private handleRecentFeature() {
@@ -858,7 +981,7 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
       return layer.get('name') === 'draw-layer';
     });
     if (!drawLayer) return;
-    const drawSource = drawLayer.getSource() as source.Vector<Feature<Geometry>>;
+    const drawSource = drawLayer.getSource() as Vector<Feature<Geometry>>;
     // remove recently added features.
     this.recentlyAddedFeatures.forEach((feature) => {
       drawSource.removeFeature(feature);
@@ -898,12 +1021,49 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
     }
 
     const features = select.getFeatures().getArray();
-    this.deleteAnnotations(features);
+    
+    const measurements = features.filter(f => this.isMeasurementFeature(f));
+    const annotations = features.filter(f => !this.isMeasurementFeature(f));
+
+    if (measurements.length > 0) {
+      this.deleteMeasurements(measurements);
+    }
+
+    if (annotations.length > 0) {
+      this.deleteAnnotations(annotations);
+    }
   }
 
   deleteSingleAnnotation(sideNavDrawLayer: SideNavLayer) {
     const featuresToDelete = [sideNavDrawLayer.feature];
     this.deleteAnnotations(featuresToDelete);
+  }
+
+  private deleteMeasurements(features: Array<ol.Feature<Geometry>>) {
+    const olMap = this.olMap;
+    if (!olMap) return;
+
+    const measureLayer = olMap.getAllLayers().find(
+        (layer) => layer.get('name') === 'measure-layer');
+    if (!measureLayer) return;
+
+    const measureSource =
+        measureLayer.getProperties()['source'] as Vector<Feature<Geometry>>;
+    if (!measureSource) return;
+
+    features.forEach((feature: Feature<Geometry>) => {
+      if (measureSource.getFeatures().includes(feature)) {
+        const tooltip = feature.get('measurementTooltip') as ol.Overlay | undefined;
+        if (tooltip) {
+          olMap?.removeOverlay(tooltip);
+        }
+        measureSource.removeFeature(feature);
+      }
+    });
+
+    this.selectedAnnotationOverlay?.setPosition(undefined);
+    this.contextMenuOverlay?.setPosition(undefined);
+    this.clearAllSelections();
   }
 
   downloadAnnotations() {
@@ -983,19 +1143,24 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
     if (features.length < 2) return;
     unionFeatures(features[0], features[1], olMap);
 
-    this.saveAnnotation();
+    this.saveAnnotation(true);
     this.selectedAnnotationOverlay?.setPosition(undefined);
     this.contextMenuOverlay?.setPosition(undefined);
+    this.clearAllSelections();
   }
 
   onDrawPolygonsTool(action: ViewerMenuAction) {
+    if (this.isSavingAnnotation) {
+      this.dialogService.info('Saving annotation… Please wait');
+      return;
+    }
     const olMap = this.olMap;
     if (!olMap) return;
     const drawLayer = olMap.getAllLayers().find((layer) => {
       return layer.get('name') === 'draw-layer';
     });
     if (!drawLayer) return;
-    const drawSource = drawLayer.getSource() as source.Vector<Feature<Geometry>>;
+    const drawSource = drawLayer.getSource() as Vector<Feature<Geometry>>;
 
 
     const currentUserAnnotationInstance =
@@ -1031,7 +1196,7 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
       source: drawSource,
       type: drawType,
       freehand: true,
-      style: [DRAW_STROKE_STYLE],
+      style: [this.DRAW_STROKE_STYLE],
       geometryFunction,
     });
 
@@ -1047,7 +1212,7 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
 
       const feature: ol.Feature<Geometry> = event.feature;
       let maxIndex = 0;
-      drawSource.getFeatures().forEach((feature: Feature) => {
+      drawSource.getFeatures().forEach((feature: Feature<Geometry>) => {
         const featureAnnotationKey = getFeatureAnnotationKey(feature);
         maxIndex = Math.max(maxIndex, featureAnnotationKey.index);
       });
@@ -1061,7 +1226,7 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
       this.recentlyAddedFeatures = [feature];
 
       if (action !== ViewerMenuAction.DRAW_POINT) {
-        feature.setStyle(DEFAULT_DRAWING_STYLE);
+        feature.setStyle(this.DEFAULT_DRAWING_STYLE);
       }
 
       // Avoid race condition with view selection.
@@ -1073,6 +1238,10 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
   }
 
   onMeasureTool() {
+    if (this.isSavingAnnotation) {
+      this.dialogService.info('Saving annotation… Please wait');
+      return;
+    }
     const olMap = this.olMap;
     if (!olMap) return;
 
@@ -1088,7 +1257,7 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
     if (!measureLayer) return;
 
     const measureSource =
-        measureLayer.getProperties()['source'] as source.Vector<Feature<Geometry>>;
+        measureLayer.getProperties()['source'] as Vector<Feature<Geometry>>;
     if (!measureSource) return;
 
     const measureInteraction = new Draw({
@@ -1149,6 +1318,8 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
       this.measureTooltipElement.className = 'ol-tooltip ol-tooltip-static';
       this.measureTooltip?.setOffset([0, -7]);
 
+      const tooltipToStore = this.measureTooltip;
+
       this.measureDrawing = undefined;
       // unset tooltip so that a new one can be created
       this.measureTooltipElement = undefined;
@@ -1161,14 +1332,13 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
       const feature: ol.Feature<Geometry> = event.feature;
       let maxIndex = 0;
       if (this.drawLayer) {
-        const drawSource =
-            this.drawLayer.getSource() as source.Vector<Feature<Geometry>>;
-        drawSource.getFeatures().forEach((feature: Feature) => {
+        const drawSource = this.drawLayer.getSource() as Vector<Feature<Geometry>>;
+        drawSource.getFeatures().forEach((feature: Feature<Geometry>) => {
           const featureAnnotationKey = getFeatureAnnotationKey(feature);
           maxIndex = Math.max(maxIndex, featureAnnotationKey.index);
         });
       }
-      measureSource.getFeatures().forEach((feature) => {
+      measureSource.getFeatures().forEach((feature: Feature<Geometry>) => {
         const featureAnnotationKey = getFeatureAnnotationKey(feature);
         maxIndex = Math.max(maxIndex, featureAnnotationKey.index);
       });
@@ -1178,6 +1348,11 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
         names: `MEASURE`,
         index: maxIndex + 1,
       }));
+
+      if (tooltipToStore) {
+        feature.set('measurementTooltip', tooltipToStore);
+      }
+
       measureSource.addFeature(feature);
     });
   }
@@ -1196,26 +1371,36 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
   }
 
   openSlideData() {
-    const DIALOG_CONFIG = {
+    this.dialogService.openComponentDialog(InspectPageComponent, {
       autoFocus: false,
       disableClose: false,
-    };
-
-    this.dialogService.openComponentDialog(InspectPageComponent, {
-      ...DIALOG_CONFIG,
+      maxWidth: '90vw',
+      maxHeight: '80vh',
+      height: '80vh',
       panelClass: 'slide-data-dialog-panel',
     });
   }
 
   openSlideDetailsDialog() {
+    if (this.isSlideDetailsDialogOpen) {
+      return;
+    }
+
+    this.isSlideDetailsDialogOpen = true;
+
     const olMap = this.olMap;
 
     if (!this.selectedSplitViewSlideDescriptor || !this.selectedSlideInfo) {
+      this.isSlideDetailsDialogOpen = false;
       return;
     }
-    const currentViewLevel = [
-      ...this.selectedSlideInfo.levelMap
-    ].reverse()[Math.floor(olMap?.getView().getZoom() ?? 0)];
+    const levels = [...this.selectedSlideInfo.levelMap].reverse();
+    if (levels.length === 0) return;
+
+    const zoom = Math.floor(olMap?.getView().getZoom() ?? 0);
+    const index = Math.max(0, Math.min(zoom, levels.length - 1));
+    const currentViewLevel = levels[index];
+    if (!currentViewLevel?.properties?.length) return;
 
     const currentViewLevelInstanceUid =
         currentViewLevel.properties[0].instanceUid;
@@ -1234,11 +1419,44 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
               });
 
           metaDataDialog.afterClosed().subscribe((closeResponse) => {
+            this.isSlideDetailsDialogOpen = false;
             if (closeResponse?.openSlideData) {
               this.openSlideData();
             }
           });
         });
+  }
+
+private restoreSelectionHandlers() {
+    try {
+      try { this.onSelectTool(); } catch (e) {}
+
+      const olMap = this.olMap;
+      if (olMap) {
+        let select = olMap.getInteractions().getArray().find(i => i instanceof Select) as Select | undefined;
+        if (!select) {
+          select = new Select({ style: null });
+          olMap.addInteraction(select);
+        }
+        try {
+          (select as any).un && (select as any).un('select');
+        } catch (_) {}
+        select.on('select', (e: SelectEvent) => {
+          const selectedNow = select.getFeatures().getArray();
+          this.setPrimarySelection(selectedNow);
+          this.annotationSelected(e);
+        });
+      }
+
+      const overlay = document.querySelector('.annotation-overlay, .annotation-canvas-overlay');
+      if (overlay) (overlay as HTMLElement).style.pointerEvents = 'auto';
+
+      (this.drawLayer as any)?.getSource?.()?.changed?.();
+      (this.drawLayer as any)?.refresh?.();
+
+      try { (this as any).hitTestCache?.invalidate?.(); } catch (_) {}
+
+    } catch (err) {}
   }
 
   private confirmedRemoveAnnotation(features: Array<ol.Feature<Geometry>>) {
@@ -1247,7 +1465,8 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
         this.setupRemoveAnnotationAndGetCurrentFeatures(features) ?? [];
 
     if (currentUserFeatures.length) {
-      this.createOrUpdateAnnotation();
+      const save$ = this.createOrUpdateAnnotation();
+      save$?.subscribe();
       return;
     }
 
@@ -1270,10 +1489,9 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
       return layer.get('name') === 'draw-layer';
     });
     if (!drawLayer) return;
-    const drawSource =
-        drawLayer.getSource() as source.Vector<Feature<Geometry>>;
+    const drawSource = drawLayer.getSource() as Vector<Feature<Geometry>>;
     this.recentlyRemovedFeatures = [...features];
-    features.forEach((feature) => {
+    features.forEach((feature: Feature<Geometry>) => {
       drawSource?.removeFeature(feature);
     });
     this.selectedFeature = undefined;
@@ -1284,7 +1502,7 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
 
     // get current user features
     const currentFeatures = drawSource?.getFeatures() ?? [];
-    const currentUserFeatures = currentFeatures.filter((feature: Feature) => {
+    const currentUserFeatures = currentFeatures.filter((feature: Feature<Geometry>) => {
       const featureId = feature.getId() as string;
       if (!featureId) return false;
 
@@ -1293,6 +1511,45 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
     });
 
     return currentUserFeatures;
+  }
+
+  // Prevent creating new annotations while saving
+  private lockAnnotationCreation() {
+    if (this.isSavingAnnotation) return;
+
+    const cur = this.selectedViewerAction;
+    this.lastToolBeforeSave = cur;
+    this.isSavingAnnotation = true;
+    this.resetOtherTools();
+    this.olMap?.getTargetElement().style && (this.olMap.getTargetElement().style.cursor = 'progress');
+  }
+
+  private unlockAnnotationCreation() {
+    if (!this.isSavingAnnotation) return;
+    this.isSavingAnnotation = false;
+    const el = this.olMap?.getTargetElement?.();
+    if (el && el.style) el.style.cursor = 'auto';
+    const toRestore = this.lastToolBeforeSave;
+    this.lastToolBeforeSave = undefined;
+    if (!this.disableAnnotations() && this.olMap && toRestore !== undefined) {
+      switch (toRestore) {
+        case ViewerMenuAction.DRAW_POLYGON:
+          this.onDrawPolygonsTool(ViewerMenuAction.DRAW_POLYGON);
+          break;
+        case ViewerMenuAction.DRAW_BOX:
+          this.onDrawPolygonsTool(ViewerMenuAction.DRAW_BOX);
+          break;
+        case ViewerMenuAction.DRAW_POINT:
+          // honor feature flag if present
+          if (this.enablePointTool) {
+            this.onDrawPolygonsTool(ViewerMenuAction.DRAW_POINT);
+          }
+          break;
+        case ViewerMenuAction.MEASURE:
+          this.onMeasureTool();
+          break;
+      }
+    }
   }
 
   private createHelpTooltip() {
@@ -1428,6 +1685,11 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
       const pointCoordinate = pointFeature.getGeometry()?.getCoordinates();
       coordinates = pointCoordinate ? [pointCoordinate] : [];
     }
+    if (feature.getGeometry()?.getType() === 'LineString') {
+      const lineFeature = feature as Feature<LineString>;
+      const lineCoordinates = lineFeature.getGeometry()?.getCoordinates() ?? [];
+      coordinates = lineCoordinates;
+    }
 
     const coordinate = getRightMostCoordinate(coordinates);
 
@@ -1469,7 +1731,7 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
         (layer) => layer.get('name') === 'measure-layer');
     if (!measureLayer) return;
     const measureSource =
-        measureLayer.getProperties()['source'] as source.Vector<Feature<Geometry>>;
+        measureLayer.getProperties()['source'] as Vector<Feature<Geometry>>;
     if (!measureSource) return;
     measureSource.clear();
 
@@ -1546,7 +1808,6 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
     const olMap = this.olMap;
     if (!olMap) return;
 
-    this.resetMeasureTooltips();
     const removableInteractions =
         olMap.getInteractions().getArray().filter((interaction) => {
           return interaction instanceof Select ||
@@ -1561,12 +1822,36 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
     this.selectedAnnotationOverlay?.setPosition(undefined);
   }
 
-  saveAnnotation() {
+  saveAnnotation(restoreHandlers = false) {
     // const labelValue = this.annotationLabelCtrl.getRawValue();
     this.annotationOverlayActionCurrent = AnnotationOverlayAction.SAVE;
     this.selectedAnnotationOverlay?.setPosition(undefined);
 
-    this.createOrUpdateAnnotation();
+    this.lockAnnotationCreation();
+    const save$ = this.createOrUpdateAnnotation();
+    if (!save$) {
+      this.unlockAnnotationCreation();
+      return;
+    }
+    this.saveLockTimeoutId = window.setTimeout(
+      () => this.unlockAnnotationCreation(),
+      this.SAVE_LOCK_TIMEOUT_MS
+    ) as unknown as number;
+
+    save$
+      .pipe(
+        finalize(() => {
+          if (this.saveLockTimeoutId) {
+            clearTimeout(this.saveLockTimeoutId);
+            this.saveLockTimeoutId = undefined;
+          }
+          this.unlockAnnotationCreation();          
+          if (restoreHandlers) {
+              this.restoreSelectionHandlers();
+          }
+        })
+      )
+      .subscribe();
   }
 
   saveAnnotationNote(feature: ol.Feature<Geometry>) {
@@ -1640,13 +1925,15 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
         })[0] as Select;
     if (!selectInteraction) {
       selectInteraction = new Select({
-        style: SELECT_STYLE,
+        style: null,
       });
 
       olMap.addInteraction(selectInteraction);
     }
 
     selectInteraction.on('select', (e: SelectEvent) => {
+      const selectedNow = selectInteraction.getFeatures().getArray();
+      this.setPrimarySelection(selectedNow);
       this.annotationSelected(e);
     });
 
@@ -1668,6 +1955,7 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
     const features = select.getFeatures();
     features.clear();
     features.push(feature);
+    this.setPrimarySelection([feature]);
     this.selectedAnnotations = new Set(features.getArray());
   }
 
@@ -1718,6 +2006,7 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
       // Store style of the annotation, to maintain stroke color based on label.
       this.toggleSideNavLayerStyleByLayer.set(
           sideNavLayer.feature, sideNavLayer.feature.getStyle());
+      this.hiddenSideNavLayerFeatures.add(sideNavLayer.feature);
       // Setting style to 'undefined' removes them from being viewable.
       sideNavLayer.feature.setStyle(new Style(undefined));
     } else {
@@ -1725,6 +2014,7 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
       const originalStyle =
           this.toggleSideNavLayerStyleByLayer.get(sideNavLayer.feature)!;
       this.toggleSideNavLayerStyleByLayer.delete(sideNavLayer.feature);
+      this.hiddenSideNavLayerFeatures.delete(sideNavLayer.feature);
       sideNavLayer.feature.setStyle(originalStyle);
     }
   }
@@ -1751,5 +2041,34 @@ export class ImageViewerSideNavComponent implements OnInit, OnDestroy {
         behavior: 'smooth',
       });
     }, 150);
+  }
+
+  private resolveClickedFeature(
+    map: ol.Map,
+    pixel: [number, number],
+    candidates: Feature<Geometry>[]
+  ): Feature<Geometry> | undefined {
+    if (!candidates.length) return undefined;
+    let best: { f: Feature<Geometry>; d2: number } | undefined;
+    for (const f of candidates) {
+      const d2 = this.edgePixelDistanceSquared(map, pixel, f);
+      if (!best || d2 < best.d2) best = { f, d2 };
+    }
+    return best?.f;
+  }
+
+  private edgePixelDistanceSquared(
+    map: ol.Map,
+    pixel: [number, number],
+    feature: Feature<Geometry>
+  ): number {
+    const geom = feature.getGeometry();
+    if (!geom) return Number.POSITIVE_INFINITY;
+    const coordAtPixel = map.getCoordinateFromPixel(pixel);
+    const closestCoord = (geom as any).getClosestPoint(coordAtPixel);
+    const closestPixel = map.getPixelFromCoordinate(closestCoord) as [number, number];
+    const dx = closestPixel[0] - pixel[0];
+    const dy = closestPixel[1] - pixel[1];
+    return dx * dx + dy * dy;
   }
 }

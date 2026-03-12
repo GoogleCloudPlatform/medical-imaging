@@ -35,8 +35,7 @@ export interface DialogStringQuestionsComponentData {
  */
 @Component({
   selector: 'dialog-string-questions',
-  standalone: true,
-  imports: [CommonModule, MatFormField, FormsModule, MatButton],
+  imports: [MatFormField, FormsModule, MatButton],
   templateUrl: './dialog-string-questions.component.html',
   styleUrl: './dialog-string-questions.component.scss'
 })

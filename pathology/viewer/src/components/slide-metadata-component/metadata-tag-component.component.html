@@ -14,17 +14,21 @@
  limitations under the License.
 -->
 
-<ng-container *ngIf="rootNode">
-    <li>
-        <div class="row">
-            <span class="key">({{ rootNode.dicomKey || '' }})</span>
-            <span class="description">{{ rootNode.description || ''}}</span>
-            <span class="value">&nbsp; {{ rootNode.valueText || '' }}</span>
-        </div>
-        <!-- If the tag has children, create a nested list and add them recursively, -->
-        <ul *ngIf="rootNode?.childNodes">
-            <metadata-tag-component *ngFor="let childNode of rootNode.childNodes" [rootNode]="childNode">
-            </metadata-tag-component>
-        </ul>
-    </li>
-</ng-container>
+@if (rootNode) {
+  <li>
+    <div class="row">
+      <span class="key">({{ rootNode.dicomKey || '' }})</span>
+      <span class="description">{{ rootNode.description || ''}}</span>
+      <span class="value">&nbsp; {{ rootNode.valueText || '' }}</span>
+    </div>
+    <!-- If the tag has children, create a nested list and add them recursively, -->
+    @if (rootNode.childNodes) {
+      <ul>
+        @for (childNode of rootNode.childNodes; track childNode) {
+          <metadata-tag-component [rootNode]="childNode">
+        </metadata-tag-component>
+      }
+    </ul>
+  }
+</li>
+}

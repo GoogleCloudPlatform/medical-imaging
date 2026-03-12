@@ -34,8 +34,7 @@ import {AuthService} from '../../services/auth.service';
   selector: 'app-dicom-endpoint-form',
   templateUrl: './config.component.html',
   styleUrl: './config.component.scss',
-  standalone: true,
-  imports: [CommonModule, ReactiveFormsModule]
+  imports: [ReactiveFormsModule]
 })
 export class ConfigComponent implements OnInit {
   dicomForm!: FormGroup;

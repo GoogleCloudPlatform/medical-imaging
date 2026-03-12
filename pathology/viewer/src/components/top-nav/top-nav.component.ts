@@ -17,6 +17,7 @@
 import {CommonModule} from '@angular/common';
 import {Component, Input, OnDestroy, OnInit} from '@angular/core';
 import {MatIconModule} from '@angular/material/icon';
+import {MatTooltipModule} from '@angular/material/tooltip';
 import {ActivatedRoute, NavigationEnd, Router} from '@angular/router';
 import {combineLatest, ReplaySubject} from 'rxjs';
 import {takeUntil, tap} from 'rxjs/operators';
@@ -31,10 +32,9 @@ import {ImageViewerPageStore} from '../../stores/image-viewer-page.store';
  */
 @Component({
   selector: 'top-nav',
-  standalone: true,
   imports: [
     MatIconModule,
-    CommonModule,
+    MatTooltipModule
   ],
   templateUrl: './top-nav.component.html',
   styleUrl: './top-nav.component.scss'
@@ -50,6 +50,7 @@ export class TopNavComponent implements OnDestroy, OnInit {
   cohortDisplayName = '';
   cohortName?: string;
   isViewerRoute = false;
+  showCohort = false;
   selectedSlideDescriptor?: SlideDescriptor;
   selectedExtraMetaData?: SlideExtraMetadata = undefined;
 
@@ -112,9 +113,11 @@ export class TopNavComponent implements OnDestroy, OnInit {
             takeUntil(this.destroyed$),
             tap((event) => {
               if (event instanceof NavigationEnd) {
-                // Hide progress spinner or progress bar
+                const url = event.urlAfterRedirects;
                 this.intializeViewerRouteData();
-              }
+                const urlTree = this.router.parseUrl(url);
+                this.showCohort = urlTree.queryParams['cohortName'] !== undefined;
+                }
             }),
             )
         .subscribe();

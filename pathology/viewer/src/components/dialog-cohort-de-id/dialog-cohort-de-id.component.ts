@@ -32,10 +32,9 @@ import { MatButtonModule } from '@angular/material/button';
  */
 @Component({
   selector: 'dialog-cohort-de-id',
-  standalone: true,
   imports: [
     FormsModule, MatDialogModule, ReactiveFormsModule, MatFormFieldModule,
-    CommonModule, MatInputModule, MatButtonModule
+    MatInputModule, MatButtonModule
   ],
   templateUrl: './dialog-cohort-de-id.component.html',
   styleUrl: './dialog-cohort-de-id.component.scss'
@@ -64,7 +63,7 @@ export class DialogCohortDeIdComponent {
     }
 
     this.deIdDisabled = true;
-    this.snackBar.open('Requesting de-identified copy...');
+    this.dialogService.info('Requesting de-identified copy...');
 
     this.cohortService
         .deIdCohort(
@@ -73,11 +72,7 @@ export class DialogCohortDeIdComponent {
         .pipe(
             tap((success) => {
               if (success) {
-                const snackBarConfig = new MatSnackBarConfig();
-                snackBarConfig.duration = 2000;
-                this.snackBar.open(
-                    'Request for de-identififed copy received and being processed.',
-                    '', snackBarConfig);
+                this.dialogService.info('Request for de-identified copy received and being processed.');
               } else {
                 this.deIdDisabled = false;
               }

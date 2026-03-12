@@ -24,16 +24,20 @@
     <mat-form-field>
       <mat-label>Destination Cloud Storage</mat-label>
       <input matInput placeholder="Ex. gs://path/to/dest/folder" [formControl]="gcsPath" />
-      <mat-error *ngIf="gcsPath.hasError('pattern')"> Path must begin with gs:// </mat-error>
+      @if (gcsPath.hasError('pattern')) {
+        <mat-error> Path must begin with gs:// </mat-error>
+      }
     </mat-form-field>
     <div class="vertical-pad">
       Note that the destination storage needs to be provisioned with the right permissions.
     </div>
-    <p *ngIf="showDeIdWarning">
-      <strong>Warning:</strong> You are about to export images that may contain PHI.
-      Deidentification only removes PHI from certain metadata fields but does not remove metadata at
-      the pixel level. Please review metadata and pixel data for each image to ensure no PHI is
+    @if (showDeIdWarning) {
+      <p>
+        <strong>Warning:</strong> You are about to export images that may contain PHI.
+        Deidentification only removes PHI from certain metadata fields but does not remove metadata at
+        the pixel level. Please review metadata and pixel data for each image to ensure no PHI is
       visible prior to sharing.</p>
+    }
   </div>
 </div>
 <div mat-dialog-actions>

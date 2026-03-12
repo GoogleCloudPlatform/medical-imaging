@@ -43,26 +43,41 @@ export function inlineBinaryToNumberArray(
     typedArrayCtor: Int8ArrayConstructor | Int16ArrayConstructor |
         Int32ArrayConstructor | Uint8ArrayConstructor | Uint16ArrayConstructor |
         Uint32ArrayConstructor | Float32ArrayConstructor | Float64ArrayConstructor,
-    base64Str: string, isLittleEndian = true): number[] {
-    const bytes: Uint8Array =
-        Uint8Array.from(atob(base64Str), c => c.charCodeAt(0));
-
-    const bytesPerNumber: number = typedArrayCtor.BYTES_PER_ELEMENT;
-    const byteArrayLength = bytes.length / bytesPerNumber;
-
-    const outputArray: number[] = new Array(byteArrayLength);
-
-    if ((bytes.length % bytesPerNumber) !== 0) {
-        throw new Error(
-            `Invalid byte count for ${bytesPerNumber * 8}-bit float data.`);
+    base64Str: string, 
+    isLittleEndian = true
+): number[] {
+    // Decode Base64 to a single buffer
+    const binaryString = atob(base64Str);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
     }
 
-    for (let i = 0; i < bytes.length; i += bytesPerNumber) {
-        const byteArray: Uint8Array = isLittleEndian ?
-            bytes.slice(i, i + bytesPerNumber) :
-            bytes.slice(i, i + bytesPerNumber).reverse();
+    const bytesPerNumber = typedArrayCtor.BYTES_PER_ELEMENT;
+    
+    if ((bytes.length % bytesPerNumber) !== 0) {
+        throw new Error(`Invalid byte count for ${bytesPerNumber * 8}-bit data.`);
+    }
 
-        outputArray[i / bytesPerNumber] = (new typedArrayCtor(byteArray.buffer))[0];
+    const count = bytes.length / bytesPerNumber;
+    const outputArray: number[] = new Array(count);
+    
+    // Use DataView to read directly from the buffer
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    
+    // Map the constructor name to the correct DataView "getter"
+    const methodName = `get${typedArrayCtor.name.replace('Array', '')}` as keyof DataView;
+
+    for (let i = 0; i < count; i++) {
+        const byteOffset = i * bytesPerNumber;
+        
+        // DataView methods like getFloat32(offset, isLittleEndian)
+        // Note: 8-bit getters don't take an endianness argument
+        if (bytesPerNumber === 1) {
+            outputArray[i] = (view[methodName] as Function)(byteOffset);
+        } else {
+            outputArray[i] = (view[methodName] as Function)(byteOffset, isLittleEndian);
+        }
     }
 
     return outputArray;

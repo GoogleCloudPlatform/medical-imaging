@@ -18,44 +18,131 @@
 
 @include mat.core();
 
-@for $i from 0 through 24 {
-  .mat-elevation-#{$i} {
-    @include mat.elevation($i);
+// Mixin for conditional dark mode styles
+// When ENABLE_DARK_MODE feature flag is false, dark mode is disabled
+// When true, dark mode respects OS/browser preference
+@mixin dark-mode {
+  @media (prefers-color-scheme: dark) {
+    html.dark-mode-enabled & {
+      @content;
+    }
   }
 }
 
-@import url(https://fonts.googleapis.com/css?family=Google+Sans);
-@import url(https://fonts.googleapis.com/css?family=Google+Sans+Text:400,500);
-@import url(https://fonts.googleapis.com/css?family=Google+Sans+Display:400,500,700);
-@import url(https://fonts.googleapis.com/css?family=Material+Icons|Material+Icons+Outlined|Material+Icons+Two+Tone|Material+Icons+Round|Material+Icons+Sharp);
-@import url(https://fonts.googleapis.com/css2?family=Google+Symbols:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200);
+// Fonts & Icons
+@import url('https://fonts.googleapis.com/css?family=Google+Sans');
+@import url('https://fonts.googleapis.com/css?family=Google+Sans+Text:400,500');
+@import url('https://fonts.googleapis.com/css?family=Google+Sans+Display:400,500,700');
+@import url('https://fonts.googleapis.com/css?family=Material+Icons|Material+Icons+Outlined|Material+Icons+Two+Tone|Material+Icons+Round|Material+Icons+Sharp');
+@import url('https://fonts.googleapis.com/css2?family=Google+Symbols:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
 
-$my-primary: mat.m2-define-palette(mat.$m2-blue-palette, 500);
-$my-accent: mat.m2-define-palette(mat.$m2-blue-grey-palette, A200, A100, A400);
-$my-warn: mat.m2-define-palette(mat.$m2-red-palette);
+html {
+  color-scheme: light;
 
-$my-theme: mat.m2-define-light-theme(
-  (
-  color: (
-    primary: $my-primary,
-    accent: $my-accent,
-    warn: $my-warn,
-  ),
-  )
-);
+  // Default CSS variables for light mode
+  --dark-mode-bg: #f5f5f5;
+  --dark-mode-bg-secondary: #eee;
+  --dark-mode-bg-tertiary: #2a2a2a;
+  --dark-mode-text: #333;
+  --dark-mode-text-light: #5f6368;
 
+  // base theme
+  @include mat.theme((
+    color: (
+      primary: mat.$blue-palette,
+      tertiary: mat.$cyan-palette,
+    ),
+    typography: (
+      brand-family: 'Google Sans, Roboto, sans-serif',
+      plain-family: 'Roboto, sans-serif',
+    ),
+    density: (
+      scale: 0
+    ),
+  ));
+  
+  @include mat.theme-overrides((
+      primary: #2196f3,
+    ));
 
-@include mat.all-component-themes($my-theme);
+  // Button Radius Overrides
+  @include mat.button-overrides((
+    filled-container-shape: 8px,
+    outlined-container-shape: 8px,
+    protected-container-shape: 8px,
+    text-container-shape: 8px,
+    tonal-container-shape: 8px,
+  ));
 
+  // Icon Button Radius Override
+  @include mat.icon-button-overrides((
+    container-shape: 8px,
+  ));
+  
+  height: 100%;
+  overflow: hidden;
+
+  // Dark theme dark-mode-enabled and OS/browser prefers dark color scheme
+  &.dark-mode-enabled {
+    @media (prefers-color-scheme: dark) {
+      color-scheme: dark;
+
+      // Update CSS variables for dark mode
+      --dark-mode-bg: #1a1a1a;
+      --dark-mode-bg-secondary: #2a2a2a;
+      --dark-mode-bg-tertiary: #3a3a3a;
+      --dark-mode-text: #e0e0e0;
+      --dark-mode-text-light: #b0b0b0;
+      
+      @include mat.theme((
+        color: (
+          primary: mat.$blue-palette,
+          tertiary: mat.$cyan-palette,
+        ),
+        typography: (
+          brand-family: 'Google Sans, Roboto, sans-serif',
+          plain-family: 'Roboto, sans-serif',
+        ),
+        density: (
+          scale: 0
+        ),
+      ));
+      
+      @include mat.theme-overrides((
+        primary: #1b6fb4,
+      ));
+      
+      // Override on-primary text color to white in dark mode
+      --mat-sys-on-primary: #ffffff;
+    }
+  }
+}
+
+// Variables
 $MATERIAL_GRAY_800: #3c4043;
 $MATERIAL_GRAY_700: #5f6368;
 $MATERIAL_GRAY_300: #dadce0;
 
 $app-background-color: #f5f5f5;
+$divider-color: rgba(#000, 0.12);
+
+body {
+  height: 100%;
+  margin: 0;
+  overflow: auto;
+  background: var(--sys-surface);
+  color: var(--sys-on-surface);
+  font-family: 'Roboto', 'Helvetica Neue', sans-serif;
+
+  &.search {
+    background-color: var(--sys-surface);
+  }
+}
 
 .overlay {
   z-index: 1000;
-  inset: 0 0 0 0 absolute;
+  position: absolute; 
+  inset: 0;
   background-color: rgba(0, 0, 0, 0.2);
   display: flex;
   align-items: center;
@@ -70,29 +157,6 @@ $app-background-color: #f5f5f5;
   canvas {
     visibility: hidden;
     pointer-events: none;
-  }
-}
-
-$divider-color: rgba(#000, 0.12);
-
-html,
-body {
-  height: 100%;
-  font-family: 'Google Symbols';
-  font-family: Roboto, 'Helvetica Neue', sans-serif;
-}
-
-html {
-  overflow: hidden;
-}
-
-body {
-  background-color: $app-background-color;
-  margin: 0;
-  overflow: auto;
-
-  &.search {
-    background-color: white;
   }
 }
 
@@ -125,9 +189,10 @@ hr {
 .mat-icon {
   bottom: 1px;
   position: relative;
+  overflow: visible;
 }
 
-.mat-tooltip {
+.mat-mdc-tooltip { 
   margin: 4px;
   font-size: 12px;
 }
@@ -137,7 +202,8 @@ hr {
 }
 
 .mat-mdc-menu-content {
-  background: white;
+  background: var(--sys-surface);
+  color: var(--sys-on-surface);
 }
 
 .mat-drawer.mat-drawer-side .mat-drawer-inner-container {
@@ -151,55 +217,153 @@ hr {
 
   .mat-mdc-dialog-title {
     padding-top: 1em;
+    &::before { content: unset; 
   }
-
-  .mat-mdc-dialog-title::before {
-    content: unset;
   }
 }
 
-.mat-mdc-icon-button.mat-mdc-icon-button.mat-mdc-button-base {
+.mat-mdc-icon-button.mat-mdc-button-base {
   display: grid;
   height: auto;
-  place-content: center center;
+  place-content: center;
   padding: 0.2em;
   width: auto;
 }
 
-// Angular Material icons default to overflow hidden. This override is necessary
-// to avoid breaking layout or tests. See this pull request for the change:
-// https://github.com/angular/components/pull/12429
-.mat-icon {
-  overflow: visible;
-}
-
-.mat-dialog-container .mat-card {
-  padding: 24px;
-}
-
-.mat-dialog-container .mat-card-header-text {
-  margin: 0;
-}
-
-::-webkit-scrollbar {
-  -webkit-appearance: none;
-}
-
-::-webkit-scrollbar:horizontal {
-  height: 11px;
-}
-
-::-webkit-scrollbar:vertical {
-  width: 11px;
-}
-
+// Scrollbar Styling - Light Mode
+::-webkit-scrollbar { -webkit-appearance: none; }
+::-webkit-scrollbar:horizontal { height: 11px; }
+::-webkit-scrollbar:vertical { width: 11px; }
 ::-webkit-scrollbar-thumb {
   border-radius: 8px;
-  border: 2px solid white;
-  background-color: rgba(0, 0, 0, 0.5);
+  border: 2px solid #ffffff;
+  background-color: rgba(0, 0, 0, 0.3);
+}
+::-webkit-scrollbar-track {
+  background-color: #f5f5f5;
+  border-radius: 8px;
 }
 
-::-webkit-scrollbar-track {
-  background-color: #fff;
-  border-radius: 8px;
+// Scrollbar Styling - Dark Mode
+@media (prefers-color-scheme: dark) {
+  html.dark-mode-enabled {
+    ::-webkit-scrollbar-thumb {
+      border-radius: 8px;
+      border: 2px solid #1a1a1a;
+      background-color: rgba(255, 255, 255, 0.3);
+    }
+    ::-webkit-scrollbar-track {
+      background-color: #1a1a1a;
+      border-radius: 8px;
+    }
+  }
+}
+
+// Rotation control (OpenLayers)
+.ol-rotate-buttons {
+  position: absolute;
+  bottom: 7em;
+  right: 2.2em;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+
+  button {
+    display: block;
+    margin: 1px;
+    padding: 0;
+    color: var(--ol-subtle-foreground-color);
+    font-weight: bold;
+    text-decoration: none;
+    font-size: inherit;
+    text-align: center;
+    height: 1.375em;
+    width: 1.375em;
+    line-height: 0.4em;
+    background-color: var(--ol-background-color);
+    border: none;
+    border-radius: 2px;
+    cursor: pointer;
+
+    .material-icons {
+      font-size: 18px;
+      pointer-events: none;
+    }
+
+    &::-moz-focus-inner {
+      border: none;
+      padding: 0;
+    }
+
+    &:hover, &:focus {
+      text-decoration: none;
+      outline: 1px solid var(--ol-subtle-foreground-color);
+      color: var(--ol-foreground-color);
+    }
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :host-context(html.dark-mode-enabled) & {
+      button {
+        color: #e0e0e0;
+        background-color: var(--dark-mode-bg-secondary);
+        border-color: #e0e0e0;
+
+        &:hover, &:focus {
+          outline-color: #e0e0e0;
+          color: #fff;
+          background-color: #3a3a3a;
+        }
+      }
+    }
+  }
+}
+
+// Override Material 3 button font weights - reduce boldness
+html {
+  --mat-button-text-label-text-weight: 400;
+  --mat-button-filled-label-text-weight: 400;
+  --mat-button-outlined-label-text-weight: 400;
+  --mat-button-tonal-label-text-weight: 400;
+  --mat-button-protected-label-text-weight: 400;
+  --mat-icon-button-label-text-weight: 400;
+  --mat-icon-button-selected-label-text-weight: 400;
+  --mat-dialog-container-shape: 8px;
+}
+
+// icon font weight
+.mat-mdc-icon-button {
+  font-weight: 400 !important;
+}
+
+// Context menu dark mode (CDK Menu overlays render outside component scope)
+@media (prefers-color-scheme: dark) {
+  html.dark-mode-enabled .context-menu {
+    background: var(--dark-mode-bg-secondary);
+    color: #e0e0e0;
+  }
+}
+
+// Annotation info overlay dark mode (overlays render outside component scope)
+@media (prefers-color-scheme: dark) {
+  html.dark-mode-enabled .annotation-info-overlay {
+    background: var(--dark-mode-bg-secondary);
+    color: #e0e0e0;
+  }
+}
+
+// Slide data dialog scrolling
+.cdk-overlay-pane .slide-data-dialog-panel {
+  max-height: 80vh !important;
+
+  .mat-mdc-dialog-container {
+    max-height: 80vh !important;
+    height: 80vh !important;
+  }
+
+  .mat-mdc-dialog-content {
+    overflow-y: auto !important;
+    max-height: calc(80vh - 140px) !important;
+  }
 }

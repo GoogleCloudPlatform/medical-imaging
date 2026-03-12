@@ -18,14 +18,20 @@
     {{ title }}
 </div>
 <div mat-dialog-content>
-    <button *ngFor="let cohort of cohorts" mat-button [mat-dialog-close]="cohort.name" class="menu-item"
-        class="cohort-entry">
-        <mat-icon>view_stream</mat-icon>
-        <span>
-            {{ cohort.displayName }}
-        </span>
+  @for (cohort of cohorts; track cohort) {
+    <button mat-button [mat-dialog-close]="cohort.name" class="menu-item"
+      class="cohort-entry">
+      <mat-icon>view_stream</mat-icon>
+      <span>
+        {{ cohort.displayName }}
+      </span>
     </button>
-    <mat-progress-spinner diameter="20" *ngIf="loadingCohorts">
+  }
+  @if (loadingCohorts) {
+    <mat-progress-spinner diameter="20">
     </mat-progress-spinner>
-    <div *ngIf="cohorts.length === 0">You have no cohorts that can be added to.</div>
+  }
+  @if (cohorts.length === 0) {
+    <div>You have no cohorts that can be added to.</div>
+  }
 </div>

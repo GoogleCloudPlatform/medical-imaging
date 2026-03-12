@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-import { BehaviorSubject, Observable, ReplaySubject } from 'rxjs';
+import { BehaviorSubject, Observable, ReplaySubject, throwError } from 'rxjs';
 import { DiagnosticReport, FhirSearchResults } from '../interfaces/fhir_store';
 import { Injectable, OnDestroy, isDevMode } from '@angular/core';
 import { catchError, finalize, map, switchMap, takeUntil, tap } from 'rxjs/operators';
 
 import { AuthService } from './auth.service';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { LogService } from './log.service';
 import { SearchDiagnosticReportSort } from '../interfaces/fhir_store';
 import { WindowService } from './window.service';
@@ -95,16 +95,13 @@ export class FhirStoreService
 
     return this.authService.getOAuthToken().pipe(
       takeUntil(this.destroyed$), switchMap((accessToken) => {
-        const headers: {
-          authorization: string,
-          prefer?: string,
-        } = {
-          'authorization': 'Bearer ' + accessToken,
-          prefer: 'handling=strict',
-        };
-
-        if (!isDevMode()) {
-          delete headers.prefer;
+        if (!accessToken) {
+          return throwError(() => new Error('No OAuth token available'));
+        }
+        const email = this.authService.getUserEmail?.();
+        let headers = new HttpHeaders({ Authorization: 'Bearer ' + accessToken });
+        if (email) {
+          headers = headers.set('user-identity', `application:${email}`);
         }
 
         const searchUrl = this.computeSearchDiagnosticReportURL(params);
@@ -114,7 +111,7 @@ export class FhirStoreService
         }
         return this.http
           .get<FhirSearchResults>(
-            searchUrl, { headers, withCredentials: false })
+            searchUrl, { headers })
           .pipe(
             takeUntil(this.destroyed$),
             map((searchResults: FhirSearchResults) => {

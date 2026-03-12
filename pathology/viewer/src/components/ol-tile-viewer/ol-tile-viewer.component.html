@@ -21,9 +21,10 @@ class="ol-map"
 (contextmenu)="$event.preventDefault();">
 <!-- Canvas will be added here -->
 </div>
-<div 
-*ngIf="olMap  && !slideInfo?.isFlatImage" 
-class="zoom-level-label" 
-[style.display]="isOverviewMapOpened ? 'grid' : 'none'">
-{{magnificationLevel}}x
-</div>
+@if (olMap  && !slideInfo?.isFlatImage) {
+  <div
+    class="zoom-level-label"
+    [style.display]="isOverviewMapOpened ? 'grid' : 'none'">
+    {{magnificationLevel}}x
+  </div>
+}

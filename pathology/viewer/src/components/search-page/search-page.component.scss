@@ -103,6 +103,12 @@ mat-sidenav-container {
   grid-gap: 0em 1em;
   justify-content: center;
   padding: 1em 0;
+
+  @media (prefers-color-scheme: dark) {
+    :host-context(html.dark-mode-enabled) & {
+      background-color: var(--dark-mode-bg-secondary);
+    }
+  }
 }
 
 .bar {
@@ -113,6 +119,12 @@ mat-sidenav-container {
   padding: 1em;
   justify-content: center;
   grid-template-columns: max-content min-content;
+
+  @media (prefers-color-scheme: dark) {
+    :host-context(html.dark-mode-enabled) & {
+      background-color: var(--dark-mode-bg-secondary);
+    }
+  }
 }
 
 .bar ::ng-deep {
@@ -169,6 +181,12 @@ img {
 .search-tip-section {
   font-size: 0.8em;
   color: #5f6368;
+
+  @media (prefers-color-scheme: dark) {
+    :host-context(html.dark-mode-enabled) & {
+      color: var(--dark-mode-text-light);
+    }
+  }
 }
 
 .search-tip-title {
@@ -186,4 +204,10 @@ img {
 
 body {
   background-color: white;
+
+  @media (prefers-color-scheme: dark) {
+    :host-context(html.dark-mode-enabled) & {
+      background-color: var(--dark-mode-bg);
+    }
+  }
 }

@@ -38,7 +38,6 @@ import {ImageViewerPageStore} from '../../stores/image-viewer-page.store';
  */
 @Component({
   selector: 'side-nav',
-  standalone: true,
   imports: [
     IccProfileTypeToLabelPipe,
     RouterModule,
@@ -61,7 +60,7 @@ export class SideNavComponent implements OnInit, OnDestroy {
   showXYZCoordinates = false;
   iccProfileType = [
     IccProfileType.NO, IccProfileType.ADOBERGB, IccProfileType.ROMMRGB,
-    IccProfileType.SRGB
+    IccProfileType.SRGB, IccProfileType.DISPLAYP3
   ];
 
   isSlideSelected = false;

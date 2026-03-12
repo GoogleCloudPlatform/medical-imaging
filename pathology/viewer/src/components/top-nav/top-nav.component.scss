@@ -17,6 +17,7 @@
 @use '../../styles';
 
 $primary_blue: #d3e3fd;
+$primary_blue_dark: #1a3a52;
 $MATERIAL_GRAY_700: gray;
 
 .container {
@@ -25,6 +26,13 @@ $MATERIAL_GRAY_700: gray;
   color: $MATERIAL_GRAY_700;
   display: grid;
   grid-template-columns: 250px 1fr;
+
+  @media (prefers-color-scheme: dark) {
+    :host-context(html.dark-mode-enabled) & {
+      background: var(--dark-mode-bg);
+      color: #b0b0b0;
+    }
+  }
 }
 
 .left {
@@ -53,6 +61,12 @@ $MATERIAL_GRAY_700: gray;
   background: $primary_blue;
   display: flex;
   padding: 0 1em 0 0;
+
+  @media (prefers-color-scheme: dark) {
+    :host-context(html.dark-mode-enabled) & {
+      background: $primary_blue_dark;
+    }
+  }
 }
 
 .crumb {

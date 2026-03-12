@@ -57,7 +57,6 @@ $light_gray: #5f6368;
 
 .image-viewer-side-nav {
   height: 80vh;
-  background: white;
   display: grid;
   grid-template-rows: 1fr min-content min-content;
   mat-expansion-panel-header {
@@ -81,6 +80,7 @@ $light_gray: #5f6368;
   align-items: center;
   justify-content: space-between;
   width: 100%;
+  font-weight: 400;
 
   .title-label {
     align-items: center;
@@ -147,7 +147,7 @@ $light_gray: #5f6368;
     }
   }
   .viewer-action-selected {
-    background: $light_blue;
+    background: rgb(14, 179, 20);
   }
 }
 
