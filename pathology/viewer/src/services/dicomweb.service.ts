@@ -16,44 +16,22 @@
 
 import {Case, Patient, RECORD_ID_TYPE_META, RecordIdType, Slide} from '../interfaces/hierarchy_descriptor';
 import {DicomModality, DicomModel, DicomTag, PersonName, formatDate, formatName, isPatients} from '../interfaces/dicom_descriptor';
-import {Observable, defer, merge, throwError} from 'rxjs';
-import {catchError, filter, first, map, mergeAll, switchMap, toArray} from 'rxjs/operators';
+import {Observable, defer, merge, of, throwError, BehaviorSubject, EMPTY} from 'rxjs';
+import {catchError, filter, first, map, mergeAll, switchMap, toArray, expand, delay, reduce} from 'rxjs/operators';
 
 import {AuthService} from './auth.service';
 import {HttpClient} from '@angular/common/http';
+import {ImageTile} from '../interfaces/image_tile';
 import {Injectable} from '@angular/core';
 import {LogService} from './log.service';
 import {PathologySlide} from '../interfaces/slide_descriptor';
+import {SlideDescriptor, SlideInfo } from '../interfaces/slide_descriptor';
 import {encodeByteArray} from '../utils/crypt';
 import {environment} from '../environments/environment';
 import {DicomWebUrlConfig, constructDicomWebUrl, parseDICOMwebUrl} from '../interfaces/dicomweb';
-import {CompressionType} from '../interfaces/types';
+import {CompressionType, IccProfileType} from '../interfaces/types';
 
 const DICOM_URI_VALIDATOR = new RegExp('^.*studies/[0-9.]*');
-
-/**
- * Icc profile settings.
- */
-export enum IccProfileType {
-  NONE = '',  // if none option needed, assuming yes for default
-  NO = 'no',
-  YES = 'yes',
-  ADOBERGB = 'adobergb',  // Adobe RGB
-  ROMMRGB = 'rommrgb',
-  SRGB = 'srgb',
-}
-
-/**
- * Icc profile setting to readable labels
- */
-export const iccProfileTypeToLabel = new Map<IccProfileType, string>([
-  [IccProfileType.NONE, 'None'],
-  [IccProfileType.NO, 'No'],
-  [IccProfileType.YES, 'Yes'],
-  [IccProfileType.ADOBERGB, 'Adobe RGB'],
-  [IccProfileType.ROMMRGB, 'Reference Output Medium Metric (ROMM RGB)'],
-  [IccProfileType.SRGB, 'Standard RGB'],
-]);
 
 const UNKNOWN_CASE_ID = 'Unknown Case ID';
 const UNKNOWN_DEID_CASE_ID = 'Unknown Case ID';
@@ -68,12 +46,61 @@ export class DicomwebService {
   // non-alpha numeric symbol, for example: TS-01-1-A1-3
   // The following regex captures all segments including any prefix separator.
   private readonly slideLabelTextSegment = new RegExp('\\W?\\w+', 'g');
+  slideDescriptors$: BehaviorSubject<SlideDescriptor[]> = new BehaviorSubject<SlideDescriptor[]>([]);
 
   constructor(
     private readonly http: HttpClient,
     private readonly authService: AuthService,
     private readonly logService: LogService,
   ) { }
+
+  getImageTile(
+    path: string, slideInfo: SlideInfo, tile: ImageTile,
+    iccProfile = IccProfileType.NONE): Observable<string> {
+    const zoomLevel = slideInfo.levelMap[tile.scale];
+    const { tileSize } = zoomLevel;
+
+    const tilesPerWidth = Math.ceil(Number(zoomLevel.width) / tileSize);
+
+    // Flooring because in cases that the whole slide fits the tile, the tile
+    // size can be smaller than a normal tile. Fraction should only happen in
+    // such a scenario.
+    const locationWidth = Math.floor(tile.corner.x / tileSize);
+    const locationHeight = Math.floor(tile.corner.y / tileSize);
+
+    const frameNum =
+      locationHeight * tilesPerWidth + locationWidth % tilesPerWidth;
+
+    let offset = 0;
+    let frame;
+    let instUID = '';
+    let downSampleMultiplier = 0;
+
+    for (let i = 0; i < zoomLevel.properties.length; i++) {
+      if (frameNum >= offset + zoomLevel.properties[i].frames) {
+        offset = offset + zoomLevel.properties[i].frames;
+        continue;
+      }
+      frame = frameNum - offset + 1;
+      instUID = zoomLevel.properties[i].instanceUid;
+      downSampleMultiplier = zoomLevel.downSampleMultiplier ?? 0;
+      break;
+    }
+
+    if (typeof frame === 'undefined' || !instUID) {
+      return of('');
+    }
+
+    if (slideInfo.isFlatImage) {
+      return this.getFlatImage(path, instUID);
+    }
+
+    const encoded = this.getEncodedImageTile(
+      path, instUID, frame, downSampleMultiplier,
+      iccProfile);
+
+    return encoded;
+  }
 
   // disableServerCaching - is only valid when using the tile proxy.
   getEncodedImageTile(
@@ -117,7 +144,7 @@ export class DicomwebService {
     disableServerCaching = false) {
     const frameCSV = frames.join(',');
     let url =
-      `${dicomStore}${path}/instances/${instUID}/frames/${frameCSV}`;
+      `${path}/instances/${instUID}/frames/${frameCSV}`;
     let isFirst = true;
     if (downSampleMultiplier) {
       url += `?downsample=${downSampleMultiplier}`;
@@ -146,14 +173,18 @@ export class DicomwebService {
   private httpGetStringEncodedImage(
     url: string, compressionType: CompressionType = CompressionType.DEFAULT): Observable<string> {
     return this.authService.getOAuthToken().pipe(switchMap((accessToken) => {
+      const headers: { [key: string]: string } = {
+        'Accept': compressionType + ',multipart/related',
+      };
+      if (accessToken) {
+        headers['Authorization'] = 'Bearer ' + accessToken;
+      }
+
       return this.http
         .get(url, {
-          headers: {
-            'Accept': compressionType + ',multipart/related',
-            'Authorization': 'Bearer ' + (accessToken ?? ''),
-          },
+          headers,
           responseType: 'arraybuffer',
-          withCredentials: false
+          withCredentials: environment.USE_CREDENTIALS
         })
         .pipe(
           map(buffer => {
@@ -168,15 +199,18 @@ export class DicomwebService {
   }
 
 
-  private httpGetText(url: string):
-    Observable<string> {
+  private httpGetText(url: string): Observable<string> {
     return this.authService.getOAuthToken().pipe(switchMap((accessToken) => {
+      const headers: { [key: string]: string } = {};
+      if (accessToken) {
+        headers['Authorization'] = 'Bearer ' + accessToken;
+      }
+
       return this.http
         .get(url, {
-          headers: {
-            'Authorization': 'Bearer ' + accessToken,
-          },
+          headers,
           responseType: 'text',
+          withCredentials: environment.USE_CREDENTIALS
         })
         .pipe(catchError(val => {
           this.logService.error({
@@ -374,10 +408,45 @@ export class DicomwebService {
   getInstancesByStudy(
     pathToStudy: string, dicomModality = DicomModality.SLIDE_MICROSCOPY):
     Observable<DicomModel[]> {
-    return this
-      .httpGetText(
-        `${pathToStudy}/instances?modality=${dicomModality}&includefield=${DicomTag.CONTAINER_IDENTIFIER}`)
-      .pipe(first(), map(response => JSON.parse(response) as DicomModel[]));
+    return this.getAllInstancesByStudyPaginated(pathToStudy, dicomModality);
+  }
+
+  private getAllInstancesByStudyPaginated(
+    pathToStudy: string, 
+    dicomModality = DicomModality.SLIDE_MICROSCOPY,
+    limit = 500
+  ): Observable<DicomModel[]> {
+    return this.fetchInstancesPage(pathToStudy, dicomModality, 0, limit).pipe(
+      expand((result: {instances: DicomModel[], offset: number}) => {
+        // Continue fetching if we got a full page of results
+        if (result.instances.length === limit) {
+          const nextOffset = result.offset + limit;
+          return this.fetchInstancesPage(pathToStudy, dicomModality, nextOffset, limit).pipe(
+            delay(10)
+          );
+        }
+        return EMPTY;
+      }),
+      map((result: {instances: DicomModel[], offset: number}) => result.instances),
+      reduce((acc: DicomModel[], instances: DicomModel[]) => [...acc, ...instances], [])
+    );
+  }
+
+  private fetchInstancesPage(
+    pathToStudy: string,
+    dicomModality: string,
+    offset: number,
+    limit: number
+  ): Observable<{instances: DicomModel[], offset: number}> {
+    const url = `${pathToStudy}/instances?modality=${dicomModality}&includefield=${DicomTag.CONTAINER_IDENTIFIER}&limit=${limit}&offset=${offset}`;
+    
+    return this.httpGetText(url).pipe(
+      first(),
+      map(response => ({
+        instances: JSON.parse(response) as DicomModel[],
+        offset
+      }))
+    );
   }
 }
 
@@ -433,10 +502,9 @@ export function computeDicomUrisByCaseId(slides: PathologySlide[]):
 export function updatePatient(dicomModel: DicomModel, patient: Patient) {
   const patientNameInstanceValue = dicomModel[DicomTag.PATIENT_NAME]?.Value;
   const personName: PersonName | undefined =
-    patientNameInstanceValue?.constructor !== Array &&
-      isPatients(patientNameInstanceValue) ?
-      patientNameInstanceValue[0] :
-      undefined;
+    Array.isArray(patientNameInstanceValue) && isPatients(patientNameInstanceValue)
+    ? patientNameInstanceValue[0]
+    : undefined;
 
   patient.name ??= formatName(personName);
 

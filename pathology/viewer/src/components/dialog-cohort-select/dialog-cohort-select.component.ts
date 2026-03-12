@@ -38,12 +38,10 @@ export interface SelectCohortDialogData {
  */
 @Component({
   selector: 'dialog-cohort-select',
-  standalone: true,
   imports: [
     MatProgressSpinnerModule,
     MatIconModule,
-    MatDialogModule,
-    CommonModule,
+    MatDialogModule
   ],
   templateUrl: './dialog-cohort-select.component.html',
   styleUrl: './dialog-cohort-select.component.scss'

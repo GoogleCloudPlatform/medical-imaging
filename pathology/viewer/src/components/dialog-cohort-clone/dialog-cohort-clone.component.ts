@@ -33,10 +33,9 @@ import {DialogService} from '../../services/dialog.service';
  */
 @Component({
   selector: 'dialog-cohort-clone',
-  standalone: true,
   imports: [
     MatDialogModule, FormsModule, ReactiveFormsModule, MatFormFieldModule,
-    MatInputModule, MatButtonModule, CommonModule
+    MatInputModule, MatButtonModule
   ],
   templateUrl: './dialog-cohort-clone.component.html',
   styleUrl: './dialog-cohort-clone.component.scss'
@@ -72,9 +71,7 @@ export class DialogCohortCloneComponent implements OnDestroy {
     }
     this.okDisabled = true;
 
-    const snackBarConfig = new MatSnackBarConfig();
-    snackBarConfig.duration = 2000;
-    this.snackBar.open('Cloning cohort...', '', snackBarConfig);
+    this.dialogService.info('Cloning cohort...');
 
     this.cohortService
         .copyCohort(

@@ -127,6 +127,26 @@ $light_gray: #5f6368;
       background-color: #1a73e8;
     }
   }
+
+  @media (prefers-color-scheme: dark) {
+    :host-context(html.dark-mode-enabled) & {
+      border-color: #555;
+      background: #2a2a2a;
+      color: #888;
+
+      &:hover {
+        color: #aaa;
+      }
+
+      &.selected {
+        background-color: #1f5fbf;
+        color: #e0e0e0;
+        &:hover {
+          background-color: #1a4a99;
+        }
+      }
+    }
+  }
 }
 
 .disable-selecting .select-button {
@@ -296,6 +316,10 @@ mat-list-option {
     height: $thumbnail_image_height;
     overflow: hidden;
     outline: 1px solid #dadce0;
+
+    :host-context(html.dark-mode-enabled) & {
+      outline: 1px solid #555;
+    }
   }
 
   .thumbnail-image-empty {

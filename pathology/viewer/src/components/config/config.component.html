@@ -27,10 +27,18 @@
         <p>Or provide a full URL your DICOMWeb endpoint (may include path to series UID)</p>
         <input type="text" id="endpointUrl" formControlName="endpointUrl"
           placeholder="DICOM store pathway or DICOMweb URL">
-        <div *ngIf="isLoading" class="spinner"></div>
-        <div *ngIf="testResult === 'success'" class="checkmark">✓</div>
-        <div *ngIf="testResult === 'error'" class="crossmark">✗</div>
-        <div *ngIf="errorMessage" class="error-message">{{errorMessage}}</div>
+        @if (isLoading) {
+          <div class="spinner"></div>
+        }
+        @if (testResult === 'success') {
+          <div class="checkmark">✓</div>
+        }
+        @if (testResult === 'error') {
+          <div class="crossmark">✗</div>
+        }
+        @if (errorMessage) {
+          <div class="error-message">{{errorMessage}}</div>
+        }
         <p>If you wish to create annotations, enter the DICOM store path or DICOMweb endpoint corresponding to the store
           used to write annotations. This may be the same store as above:</p>
         <p>The logged in user must have read and write permissions to write permissions to this store.</p>

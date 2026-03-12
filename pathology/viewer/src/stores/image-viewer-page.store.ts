@@ -16,15 +16,15 @@
 
 import {HttpStatusCode} from '@angular/common/http';
 import {Injectable, OnDestroy} from '@angular/core';
-import {ActivatedRoute, NavigationStart, Router} from '@angular/router';
+import {ActivatedRoute, Router} from '@angular/router';
 import * as ol from 'ol';
 import {Feature} from 'ol';
 import {Coordinate} from 'ol/coordinate';
 import {Geometry, LineString, Point, Polygon} from 'ol/geom';
 import {Modify} from 'ol/interaction';
 import {Vector} from 'ol/source';
-import {BehaviorSubject, combineLatest, EMPTY, forkJoin, Observable, of, ReplaySubject} from 'rxjs';
-import {catchError, distinctUntilChanged, filter, map, switchMap, takeUntil, tap} from 'rxjs/operators';
+import {BehaviorSubject, combineLatest, filter, take, EMPTY, forkJoin, Observable, of, ReplaySubject} from 'rxjs';
+import {catchError, distinctUntilChanged, map, switchMap, takeUntil, tap} from 'rxjs/operators';
 
 import {CohortPageParams, DEFAULT_VIEWER_URL, ImageViewerPageParams} from '../app/app.routes';
 import {environment} from '../environments/environment';
@@ -39,6 +39,7 @@ import {DialogService} from '../services/dialog.service';
 import {DicomAnnotationsService} from '../services/dicom-annotations.service';
 import {SlideApiService} from '../services/slide-api.service';
 import {UserService} from '../services/user.service';
+import { SlideDataService } from '../services/slide-data.service';
 
 /**
  * Store to connect all children of the  Image Viewer page.
@@ -46,8 +47,8 @@ import {UserService} from '../services/user.service';
 @Injectable({ providedIn: 'root' })
 export class ImageViewerPageStore implements OnDestroy {
     caseId = '';
+    caseId$ = new BehaviorSubject<string>('');
     iccProfile$ = new BehaviorSubject<IccProfileType>(IccProfileType.ADOBERGB);
-    private lastSeries?: string;
 
 
     isMultiViewSlidePicker$ = new BehaviorSubject<boolean>(false);
@@ -103,6 +104,7 @@ export class ImageViewerPageStore implements OnDestroy {
         private readonly userService: UserService,
         private readonly slideApiService: SlideApiService,
         private readonly router: Router,
+        private readonly slideDataService: SlideDataService,
     ) {
         this.setup();
     }
@@ -161,8 +163,12 @@ export class ImageViewerPageStore implements OnDestroy {
 
                     this.selectedInstanceIdsBySlideDescriptorId$.value.set(
                         slideDescriptorId, annotationInstanceIds);
+                    // Deduplicate annotation instances by instanceUID to prevent duplicates
+                    const deduplicatedInstances = Array.from(
+                      this.dicomAnnotationsService.getDeduplicatedInstancesMap(
+                        dicomAnnotationInstances).values());
                     this.annotationInstancesBySlideDescriptorId$.value.set(
-                        slideDescriptorId, dicomAnnotationInstances);
+                      slideDescriptorId, deduplicatedInstances);
 
                     if (newAnnotationInstance?.path.instanceUID) {
                         const annotationsDicomModelByAnnotationInstanceId =
@@ -243,9 +249,13 @@ export class ImageViewerPageStore implements OnDestroy {
         annotationInstances = annotationInstances.filter((annotationInstance) => {
             return annotationInstance.annotatorId !== this.currentUser;
         });
+        // Deduplicate annotation instances by instanceUID to prevent duplicates
+        const deduplicatedInstances = Array.from(
+          this.dicomAnnotationsService.getDeduplicatedInstancesMap(
+            annotationInstances).values());
 
         annotationInstancesBySlideDescriptorId.set(
-            slideDescriptorId, annotationInstances);
+            slideDescriptorId, deduplicatedInstances);
 
         this.annotationInstancesBySlideDescriptorId$.next(
             annotationInstancesBySlideDescriptorId);
@@ -689,22 +699,30 @@ export class ImageViewerPageStore implements OnDestroy {
                         splitViewSlideDescriptorsFiltered
                             .map((slideDescriptor) => {
                                 const slideDescriptorId = slideDescriptor.id as string;
-                                return [
-                                    this.fetchSlideInfo(slideDescriptorId)
-                                        .pipe(
-                                            switchMap((slideInfo) => {
-                                                if (!slideInfo) return EMPTY;
-                                                return this.fetchAnnotationInstances(
-                                                    slideDescriptorId, slideInfo);
-                                            }),
-                                        ),
-                                    this.fetchSlideExtraMetadata(slideDescriptorId),
-                                ];
-                            })
-                            .flat()
-                            .filter((fetchObservable) => {
-                                return fetchObservable !== undefined;
-                            });
+                                return this.slideDataService.fetchSlideInfo(
+                                  slideDescriptorId,
+                                  this.slideInfoBySlideDescriptorId$.value,
+                                  this.slideInfoBySlideDescriptorId$
+                                ).pipe(
+                                  switchMap(() =>
+                                    this.slideInfoBySlideDescriptorId$.pipe(
+                                      map((mapVal) => mapVal.get(slideDescriptorId)),
+                                      filter((slideInfo): slideInfo is SlideInfo => !!slideInfo),
+                                      take(1), // Ensures we only get the first non-null value
+                                      switchMap((slideInfo) =>
+                                        forkJoin([
+                                          this.slideDataService.fetchSlideExtraMetadata(
+                                            slideDescriptorId,
+                                            this.slideMetaDataBySlideDescriptorId$.value,
+                                            this.slideMetaDataBySlideDescriptorId$
+                                          ),
+                                          this.fetchAnnotationInstances(slideDescriptorId, slideInfo),
+                                        ])
+                                      )
+                                    )
+                                  )
+                                );
+                              });
 
                     return combineLatest(fetchObservables);
                 }),
@@ -713,17 +731,6 @@ export class ImageViewerPageStore implements OnDestroy {
     }
 
     private setupRouteHandling() {
-        this.router.events
-            .pipe(
-                takeUntil(this.destroy$),
-                filter((e): e is NavigationStart => e instanceof NavigationStart),
-                tap((e) => {
-                    if (!e.url.startsWith(DEFAULT_VIEWER_URL)) {
-                        this.resetMultiViewState(true);
-                    }
-                }),
-            )
-            .subscribe();
         this.activatedRoute.queryParams
             .pipe(
                 takeUntil(this.destroy$),
@@ -782,6 +789,7 @@ export class ImageViewerPageStore implements OnDestroy {
                     }
                     if (!this.caseId) {
                         this.caseId = study;
+                        this.caseId$.next(this.caseId);
                         study = '';
                     }
 
@@ -796,10 +804,6 @@ export class ImageViewerPageStore implements OnDestroy {
                                 this.slideDescriptorsByCaseId$.next(
                                     slideDescriptorsByCaseId);
                             });
-                    }
-
-                    if (series !== this.lastSeries) {
-                        this.resetMultiViewState(false);
                     }
 
                     const splitViewSlideDescriptors = series.split(',').map((a => {
@@ -818,78 +822,33 @@ export class ImageViewerPageStore implements OnDestroy {
                         splitViewSlideDescriptors[this.multiViewScreenSelectedIndex$
                             .value] ??
                         splitViewSlideDescriptors[0]);
-                    // Track last series to detect slide/case changes
-                    this.lastSeries = series;
                 }),
             )
             .subscribe();
     }
 
-    /**
-     * Reset multiview UI state.
-     * @param full When true, also reset screens and descriptors (leaving viewer).
-     */
-    private resetMultiViewState(full: boolean) {
-        // Always close the picker and set selected index to 0
-        if (this.isMultiViewSlidePicker$.value) {
-            this.isMultiViewSlidePicker$.next(false);
-        }
-        if (this.multiViewScreenSelectedIndex$.value !== 0) {
-            this.multiViewScreenSelectedIndex$.next(0);
-        }
+fetchMetadataForDescriptorId(descriptorId: string): Observable<SlideExtraMetadata | null> {
+  // Check if the metadata is already in the store
+  if (this.slideMetaDataBySlideDescriptorId$.value.has(descriptorId)) {
+    return of(this.slideMetaDataBySlideDescriptorId$.value.get(descriptorId) || null);
+  }
 
-        if (full) {
-            if (this.multiViewScreens$.value !== 1) {
-                this.multiViewScreens$.next(1);
-            }
-            if (this.splitViewSlideDescriptors$.value.length) {
-                this.splitViewSlideDescriptors$.next([]);
-            }
-            if (this.selectedSplitViewSlideDescriptor$.value) {
-                this.selectedSplitViewSlideDescriptor$.next(undefined);
-            }
-        }
-    }
-
-    private fetchSlideInfo(slideDescriptorId: string) {
-        if (this.slideInfoBySlideDescriptorId$.value.has(slideDescriptorId)) {
-            return EMPTY;
-        }
-
-        return this.slideApiService.getSlideInfo(slideDescriptorId)
-            .pipe(
-                tap((selectedSlideInfo) => {
-                    const slideInfoBySlideDescriptor =
-                        this.slideInfoBySlideDescriptorId$.value;
-                    slideInfoBySlideDescriptor.set(
-                        slideDescriptorId, selectedSlideInfo);
-
-                    this.slideInfoBySlideDescriptorId$.next(
-                        slideInfoBySlideDescriptor);
-                }),
-            );
-    }
-
-    private fetchSlideExtraMetadata(slideDescriptorId: string) {
-        if (this.slideMetaDataBySlideDescriptorId$.value.has(slideDescriptorId)) {
-            return EMPTY;
-        }
-
-        return this.slideApiService.getSlideExtraMetadata(slideDescriptorId)
-            .pipe(
-                map((slideMetadata) => {
-                    const slideMetaDataBySlideDescriptor =
-                        this.slideMetaDataBySlideDescriptorId$.value;
-                    slideMetaDataBySlideDescriptor.set(
-                        slideDescriptorId, slideMetadata);
-
-                    return slideMetaDataBySlideDescriptor;
-                }),
-                tap((slideMetaDataBySlideDescriptor) => {
-                    this.slideMetaDataBySlideDescriptorId$.next(
-                        slideMetaDataBySlideDescriptor);
-                }));
-    }
+  // If not in the store, fetch it directly
+  return this.slideDataService.fetchSlideExtraMetadata(
+    descriptorId,
+    new Map(), // Pass an empty map since we're fetching directly
+    { next: () => {} } // Pass a dummy next function since we don't want to update the store
+  ).pipe(
+    map(metadataMap => metadataMap.get(descriptorId) || null),
+    switchMap((metadata) => {
+      if(metadata){
+        return of(metadata);
+      } else {
+        return of(null);
+      }
+    })
+  );
+}
 
     private fetchAnnotationInstances(
         slideDescriptorId: string, slideInfo: SlideInfo) {
@@ -906,9 +865,11 @@ export class ImageViewerPageStore implements OnDestroy {
             .fetchDicomAnnotationInstances(slidePath, slideInfo)
             .pipe(
                 map((annotationInstances) => {
-                    annotationInstances =
+                    const deduplicatedByInstanceMap =
                         this.dicomAnnotationsService
-                            .getUniqueAnnotationInstances(annotationInstances)
+                            .getDeduplicatedInstancesMap(annotationInstances);
+                    annotationInstances =
+                        Array.from(deduplicatedByInstanceMap.values())
                             .sort((a, b) => {
                                 return a.annotatorId.localeCompare(b.annotatorId);
                             });

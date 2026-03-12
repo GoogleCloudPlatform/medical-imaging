@@ -16,7 +16,7 @@
 
 import {Injectable, OnDestroy} from '@angular/core';
 import {Params, Router, UrlSerializer} from '@angular/router';
-import {BehaviorSubject, combineLatest, Observable, of, ReplaySubject, Subscription} from 'rxjs';
+import {BehaviorSubject, combineLatest, Observable, of, ReplaySubject, Subscription, throwError} from 'rxjs';
 import {catchError, distinctUntilChanged, filter, finalize, first, ignoreElements, map, mergeMap, switchMap, takeUntil, tap} from 'rxjs/operators';
 
 import {environment} from '../environments/environment';
@@ -348,7 +348,11 @@ export class CohortService implements OnDestroy {
     return this.orchestratorService.sharePathologyCohort(cohortShareRequest)
         .pipe(
             tap((cohort: PathologyCohort) => {
-              this.selectedPathologyCohort$.next(cohort);
+              if (cohort?.name) {
+                this.fetchPathologyCohort(cohort.name);
+              } else {
+                this.selectedPathologyCohort$.next(cohort);
+              }
             }),
             catchError((error) => {
               const invalidUsersErrorIndex =
@@ -796,8 +800,7 @@ export class CohortService implements OnDestroy {
             message: JSON.stringify(error),
             stack: 'cohort_service',
           });
-          this.dialogService.error('Failed to export cohort.');
-          return of(false);
+          return throwError(() => error);
         }),
     );
   }

@@ -18,9 +18,9 @@ import { isPlatformBrowser } from '@angular/common';
 import { Inject, Injectable, PLATFORM_ID } from '@angular/core';
 
 /**
- * The key used to store the credentials in the local storage.
+ * The key used to store the IAP authentication data in local storage.
  */
-export const CREDENTIAL_STORAGE_KEY = 'credential';
+export const DPAS_IAP_KEY = 'DPAS_IAP_KEY';
 
 /**
  * A service that provides access to the window object.
@@ -78,6 +78,27 @@ export class WindowService {
       .documentElement.textContent ?? '';
   }
 
-  
+  clearAllCookies(): void {
+    if (!this.window) return;
+    
+    const cookies = this.window.document.cookie.split(';');
+    for (const cookie of cookies) {
+      const eqPos = cookie.indexOf('=');
+      const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+      if (name) {
+        this.window.document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+        const domain = this.window.location.hostname;
+        if (domain.includes('.')) {
+          const parentDomain = '.' + domain.split('.').slice(-2).join('.');
+          this.window.document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${parentDomain}`;
+        }
+      }
+    }
+  }
+
+  forceReload(): void {
+    if (!this.window) return;
+    this.window.location.reload();
+  }
 }
 

@@ -38,6 +38,7 @@ import {DialogService} from '../../services/dialog.service';
 import {LogService} from '../../services/log.service';
 import {UserService} from '../../services/user.service';
 import {WindowService} from '../../services/window.service';
+import { FormControl } from '@angular/forms';
 
 const COHORT_ROLE_LABELS = {
   owner: 'PATHOLOGY_USER_ACCESS_ROLE_OWNER',
@@ -60,7 +61,6 @@ const EMAIL_VALIDATOR = /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/;
  */
 @Component({
   selector: 'dialog-cohort-share',
-  standalone: true,
   imports: [
     CommonModule,
     MatSelectModule,
@@ -92,6 +92,7 @@ export class DialogCohortShareComponent implements OnDestroy {
       COHORT_ROLE_LABELS.viewer as PathologyUserAccessRole;
   selectedCohort?: PathologyCohort;
   showDeIdWarning = this.cohortService.selectedCohortInfo$.value?.isDeid;
+  invalidEmails = new FormControl<string | null>(null);
 
   readonly pathologyUserRoles = COHORT_ROLE_LABELS;
   readonly pathologyCohortAccess = COHORT_ACCESS_LABELS;
@@ -136,6 +137,17 @@ export class DialogCohortShareComponent implements OnDestroy {
   }
 
   set emails(emails: string[]) {
+    this.dialogService.info(`Validating emails...`);
+    const invalidEmails = emails.filter((email: string) => {
+      return !EMAIL_VALIDATOR.test(email);
+    });
+    if (invalidEmails.length > 0) {
+      this.invalidEmails.setErrors({
+        invalidEmails: invalidEmails.join(', ')
+      });
+    } else {
+      this.invalidEmails.setErrors(null); // clear previous errors
+    }
     const parseEmails = emails.filter((email: string) => {
       return EMAIL_VALIDATOR.test(email);
     });
@@ -261,9 +273,9 @@ export class DialogCohortShareComponent implements OnDestroy {
         stack: 'share_cohort_dialog',
       });
     }
-    this.snackBar.open(
-        copySuccessful ? 'URL copied.' : 'URL copy failed.', '',
-        snackBarConfig);
+    this.dialogService.info(
+        copySuccessful ? 'URL copied.' : 'URL copy failed.'
+    );
   }
 
   generalAccessChanged(): void {
@@ -371,7 +383,7 @@ export class DialogCohortShareComponent implements OnDestroy {
     this.cohortService.unselectCohort();
     this.cohortService.reloadCohortInfos();
 
-    this.router.navigateByUrl('/');
+    this.router.navigateByUrl('/search');
   }
 
   private validateCurretUserHasAccess(pathologyUserAccess:

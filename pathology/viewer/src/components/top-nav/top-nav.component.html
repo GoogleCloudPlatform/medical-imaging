@@ -19,10 +19,13 @@
         <img class="logo logo-img" src="favicon.ico" alt="Logo" (click)="routeToHome()" />
         <span class="logo" (click)="routeToHome()">Pathology Image Library</span>
     </div>
-    <div class="right" *ngIf="isViewerRoute">
+  @if (isViewerRoute) {
+    <div class="right">
+      @if ((cohortDisplayName && cohortName) || selectedExtraMetaData?.patientId || caseId || selectedSlideDescriptor?.name) {
         <div class="breadcrumbs"
-            *ngIf="(cohortDisplayName && cohortName) || selectedExtraMetaData?.patientId || caseId || selectedSlideDescriptor?.name">
-            <div *ngIf="cohortDisplayName && cohortName" class="crumb" matTooltip="Cohort">
+          >
+          @if (showCohort && cohortDisplayName && cohortName) {
+            <div class="crumb" matTooltip="Cohort">
                 <mat-icon>chevron_right</mat-icon>
                 <div class="crumb-info">
                     <mat-icon>view_stream</mat-icon>
@@ -31,7 +34,9 @@
                     </span>
                 </div>
             </div>
-            <div *ngIf="selectedExtraMetaData?.patientId" class="crumb" matTooltip="Patient name">
+          }
+          @if (selectedExtraMetaData?.patientId) {
+            <div class="crumb" matTooltip="Patient name">
                 <mat-icon>chevron_right</mat-icon>
                 <div class="crumb-info">
                     <mat-icon>person</mat-icon>
@@ -40,7 +45,9 @@
                     </span>
                 </div>
             </div>
-            <div *ngIf="selectedExtraMetaData?.caseId" class="crumb" matTooltip="Case ID">
+          }
+          @if (selectedExtraMetaData?.caseId) {
+            <div class="crumb" matTooltip="Case ID">
                 <mat-icon>chevron_right</mat-icon>
                 <div class="crumb-info">
                     <mat-icon>ballot</mat-icon>
@@ -49,7 +56,9 @@
                     </span>
                 </div>
             </div>
-            <div *ngIf="selectedSlideDescriptor?.name" class="crumb" matTooltip="Slide name">
+          }
+          @if (selectedSlideDescriptor?.name) {
+            <div class="crumb" matTooltip="Slide name">
                 <mat-icon>chevron_right</mat-icon>
                 <div class="crumb-info">
                     <mat-icon>crop_7_5</mat-icon><span class="ellipsis">
@@ -57,9 +66,12 @@
                     </span>
                 </div>
             </div>
-        </div>
-        <div class="cases-and-search">
-            <div *ngIf="selectedCaseIndex !== -1" class="cases-navigator">
+        }
+      </div>
+    }
+    <div class="cases-and-search">
+      @if (selectedCaseIndex !== -1) {
+        <div class="cases-navigator">
                 <button mat-icon-button aria-label="Show previous case" [disabled]="selectedCaseIndex<1"
                     (click)="prevCase()" matTooltip="Previous case">
                     <mat-icon>chevron_left</mat-icon>
@@ -78,6 +90,8 @@
                     <mat-icon>chevron_right</mat-icon>
                 </button>
             </div>
+      }
         </div>
     </div>
+}
 </div>

@@ -41,6 +41,11 @@ export interface EnvironmentSettings {
    */
   ENABLE_SERVER_INTERPOLATION: boolean;
 
+  /**
+   * If true, enables system-aware dark mode that respects OS/browser preferences.
+   */
+  ENABLE_DARK_MODE: boolean;
+
   // ---------------------------------------------------------------------------
   // 2) Authentication
   // ---------------------------------------------------------------------------
@@ -106,6 +111,36 @@ export interface EnvironmentSettings {
    */
   DICOM_GUID_PREFIX: string;
 
+  /**
+   * Stroke color for annotation border during drawing mode.
+   */
+  ANNOTATION_STROKE_COLOR: string;
+
+  /**
+   * Stroke color for selected annotations.
+   */
+  ANNOTATION_SELECT_COLOR: string;
+
+  /**
+   * Stroke color for context menu selected annotations.
+   */
+  ANNOTATION_CONTEXT_SELECT_COLOR: string;
+
+  /**
+   * Stroke color for measure tool deselected state.
+   */
+  ANNOTATION_MEASURE_DESELECTED_COLOR: string;
+
+  /**
+   * Stroke color for measure tool selected state.
+   */
+  ANNOTATION_MEASURE_SELECTED_COLOR: string;
+
+  /**
+   * Stroke color for measure tool context menu selected state.
+   */
+  ANNOTATION_MEASURE_CONTEXT_SELECT_COLOR: string;
+
   // ---------------------------------------------------------------------------
   // 5) Pathology FHIR Search
   // ---------------------------------------------------------------------------
@@ -136,6 +171,7 @@ export interface EnvironmentSettings {
   ORCHESTRATOR_BASE_URL: string;
   IMAGE_DEID_DICOM_STORE_BASE_URL: string;
   ENABLE_COHORTS: boolean;
+  USE_CREDENTIALS: boolean;
   ANNOTATIONS_DICOM_STORE_PARENT: string;
 
   /**
@@ -158,6 +194,7 @@ export const defaultEnvironment: EnvironmentSettings = {
   'APP_BASE_SERVER_PATH': '',
   'USE_HASH_LOCATION_STRATEGY': false,
   'ENABLE_SERVER_INTERPOLATION': false,  // Requires Dicom Proxy.
+  'ENABLE_DARK_MODE': false,
   'ANNOTATIONS_DICOM_STORE_BASE_URL': '',
   'ENABLE_ANNOTATIONS': true,
   'ENABLE_ANNOTATION_WRITING': true,
@@ -166,12 +203,20 @@ export const defaultEnvironment: EnvironmentSettings = {
   // applications.
   'DICOM_GUID_PREFIX': '1.3.6.1.4.1.11129.5.7.0.1',
   'ANNOTATION_HASH_STORED_USER_EMAIL': false,
+  // Annotation border colors default to open source values
+  'ANNOTATION_STROKE_COLOR': 'black',
+  'ANNOTATION_SELECT_COLOR': 'yellow',
+  'ANNOTATION_CONTEXT_SELECT_COLOR': 'yellow',
+  'ANNOTATION_MEASURE_DESELECTED_COLOR': 'red',
+  'ANNOTATION_MEASURE_SELECTED_COLOR': 'yellow',
+  'ANNOTATION_MEASURE_CONTEXT_SELECT_COLOR': 'yellow',
   'FHIR_STORE_BASE_URL': '',
   'FHIR_STORE_SEARCH_QUERY_PARAMETERS': '\'\'',  // Emptry string.
   'SEARCH_UPPERCASE_ONLY': false,
   //// Cohorts, unavailable.
   'ORCHESTRATOR_BASE_URL': '',
   'ENABLE_COHORTS': false,
+  'USE_CREDENTIALS': false,
   'ID_DELIMITER': ',;\\s\\t\\n\\r',  // Regex for delimiting IDs
   'ID_VALIDATOR': '\\w\\d-',         // Regex for valid characters in IDs
   'IMAGE_DEID_DICOM_STORE_BASE_URL': '',

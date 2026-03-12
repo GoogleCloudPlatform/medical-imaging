@@ -16,9 +16,14 @@
 
 import {Routes} from '@angular/router';
 import {environment} from '../environments/environment';
+import {authGuard} from '../guards/auth.guard';
 
 /**
  * App routes.
+ * 
+ * Protected routes use authGuard to ensure user has valid OAuth token.
+ * The guard will redirect to /auth if no token exists, preserving the
+ * original URL (including query params) for return after sign-in.
  */
 export const routes: Routes = [
   {path: '', redirectTo: environment.OAUTH_CLIENT_ID ? 'auth' : 'search', pathMatch: 'full'},  // Default route
@@ -29,18 +34,21 @@ export const routes: Routes = [
   },
   {
     path: 'search',
+    canActivate: [authGuard],
     loadComponent: () =>
         import('../components/search-page/search-page.component')
             .then(m => m.SearchPageComponent)
   },
   {
     path: 'cohorts',
+    canActivate: [authGuard],
     loadComponent: () =>
         import('../components/cohorts-page/cohorts-page.component')
             .then(m => m.CohortsPageComponent)
   },
   {
     path: 'viewer',
+    canActivate: [authGuard],
     loadComponent: () =>
         import('../components/image-viewer-page/image-viewer-page.component')
             .then(m => m.ImageViewerPageComponent)

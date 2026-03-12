@@ -27,6 +27,12 @@ export const environment: EnvironmentSettings = {
   // limitations on usage. To view slides search case ID that can be found here:
   // https://portal.imaging.datacommons.cancer.gov/explore/filters/?Modality_op=OR&Modality=SM
   // For example: MSB-07656
+  // Setup your dicomstore base url.
+  // For demonstration only, this was preconfigured to point to IDC dicomweb
+  // server. Please see https://learn.canceridc.dev/portal/proxy-policy for
+  // limitations on usage. To view slides search case ID that can be found here:
+  // https://portal.imaging.datacommons.cancer.gov/explore/filters/?Modality_op=OR&Modality=SM
+  // For example: MSB-07656
   'IMAGE_DICOM_STORE_BASE_URL':
       'https://proxy.imaging.datacommons.cancer.gov/bulk/current/viewer-only-no-downloads-see-tinyurl-dot-com-slash-3j3d9jyp/dicomWeb',
   'OAUTH_CLIENT_ID': '',
