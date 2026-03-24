@@ -41,7 +41,6 @@ import {SearchResultsComponent} from '../search-results/search-results.component
  */
 @Component({
   selector: 'search-page',
-  standalone: true,
   imports: [
     SearchResultsComponent,
     CommonModule,

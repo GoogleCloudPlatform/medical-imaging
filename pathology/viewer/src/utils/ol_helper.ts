@@ -114,18 +114,16 @@ export function areFeaturesCovered(
 ): boolean {
     if (!olMap) return false;
 
-    const feature1Geometry = feature1.getGeometry() as SimpleGeometry;
-    const feature2Geometry = feature2.getGeometry() as SimpleGeometry;
-    if (!(feature1Geometry instanceof SimpleGeometry && feature2Geometry instanceof SimpleGeometry)) {
-        return false;
-    }
+  const g1 = feature1.getGeometry() as SimpleGeometry;
+  const g2 = feature2.getGeometry() as SimpleGeometry;
+  if (!(g1 instanceof Polygon && g2 instanceof Polygon)) return false;
+  const turfFeature1 = turf.polygon((g1 as Polygon).getCoordinates() ?? []);
+  const turfFeature2 = turf.polygon((g2 as Polygon).getCoordinates() ?? []);
 
-    const turfFeature1 = turf.polygon(feature1Geometry.getCoordinates() ?? []);
-    const turfFeature2 = turf.polygon(feature2Geometry.getCoordinates() ?? []);
+  const contains = turf.booleanContains(turfFeature1, turfFeature2);
+  const equal = turf.booleanEqual(turfFeature1, turfFeature2);
 
-    const isCovered = turf.booleanOverlap(turfFeature1, turfFeature2);
-
-    return isCovered;
+  return contains || equal;
 }
 
 /**
@@ -138,17 +136,36 @@ export function areFeaturesIntersecting(
 ): boolean {
     if (!olMap) return false;
 
-    const feature1Geometry = feature1.getGeometry() as SimpleGeometry;
-    const feature2Geometry = feature2.getGeometry() as SimpleGeometry;
-    if (!(feature1Geometry instanceof SimpleGeometry && feature2Geometry instanceof SimpleGeometry)) {
-        return false;
+    try {
+      const feature1Geometry = feature1.getGeometry() as SimpleGeometry;
+      const feature2Geometry = feature2.getGeometry() as SimpleGeometry;
+      if (!(feature1Geometry instanceof SimpleGeometry && feature2Geometry instanceof SimpleGeometry)) {
+          return false;
+      }
+
+      // Only check intersection for Polygon geometries - skip LineStrings and other types
+      if (feature1Geometry.getType() !== 'Polygon' || feature2Geometry.getType() !== 'Polygon') {
+          return false;
+      }
+
+      const feature1Coords = feature1Geometry.getCoordinates() ?? [];
+      const feature2Coords = feature2Geometry.getCoordinates() ?? [];
+      
+      // Validate that coordinates exist and are in expected format
+      if (!Array.isArray(feature1Coords) || !Array.isArray(feature2Coords) || 
+          feature1Coords.length === 0 || feature2Coords.length === 0) {
+          return false;
+      }
+
+      const turfFeature1 = turf.polygon(feature1Coords);
+      const turfFeature2 = turf.polygon(feature2Coords);
+      const isIntersecting = !!turf.intersect(turfFeature1, turfFeature2)?.type;
+
+      return isIntersecting;
+    } catch (error) {
+      // If any error occurs (invalid geometry, etc), return false
+      return false;
     }
-
-    const turfFeature1 = turf.polygon(feature1Geometry.getCoordinates() ?? []);
-    const turfFeature2 = turf.polygon(feature2Geometry.getCoordinates() ?? []);
-    const isIntersecting = !!turf.intersect(turfFeature1, turfFeature2)?.type;
-
-    return isIntersecting;
 }
 
 /**
@@ -165,11 +182,14 @@ export function getFeatureAnnotationKey(feature: Feature<Geometry>):
  */
 export function getRightMostCoordinate(coordinates: Coordinate[]):
     Coordinate {
-    if (!Array.isArray(coordinates)) {
-        return coordinates;
+    if (!Array.isArray(coordinates) || coordinates.length === 0) {
+        return [];
     }
 
     let coordinate = coordinates[0];
+    if (!coordinate) {
+        return [];
+    }
     if (coordinates[0].constructor === Array) {
         coordinates.forEach((coord) => {
             const [x] = coord;

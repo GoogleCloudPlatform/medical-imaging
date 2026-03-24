@@ -22,19 +22,18 @@ import {SideNavComponent} from '../components/side-nav/side-nav.component';
 import {TopNavComponent} from '../components/top-nav/top-nav.component';
 import {environment} from '../environments/environment';
 import {AuthService} from '../services/auth.service';
+import { ActivityMonitorService } from '../services/activity-monitor.service';
 
 /**
  * The root component.
  */
 @Component({
   selector: 'viewer',
-  standalone: true,
   imports: [
     RouterOutlet,
-    CommonModule,
     SideNavComponent,
-    TopNavComponent,
-  ],
+    TopNavComponent
+],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })
@@ -43,11 +42,22 @@ export class AppComponent implements AfterViewInit, AfterViewChecked {
   isDicomStoreInitialized = false;
   constructor(
       private readonly authService: AuthService,
+      private readonly activityMonitor: ActivityMonitorService,
       readonly router: Router,
   ) {}
 
   ngAfterViewInit(): void {
     this.authService.setupGoogleLogin();
+    this.activityMonitor.start();
+    this.initializeDarkMode();
+  }
+
+  private initializeDarkMode(): void {
+    if (environment.ENABLE_DARK_MODE) {
+      document.documentElement.classList.add('dark-mode-enabled');
+    } else {
+      document.documentElement.classList.remove('dark-mode-enabled');
+    }
   }
 
   ngAfterViewChecked() {

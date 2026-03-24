@@ -32,8 +32,7 @@ import { MatDialogModule } from '@angular/material/dialog';
  */
 @Component({
   selector: 'dialog-cohort-export',
-  standalone: true,
-  imports: [CommonModule, MatDialogModule, MatFormFieldModule, FormsModule, ReactiveFormsModule, MatInputModule, MatButtonModule],
+  imports: [MatDialogModule, MatFormFieldModule, FormsModule, ReactiveFormsModule, MatInputModule, MatButtonModule],
   templateUrl: './dialog-cohort-export.component.html',
   styleUrl: './dialog-cohort-export.component.scss'
 })
@@ -58,21 +57,22 @@ export class DialogCohortExportComponent {
     }
 
     this.exportDisabled = true;
-    this.snackBar.open('Requesting export...');
+    this.dialogService.info('Requesting export...');
 
-    this.cohortService.exportCohort(this.gcsPath.getRawValue()!)
-        .subscribe((success) => {
-          if (success) {
-            this.dialogService.close();
-            const snackBarConfig = new MatSnackBarConfig();
-            snackBarConfig.duration = 2000;
-            this.snackBar.open(
-                'Export request received and being processed.', '',
-                snackBarConfig);
-          } else {
-            this.exportDisabled = false;
-            this.snackBar.dismiss();
-          }
-        });
+    this.cohortService.exportCohort(this.gcsPath.getRawValue()!).subscribe({
+      next: (success) => {
+        if (success) {
+          this.dialogService.info('Export request received and being processed.');
+          this.dialogService.close();
+        } else {
+          this.exportDisabled = false;
+          this.dialogService.error('Failed to export cohort.');
+        }
+      },
+      error: (err) => {
+        this.exportDisabled = false;
+        this.dialogService.errorFromHttp('Failed to export cohort.').subscribe();
+      },
+    });
   }
 }

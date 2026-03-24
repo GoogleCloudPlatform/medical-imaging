@@ -29,3 +29,36 @@
   display: grid;
   grid-row-gap: 1em;
 }
+
+/* Dedicated snackbar layout classes to avoid inheriting dialog styles */
+.snack-title {
+  display: grid;
+  grid-template-columns: min-content 1fr;
+  grid-column-gap: 0.4em;
+  align-items: center;
+}
+.snack-title-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.snack-content {
+  display: block;
+}
+.snack-message {
+  white-space: normal;
+}
+.snack-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.dps-snackbar .mat-mdc-dialog-title > span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dps-snackbar .mat-mdc-dialog-content {
+  white-space: normal !important;
+}

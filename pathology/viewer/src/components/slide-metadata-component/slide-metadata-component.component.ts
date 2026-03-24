@@ -19,6 +19,7 @@ import {Component, Inject, Input, OnInit} from '@angular/core';
 import {MatButtonModule} from '@angular/material/button';
 import {MAT_DIALOG_DATA, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
 import {MatIconModule} from '@angular/material/icon';
+import {MatTooltipModule} from '@angular/material/tooltip';
 
 import {Attribute, DicomModel, isDicomModels, isNumbers, isPersonNames, isStrings, PersonName} from '../../interfaces/dicom_descriptor';
 import {type SlideExtraMetadata} from '../../interfaces/slide_descriptor';
@@ -74,8 +75,7 @@ interface MetadataNode {
  */
 @Component({
   selector: 'metadata-tag-component',
-  standalone: true,
-  imports: [CommonModule],
+    imports: [],
   templateUrl: './metadata-tag-component.component.html',
   styleUrl: './metadata-tag-component.component.scss'
 })
@@ -89,14 +89,13 @@ export class MetadataTagComponent {
  */
 @Component({
   selector: 'slide-metadata-component',
-  standalone: true,
   imports: [
     MatIconModule,
     MetadataTagComponent,
-    CommonModule,
     MatButtonModule,
     MatDialogModule,
-  ],
+    MatTooltipModule
+],
   templateUrl: './slide-metadata-component.component.html',
   styleUrl: './slide-metadata-component.component.scss'
 })

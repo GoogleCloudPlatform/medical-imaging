@@ -14,15 +14,24 @@
  * limitations under the License.
  */
 
+@use '../../dark-mode' as dm;
+
 $light_blue: #d3e3fd;
+$light_blue_dark: #1a3a52;
+$button_text_dark: #b0b0b0;
 
 .side-nav-container {
   display: grid;
+  background: #f5f5f5;
   font-size: 12px;
   grid-template-rows: 1fr min-content;
   height: 96%;
   width: max-content;
   padding: 1em 0;
+
+  @include dm.dark-mode {
+    background: var(--dark-mode-bg) !important;
+  }
 
   .navigation-buttons {
     display: grid;
@@ -45,6 +54,13 @@ $light_blue: #d3e3fd;
     grid-row-gap: 0.3em;
     height: auto;
 
+    &:not(:disabled) {
+      color: #000 !important;
+      @include dm.dark-mode {
+        color: $button_text_dark !important;
+      }
+    }
+
     .mat-icon {
       border-radius: 8px;
       width: 2em;
@@ -54,7 +70,10 @@ $light_blue: #d3e3fd;
     }
 
     [data-selected='true'] {
-      background: $light_blue;
+      background: $light_blue !important;
+      @include dm.dark-mode {
+        background: $light_blue_dark !important;
+      }
     }
   }
 }
@@ -113,6 +132,15 @@ $light_blue: #d3e3fd;
           line-height: 1;
           padding: 2px 4px;
           white-space: nowrap;
+
+          @include dm.dark-mode {
+            background-color: #3a3a3a;
+            border-color: #555;
+            box-shadow:
+              0 1px 1px rgba(0, 0, 0, 0.5),
+              0 2px 0 0 rgba(100, 100, 100, 0.3) inset;
+            color: #e0e0e0;
+          }
         }
       }
     }

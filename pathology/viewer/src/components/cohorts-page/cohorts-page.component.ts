@@ -26,8 +26,9 @@ import {MatInputModule} from '@angular/material/input';
 import {MatMenuModule} from '@angular/material/menu';
 import {MatDrawer, MatSidenavModule} from '@angular/material/sidenav';
 import {MatSnackBar, MatSnackBarConfig} from '@angular/material/snack-bar';
-import {MatSort} from '@angular/material/sort';
+import {MatSort, MatSortModule} from '@angular/material/sort';
 import {MatTableDataSource, MatTableModule} from '@angular/material/table';
+import {MatTooltipModule} from '@angular/material/tooltip';
 import {ActivatedRoute, Router, RouterModule} from '@angular/router';
 import {BehaviorSubject, combineLatest, ReplaySubject} from 'rxjs';
 import {distinctUntilChanged, filter, takeUntil, tap} from 'rxjs/operators';
@@ -68,9 +69,8 @@ enum CohortTag {
  */
 @Component({
   selector: 'cohorts-page',
-  standalone: true,
   imports: [
-    MatFormFieldModule, MatIconModule, CommonModule, MatTableModule,
+    MatFormFieldModule, MatIconModule, CommonModule, MatTableModule, MatSortModule, MatTooltipModule,
     MatButtonModule, MatInputModule, MatSidenavModule,
     ImageViewerQuickViewComponent, DICOMUriToSlideDescriptorPipe,
     ToViewerParamsPipe, RouterModule,
@@ -273,15 +273,15 @@ export class CohortsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      this.snackBar.open(`Downloaded cases: ${fileName}`);
+      this.dialogService.info(`Downloaded cases: ${fileName}`);
     } catch (error) {
-      this.snackBar.open(`Failed to downloaded cases: ${fileName}`);
+      this.dialogService.error(`Failed to downloaded cases: ${fileName}`);
     }
   }
 
   removeCases(): void {
     if (!this.selectedCohortInfo?.name) return;
-    this.snackBar.open('Removing cases...');
+    this.dialogService.info('Removing cases...');
 
     const selectedCaseIds: string[] =
         [...this.selectedCases]
@@ -300,11 +300,9 @@ export class CohortsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         .pipe(takeUntil(this.destroyed$))
         .subscribe((success) => {
           if (success) {
-            const snackBarConfig = new MatSnackBarConfig();
-            snackBarConfig.duration = 2000;
-            this.snackBar.open('Cases removed.', '', snackBarConfig);
+            this.dialogService.info('Cases removed.');
           } else {
-            this.snackBar.dismiss();
+            this.dialogService.error('Failed to remove cases.');
           }
         });
   }
@@ -575,7 +573,7 @@ export class CohortsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     this.isSavingCohort = true;
-    this.snackBar.open('Saving cohort...');
+    this.dialogService.info('Saving cohort...');
 
     const saveCohortRequest: SavePathologyCohortRequest = {
       name: this.selectedPathologyCohort.name,
@@ -584,13 +582,11 @@ export class CohortsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         .pipe(takeUntil(this.destroyed$))
         .subscribe((success) => {
           if (success) {
-            const snackBarConfig = new MatSnackBarConfig();
-            snackBarConfig.duration = 2000;
-            this.snackBar.open('Cohort saved.', '', snackBarConfig);
+            this.dialogService.info('Cohort saved successfully.');
             this.cohortService.reloadSelectedCohort();
             this.cohortService.loadAllCohorts();
           } else {
-            this.snackBar.dismiss();
+            this.dialogService.error('Failed to save cohort.');
           }
           this.isSavingCohort = false;
         });
@@ -602,7 +598,7 @@ export class CohortsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    this.snackBar.open('Removing cohort from your list...');
+    this.dialogService.info('Removing cohort from your list...');
 
     const unsaveCohortRequest: UnsavePathologyCohortRequest = {
       name: this.selectedPathologyCohort.name,
@@ -611,9 +607,7 @@ export class CohortsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         .pipe(takeUntil(this.destroyed$))
         .subscribe((success) => {
           if (success) {
-            const snackBarConfig = new MatSnackBarConfig();
-            snackBarConfig.duration = 2000;
-            this.snackBar.open('Cohort removed.', '', snackBarConfig);
+            this.dialogService.info('Cohort removed.');
             this.cohortService.reloadSelectedCohort();
             this.cohortService.loadAllCohorts();
           } else {
@@ -638,4 +632,12 @@ export class CohortsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.isShared = false;
     this.isCohortSaved = false;
   }
+
+  reloadPage() {
+    const url = this.router.url;
+
+    this.router.navigateByUrl('/', { skipLocationChange: true })
+      .then(() => this.router.navigateByUrl(url));
+  }
+
 }

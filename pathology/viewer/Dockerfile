@@ -18,17 +18,22 @@
 # 2. docker run -p 5432:5432 path-viewer
 # 3. http://localhost:5432
 
-
-FROM node:18 AS builder
+# Angular 21 supports Node 20+; keep the container on a modern LTS.
+FROM node:22-bookworm-slim AS builder
 WORKDIR /app
+
+# Install deps with good build caching.
+COPY package.json package-lock.json ./
+RUN npm ci
+
 COPY . .
-RUN npm install
 RUN npm run build
 
-FROM nginx:latest
-COPY --from=builder /app/dist/viewer/ /usr/share/nginx/html/
+FROM nginx:1.27-bookworm
+COPY --from=builder /app/dist/viewer/browser/ /usr/share/nginx/html/
 COPY nginx.conf /etc/nginx/nginx.conf
-RUN mkdir -p /var/cache/nginx/client_temp /var/cache/nginx/proxy_temp /var/cache/nginx/fastcgi_temp /var/cache/nginx/uwsgi_temp /var/cache/nginx/scgi_temp /tmp/nginx
-RUN chmod -R 777 /var/cache/nginx /tmp/nginx
+RUN mkdir -p /var/cache/nginx/client_temp /var/cache/nginx/proxy_temp /var/cache/nginx/fastcgi_temp /var/cache/nginx/uwsgi_temp /var/cache/nginx/scgi_temp /tmp/nginx \
+	&& chown -R nginx:nginx /var/cache/nginx /tmp/nginx /usr/share/nginx/html
+USER nginx
 EXPOSE 5432
-CMD ["nginx", "-g", "daemon off; pid /tmp/nginx/nginx.pid;"]
+CMD ["nginx", "-g", "daemon off;"]

@@ -21,7 +21,8 @@
     </image-viewer-slides>
   
     <div class="tile-viewer-wrapper">
-      <div *ngIf="isMultiViewScreenPicker" class="multi-view-option-picker"> 
+    @if (isMultiViewScreenPicker) {
+      <div class="multi-view-option-picker">
         <div>
           Select a layout.
         </div>
@@ -29,12 +30,13 @@
           <div class="option">
             <div class="option-image-sections multi-view-2">
               <div class="option-image">
-                <image-viewer-quick-view
-                  *ngIf="splitViewSlideDescriptors[0]"
-                  [slideDescriptor]="splitViewSlideDescriptors[0]"
-                  [enableExpandedView]="false"
-                  >
-                </image-viewer-quick-view>
+                @if (splitViewSlideDescriptors[0]) {
+                  <image-viewer-quick-view
+                    [slideDescriptor]="splitViewSlideDescriptors[0]"
+                    [enableExpandedView]="false"
+                    >
+                  </image-viewer-quick-view>
+                }
               </div>
               <div class="option-image">
               </div>
@@ -46,12 +48,13 @@
           <div class="option">
             <div class="option-image-sections multi-view-4">
               <div class="option-image">
-                <image-viewer-quick-view
-                  *ngIf="splitViewSlideDescriptors[0]"
-                  [slideDescriptor]="splitViewSlideDescriptors[0]"
-                  [enableExpandedView]="false"
-                  >
-                </image-viewer-quick-view>
+                @if (splitViewSlideDescriptors[0]) {
+                  <image-viewer-quick-view
+                    [slideDescriptor]="splitViewSlideDescriptors[0]"
+                    [enableExpandedView]="false"
+                    >
+                  </image-viewer-quick-view>
+                }
               </div>
               <div class="option-image">
               </div>
@@ -64,58 +67,63 @@
             <button mat-flat-button color="primary" (click)="toggleMultiView(4)">4-Up</button>
           </div>
         </div>
-        
       </div>
-      <div *ngIf="!isMultiViewScreenPicker && splitViewSlideDescriptors.length && splitViewSlideDescriptors[0]?.id"
+    }
+    @if (!isMultiViewScreenPicker && splitViewSlideDescriptors.length && splitViewSlideDescriptors[0]?.id) {
+      <div
         [ngClass]="{'multi-screen-viewer-2': splitViewSlideDescriptors.length>1 || multiViewScreens===2,
                     'multi-screen-viewer-4': splitViewSlideDescriptors.length>2 || multiViewScreens===4,}"
         >
-        <ng-container *ngIf="splitViewSlideDescriptors.length >1">
+        @if (splitViewSlideDescriptors.length >1) {
+
           <div  
             class="multi-view-info">
-            <div *ngFor="let slideDescriptor of splitViewSlideDescriptors | slice:0:4; let index = index;">{{index+1}}</div>
+            @for (slideDescriptor of splitViewSlideDescriptors | slice:0:4; track slideDescriptor; let index = $index) {
+              <div>{{index+1}}</div>
+            }
           </div>
           <button
-              class="lock-button"
-              [ngClass]="{'locked-button': syncLock}"
-              mat-icon-button
-              color="primary"
-              (click)="$event.stopPropagation(); toggleSyncLock()"
+            class="lock-button"
+            [ngClass]="{'locked-button': syncLock}"
+            mat-icon-button
+            color="primary"
+            (click)="$event.stopPropagation(); toggleSyncLock()"
             >
             <mat-icon class="google-symbols">
               {{syncLock? 'lock':'lock_open_right'}}
             </mat-icon>
           </button>
-        </ng-container>
-        <ng-container *ngFor="let slideDescriptor of splitViewSlideDescriptors;let index=index; trackBy: trackBySlideDescriptor" >
-          <div (click)="selectMultiViewScreenSelected(index)" *ngIf="!slideDescriptor" class="empty-multi-view-option"
+        }
+        @for (slideDescriptor of splitViewSlideDescriptors; track trackBySlideDescriptor(index, slideDescriptor); let index = $index) {
+          @if (!slideDescriptor) {
+            <div (click)="selectMultiViewScreenSelected(index)" class="empty-multi-view-option"
           [ngClass]="{
             'selected-split-viewer':multiViewScreenSelectedIndex===index }">
-            Select from the Slides Panel
-          </div>
-          <ng-container *ngIf="slideDescriptor">
-            <ol-tile-viewer 
-              *ngIf="slideInfoBySlideDescriptorId| GetSlideInfoPipe:slideDescriptor; let slideInfo"
-              (click)="selectMultiViewScreenSelected(index)"
-              [slideDescriptor]="slideDescriptor"
-              [slideInfo]="slideInfo"
-              (olMapLoaded)="olMapLoaded($event,slideDescriptor)"
+              Select from the Slides Panel
+            </div>
+          }
+          @if (slideDescriptor) {
+            @if (slideInfoBySlideDescriptorId| GetSlideInfoPipe:slideDescriptor; as slideInfo) {
+              <ol-tile-viewer
+                (click)="selectMultiViewScreenSelected(index)"
+                [slideDescriptor]="slideDescriptor"
+                [slideInfo]="slideInfo"
+                (olMapLoaded)="olMapLoaded($event,slideDescriptor)"
               [ngClass]="{
                 'selected-split-viewer':multiViewScreenSelectedIndex===index }"
-              >
-            </ol-tile-viewer>
-  
-          </ng-container>
-        </ng-container>
-  
-        <ng-container *ngIf="splitViewSlideDescriptors.length-1< multiViewScreens">
-          <ng-container 
-              *ngFor="let emptyPlacer of [].constructor(multiViewScreens) | slice:splitViewSlideDescriptors.length:multiViewScreens; let index = index; " >
-              <div class="select-slide-viewer">
-                <button mat-flat-button color="primary">Select a slide</button>
-              </div>
-          </ng-container>
-        </ng-container>
+                >
+              </ol-tile-viewer>
+            }
+          }
+        }
+        @if (splitViewSlideDescriptors.length-1< multiViewScreens) {
+          @for (emptyPlacer of [].constructor(multiViewScreens) | slice:splitViewSlideDescriptors.length:multiViewScreens; track emptyPlacer; let index = $index) {
+            <div class="select-slide-viewer">
+              <button mat-flat-button color="primary">Select a slide</button>
+            </div>
+          }
+        }
       </div>
+    }
     </div>
   </div>

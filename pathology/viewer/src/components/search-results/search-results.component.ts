@@ -43,7 +43,6 @@ import {ImageViewerQuickViewComponent} from '../image-viewer-quick-view/image-vi
  */
 @Component({
   selector: 'search-results',
-  standalone: true,
   imports: [
     MatDialogModule,
     HighlightPipe,
@@ -187,9 +186,9 @@ export class SearchResultsComponent implements OnChanges {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      this.snackBar.open(`Downloaded cases: ${fileName}`);
+      this.dialogService.info(`Downloaded cases: ${fileName}`);
     } catch (error) {
-      this.snackBar.open(`Failed to downloaded cases: ${fileName}`);
+      this.dialogService.error(`Failed to downloaded cases: ${fileName}`);
     }
   }
 
@@ -215,7 +214,7 @@ export class SearchResultsComponent implements OnChanges {
   }
 
   removeCases(): void {
-    this.snackBar.open('Removing cases...');
+    this.dialogService.info('Removing cases...');
 
     const selectedCaseIds: string[] =
         [...this.selectedCases]

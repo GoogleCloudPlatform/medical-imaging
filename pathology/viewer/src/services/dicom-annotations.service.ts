@@ -306,7 +306,9 @@ export class DicomAnnotationsService implements OnDestroy {
         'Accept': 'application/octet-stream; transfer-syntax=*',
       };
       return this.http
-        .get(attr.BulkDataURI, { headers, responseType: 'arraybuffer' })
+        .get(attr.BulkDataURI, { headers, 
+          withCredentials: environment.USE_CREDENTIALS, 
+          responseType: 'arraybuffer' })
         .pipe(
           map(arrayBuffer => arrayBufferToBase64(arrayBuffer)), map(b64 => {
             attr.InlineBinary = b64;
@@ -425,7 +427,8 @@ export class DicomAnnotationsService implements OnDestroy {
         } = {
           ...(accessToken && { 'authorization': 'Bearer ' + accessToken }),
         };
-        return this.http.delete(deleteUrl, { headers });
+        return this.http.delete(deleteUrl, { headers, 
+          withCredentials: environment.USE_CREDENTIALS });
       }),
       catchError((error) => {
         error = JSON.stringify(error);
@@ -540,7 +543,10 @@ export class DicomAnnotationsService implements OnDestroy {
         if (!this.loadingDicomAnnotations$.getValue()) {
           this.loadingDicomAnnotations$.next(true);
         }
-        return this.http.get<DicomModel[]>(fetchUrl, { headers });
+        return this.http.get<DicomModel[]>(fetchUrl, {
+          headers,
+          withCredentials: environment.USE_CREDENTIALS
+        });
       }),
       // Filter empty results.
       map((x) => {
@@ -618,7 +624,10 @@ export class DicomAnnotationsService implements OnDestroy {
 
         const fetchUrl = constructDicomWebUrl(instanceDicomWebUrlConfig);
 
-        return this.http.get<DicomModel[]>(fetchUrl, { headers });
+        return this.http.get<DicomModel[]>(fetchUrl, {
+          headers,
+          withCredentials: environment.USE_CREDENTIALS 
+        });
       }),
       mergeMap(models => models),
       withLatestFrom(tokenObservable),
@@ -729,6 +738,30 @@ export class DicomAnnotationsService implements OnDestroy {
       [...uniqueAnnotators.values()] as DicomAnnotationInstance[];
 
     return annotationInstances;
+  }
+
+  /**
+   * Deduplicates annotation instances by annotatorId (user email), keeping latest
+   * instance when duplicates exist. Returns a Map keyed by annotatorId for efficient
+   * lookup and to prevent duplicate user entries in the annotators list.
+   */
+  getDeduplicatedInstancesMap(
+    annotationInstances: DicomAnnotationInstance[]
+  ): Map<string, DicomAnnotationInstance> {
+    const deduplicatedMap = new Map<string, DicomAnnotationInstance>();
+
+    annotationInstances.forEach((instance) => {
+      const annotatorId = instance.annotatorId ?? '';
+      const existingInstance = deduplicatedMap.get(annotatorId);
+
+      if (!existingInstance ||
+        (instance.creationDateAndTime ?? 0) >
+          (existingInstance.creationDateAndTime ?? 0)) {
+        deduplicatedMap.set(annotatorId, instance);
+      }
+    });
+
+    return deduplicatedMap;
   }
 
   private buildAnnotationGroupModel(
@@ -1065,7 +1098,8 @@ export class DicomAnnotationsService implements OnDestroy {
         return this.http.post<DicomModel>(
           createUrl,
           multipartRelatedContent,
-          { headers },
+          { headers,
+            withCredentials: environment.USE_CREDENTIALS},
         );
       }),
       catchError((error) => {

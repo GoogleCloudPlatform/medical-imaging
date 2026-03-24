@@ -28,10 +28,10 @@ import { Map } from 'ol';
 import { OlTileViewerComponent } from '../ol-tile-viewer/ol-tile-viewer.component';
 import { SlideDescriptorToViewerUrlParamsPipe } from '../../pipes/slide-descriptor-to-viewer-url-params.pipe';
 import { QuickViewSlideDescriptorNamePipe } from '../../pipes/quick-view-slide-descriptor-name.pipe';
-import { CommonModule } from '@angular/common';
 const DEFAULT_VIEWER_URL = '/viewer';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import {combineLatest} from 'rxjs';
 import {tap} from 'rxjs/operators';
 
@@ -40,9 +40,8 @@ import {tap} from 'rxjs/operators';
  */
 @Component({
   selector: 'image-viewer-quick-view',
-  standalone: true,
   imports: [OlTileViewerComponent, MatIconModule, SlideDescriptorToViewerUrlParamsPipe,
-    QuickViewSlideDescriptorNamePipe, RouterModule, CommonModule,
+    QuickViewSlideDescriptorNamePipe, RouterModule, MatTooltipModule,
     MatButtonModule, MatIconModule],
   templateUrl: './image-viewer-quick-view.component.html',
   styleUrl: './image-viewer-quick-view.component.scss'
@@ -82,6 +81,17 @@ export class ImageViewerQuickViewComponent implements OnInit {
   }
 
   private setupMetadata() {
+    const initialDescriptorId = this.slideDescriptor.id;
+  
+    if (this.slideDescriptor.id) {
+      this.imageViewerPageStore.fetchMetadataForDescriptorId(initialDescriptorId).subscribe(metadata => {
+        if (metadata) {
+          this.selectedExtraMetaData = metadata;
+          return;
+        }
+      });
+    }
+  
     combineLatest([
       this.imageViewerPageStore.selectedSplitViewSlideDescriptor$,
       this.imageViewerPageStore.slideMetaDataBySlideDescriptorId$

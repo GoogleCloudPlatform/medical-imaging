@@ -39,7 +39,6 @@ import {OlTileViewerComponent} from '../ol-tile-viewer/ol-tile-viewer.component'
  */
 @Component({
   selector: 'image-viewer-page',
-  standalone: true,
   imports: [
     CommonModule, OlTileViewerComponent, GetSlideInfoPipe, MatIconModule,
     ImageViewerSideNavComponent, ImageViewerQuickViewComponent,

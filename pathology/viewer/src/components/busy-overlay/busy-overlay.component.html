@@ -17,6 +17,10 @@
 <div class="busy-overlay">
     <mat-progress-spinner class="mc-busy-overlay-spinner" color="primary" mode="indeterminate" [diameter]="70">
     </mat-progress-spinner>
-    <div *ngIf="!title">Loading...</div>
-    <div *ngIf="title">Loading {{title}}...</div>
+  @if (!title) {
+    <div>Loading...</div>
+  }
+  @if (title) {
+    <div>Loading {{title}}...</div>
+  }
 </div>

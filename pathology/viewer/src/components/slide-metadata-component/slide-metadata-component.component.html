@@ -15,26 +15,28 @@
 -->
 
 <div mat-dialog-title class="mat-dialog-metadata-title">
-    <div class="dialog-title">
-      <div>
-        Slide Metadata
-      </div>
-      <button 
-          mat-icon-button 
-          aria-label="Slide data" 
-          class="slide-data-button" 
-          matTooltip="Open slide data"
-          (click)="openSlideData()"
-        >
-        <mat-icon >account_tree</mat-icon>
-      </button>
+  <div class="dialog-title">
+    <div>
+      Slide Metadata
     </div>
-    <button mat-icon-button aria-label="Close" mat-dialog-close>
-      <mat-icon>close</mat-icon>
+    <button
+      mat-icon-button
+      aria-label="Slide data"
+      class="slide-data-button"
+      matTooltip="Open slide data"
+      (click)="openSlideData()"
+      >
+      <mat-icon >account_tree</mat-icon>
     </button>
   </div>
-  <div mat-dialog-content >
-    <ul class="metadata-root">
-      <metadata-tag-component *ngFor="let rootNode of rootNodes" [rootNode]="rootNode">
-      </metadata-tag-component>
-    </ul>
+  <button mat-icon-button aria-label="Close" mat-dialog-close>
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
+<div mat-dialog-content >
+  <ul class="metadata-root">
+    @for (rootNode of rootNodes; track rootNode) {
+      <metadata-tag-component [rootNode]="rootNode">
+    </metadata-tag-component>
+  }
+</ul>
