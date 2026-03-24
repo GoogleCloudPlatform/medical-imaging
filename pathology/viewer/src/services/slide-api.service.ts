@@ -15,17 +15,20 @@
  */
 
 import { AssociatedImage, Level, LevelMap, SlideDescriptor, SlideExtraMetadata } from '../interfaces/slide_descriptor';
-import { BehaviorSubject, Observable, throwError } from 'rxjs';
+import { BehaviorSubject, EMPTY, Observable, throwError } from 'rxjs';
 import { DicomModel, DicomTag, PersonName, SopClassUid, formatName } from '../interfaces/dicom_descriptor';
 import { catchError, map } from 'rxjs/operators';
 
 import { DicomwebService } from './dicomweb.service';
+import { IccProfileType } from '../interfaces/types';
+import { ImageTile } from '../interfaces/image_tile';
 import { Injectable } from '@angular/core';
 import { NUM_COLOR_CHANNELS_WITHOUT_TRANSPARENCY } from '../interfaces/slide_model';
 import { SlideInfo } from '../interfaces/slide_descriptor';
 import { environment } from '../environments/environment';
 import { isSlideDeId } from '../interfaces/dicom_store_descriptor';
 
+const IMAGE_TYPE_SLIDE_LABEL_VALUE = 'LABEL';
 
 // The image type used for the tissue pyramid.
 const IMAGE_TYPE_SLIDE_PYRAMID_VALUE = 'VOLUME';
@@ -409,7 +412,7 @@ export class SlideApiService {
             err)));
   }
 
-  getSlidesForCase(caseId: string): Observable<SlideDescriptor[]> {
+   getSlidesForCase(caseId: string): Observable<SlideDescriptor[]> {
     return this.dicomwebService.getInstancesByStudy(caseId).pipe(
       map(instances => {
         if (!instances) {
@@ -436,5 +439,36 @@ export class SlideApiService {
         this.slideDescriptors$.next(slideDescriptors);
         return slideDescriptors;
       }));
+  }
+
+  getImageTile(volumeName: string, slideInfo: SlideInfo, imageTile: ImageTile):
+    Observable<string | null> {
+    return this.dicomwebService.getImageTile(
+      volumeName, slideInfo, imageTile,
+      this.ENABLE_SERVER_INTERPOLATION ? IccProfileType.SRGB :
+        IccProfileType.NONE);
+  }
+
+  getImageTileBinary(volumeName: string, imageTile: ImageTile, channel: number):
+    Observable<Uint32Array | null> {
+    return EMPTY;
+  }
+
+  getImageSlideLabel(volumeName: string, slideInfo: SlideInfo):
+    Observable<string | null> {
+    const associatedImage = slideInfo.associatedImages.find(
+      ({ type }) => type.toUpperCase() === IMAGE_TYPE_SLIDE_LABEL_VALUE);
+    if (associatedImage) {
+      return (associatedImage.isSecondaryCapture ?
+        this.dicomwebService.getImageSecondaryCapture(
+          volumeName, associatedImage.instanceUid) :
+        this.dicomwebService.getEncodedImageTile(
+          volumeName, associatedImage.instanceUid,
+          1))
+        .pipe(
+          map(data => data ? `data:image/jpeg;base64,${data}` : data),
+          catchError(err => ''));
+    }
+    return EMPTY;
   }
 }

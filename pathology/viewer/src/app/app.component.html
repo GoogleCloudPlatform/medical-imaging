@@ -14,10 +14,13 @@
  limitations under the License.
 -->
 
-<div class='app' *ngIf="router.url==='/auth'">
+@if (router.url==='/auth') {
+  <div class='app'>
   <router-outlet></router-outlet>
 </div>
-<div class="authorized-section" *ngIf="router.url!=='/' && router.url!=='/auth'">
+}
+@if (router.url!=='/' && router.url!=='/auth') {
+  <div class="authorized-section">
   <top-nav></top-nav>
   <div class="authorized-body">
     <side-nav [class.disabled]="!isDicomStoreInitialized"></side-nav>
@@ -26,3 +29,4 @@
     </div>
   </div>
 </div>
+}

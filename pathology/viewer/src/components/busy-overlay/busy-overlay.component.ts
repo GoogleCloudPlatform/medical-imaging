@@ -16,7 +16,6 @@
 
 import { Component, Input } from '@angular/core';
 
-import { CommonModule } from '@angular/common';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 /**
@@ -24,8 +23,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
  */
 @Component({
   selector: 'busy-overlay',
-  standalone: true,
-  imports: [MatProgressSpinnerModule, CommonModule],
+  imports: [MatProgressSpinnerModule],
   templateUrl: './busy-overlay.component.html',
   styleUrl: './busy-overlay.component.scss'
 })

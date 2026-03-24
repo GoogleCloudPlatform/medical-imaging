@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+// Light theme colors
 $case-title-color: #5f6368;
 $cohort-table-bg: #fafafa;
 $cohort-table-header-bg: #e8eaed;
@@ -26,12 +27,44 @@ $slide-thumbnail-color: #7f7f7f;
 $view-only-chip-bg: #aecbfa;
 $warning-color: #f44336;
 
+// Dark theme colors
+$case-title-color-dark: #b0b0b0;
+$cohort-table-bg-dark: #1e1e1e;
+$cohort-table-header-bg-dark: #2a2a2a;
+$row-selected-section-bg-dark: #2a2a2a;
+$search-section-color-dark: #b0b0b0;
+$search-section-bg-dark: #1a2332;
+$selected-row-bg-dark: #1a3a52;
+$slide-thumbnail-bg-dark: #3a3a3a;
+$slide-thumbnail-color-dark: #888;
+$view-only-chip-bg-dark: #1a4080;
+$warning-color-dark: #ff6b6b;
+
+// Mixin for theme-aware colors
+@mixin theme-aware-background($light, $dark) {
+  background-color: $light;
+  @media (prefers-color-scheme: dark) {
+    :host-context(html.dark-mode-enabled) & {
+      background-color: $dark;
+    }
+  }
+}
+
+@mixin theme-aware-color($light, $dark) {
+  color: $light;
+  @media (prefers-color-scheme: dark) {
+    :host-context(html.dark-mode-enabled) & {
+      color: $dark;
+    }
+  }
+}
+
 .case-checkbox-button {
-  color: $case-title-color;
+  @include theme-aware-color($case-title-color, $case-title-color-dark);
 }
 
 .case-title {
-  color: $case-title-color;
+  @include theme-aware-color($case-title-color, $case-title-color-dark);
   font-size: 1.1em;
 }
 
@@ -93,7 +126,7 @@ $warning-color: #f44336;
         width: 100%;
         border: 1px solid transparent;
         border-radius: 2em;
-        background: $search-section-bg;
+        @include theme-aware-background($search-section-bg, $search-section-bg-dark);
       }
 
       div[matformfieldlineripple] {
@@ -117,10 +150,10 @@ $warning-color: #f44336;
 }
 
 .cohorts-table {
-  background: $cohort-table-bg;
+  @include theme-aware-background($cohort-table-bg, $cohort-table-bg-dark);
 
   .mat-mdc-header-row {
-    background: $cohort-table-header-bg;
+    @include theme-aware-background($cohort-table-header-bg, $cohort-table-header-bg-dark);
   }
 }
 
@@ -131,12 +164,12 @@ $warning-color: #f44336;
 
 .cohorts-table .cohort-row {
   &:hover {
-    background: $selected-row-bg;
+    @include theme-aware-background($selected-row-bg, $selected-row-bg-dark);
   }
 }
 
 .cohort-row-selected {
-  background: $selected-row-bg;
+  @include theme-aware-background($selected-row-bg, $selected-row-bg-dark);
 }
 
 .header-section {
@@ -194,12 +227,12 @@ $warning-color: #f44336;
 }
 
 .mat-menu-item-warning {
-  color: $warning-color;
+  @include theme-aware-color($warning-color, $warning-color-dark);
 }
 
 .row-selected-section {
   position: absolute;
-  background: $row-selected-section-bg;
+  @include theme-aware-background($row-selected-section-bg, $row-selected-section-bg-dark);
   height: 58.5em;
   right: 0;
   top: 3.5em;
@@ -297,8 +330,8 @@ $warning-color: #f44336;
 .slide-thumbnail {
   align-content: center;
   aspect-ratio: 3/2;
-  background: $slide-thumbnail-bg;
-  color: $slide-thumbnail-color;
+  @include theme-aware-background($slide-thumbnail-bg, $slide-thumbnail-bg-dark);
+  @include theme-aware-color($slide-thumbnail-color, $slide-thumbnail-color-dark);
   display: flex;
   justify-items: center;
   width: 20em;
@@ -319,7 +352,7 @@ $warning-color: #f44336;
 
 .view-only-chip {
   align-items: center;
-  background-color: $view-only-chip-bg;
+  @include theme-aware-background($view-only-chip-bg, $view-only-chip-bg-dark);
   border-radius: 1em;
   display: grid;
   grid-column-gap: 0.2em;

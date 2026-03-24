@@ -25,7 +25,7 @@ import {MatTooltipModule} from '@angular/material/tooltip';
 import {ActivatedRoute, Router} from '@angular/router';
 import {Map} from 'ol';
 import {BehaviorSubject, combineLatest, ReplaySubject} from 'rxjs';
-import {distinctUntilChanged, filter, takeUntil, tap} from 'rxjs/operators';
+import {distinctUntilChanged, filter, takeUntil, tap, switchMap } from 'rxjs/operators';
 
 import {ImageViewerPageParams} from '../../app/app.routes';
 import {environment} from '../../environments/environment';
@@ -45,7 +45,6 @@ import {ImageViewerQuickViewComponent} from '../image-viewer-quick-view/image-vi
  */
 @Component({
   selector: 'image-viewer-slides',
-  standalone: true,
   imports: [
     MatIconModule,
     CommonModule,
@@ -80,6 +79,8 @@ export class ImageViewerSlidesComponent implements OnInit, OnDestroy {
   slideDescriptorsInCohort: SlideDescriptor[] = [];
   slideDescriptorsNotInCohort: SlideDescriptor[] = [];
   splitViewSlideDescriptors: SlideDescriptor[] = [];
+  caseLoaded = false;
+  panelExpanded = false;
 
   constructor(
       private readonly activatedRoute: ActivatedRoute,
@@ -143,6 +144,15 @@ export class ImageViewerSlidesComponent implements OnInit, OnDestroy {
     this.setupMultiView();
   }
 
+  onPanelHeaderClick() {
+    this.panelExpanded = !this.panelExpanded;
+  }
+
+  onSlideSelect(slide: SlideDescriptor) {
+    this.selectedSplitViewSlideDescriptor = slide;
+    this.panelExpanded = false;
+  }
+
   private setupMultiView() {
     this.imageViewerPageStore.multiViewScreens$.subscribe(
         (multiViewScreens) => {
@@ -165,7 +175,7 @@ export class ImageViewerSlidesComponent implements OnInit, OnDestroy {
           this.splitViewSlideDescriptors = splitViewSlideDescriptors.filter(
               (a): a is SlideDescriptor => !!a?.id);
           if (this.splitViewSlideDescriptors.length === 1) {
-            this.slidesExpansionPanel.close();
+            this.slidesExpansionPanel?.close();
           }
         });
   }
@@ -191,42 +201,71 @@ export class ImageViewerSlidesComponent implements OnInit, OnDestroy {
         .subscribe();
   }
 
+  private resetSlideComponentState(): void {
+    this.slideDescriptors = [];
+    this.slideDescriptorsInCohort = [];
+    this.slideDescriptorsNotInCohort = [];
+    this.quickViewSelectedDescriptors.clear();
+    this.loadingCohorts = true;
+  }
+
   private setupSlideDescriptors() {
-    this.cohortService.loading$.subscribe((loading) => {
-      this.loadingCohorts = loading;
-    });
+    this.imageViewerPageStore.caseId$
+      .pipe(
+        filter(Boolean),
+        takeUntil(this.destroyed$),
+
+        tap(() => {
+          this.caseLoaded = false;
+          this.resetSlideComponentState();
+        }),
+
+        switchMap(caseId =>
+          this.slideApiService.getSlidesForCase(caseId)
+            .pipe(
+              tap(() => {
+                this.caseLoaded = true;
+              })
+            )
+        )
+      )
+      .subscribe();
+
+    this.cohortService.loading$
+      .pipe(takeUntil(this.destroyed$))
+      .subscribe((loading) => {
+        this.loadingCohorts = loading;
+      });
 
     combineLatest([
       this.cohortService.selectedPathologyCohort$,
       this.slideApiService.slideDescriptors$
-    ]).subscribe(([selectedPathologyCohort, slideDescriptors]) => {
-      let cohortSlides = new Set<string>();
-      if (selectedPathologyCohort?.slides) {
-        cohortSlides =
-            new Set<string>(selectedPathologyCohort?.slides.map(a => a.dicomUri)
-                                .filter((x): x is string => !!x));
-      }
+    ])
+      .pipe(takeUntil(this.destroyed$))
+      .subscribe(([selectedPathologyCohort, slideDescriptors]) => {
+        let cohortSlides = new Set<string>();
+        if (selectedPathologyCohort?.slides) {
+          cohortSlides = new Set(
+            selectedPathologyCohort.slides
+              .map(a => a.dicomUri)
+              .filter((x): x is string => !!x)
+          );
+        }
 
-      this.slideDescriptors = [...slideDescriptors];
-      if (!this.activatedRouteParams.cohortName) {
-        this.slideDescriptorsInCohort = [...slideDescriptors];
-      } else {
-        const inCohorts: SlideDescriptor[] = [];
-        const notInCohorts: SlideDescriptor[] = [];
-        [...slideDescriptors].forEach(slideDescriptor => {
-          const isInCohort =
-              cohortSlides.has(slideDescriptor?.id as string) ?? false;
-          if (isInCohort) {
-            inCohorts.push(slideDescriptor);
-          } else {
-            notInCohorts.push(slideDescriptor);
+        this.slideDescriptors = [...slideDescriptors];
+        if (!this.activatedRouteParams.cohortName) {
+          this.slideDescriptorsInCohort = [...slideDescriptors];
+        } else {
+          const inCohorts: SlideDescriptor[] = [];
+          const notInCohorts: SlideDescriptor[] = [];
+          for (const slideDescriptor of slideDescriptors) {
+            const isInCohort = cohortSlides.has(slideDescriptor?.id ?? '');
+            (isInCohort ? inCohorts : notInCohorts).push(slideDescriptor);
           }
-        });
-
-        this.slideDescriptorsInCohort = inCohorts;
-        this.slideDescriptorsNotInCohort = notInCohorts;
-      }
-    });
+          this.slideDescriptorsInCohort = inCohorts;
+          this.slideDescriptorsNotInCohort = notInCohorts;
+        }
+      });
   }
 
   addToSplitView() {

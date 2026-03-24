@@ -14,9 +14,15 @@
  * limitations under the License.
  */
 
+// Light theme colors
 $slide-thumbnail-bg: #d9d9d9;
 $primary_blue: #d3e3fd;
 $secondary_blue: #1976d2;
+
+// Dark theme colors
+$slide-thumbnail-bg-dark: #3a3a3a;
+$primary_blue-dark: #1a3a52;
+$secondary_blue-dark: #90caf9;
 
 :host {
   position: relative;
@@ -31,6 +37,14 @@ $secondary_blue: #1976d2;
   border: 1px solid $secondary_blue;
   top: 13em;
   right: 1em;
+
+  @media (prefers-color-scheme: dark) {
+    :host-context(html.dark-mode-enabled) & {
+      color: #e0e0e0;
+      background: var(--dark-mode-bg-secondary);
+      border-color: $secondary_blue-dark;
+    }
+  }
 }
 
 .ol-map {
@@ -44,6 +58,14 @@ $secondary_blue: #1976d2;
     20px 20px,
     20px 20px;
   position: relative;
+
+  @media (prefers-color-scheme: dark) {
+    :host-context(html.dark-mode-enabled) & {
+      background: var(--dark-mode-bg-tertiary);
+      background-image: linear-gradient(#444 1px, transparent 0),
+        linear-gradient(90deg, #444 1px, transparent 0);
+    }
+  }
 }
 
 .loading-skeleton {
@@ -58,6 +80,18 @@ $secondary_blue: #1976d2;
   animation: 1.5s shine linear infinite;
 
   z-index: 2;
+
+  @media (prefers-color-scheme: dark) {
+    :host-context(html.dark-mode-enabled) & {
+      background: linear-gradient(
+        90deg,
+        $slide-thumbnail-bg-dark 8%,
+        var(--dark-mode-bg-secondary) 18%,
+        $slide-thumbnail-bg-dark 33%
+      );
+    }
+  }
+
   @keyframes shine {
     to {
       background-position-x: -200%;
@@ -77,6 +111,18 @@ $secondary_blue: #1976d2;
     --ol-foreground-color: #333;
     --ol-subtle-foreground-color: #1976d2;
     --ol-brand-color: #0af;
+
+    @media (prefers-color-scheme: dark) {
+      :host-context(html.dark-mode-enabled) & {
+        --ol-background-color: #1a1a1a;
+        --ol-accent-background-color: #2a2a2a;
+        --ol-subtle-background-color: rgba(200, 200, 200, 0.15);
+        --ol-partial-background-color: rgba(26, 26, 26, 0.75);
+        --ol-foreground-color: #cccccc;
+        --ol-subtle-foreground-color: #90caf9;
+        --ol-brand-color: #5fbfff;
+      }
+    }
   }
 
   .ol-tooltip {
@@ -138,6 +184,11 @@ $secondary_blue: #1976d2;
     position: absolute;
     color: #5f6368;
     font-size: 0.7em;
+    text-shadow:
+      -1.5px 0 var(--ol-partial-background-color),
+      0 1.5px var(--ol-partial-background-color),
+      1.5px 0 var(--ol-partial-background-color),
+      0 -1.5px var(--ol-partial-background-color);
   }
 
   .ol-scale-line {
@@ -312,6 +363,14 @@ $secondary_blue: #1976d2;
     background-color: var(--ol-background-color);
     border: none;
     border-radius: 2px;
+
+    @media (prefers-color-scheme: dark) {
+      :host-context(html.dark-mode-enabled) & {
+        color: #e0e0e0;
+        background: var(--dark-mode-bg-secondary);
+        border-color: $secondary_blue-dark;
+      }
+    }
   }
 
   .ol-control button::-moz-focus-inner {

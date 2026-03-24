@@ -34,7 +34,6 @@ export interface DialogErrorComponentData {
  */
 @Component({
   selector: 'snackbar-error',
-  standalone: true,
   imports: [MatIconModule, MatButtonModule, MatDialogModule, CommonModule],
   templateUrl: './snackbar-error.component.html',
   styleUrl: './snackbar-error.component.scss'

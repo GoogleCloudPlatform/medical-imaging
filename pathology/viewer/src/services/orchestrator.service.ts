@@ -18,7 +18,7 @@
 
 import { CopyPathologyCohortRequest, CreatePathologyCohortRequest,  DeletePathologyCohortRequest, ExportPathologyCohortRequest, ExportPathologyCohortResponse, GetPathologyCohortRequest, ListPathologyCohortsRequest, ListPathologyCohortsResponse, PathologyCohort, PathologyCohortMetadata, SavePathologyCohortRequest, SavePathologyCohortResponse, SharePathologyCohortRequest, TransferDeIdPathologyCohortRequest, TransferDeIdPathologyCohortResponse, UndeletePathologyCohortRequest, UnsavePathologyCohortRequest, UnsavePathologyCohortResponse, UpdatePathologyCohortRequest } from "../interfaces/cohorts";
 import { IdentifyCurrentUserRequest, PathologyUser, PathologyUserAccess } from "../interfaces/users";
-import { Observable, catchError, defer, map, mergeMap, shareReplay, switchMap } from "rxjs";
+import { Observable, catchError, defer, map, mergeMap, shareReplay, switchMap, throwError } from "rxjs";
 
 import { AuthService } from "./auth.service";
 import { HttpClient } from "@angular/common/http";
@@ -89,6 +89,9 @@ export class OrchestratorService {
 
     const path = `${environment.ORCHESTRATOR_BASE_URL}${relativePath}`;
     return this.authService.getOAuthToken().pipe(switchMap((accessToken) => {
+      if (!accessToken) {
+        return throwError(() => new Error('No OAuth token available'));
+      }
       if (method === 'GET') {
         body = undefined;
       }
@@ -99,6 +102,7 @@ export class OrchestratorService {
             'content-type': 'application/json',
           },
           responseType: 'text',
+          withCredentials:  environment.USE_CREDENTIALS,
           body,
         })
         .pipe(catchError(val => {

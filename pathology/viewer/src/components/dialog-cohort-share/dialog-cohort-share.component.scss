@@ -118,10 +118,10 @@ $secondary-grey: #e8eaed;
 }
 
 .mat-mdc-standard-chip {
-  --mdc-chip-label-text-color: black;
-  --mdc-chip-disabled-label-text-color: black;
-  --mdc-chip-elevated-container-color: white;
-  --mdc-chip-elevated-disabled-container-color: white;
+  --mat-chip-label-text-color: black;
+  --mat-chip-disabled-label-text-color: black;
+  --mat-chip-elevated-container-color: white;
+  --mat-chip-elevated-disabled-container-color: white;
   border: 1px solid grey;
 }
 

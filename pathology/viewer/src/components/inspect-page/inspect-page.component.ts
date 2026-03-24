@@ -31,7 +31,8 @@ import {bufferCount, catchError, distinctUntilChanged, first, map, mergeMap, tak
 import {InspectPageParams} from '../../app/app.routes';
 import {DICOM_STORE, DicomStores} from '../../interfaces/dicom_store_descriptor';
 import {SlideInfo} from '../../interfaces/slide_descriptor';
-import {DicomwebService, IccProfileType} from '../../services/dicomweb.service';
+import {IccProfileType} from '../../interfaces/types';
+import {DicomwebService} from '../../services/dicomweb.service';
 import {SlideApiService} from '../../services/slide-api.service';
 import {pixelSpacingToMagnification} from '../../utils/zoom_name_to_val';
 
@@ -50,7 +51,6 @@ interface Tile {
  */
 @Component({
   selector: 'inspect-page',
-  standalone: true,
   imports: [
     CommonModule,
     MatFormFieldModule,
@@ -154,8 +154,8 @@ export class InspectPageComponent implements OnInit, OnDestroy {
       tr.appendChild(th);
       for (const tile of level) {
         const div = document.createElement('div');
-        div.appendChild(document.createTextNode(tile.frame.toString()));
-        div.id = index.toString() + '_' + tile.frame.toString();
+        div.textContent = Number.isFinite(tile.frame) ? tile.frame.toString() : '';
+        div.id = `${index}_${Number.isFinite(tile.frame) ? tile.frame : ''}`;
         const td = tr.insertCell();
         td.appendChild(div);
       }

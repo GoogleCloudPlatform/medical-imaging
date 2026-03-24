@@ -20,7 +20,9 @@
     <mat-form-field>
       <mat-label>New cohort name</mat-label>
       <input matInput [formControl]="name" />
-      <mat-error *ngIf="name.hasError('required')"> Display name is required. </mat-error>
+      @if (name.hasError('required')) {
+        <mat-error> Display name is required. </mat-error>
+      }
     </mat-form-field>
   </div>
   <div>

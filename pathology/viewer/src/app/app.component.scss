@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-$body-background: #fafafa;
 
 .app {
   display: grid;
@@ -29,7 +28,6 @@ $body-background: #fafafa;
 }
 
 .authorized-body-content {
-  background: $body-background;
   overflow: hidden;
 }
 

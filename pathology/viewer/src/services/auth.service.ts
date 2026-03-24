@@ -19,15 +19,18 @@
 import {isPlatformBrowser} from '@angular/common';
 import {Inject, Injectable, NgZone, PLATFORM_ID} from '@angular/core';
 import {MatSnackBar, MatSnackBarConfig} from '@angular/material/snack-bar';
+import { AuthStateService } from './auth-state.service';
 import {Router} from '@angular/router';
-import {EMPTY, from, Observable, of} from 'rxjs';
+import { BehaviorSubject, EMPTY, from, Observable, of } from 'rxjs';
 import {map} from 'rxjs/operators';
+import {DialogService} from '../services/dialog.service';
 
 import {environment} from '../environments/environment';
+import {stripBasePath} from '../utils/auth-helper.utils';
 
 import {LogService} from './log.service';
 import {UserService} from './user.service';
-import {CREDENTIAL_STORAGE_KEY, WindowService} from './window.service';
+import {DPAS_IAP_KEY, WindowService} from './window.service';
 
 /// <reference types="google" />
 
@@ -55,8 +58,10 @@ declare global {
   }
 }
 
-/** Key for Dpas Token */
+/** Key for Token */
 export const ACCESS_TOKEN_CACHE_KEY = 'DPAS_ACCESS_TOKEN';
+export const RETURN_URL_KEY = 'DPAS_RETURN_URL';
+export const INITIAL_URL_KEY = 'DPAS_INITIAL_URL';
 const TIME_CONVERSION_MULTIPLIER = 1000;
 
 // Buffer time of 4 seconds. The cached OAuth token needs to be valid at least
@@ -72,19 +77,20 @@ const BUFFER_TIME = 4000;
 export class AuthService {
   scope = environment.OAUTH_SCOPES;
   appToken?: AppToken;
+  readonly reauthInProgress$ = new BehaviorSubject<boolean>(false);
   snackBarConfig = new MatSnackBarConfig();
   constructor(
       @Inject(NgZone) private readonly ngZone: NgZone,
       @Inject(PLATFORM_ID) private readonly platformId: object,
 
       private readonly logService: LogService,
+      private readonly dialogService: DialogService,
       private readonly router: Router,
       private readonly snackBar: MatSnackBar,
+      private readonly authState: AuthStateService,
       private readonly userService: UserService,
       private readonly windowService: WindowService,
   ) {
-    this.snackBarConfig.duration = 4000;
-    this.snackBarConfig.horizontalPosition = 'start';
   }
 
   setupGoogleLogin() {
@@ -93,7 +99,7 @@ export class AuthService {
       return;
     }
 
-    window.onGoogleLibraryLoad = async () => {
+    const initializeGoogleAuth = async () => {
       google.accounts.id.initialize({
         // Ref:
         // https://developers.google.com/identity/gsi/web/reference/js-reference#IdConfiguration
@@ -103,11 +109,14 @@ export class AuthService {
         cancel_on_tap_outside: false
       });
 
-      google.accounts!.id.renderButton(
-          document!.getElementById('loginBtn')!,
-          {theme: 'outline', size: 'large', width: 200, type: 'standard'});
+      const loginBtn = document.getElementById('loginBtn');
+      if (loginBtn) {
+        google.accounts.id.renderButton(
+            loginBtn,
+            {theme: 'outline', size: 'large', width: 200, type: 'standard'});
+      }
 
-      if (this.windowService.getLocalStorageItem(CREDENTIAL_STORAGE_KEY)) {
+      if (this.windowService.getLocalStorageItem(DPAS_IAP_KEY)) {
         let accessToken = this.getCachedAccessToken();
         if (accessToken && this.isTokenExpired(accessToken)) {
           await this.fetchAccessToken();
@@ -119,8 +128,15 @@ export class AuthService {
         return;
       }
 
+      this.saveReturnUrl();
       google.accounts.id.prompt();
     };
+
+    if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
+      initializeGoogleAuth();
+    } else {
+      window.onGoogleLibraryLoad = initializeGoogleAuth;
+    }
   }
 
   private async fetchAccessToken(): Promise<AppToken> {
@@ -159,14 +175,14 @@ export class AuthService {
         prompt: '',
         callback: (response: google.accounts.oauth2.TokenResponse) => {
           if (response.error) {
-            // User clicked cancel on the concent screen.
+            // User clicked cancel on the consent screen.
             const errorMessage = 'Consent needed. Access denied.';
             const error = new Error(errorMessage);
             this.logService.error(error);
 
-            this.snackBar.open(errorMessage, 'Dismiss', this.snackBarConfig);
+            this.dialogService.error(errorMessage);
 
-            this.logout();
+            this.logout({ preserveReturnUrl: true });
             reject(errorMessage);
             return;
           }
@@ -178,9 +194,9 @@ export class AuthService {
             const error = new Error();
             this.logService.error(error);
 
-            this.snackBar.open(errorMessage, 'Dismiss', this.snackBarConfig);
+            this.dialogService.error(errorMessage);
 
-            this.logout();
+            this.logout({ preserveReturnUrl: true });
             reject(errorMessage);
             return;
           }
@@ -190,9 +206,9 @@ export class AuthService {
             const errorMessage = 'Access denied.';
             this.logService.error(new Error(response.error));
 
-            this.snackBar.open(errorMessage, 'Dismiss', this.snackBarConfig);
+            this.dialogService.error(errorMessage);
 
-            this.logout();
+            this.logout({ preserveReturnUrl: true });
             reject(response.error);
             return;
           }
@@ -214,6 +230,7 @@ export class AuthService {
     const token = await tokenPromise;
 
     this.setCachedAccessToken(token);
+    this.authState.setReauthInProgress(false);
     this.navigateToSearchIfAuth();
     return token;
   }
@@ -221,9 +238,26 @@ export class AuthService {
   private navigateToSearchIfAuth() {
     const appToken = this.getCachedAccessToken();
 
-    if (this.router.url === '/auth' && appToken?.oauthTokenInfo.token) {
+    if (!appToken?.oauthTokenInfo.token) {
+      return;
+    }
+
+    const win = this.windowService.window;
+    const browserUrlRaw = win ? `${win.location.pathname}${win.location.search}` : this.router.url;
+    const browserUrl = stripBasePath(browserUrlRaw) ?? (browserUrlRaw || '/');
+    const isOnAuthPage = browserUrl === '/auth' ||
+               browserUrl.startsWith('/auth?') ||
+               browserUrl === '/' ||
+               browserUrl.startsWith('/?');
+
+    if (isOnAuthPage) {
       this.ngZone.run(() => {
-        this.router.navigate(['search'], {replaceUrl: true});
+        const returnUrl = this.getAndClearReturnUrl();
+        if (returnUrl && returnUrl !== '/auth' && !returnUrl.startsWith('/auth?')) {
+          this.router.navigateByUrl(returnUrl, {replaceUrl: true});
+        } else {
+          this.router.navigate(['search'], {replaceUrl: true});
+        }
       });
     }
   }
@@ -249,24 +283,24 @@ export class AuthService {
     return token;
   }
 
-  private handleCredentialResponse(response:
+  private async handleCredentialResponse(response:
                                        google.accounts.id.CredentialResponse) {
     try {
       if (response?.credential) {
         this.windowService.setLocalStorageItem(
-            CREDENTIAL_STORAGE_KEY, response?.credential);
+            DPAS_IAP_KEY, response?.credential);
       }
 
-      this.fetchAccessToken();
+      await this.fetchAccessToken();
 
     } catch (e) {
-      console.error('Error while trying to decode token', e);  // CONSOLE LOG OK
+      console.error('Error during credential response handling:', e);
     }
   }
 
   private handleCredentialToken() {
     const credential =
-        this.windowService.getLocalStorageItem(CREDENTIAL_STORAGE_KEY);
+        this.windowService.getLocalStorageItem(DPAS_IAP_KEY);
     if (!credential) {
       console.error(  // CONSOLE LOG OK
           'Error while trying to decode token, no credentials');
@@ -289,11 +323,22 @@ export class AuthService {
       return of(cachedToken.oauthTokenInfo.token);
     }
 
+    this.clearCachedAccessToken();
+
     if (retry) {
       return this.fetchAndMapToken();
     }
 
     return EMPTY;
+  }
+
+  refreshOAuthToken(): Observable<string> {
+    if (!environment.OAUTH_CLIENT_ID) {
+      return of('');
+    }
+
+    this.clearCachedAccessToken();
+    return this.fetchAndMapToken();
   }
 
   private fetchAndMapToken(): Observable<string> {
@@ -310,6 +355,7 @@ export class AuthService {
     if (this.isTokenExpired(cachedToken)) {
       // The token has expired or will expire soon. Clear the old item.
       this.clearCachedAccessToken();
+      this.windowService.removeLocalStorageItem(DPAS_IAP_KEY);
       return;
     }
 
@@ -329,20 +375,30 @@ export class AuthService {
 
       return expirationTimeMillis < Date.now() + BUFFER_TIME;
     } catch (error: unknown) {
-      this.logout();
       this.logService.error(error as Error);
-      return false;
+      return true;
     }
   }
 
-  logout() {
+  logout(options?: { preserveReturnUrl?: boolean }) {
     this.clearCurrentUser();
     this.clearCachedAccessToken();
-
-    this.router.navigate(['/auth']);
-
+    this.authState.setReauthInProgress(true);
+    this.snackBar.dismiss();
+    this.windowService.clearAllCookies();    
     google.accounts.id.disableAutoSelect();
-    google.accounts.id.prompt();
+
+    if (!options?.preserveReturnUrl) {
+      this.clearReturnUrl();
+    }
+
+    setTimeout(() => {
+      this.router.navigate(['/auth']).then(() => {
+        setTimeout(() => {
+          this.windowService.forceReload();
+        }, 100);
+      });
+    }, 100);
   }
 
   private getCachedAccessTokenFromLocalStorage(): AppToken|undefined {
@@ -371,8 +427,82 @@ export class AuthService {
     this.windowService.removeLocalStorageItem(ACCESS_TOKEN_CACHE_KEY);
   }
 
+  /**
+   * Save the current URL to return to after authentication.
+   * Call this before redirecting unauthenticated users to the auth page.
+   */
+  saveReturnUrl(url?: string): void {
+    const existingReturnUrl = this.windowService.getLocalStorageItem(RETURN_URL_KEY);
+    if (existingReturnUrl) {
+      return;
+    }
+    
+    let urlToSave = url;
+    if (!urlToSave) {
+      const initialUrl = this.windowService.getLocalStorageItem(INITIAL_URL_KEY);
+      if (initialUrl) {
+        try {
+          urlToSave = JSON.parse(initialUrl) as string;
+        } catch {
+          urlToSave = initialUrl;
+        }
+        this.windowService.removeLocalStorageItem(INITIAL_URL_KEY);
+      }
+    }
+    
+    if (!urlToSave) {
+      urlToSave = this.router.url;
+    }
+    
+    const strippedUrl = stripBasePath(urlToSave);
+    
+    if (strippedUrl && strippedUrl !== '/auth' && !strippedUrl.startsWith('/auth?')) {
+      this.windowService.setLocalStorageItem(RETURN_URL_KEY, strippedUrl);
+    }
+  }
+
+  /**
+   * Get and clear the saved return URL.
+   */
+  private getAndClearReturnUrl(): string | undefined {
+    this.windowService.removeLocalStorageItem(INITIAL_URL_KEY);
+    
+    const raw = this.windowService.getLocalStorageItem(RETURN_URL_KEY);
+    if (raw) {
+      this.clearReturnUrl();
+      let url: string;
+      try {
+        url = JSON.parse(raw) as string;
+      } catch {
+        url = raw;
+      }
+      
+      return stripBasePath(url);
+    }
+    return undefined;
+  }
+
+  private clearReturnUrl(): void {
+    this.windowService.removeLocalStorageItem(RETURN_URL_KEY);
+  }
+
 
   private secondsToMilliseconds(seconds: number) {
     return seconds * TIME_CONVERSION_MULTIPLIER;
+  }
+
+  // Returns the signed-in user's email (from in-memory or cached token)
+  getUserEmail(): string | undefined {
+    if (this.appToken?.email) return this.appToken.email;
+    try {
+      const raw =
+        (this as any).windowService?.getLocalStorageItem?.(ACCESS_TOKEN_CACHE_KEY) ??
+        (typeof window !== 'undefined' ? window.localStorage.getItem(ACCESS_TOKEN_CACHE_KEY) : null);
+      if (!raw) return undefined;
+      const token = JSON.parse(raw) as AppToken;
+      return token?.email;
+    } catch {
+      return undefined;
+    }
   }
 }

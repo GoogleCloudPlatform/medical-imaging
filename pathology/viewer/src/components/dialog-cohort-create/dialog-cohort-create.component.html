@@ -15,26 +15,38 @@
 -->
 
 <div mat-dialog-title>
-    <div *ngIf="editMode === editModeType.ALL">Create New Cohort</div>
-    <div *ngIf="editMode === editModeType.SLIDES">Append Slides To Cohort</div>
-    <div *ngIf="editMode === editModeType.NAME_DESCRIPTION">Edit Cohort</div>
-    
-  </div>
-  <div mat-dialog-content>
-    <mat-form-field appearance="fill" *ngIf="editMode === editModeType.ALL || editMode === editModeType.NAME_DESCRIPTION">
+  @if (editMode === editModeType.ALL) {
+    <div>Create New Cohort</div>
+  }
+  @if (editMode === editModeType.SLIDES) {
+    <div>Append Slides To Cohort</div>
+  }
+  @if (editMode === editModeType.NAME_DESCRIPTION) {
+    <div>Edit Cohort</div>
+  }
+
+</div>
+<div mat-dialog-content>
+  @if (editMode === editModeType.ALL || editMode === editModeType.NAME_DESCRIPTION) {
+    <mat-form-field appearance="fill">
       <mat-label>Cohort name</mat-label>
       <input matInput data-qa="name-input" [formControl]="displayName" />
-      <mat-error *ngIf="displayName.hasError('required')"> Display name is required. </mat-error>
+      @if (displayName.hasError('required')) {
+        <mat-error> Display name is required. </mat-error>
+      }
     </mat-form-field>
-  
-    <mat-form-field appearance="fill" *ngIf="editMode === editModeType.ALL || editMode === editModeType.NAME_DESCRIPTION">
+  }
+
+  @if (editMode === editModeType.ALL || editMode === editModeType.NAME_DESCRIPTION) {
+    <mat-form-field appearance="fill">
       <mat-label>Cohort description</mat-label>
       <textarea matInput [formControl]="description" rows="3"></textarea>
     </mat-form-field>
-  
-    <div 
-    *ngIf="editMode === editModeType.ALL || editMode === editModeType.SLIDES"
-    >
+  }
+
+  @if (editMode === editModeType.ALL || editMode === editModeType.SLIDES) {
+    <div
+      >
       <div id="id-type-radio-label">Add to cohort using:</div>
       <mat-radio-group [(ngModel)]="idType" class="radio-group" aria-labelledby="id-type-radio-label">
         <mat-radio-button value="patientId">Patient IDs</mat-radio-button>
@@ -42,11 +54,11 @@
         <mat-radio-button value="slideId">Slide IDs</mat-radio-button>
       </mat-radio-group>
     </div>
-  
+  }
+
+  @if (editMode === editModeType.ALL || editMode === editModeType.SLIDES) {
     <mat-form-field
-    *ngIf="editMode === editModeType.ALL || editMode === editModeType.SLIDES"
-    
-    class="id-text-area" appearance="fill">
+      class="id-text-area" appearance="fill">
       <mat-label>Comma-separated list of IDs</mat-label>
       <textarea
         matInput
@@ -62,39 +74,46 @@
         mat-icon-button
         matSuffix
         [class.caplock-lowercase-icon]="!caplockIds"
-      >
+        >
         <mat-icon>keyboard_capslock</mat-icon>
       </button>
-      <mat-error *ngIf="commaSeparatedIds.hasError('required')"> IDs are required. </mat-error>
-      <mat-error *ngIf="commaSeparatedIds.hasError('invalidChars')">
-        Cannot parse invalid characters: {{commaSeparatedIds.errors?.['invalidChars']}}
-      </mat-error>
-      <mat-error *ngIf="commaSeparatedIds.hasError('badIds')">
-        No data found for IDs: {{commaSeparatedIds.errors?.['badIds']}}
-      </mat-error>
+      @if (commaSeparatedIds.hasError('required')) {
+        <mat-error> IDs are required. </mat-error>
+      }
+      @if (commaSeparatedIds.hasError('invalidChars')) {
+        <mat-error>
+          Cannot parse invalid characters: {{commaSeparatedIds.errors?.['invalidChars']}}
+        </mat-error>
+      }
+      @if (commaSeparatedIds.hasError('badIds')) {
+        <mat-error>
+          No data found for IDs: {{commaSeparatedIds.errors?.['badIds']}}
+        </mat-error>
+      }
     </mat-form-field>
-  </div>
-  
-  <div mat-dialog-actions>
-    <button mat-stroked-button color="primary" data-qa="cancel-button" [mat-dialog-close]="false">
-      Cancel
-    </button>
-    <button
-      mat-flat-button
-      color="primary"
-      data-qa="create-button"
-      type="button"
-      [disabled]="modifyCohortLoading"
-      (click)="modifyCohort()"
+  }
+</div>
+
+<div mat-dialog-actions>
+  <button mat-stroked-button color="primary" data-qa="cancel-button" [mat-dialog-close]="false">
+    Cancel
+  </button>
+  <button
+    mat-flat-button
+    color="primary"
+    data-qa="create-button"
+    type="button"
+    [disabled]="modifyCohortLoading"
+    (click)="modifyCohort()"
     >
-    <ng-container  *ngIf="editMode === editModeType.ALL">
+    @if (editMode === editModeType.ALL) {
       Create
-    </ng-container>  
-    <ng-container  *ngIf="editMode === editModeType.SLIDES">
+    }
+    @if (editMode === editModeType.SLIDES) {
       Append
-    </ng-container>
-    <ng-container *ngIf="editMode === editModeType.NAME_DESCRIPTION">
+    }
+    @if (editMode === editModeType.NAME_DESCRIPTION) {
       Update
-    </ng-container>
-    </button>
-  </div>
+    }
+  </button>
+</div>

@@ -60,44 +60,17 @@ export function isSlideDeId(slideId: string) {
  * @returns The complete slide id with the DICOM store prefix.
  */
 export function addDicomStorePrefixIfMissing(slideId: string) {
-  if (!slideId) return slideId;
-
-  // Normalize configured store bases (trim trailing slashes)
-  const stores = Object.values(DICOM_STORE)
-      .filter((s): s is string => !!s)
-      .map((s) => s.replace(/\/+$/, ''));
-
-  // If already fully-qualified, leave unchanged
-  for (const base of stores) {
-    if (slideId === base || slideId.startsWith(base + '/')) {
+  const urlPathSeg = slideId.split('/studies');
+  if (urlPathSeg.length < 2) {
     return slideId;
   }
-    }
-  // Only process if "/studies" exists in the path
-  const parts = slideId.split('/studies');
-  if (parts.length < 2) {
-    return slideId;
-  }
-  // The server-relative prefix before the first "/studies"
-  const serverPath = parts[0].replace(/\/+$/, '');
-  if (!serverPath) {
-    return slideId;  // avoid accidental matches on empty prefix
-  }
-
-  // Choose the longest configured base that ends with serverPath
-  let chosen: string|undefined;
-  let bestLen = -1;
-  for (const base of stores) {
-    if (base.endsWith(serverPath) && base.length > bestLen) {
-      chosen = base;
-      bestLen = base.length;
+  const serverPath = urlPathSeg[0];
+  for (const value of Object.values(DICOM_STORE)) {
+    if (value.endsWith(serverPath)) {
+      return `${value}/studies${urlPathSeg.slice(1).join('/studies')}`;
     }
   }
-  if (!chosen) return slideId;
-
-  // Preserve everything after the first "/studies" without duplicating slashes
-  const tail = parts.slice(1).join('/studies').replace(/^\/+/, '');
-  return `${chosen}/studies${tail ? '/' + tail : ''}`;
+  return slideId;
 }
 
 /**
