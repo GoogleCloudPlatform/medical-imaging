@@ -8,19 +8,19 @@ absl-py==2.3.1 \
     --hash=sha256:a97820526f7fbfd2ec1bce83f3f25e3a14840dac0d8e02a0b71cd75db3f77fc9 \
     --hash=sha256:eeecf07f0c2a93ace0772c92e596ace6d3d3996c042b2128459aaae2a76de11d
     # via
-    #   -r /requirements.in
+    #   -r transformation_pipeline/requirements.in
     #   ez-wsi-dicomweb
 cachetools==6.2.4 \
     --hash=sha256:69a7a52634fed8b8bf6e24a050fb60bff1c9bd8f6d24572b99c32d4e71e62a51 \
     --hash=sha256:82c5c05585e70b6ba2d3ae09ea60b79548872185d2f24ae1f2709d37299fd607
     # via
-    #   -r /requirements.in
+    #   -r transformation_pipeline/requirements.in
     #   ez-wsi-dicomweb
 certifi==2026.1.4 \
     --hash=sha256:9943707519e4add1115f44c2bc244f782c0249876bf51b6599fee1ffbedd685c \
     --hash=sha256:ac726dd470482006e014ad384921ed6438c457018f4b3d204aea4281258b2120
     # via
-    #   -r /requirements.in
+    #   -r transformation_pipeline/requirements.in
     #   requests
 cffi==2.0.0 \
     --hash=sha256:00bdf7acc5f795150faa6957054fbbca2439db2f775ce831222b66f192f03beb \
@@ -278,16 +278,16 @@ cryptography==46.0.3 \
     --hash=sha256:e7aec276d68421f9574040c26e2a7c3771060bc0cff408bae1dcb19d3ab1e63c \
     --hash=sha256:ef639cb3372f69ec44915fafcd6698b6cc78fbe0c2ea41be867f6ed612811963 \
     --hash=sha256:f260d0d41e9b4da1ed1e0f1ce571f97fe370b152ab18778e9e8f67d6af432018
-    # via -r /requirements.in
+    # via -r transformation_pipeline/requirements.in
 dataclasses-json==0.6.7 \
     --hash=sha256:0dbf33f26c8d5305befd61b39d2b3414e8a407bedc2834dea9b8d642666fb40a \
     --hash=sha256:b6b3e528266ea45b9535223bc53ca645f5208833c29229e847b3f26a1cc55fc0
     # via
-    #   -r /requirements.in
+    #   -r transformation_pipeline/requirements.in
     #   ez-wsi-dicomweb
 ez-wsi-dicomweb==6.1.5 \
     --hash=sha256:5bf33b1e6d745ad3f025dac19d47e81fb4d5298d9e98d0c95ae5055b9afa82bb
-    # via -r /requirements.in
+    # via -r transformation_pipeline/requirements.in
 google-api-core[grpc]==2.29.0 \
     --hash=sha256:84181be0f8e6b04006df75ddfe728f24489f0af57c96a529ff7cf45bc28797f7 \
     --hash=sha256:d30bc60980daa36e314b5d5a3e5958b0200cb44ca8fa1be2b614e932b75a3ea9
@@ -303,12 +303,12 @@ google-api-core[grpc]==2.29.0 \
 google-api-python-client==2.188.0 \
     --hash=sha256:3cad1b68f9d48b82b93d77927e8370a6f43f33d97848242601f14a93a1c70ef5 \
     --hash=sha256:5c469db6614f071009e3e5bb8b6aeeccae3beb3647fa9c6cd97f0d551edde0b6
-    # via -r /requirements.in
+    # via -r transformation_pipeline/requirements.in
 google-auth==2.47.0 \
     --hash=sha256:833229070a9dfee1a353ae9877dcd2dec069a8281a4e72e72f77d4a70ff945da \
     --hash=sha256:c516d68336bfde7cf0da26aab674a36fedcf04b37ac4edd59c597178760c3498
     # via
-    #   -r /requirements.in
+    #   -r transformation_pipeline/requirements.in
     #   ez-wsi-dicomweb
     #   google-api-core
     #   google-api-python-client
@@ -324,7 +324,7 @@ google-auth-httplib2==0.3.0 \
     --hash=sha256:177898a0175252480d5ed916aeea183c2df87c1f9c26705d74ae6b951c268b0b \
     --hash=sha256:426167e5df066e3f5a0fc7ea18768c08e7296046594ce4c8c409c2457dd1f776
     # via
-    #   -r /requirements.in
+    #   -r transformation_pipeline/requirements.in
     #   ez-wsi-dicomweb
     #   google-api-python-client
 google-cloud-appengine-logging==1.8.0 \
@@ -338,32 +338,32 @@ google-cloud-audit-log==0.4.0 \
 google-cloud-bigquery==3.40.0 \
     --hash=sha256:0469bcf9e3dad3cab65b67cce98180c8c0aacf3253d47f0f8e976f299b49b5ab \
     --hash=sha256:b3ccb11caf0029f15b29569518f667553fe08f6f1459b959020c83fbbd8f2e68
-    # via -r /requirements.in
+    # via -r transformation_pipeline/requirements.in
 google-cloud-core==2.5.0 \
     --hash=sha256:67d977b41ae6c7211ee830c7912e41003ea8194bff15ae7d72fd6f51e57acabc \
     --hash=sha256:7c1b7ef5c92311717bd05301aa1a91ffbc565673d3b0b4163a52d8413a186963
     # via
-    #   -r /requirements.in
+    #   -r transformation_pipeline/requirements.in
     #   google-cloud-bigquery
     #   google-cloud-logging
     #   google-cloud-storage
 google-cloud-logging==3.13.0 \
     --hash=sha256:3aae0573b1a1a4f59ecdf4571f4e7881b5823bd129fe469561c1c49a7fa8a4c1 \
     --hash=sha256:f215e1c76ee29239c6cacf02443dffa985663c74bf47c9818854694805c6019f
-    # via -r /requirements.in
+    # via -r transformation_pipeline/requirements.in
 google-cloud-pubsub==2.34.0 \
     --hash=sha256:25f98c3ba16a69871f9ebbad7aece3fe63c8afe7ba392aad2094be730d545976 \
     --hash=sha256:aa11b2471c6d509058b42a103ed1b3643f01048311a34fd38501a16663267206
-    # via -r /requirements.in
+    # via -r transformation_pipeline/requirements.in
 google-cloud-secret-manager==2.26.0 \
     --hash=sha256:0d1d6f76327685a0ed78a4cf50f289e1bfbbe56026ed0affa98663b86d6d50d6 \
     --hash=sha256:940a5447a6ec9951446fd1a0f22c81a4303fde164cd747aae152c5f5c8e6723e
-    # via -r /requirements.in
+    # via -r transformation_pipeline/requirements.in
 google-cloud-storage==3.8.0 \
     --hash=sha256:78cfeae7cac2ca9441d0d0271c2eb4ebfa21aa4c6944dd0ccac0389e81d955a7 \
     --hash=sha256:cc67952dce84ebc9d44970e24647a58260630b7b64d72360cedaf422d6727f28
     # via
-    #   -r /requirements.in
+    #   -r transformation_pipeline/requirements.in
     #   ez-wsi-dicomweb
 google-crc32c==1.8.0 \
     --hash=sha256:014a7e68d623e9a4222d663931febc3033c5c7c9730785727de2a81f87d5bab8 \
@@ -412,7 +412,7 @@ googleapis-common-protos[grpc]==1.72.0 \
     --hash=sha256:4299c5a82d5ae1a9702ada957347726b167f9f8d1fc352477702a1e851ff4038 \
     --hash=sha256:e55a601c1b32b52d7a3e65f43563e2aa61bcd737998ee672ac9b951cd49319f5
     # via
-    #   -r /requirements.in
+    #   -r transformation_pipeline/requirements.in
     #   google-api-core
     #   google-cloud-audit-log
     #   grpc-google-iam-v1
@@ -504,7 +504,7 @@ httplib2==0.31.2 \
     --hash=sha256:385e0869d7397484f4eab426197a4c020b606edd43372492337c0b4010ae5d24 \
     --hash=sha256:dbf0c2fa3862acf3c55c078ea9c0bc4481d7dc5117cae71be9514912cf9f8349
     # via
-    #   -r /requirements.in
+    #   -r transformation_pipeline/requirements.in
     #   google-api-python-client
     #   google-auth-httplib2
 idna==3.11 \
@@ -528,7 +528,7 @@ imagecodecs==2026.1.14 \
     --hash=sha256:d4c19df6142481d2fda62d91542c078aecd647f120da52cc79019ed6938e587d \
     --hash=sha256:e37ef5116d41ba90b1c9d1d7121846671fd65c271f0c15ef24208353fa79b283
     # via
-    #   -r /requirements.in
+    #   -r transformation_pipeline/requirements.in
     #   ez-wsi-dicomweb
 importlib-metadata==8.7.1 \
     --hash=sha256:49fef1ae6440c182052f407c8d34a68f72efc36db9ca90dc0113398f2fdde8bb \
@@ -616,12 +616,22 @@ numpy==2.4.1 \
     --hash=sha256:f93bc6892fe7b0663e5ffa83b61aab510aacffd58c16e012bb9352d489d90cb7 \
     --hash=sha256:fb1461c99de4d040666ca0444057b06541e5642f800b71c56e6ea92d6a853a0c
     # via
-    #   -r /requirements.in
+    #   -r transformation_pipeline/requirements.in
     #   ez-wsi-dicomweb
     #   imagecodecs
     #   opencv-python-headless
     #   pandas
     #   tifffile
+opencv-python-headless==4.13.0.92 \
+    --hash=sha256:0525a3d2c0b46c611e2130b5fdebc94cf404845d8fa64d2f3a3b679572a5bd22 \
+    --hash=sha256:0bd48544f77c68b2941392fcdf9bcd2b9cdf00e98cb8c29b2455d194763cf99e \
+    --hash=sha256:1a7d040ac656c11b8c38677cc8cccdc149f98535089dbe5b081e80a4e5903209 \
+    --hash=sha256:3e0a6f0a37994ec6ce5f59e936be21d5d6384a4556f2d2da9c2f9c5dc948394c \
+    --hash=sha256:5c8cfc8e87ed452b5cecb9419473ee5560a989859fe1d10d1ce11ae87b09a2cb \
+    --hash=sha256:77a82fe35ddcec0f62c15f2ba8a12ecc2ed4207c17b0902c7a3151ae29f37fb6 \
+    --hash=sha256:a7cf08e5b191f4ebb530791acc0825a7986e0d0dee2a3c491184bd8599848a4b \
+    --hash=sha256:eb60e36b237b1ebd40a912da5384b348df8ed534f6f644d8e0b4f103e272ba7d
+    # via ez-wsi-dicomweb
 openslide-python==1.4.3 \
     --hash=sha256:024aa25336326bcf7d8b6eed8ec302cc98e068cf534c09f728a8b2860b6ce71d \
     --hash=sha256:026238efd0a92fe8c39e34de82ae0f4dfeeb36a70fe0364e972d66287e047c37 \
@@ -640,7 +650,7 @@ openslide-python==1.4.3 \
     --hash=sha256:e0ec8222e285bd01fa8c3054e75cfac5763f4d3327683f5769e312e120fd134a \
     --hash=sha256:f38c889703d1262a63f7f17dff35466c36eb510bbb577ddee7530ca0e1a5b1ab \
     --hash=sha256:f8ec3f136b0fbcc85c7a360e6a7b9884eef43965d29be460a630de0070bcf77e
-    # via -r /requirements.in
+    # via -r transformation_pipeline/requirements.in
 opentelemetry-api==1.39.1 \
     --hash=sha256:2edd8463432a7f8443edce90972169b195e7d6a05500cd29e6d13898187c9950 \
     --hash=sha256:fbde8c80e1b937a2c61f20347e91c0c18a1940cecf012d62e65a7caf08967c9c
@@ -719,7 +729,7 @@ pandas==2.3.3 \
     --hash=sha256:ee67acbbf05014ea6c763beb097e03cd629961c8a632075eeb34247120abcb4b \
     --hash=sha256:f086f6fe114e19d92014a1966f43a3e62285109afe874f067f5abbdcbb10e59c \
     --hash=sha256:f8bfc0e12dc78f777f323f55c58649591b2cd0c43534e8355c51d3fede5f4dee
-    # via -r /requirements.in
+    # via -r transformation_pipeline/requirements.in
 pillow==12.1.0 \
     --hash=sha256:00162e9ca6d22b7c3ee8e61faa3c3253cd19b6a37f126cad04f2f88b306f557d \
     --hash=sha256:079af2fb0c599c2ec144ba2c02766d1b55498e373b3ac64687e43849fbbef5bc \
@@ -813,7 +823,7 @@ pillow==12.1.0 \
     --hash=sha256:f61333d817698bdcdd0f9d7793e365ac3d2a21c1f1eb02b32ad6aefb8d8ea831 \
     --hash=sha256:fb125d860738a09d363a88daa0f59c4533529a90e564785e20fe875b200b6dbd
     # via
-    #   -r /requirements.in
+    #   -r transformation_pipeline/requirements.in
     #   ez-wsi-dicomweb
     #   openslide-python
 proto-plus==1.27.0 \
@@ -870,7 +880,7 @@ psutil==7.2.1 \
     --hash=sha256:f7583aec590485b43ca601dd9cea0dcd65bd7bb21d30ef4ddbf4ea6b5ed1bdd3 \
     --hash=sha256:f78baafb38436d5a128f837fab2d92c276dfb48af01a240b861ae02b2413ada8
     # via
-    #   -r /requirements.in
+    #   -r transformation_pipeline/requirements.in
     #   ez-wsi-dicomweb
 pyasn1==0.6.2 \
     --hash=sha256:1eb26d860996a18e9b6ed05e7aae0e9fc21619fcee6af91cca9bad4fbea224bf \
@@ -890,7 +900,7 @@ pydicom==3.0.1 \
     --hash=sha256:7b8be344b5b62493c9452ba6f5a299f78f8a6ab79786c729b0613698209603ec \
     --hash=sha256:db32f78b2641bd7972096b8289111ddab01fb221610de8d7afa835eb938adb41
     # via
-    #   -r /requirements.in
+    #   -r transformation_pipeline/requirements.in
     #   ez-wsi-dicomweb
 pyparsing==3.3.2 \
     --hash=sha256:850ba148bd908d7e2411587e247a1e4f0327839c40e2e5e6d05a007ecc69911d \
@@ -980,16 +990,16 @@ pyyaml==6.0.3 \
     --hash=sha256:f7057c9a337546edc7973c0d3ba84ddcdf0daa14533c2065749c9075001090e6 \
     --hash=sha256:fa160448684b4e94d80416c0fa4aac48967a969efe22931448d853ada8baf926 \
     --hash=sha256:fc09d0aa354569bc501d4e787133afc08552722d3ab34836a80547331bb5d4a0
-    # via -r /requirements.in
+    # via -r transformation_pipeline/requirements.in
 redis==7.1.0 \
     --hash=sha256:23c52b208f92b56103e17c5d06bdc1a6c2c0b3106583985a76a18f83b265de2b \
     --hash=sha256:b1cc3cfa5a2cb9c2ab3ba700864fb0ad75617b41f01352ce5779dabf6d5f9c3c
-    # via -r /requirements.in
-requests==2.32.5 \
-    --hash=sha256:2462f94637a34fd532264295e186976db0f5d453d1cdd31473c85a6a161affb6 \
-    --hash=sha256:dbba0bac56e100853db0ea71b82b4dfd5fe2bf6d3754a8893c3af500cec7d7cf
+    # via -r transformation_pipeline/requirements.in
+requests==2.33.0 \
+    --hash=sha256:3324635456fa185245e24865e810cecec7b4caf933d7eb133dcde67d48cee69b \
+    --hash=sha256:c7ebc5e8b0f21837386ad0e1c8fe8b829fa5f544d8df3b2253bff14ef29d7652
     # via
-    #   -r /requirements.in
+    #   -r transformation_pipeline/requirements.in
     #   ez-wsi-dicomweb
     #   google-api-core
     #   google-cloud-bigquery
@@ -1000,13 +1010,13 @@ requests-mock==1.12.1 \
     --hash=sha256:b1e37054004cdd5e56c84454cc7df12b25f90f382159087f4b6915aaeef39563 \
     --hash=sha256:e9e12e333b525156e82a3c852f22016b9158220d2f47454de9cae8a77d371401
     # via
-    #   -r /requirements.in
+    #   -r transformation_pipeline/requirements.in
     #   ez-wsi-dicomweb
 requests-toolbelt==1.0.0 \
     --hash=sha256:7681a0a3d047012b5bdc0ee37d7f8f07ebe76ab08caeccfc3921ce23c88d5bc6 \
     --hash=sha256:cccfdd665f0a24fcf4726e690f65639d272bb0637b9b92dfd91a5568ccf6bd06
     # via
-    #   -r /requirements.in
+    #   -r transformation_pipeline/requirements.in
     #   ez-wsi-dicomweb
 retrying==1.4.2 \
     --hash=sha256:bbc004aeb542a74f3569aeddf42a2516efefcdaff90df0eb38fbfbf19f179f59 \
@@ -1023,7 +1033,7 @@ six==1.17.0 \
 tifffile==2026.1.14 \
     --hash=sha256:29cf4adb43562a4624fc959018ab1b44e0342015d3db4581b983fe40e05f5924 \
     --hash=sha256:a423c583e1eecd9ca255642d47f463efa8d7f2365a0e110eb0167570493e0c8c
-    # via -r /requirements.in
+    # via -r transformation_pipeline/requirements.in
 typing-extensions==4.15.0 \
     --hash=sha256:0cea48d173cc12fa28ecabc3b837ea3cf6f38c6d1136f85cbaaf598984861466 \
     --hash=sha256:f0fa19c6845758ab08074a0cfa8b7aecb71c999ca73d62883bc25cc018c4e548
