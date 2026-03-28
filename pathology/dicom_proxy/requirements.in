@@ -23,7 +23,7 @@ googleapis-common-protos==1.72.0
 gunicorn==23.0.0
 imagecodecs==2026.1.14
 numpy==2.4.1
-Pillow==12.1.0
+Pillow==12.1.1
 psutil==7.2.1
 pydicom==3.0.1
 requests==2.32.5
