@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """Mock google.cloud.storage.Client."""
+
 from typing import Any, BinaryIO, Dict, Iterator, List, Optional, Union
 
 import google.api_core
@@ -63,7 +64,10 @@ class ClientMock:
     return self._mock_state
 
   def bucket(
-      self, bucket_name: str, user_project: Optional[str] = None
+      self,
+      bucket_name: str,
+      user_project: Optional[str] = None,
+      generation: Optional[int] = None,
   ) -> gcs_mock_types.GcsBucketType:
     """Factory constructor for bucket object.
 
@@ -71,12 +75,14 @@ class ClientMock:
       bucket_name: The name of the bucket to be instantiated.
       user_project: (Optional) The project ID to be billed for API requests made
         via the bucket.
+      generation: (Optional) If present, selects a specific revision of this
+        bucket.
 
     Returns:
       google.cloud.storage.Bucket
     """
     return google.cloud.storage.Bucket(
-        self, bucket_name, user_project=user_project
+        self, bucket_name, user_project=user_project, generation=generation
     )
 
   @classmethod
@@ -90,6 +96,9 @@ class ClientMock:
       if_metageneration_match: Optional[int] = None,
       if_metageneration_not_match: Optional[int] = None,
       retry: Optional[gcs_mock_types.RetryType] = None,
+      *,
+      generation: Optional[int] = None,
+      soft_deleted: Optional[bool] = None,
   ) -> gcs_mock_types.GcsBucketType:
     """Get a bucket by name, returning None if not found.
 
@@ -102,6 +111,9 @@ class ClientMock:
         bucket.metageneration.
       retry: google.api_core.retry.Retry or
         google.cloud.storage.retry.ConditionalRetryPolicy; Ignored by mock.
+      generation: (Optional) If present, selects a specific revision of this
+        bucket.
+      soft_deleted: (Optional) If True, looks for a soft-deleted bucket.
 
     Returns:
       google.cloud.storage.Bucket
@@ -110,12 +122,15 @@ class ClientMock:
       bucket_name = bucket_or_name
     else:
       bucket_name = bucket_or_name.name
-    bucket = google.cloud.storage.Bucket(self, bucket_name)
+    bucket = google.cloud.storage.Bucket(
+        self, bucket_name, generation=generation
+    )
     bucket.reload(
         timeout=timeout,
         if_metageneration_match=if_metageneration_match,
         if_metageneration_not_match=if_metageneration_not_match,
         retry=retry,
+        soft_deleted=soft_deleted,
     )
     return bucket
 
@@ -133,8 +148,9 @@ class ClientMock:
       if_metageneration_match: Optional[int] = None,
       if_metageneration_not_match: Optional[int] = None,
       timeout: gcs_mock_types.TimeoutType = 60.0,
-      checksum: Optional[str] = 'md5',
+      checksum: Optional[str] = 'auto',
       retry: Optional[gcs_mock_types.RetryType] = None,
+      single_shot_download: bool = False,
   ) -> None:
     """Download the contents of a blob object or blob URI into a file object.
 
@@ -158,6 +174,8 @@ class ClientMock:
         integrity of the object.
       retry: google.api_core.retry.Retry or
         google.cloud.storage.retry.ConditionalRetryPolicy
+      single_shot_download: (Optional) If true, download the object in a single
+        request.
 
     Returns:
       None
@@ -180,6 +198,7 @@ class ClientMock:
         timeout=timeout,
         checksum=checksum,
         retry=retry,
+        single_shot_download=single_shot_download,
     )
     file_obj.write(raw_bytes)
 
@@ -194,6 +213,9 @@ class ClientMock:
       page_size: Optional[int] = None,
       timeout: Optional[gcs_mock_types.TimeoutType] = 60,
       retry: Optional[gcs_mock_types.RetryType] = None,
+      *,
+      soft_deleted: Optional[bool] = None,
+      return_partial_success: Optional[bool] = None,
   ) -> Iterator[gcs_mock_types.GcsBucketType]:
     """Yields client buckets.
 
@@ -217,6 +239,10 @@ class ClientMock:
       retry:    google.api_core.retry.Retry or
         google.cloud.storage.retry.ConditionalRetryPolicy.  Not implemented in
         mock.
+      soft_deleted: (Optional) If True, looks for soft-deleted buckets. Not
+        implemented in mock.
+      return_partial_success: (Optional) If True, return partial success. Not
+        implemented in mock.
 
     Yields:
       Iterator of buckets on client.
@@ -225,7 +251,15 @@ class ClientMock:
       GcsMockError: page_token set to non-default value. Functionality not
         implemented in mock.
     """
-    del fields, project, page_size, timeout, retry
+    del (
+        fields,
+        project,
+        page_size,
+        timeout,
+        retry,
+        soft_deleted,
+        return_partial_success,
+    )
     if page_token is not None:
       raise gcs_mock_types.GcsMockError(
           'Deprecated: use the pages property of the returned iterator instead '
@@ -298,8 +332,8 @@ class ClientMock:
       timeout: Optional[gcs_mock_types.TimeoutType] = 60,
       retry: Optional[gcs_mock_types.RetryType] = None,
       match_glob: Optional[str] = None,
-      include_folders_as_prefixes: Optional[bool] = None,  # pylint:disable=unused-argument
-      soft_deleted: Optional[bool] = None,  # pylint:disable=unused-argument
+      include_folders_as_prefixes: Optional[bool] = None,
+      soft_deleted: Optional[bool] = None,
   ) -> Iterator[gcs_mock_types.GcsBlobType]:
     """Yields blobs on a bucket in client.
 
@@ -356,6 +390,8 @@ class ClientMock:
         page_token,
         delimiter,
         match_glob,
+        include_folders_as_prefixes,
+        soft_deleted,
     )
     if projection not in ('full', 'noAcl'):
       raise gcs_mock_types.GcsMockError(

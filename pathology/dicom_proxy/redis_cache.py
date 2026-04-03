@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """Interface to communicate with local in memory Redis cache."""
+
 import dataclasses
 import os
 import subprocess
@@ -134,7 +135,11 @@ def _get_redis_db_last_flushed() -> float:
   """Returns time Redis was last flushed by the instance."""
   try:
     with open(_redis_db_last_flushed_filepath, 'rt') as infile:
-      return float(infile.read())
+      last_flushed = float(infile.read())
+      cloud_logging_client.info(
+          f'Reading Redis last flushed time: {last_flushed}'
+      )
+      return last_flushed
   except OSError as os_exp:
     cloud_logging_client.warning(
         f'A OSError occured reading: {_redis_db_last_flushed_filepath}.',
@@ -148,6 +153,7 @@ def _get_redis_db_last_flushed() -> float:
 def _write_redis_db_last_flushed(update: float) -> None:
   """Writes the time the instance last flushed the Redis DB."""
   try:
+    cloud_logging_client.info(f'Writing Redis last flushed time: {update}')
     with open(_redis_db_last_flushed_filepath, 'wt') as outfile:
       outfile.write(str(update))
   except OSError as os_exp:
@@ -354,9 +360,14 @@ class RedisCache:
           exp,
       )
       redis_last_flushed = _get_redis_db_last_flushed()
-      if time.time() - redis_last_flushed < _min_redis_cache_flush_interval():
+      flush_interval = _min_redis_cache_flush_interval()
+      if time.time() - redis_last_flushed < flush_interval:
         return False
       try:
+        cloud_logging_client.info(
+            f'Redis last flushed: {redis_last_flushed}, flush_interval:'
+            f' {flush_interval}, time: {time.time()}'
+        )
         try:
           lazyfree_pending_objects = self._redis.info('memory').get(
               'lazyfree_pending_objects', 0

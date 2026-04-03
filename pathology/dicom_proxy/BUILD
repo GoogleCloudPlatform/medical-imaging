@@ -17,6 +17,10 @@ load("@pathology_cloud_deps//:requirements.bzl", "requirement")
 
 licenses(["notice"])
 
+package(
+    default_applicable_licenses = ["//pathology:license"],
+)
+
 # ==================================================
 # Files.
 filegroup(
@@ -450,7 +454,6 @@ py_library(
         "//pathology/shared_libs/build_version",
         "//pathology/shared_libs/logging_lib:cloud_logging_client",
         requirement("Flask"),
-        requirement("Flask-Cors"),
         requirement("gunicorn"),
         requirement("werkzeug"),
     ],
@@ -581,7 +584,6 @@ py_binary(
         "//pathology/shared_libs/build_version",
         "//pathology/shared_libs/logging_lib:cloud_logging_client",
         requirement("Flask"),
-        requirement("Flask-Cors"),
         requirement("gunicorn"),
         requirement("werkzeug"),
     ],

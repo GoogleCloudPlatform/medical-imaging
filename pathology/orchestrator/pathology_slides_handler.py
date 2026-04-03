@@ -140,9 +140,7 @@ def _verify_dicom_uri_matches_full_format(dicom_uri: str) -> bool:
 
 # Method is public since it is used by pathology_cohorts_handler within a
 # transaction.
-def insert_slide_in_table(
-    transaction: ..., slide: slides_pb2.PathologySlide
-) -> int:
+def insert_slide_in_table(transaction, slide: slides_pb2.PathologySlide) -> int:
   """Inserts slide into Slides table.
 
   Args:

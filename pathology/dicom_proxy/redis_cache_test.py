@@ -541,6 +541,11 @@ class RedisCacheTest(parameterized.TestCase):
       redis_info_return,
   ):
     mk_redis_info.return_value = redis_info_return
+    if time_last_flushed > 0:
+      # if time last flushed is greater than 0, set the time last flushed to
+      # the current time.  Avoids condition where unit execution speed affects
+      # test outcome.
+      time_last_flushed = time.time()
     redis_cache._write_redis_db_last_flushed(time_last_flushed)
     cache = redis_cache.RedisCache()
     self.assertFalse(cache.set('test', b'foo'))

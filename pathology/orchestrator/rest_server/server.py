@@ -23,7 +23,7 @@ from absl import app as absl_app
 from absl import flags
 import flask
 from google.api_core import exceptions
-from gunicorn.app.base import BaseApplication
+import gunicorn.app.base
 import requests
 
 from google.longrunning import operations_pb2
@@ -40,7 +40,6 @@ from pathology.shared_libs.build_version import build_version
 from pathology.shared_libs.flags import secret_flag_utils
 from pathology.shared_libs.iap_auth_lib import auth
 from pathology.shared_libs.logging_lib import cloud_logging_client
-from flask import request, make_response
 
 
 GUNICORN_WORKER_CLASS_FLG = flags.DEFINE_string(
@@ -95,38 +94,58 @@ class _HasView(Protocol):
 class _HasFilter(Protocol):
   filter: str
 
-def _get_link_token(request_message: _HasLinkToken, default: str = '') -> None:
-    if not request_message.link_token:
-        request_message.link_token = flask.request.args.get('linkToken', default, type=str)
 
-def _get_view(request_message: _HasView, default: str = _DEFAULT_COHORT_VIEW) -> None:
-    if not request_message.view:
-        view = flask.request.args.get('view', default=default, type=str)
-        request_message.view = cohorts_pb2.PathologyCohortView.Value(view)
-        
+def _get_link_token(request_message: _HasLinkToken, default: str = '') -> None:
+  """Gets link token from arg if missing in request."""
+  if not request_message.link_token:
+    request_message.link_token = flask.request.args.get(
+        'linkToken', default, type=str
+    )
+
+
+def _get_view(
+    request_message: _HasView, default: str = _DEFAULT_COHORT_VIEW
+) -> None:
+  """Gets view from arg if missing in request."""
+  if not request_message.view:
+    view = flask.request.args.get('view', default=default, type=str)
+    request_message.view = cohorts_pb2.PathologyCohortView.Value(view)
+
+
 def _get_filter(request_message: _HasFilter, default: str = '') -> None:
-    if not request_message.filter:
-        request_message.filter = flask.request.args.get('filter', default, type=str)
+  """Gets filter from arg if missing in request."""
+  if not request_message.filter:
+    request_message.filter = flask.request.args.get('filter', default, type=str)
+
 
 @flask_app.before_request
 def handle_options_request() -> Optional[flask.Response]:
-    """Handle preflight CORS requests manually."""
-    if request.method == 'OPTIONS':
-        response = make_response()
-        response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', '')
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PATCH, DELETE, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
-        return response
+  """Handle preflight CORS requests manually."""
+  if flask.request.method != 'OPTIONS':
+    return None
+  response = flask.make_response()
+  response.headers['Access-Control-Allow-Origin'] = flask.request.headers.get(
+      'Origin', ''
+  )
+  response.headers['Access-Control-Allow-Methods'] = (
+      'GET, POST, PATCH, DELETE, OPTIONS'
+  )
+  response.headers['Access-Control-Allow-Headers'] = (
+      'Content-Type, Authorization'
+  )
+  response.headers['Access-Control-Allow-Credentials'] = 'true'
+  return response
+
 
 @flask_app.after_request
 def add_cors_headers(response: flask.Response) -> flask.Response:
-    """Add CORS headers to all responses."""
-    origin = request.headers.get('Origin', '')
-    if origin in ORIGINS_FLG:
-        response.headers['Access-Control-Allow-Origin'] = origin
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
-    return response
+  """Add CORS headers to all responses."""
+  origin = flask.request.headers.get('Origin', '')
+  if origin in ORIGINS_FLG:
+    response.headers['Access-Control-Allow-Origin'] = origin
+    response.headers['Access-Control-Allow-Credentials'] = 'true'
+  return response
+
 
 def _convert_user_id_to_name(user_id: str) -> str:
   """Returns the resource name of the user given the user id."""
@@ -183,19 +202,6 @@ def _parse_status_response(
       status=grpc_util.convert_grpc_code_to_http(rpc_status_response.code),
       mimetype='text/html',
   )
-
-
-@flask_app.before_request
-def handle_preflight_methods() -> Optional[flask.Response]:
-  if flask.request.method.lower() == 'options':
-    return flask.Response(
-        status=http.HTTPStatus.OK,
-        headers={
-            'Access-Control-Allow-Origin': ORIGINS_FLG,
-            'Access-Control-Allow-Headers': '*',
-            'Access-Control-Allow-Methods': '*',
-        },
-    )
 
 
 @flask_app.route('/')
@@ -401,11 +407,7 @@ def export_pathology_cohort(user_id: str, cohort_id: str) -> flask.Response:
       f'{_convert_user_id_to_name(user_id)}/pathologyCohorts/{cohort_id}'
   )
 
-  # Use link token from request body, if not present, retrieve query parameter.
-  if not export_request.link_token:
-    export_request.link_token = flask.request.args.get(
-        'linkToken', default='', type=str
-    )
+  _get_link_token(export_request)
 
   try:
     response = cohorts_handler.export_pathology_cohort(
@@ -438,11 +440,7 @@ def transfer_deid_pathology_cohort(
       f'{_convert_user_id_to_name(user_id)}/pathologyCohorts/{cohort_id}'
   )
 
-  # Use link token from request body, if not present, retrieve query parameter.
-  if not deid_request.link_token:
-    deid_request.link_token = flask.request.args.get(
-        'linkToken', default='', type=str
-    )
+  _get_link_token(deid_request)
 
   try:
     response = cohorts_handler.transfer_deid_pathology_cohort(
@@ -614,6 +612,7 @@ def get_pathology_slide(scan_uid: str) -> flask.Response:
 
 
 @flask_app.route('/api/v1alpha/pathologySlides', methods=['GET'])
+@auth.validate_iap
 def list_pathology_slides() -> flask.Response:
   """Process list_pathology_slides."""
   user_email = _get_user_email()
@@ -649,7 +648,7 @@ def get_operation(op_id: str) -> flask.Response:
     return _parse_status_response(ex.status)
 
 
-class GunicornApplication(BaseApplication):
+class GunicornApplication(gunicorn.app.base.BaseApplication):
   """gunicorn WSGI wrapper for the Flask server.
 
   Explicitly adding this wrapper in our Python code allows us to get Abseil flag

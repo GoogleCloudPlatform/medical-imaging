@@ -346,7 +346,6 @@ py_library(
         ":metadata_storage_client",
         ":wsi_pyramid_gen_config",
         "//pathology/shared_libs/logging_lib:cloud_logging_client",
-        "//pathology/shared_libs/pydicom_version_util",
         "//pathology/transformation_pipeline:ingest_flags",
         "//pathology/transformation_pipeline/ingestion_lib:ingest_const",
         "//pathology/transformation_pipeline/ingestion_lib/dicom_gen:abstract_dicom_generation",

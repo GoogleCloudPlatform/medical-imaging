@@ -203,7 +203,7 @@ def _process_json_operation_response(
 
 
 def update_operation(
-    transaction: ...,
+    transaction,
     healthcare_api_client: discovery.Resource,
     op_row_dict: Dict[str, Any],
 ) -> None:
@@ -241,7 +241,7 @@ def update_operation(
 
 
 def update_running_operations(
-    transaction: ..., healthcare_api_client: discovery.Resource
+    transaction, healthcare_api_client: discovery.Resource
 ) -> None:
   """Checks status of running operations.
 

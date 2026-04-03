@@ -14,27 +14,22 @@
 # ==============================================================================
 # Base Debian Docker container for wsi image ingestion
 #
-# Debian 13.3-slim + Python 3.14.2
+# Debian 13.4-slim + Python 3.14.3
 #
-FROM debian:13.3-slim
+FROM debian:13.4-slim
 
-# Start Python 3.14.2 install.
-# docker install code from offical python 3.14.2 DOCKER image.
-# https://github.com/docker-library/python/blob/2fc7ce5fa65ed3321256f9b45054733a6958aebe/3.14/slim-trixie/Dockerfile
+# Start Python 3.14.3 install.
+# docker install code from offical python 3.14.3 DOCKER image.
+# https://github.com/docker-library/python/blob/ce782e2435387d50d3a21a29c76d0eb4115057d3/3.14/slim-trixie/Dockerfile
 
-RUN set -eux; \
-  apt-get update; \
-  apt-get install -y --no-install-recommends \
-    ca-certificates \
-    netbase \
-    tzdata \
-  ; \
-  apt-get dist-clean
+ENV PYTHON_VERSION 3.14.3
+ENV PYTHON_SHA256 a97d5549e9ad81fe17159ed02c68774ad5d266c72f8d9a0b5a9c371fe85d902b
 
-ENV PYTHON_VERSION 3.14.2
-ENV PYTHON_SHA256 ce543ab854bc256b61b71e9b27f831ffd1bfd60a479d639f8be7f9757cf573e9
-
-RUN set -eux; \
+# Install ca-certificates
+RUN apt-get update && \
+    apt-get install -y ca-certificates && \
+    update-ca-certificates && \
+ set -eux; \
   \
   savedAptMark="$(apt-mark showmanual)"; \
   apt-get update; \
@@ -62,7 +57,7 @@ RUN set -eux; \
     zlib1g-dev \
   ; \
   \
-  wget -O python.tar.xz "https://www.python.org/ftp/python/3.14.2/Python-3.14.2.tar.xz"; \
+  wget -O python.tar.xz "https://www.python.org/ftp/python/3.14.3/Python-3.14.3.tar.xz"; \
   echo "$PYTHON_SHA256 *python.tar.xz" | sha256sum -c -; \
   mkdir -p /usr/src/python; \
   tar --extract --directory /usr/src/python --strip-components=1 --file python.tar.xz; \
@@ -82,25 +77,25 @@ RUN set -eux; \
   nproc="$(nproc)"; \
   EXTRA_CFLAGS="$(dpkg-buildflags --get CFLAGS)"; \
   LDFLAGS="$(dpkg-buildflags --get LDFLAGS)"; \
-  LDFLAGS="${LDFLAGS:--Wl},--strip-all"; \
-    arch="$(dpkg --print-architecture)"; arch="${arch##*-}"; \
+  LDFLAGS="${LDFLAGS:-} -Wl,--strip-all"; \
+  arch="$(dpkg --print-architecture)"; arch="${arch##*-}"; \
 # https://docs.python.org/3.12/howto/perf_profiling.html
 # https://github.com/docker-library/python/pull/1000#issuecomment-2597021615
-    case "$arch" in \
-      amd64|arm64) \
-        # only add "-mno-omit-leaf" on arches that support it
-        # https://gcc.gnu.org/onlinedocs/gcc-14.2.0/gcc/x86-Options.html#index-momit-leaf-frame-pointer-2
-        # https://gcc.gnu.org/onlinedocs/gcc-14.2.0/gcc/AArch64-Options.html#index-momit-leaf-frame-pointer
-        EXTRA_CFLAGS="${EXTRA_CFLAGS:-} -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer"; \
-        ;; \
-      i386) \
-        # don't enable frame-pointers on 32bit x86 due to performance drop.
-        ;; \
-      *) \
-        # other arches don't support "-mno-omit-leaf"
-        EXTRA_CFLAGS="${EXTRA_CFLAGS:-} -fno-omit-frame-pointer"; \
-        ;; \
-    esac; \
+  case "$arch" in \
+    amd64|arm64) \
+      # only add "-mno-omit-leaf" on arches that support it
+      # https://gcc.gnu.org/onlinedocs/gcc-14.2.0/gcc/x86-Options.html#index-momit-leaf-frame-pointer-2
+      # https://gcc.gnu.org/onlinedocs/gcc-14.2.0/gcc/AArch64-Options.html#index-momit-leaf-frame-pointer
+      EXTRA_CFLAGS="${EXTRA_CFLAGS:-} -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer"; \
+      ;; \
+    i386) \
+      # don't enable frame-pointers on 32bit x86 due to performance drop.
+      ;; \
+    *) \
+      # other arches don't support "-mno-omit-leaf"
+      EXTRA_CFLAGS="${EXTRA_CFLAGS:-} -fno-omit-frame-pointer"; \
+      ;; \
+  esac; \
   make -j "$nproc" \
     "EXTRA_CFLAGS=${EXTRA_CFLAGS:-}" \
     "LDFLAGS=${LDFLAGS:-}" \
@@ -110,7 +105,7 @@ RUN set -eux; \
   rm python; \
   make -j "$nproc" \
     "EXTRA_CFLAGS=${EXTRA_CFLAGS:-}" \
-    "LDFLAGS=${LDFLAGS:--Wl},-rpath='\$\$ORIGIN/../lib'" \
+    "LDFLAGS=${LDFLAGS:-} -Wl,-rpath='\$\$ORIGIN/../lib'" \
     python \
   ; \
   make install; \
@@ -142,7 +137,7 @@ RUN set -eux; \
     [ ! -e "/usr/local/bin/$dst" ]; \
     ln -svT "$src" "/usr/local/bin/$dst"; \
   done
-# End Python 3.14.2 install
+# End Python 3.14.3 install
 
 # Add gcloud to base container
 # Add public key for gcloud

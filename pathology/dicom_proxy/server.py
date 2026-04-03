@@ -20,7 +20,7 @@ from typing import Optional
 
 from absl import app as absl_app
 import flask
-from gunicorn.app.base import BaseApplication
+import gunicorn.app.base
 from werkzeug import routing
 from werkzeug.middleware import proxy_fix
 
@@ -75,38 +75,45 @@ flask_app.register_blueprint(dicom_proxy_blueprint.dicom_proxy)
 
 @flask_app.before_request
 def handle_preflight_methods() -> Optional[flask.Response]:
+  """Handles preflight OPTIONS requests for CORS and conditionally allows credentials.
+
+  Returns:
+    flask.Response for OPTIONS requests or invalid methods, otherwise None.
+  """
   if flask.request.method.lower() != 'options':
     return None
 
-  origin = flask.request.headers.get("Origin")
+  origin = flask.request.headers.get('Origin')
   allowed_origins = {  # Normalize to set for fast lookup
-    o.strip().lower() for o in dicom_proxy_flags.ORIGINS_FLG.value
+      o.strip().lower() for o in dicom_proxy_flags.ORIGINS_FLG.value
   }
 
   if not origin or origin.lower() not in allowed_origins:
-    return flask.Response(status=http.HTTPStatus.FORBIDDEN)  # Block unapproved origins
+    return flask.Response(
+        status=http.HTTPStatus.FORBIDDEN
+    )  # Block unapproved origins
 
   response = flask.Response(status=http.HTTPStatus.OK)
-  response.headers["Access-Control-Allow-Origin"] = origin  # Reflect origin
+  response.headers['Access-Control-Allow-Origin'] = origin  # Reflect origin
 
   # Conditionally allow credentials
   if dicom_proxy_flags.ALLOW_CREDENTIALS_FLG.value:
-    response.headers["Access-Control-Allow-Credentials"] = "true"
+    response.headers['Access-Control-Allow-Credentials'] = 'true'
 
   # Explicitly allow only methods that the proxy supports.
   # (DELETE is supported; PATCH is intentionally excluded until implemented.)
   allowed_methods = {'GET', 'POST', 'DELETE', 'OPTIONS'}
   allowed_methods_header = 'GET, POST, DELETE, OPTIONS'
   requested_method = (
-    flask.request.headers.get("Access-Control-Request-Method", "")
-    .strip()
-    .upper()
+      flask.request.headers.get('Access-Control-Request-Method', '')
+      .strip()
+      .upper()
   )
   if requested_method and requested_method not in allowed_methods:
     return flask.Response(status=http.HTTPStatus.METHOD_NOT_ALLOWED)
-  response.headers["Access-Control-Allow-Methods"] = allowed_methods_header
-  response.headers["Access-Control-Allow-Headers"] = flask.request.headers.get(
-    "Access-Control-Request-Headers", "Content-Type, Authorization"
+  response.headers['Access-Control-Allow-Methods'] = allowed_methods_header
+  response.headers['Access-Control-Allow-Headers'] = flask.request.headers.get(
+      'Access-Control-Request-Headers', 'Content-Type, Authorization'
   )
 
   return response
@@ -114,18 +121,29 @@ def handle_preflight_methods() -> Optional[flask.Response]:
 
 @flask_app.after_request
 def add_security_headers(response: flask.Response) -> flask.Response:
-    origin = flask.request.headers.get("Origin")
-    allowed_origins = {o.lower() for o in dicom_proxy_flags.ORIGINS_FLG.value}
+  """Adds security headers such as CORS Allow-Origin and X-Frame-Options.
 
-    if origin and origin.lower() in allowed_origins:
-        response.headers["Access-Control-Allow-Origin"] = origin
-        if dicom_proxy_flags.ALLOW_CREDENTIALS_FLG.value:
-            response.headers["Access-Control-Allow-Credentials"] = "true"
+  Args:
+    response: The flask.Response object.
 
-    response.headers["X-Frame-Options"] = "SAMEORIGIN"
-    response.headers["X-XSS-Protection"] = "0"
+  Returns:
+    The modified flask.Response object with security headers added.
+  """
+  origin = flask.request.headers.get('Origin')
+  allowed_origins = {
+      o.strip().lower() for o in dicom_proxy_flags.ORIGINS_FLG.value
+  }
 
-    return response
+  if origin and origin.lower() in allowed_origins:
+    response.headers['Access-Control-Allow-Origin'] = origin
+    if dicom_proxy_flags.ALLOW_CREDENTIALS_FLG.value:
+      response.headers['Access-Control-Allow-Credentials'] = 'true'
+
+  response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+  response.headers['X-XSS-Protection'] = '0'
+
+  return response
+
 
 @flask_app.route('/', methods=['GET', 'POST'], endpoint='healthcheck')
 @logging_util.log_exceptions_in_health_check
@@ -162,7 +180,7 @@ def healthcheck() -> flask.Response:
   return response
 
 
-class GunicornApplication(BaseApplication):
+class GunicornApplication(gunicorn.app.base.BaseApplication):
   """gunicorn WSGI wrapper for the Flask server.
 
   Explicitly adding this wrapper in our Python code allows us to get Abseil flag
@@ -197,6 +215,7 @@ def _url_map_to_dict(url_map: routing.Map) -> dict[str, str]:
 
 
 def main(unused_argv):
+  """Main entry point for the DICOM proxy server."""
   build_version.init_cloud_logging_build_version()
   redis_cache.setup()
   cloud_logging_client.debug('Tile-server process started.')

@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """Mock google.cloud.storage.Blob."""
+
 from __future__ import annotations
 
 import copy
@@ -405,6 +406,7 @@ class BlobMock:
             if_generation_not_match,
             if_metageneration_match,
             if_metageneration_not_match,
+            soft_deleted,
         )
     )
 
@@ -468,8 +470,9 @@ class BlobMock:
       if_metageneration_match: Optional[int] = None,
       if_metageneration_not_match: Optional[int] = None,
       timeout: Optional[gcs_mock_types.TimeoutType] = 60,
-      checksum: Optional[str] = 'md5',
+      checksum: Optional[str] = 'auto',
       retry: Optional[gcs_mock_types.RetryType] = None,
+      single_shot_download: bool = False,
   ) -> bytes:
     """Download the contents of this blob as a bytes object.
 
@@ -493,6 +496,8 @@ class BlobMock:
         integrity of the object. (No effect on mock)
       retry: google.api_core.retry.Retry or
         google.cloud.storage.retry.ConditionalRetryPolicy
+      single_shot_download: (Optional) If true, download the object in a single
+        request. (No effect on mock)
 
     Returns:
       Downloaded bytes.
@@ -510,7 +515,7 @@ class BlobMock:
           if_etag_not_match, if_generation_not_match, or
           if_metageneration_not_match) failed.
     """
-    del timeout, retry
+    del timeout, retry, single_shot_download
     downloaded_bytes, source_state = self._get_client(
         client
     ).mock_state.blob_download_as_bytes(
@@ -546,6 +551,7 @@ class BlobMock:
       if_metageneration_not_match: Optional[int] = None,
       timeout: gcs_mock_types.TimeoutType = 60.0,
       retry: Optional[gcs_mock_types.RetryType] = None,
+      single_shot_download: bool = False,
   ) -> None:
     """(Deprecated) Download the contents of this blob as a bytes object.
 
@@ -567,6 +573,8 @@ class BlobMock:
         response.  (No effect on mock)
       retry:    google.api_core.retry.Retry or
         google.cloud.storage.retry.ConditionalRetryPolicy
+      single_shot_download: (Optional) If true, download the object in a single
+        request. (No effect on mock)
 
     Returns:
       None
@@ -588,6 +596,7 @@ class BlobMock:
         if_metageneration_not_match,
         timeout,
         retry,
+        single_shot_download,
     )
     raise gcs_mock_types.GcsMockError(
         'Method is deprecated use Blob.download_as_bytes'
@@ -608,6 +617,7 @@ class BlobMock:
       if_metageneration_not_match: Optional[int] = None,
       timeout: gcs_mock_types.TimeoutType = 60.0,
       retry: Optional[gcs_mock_types.RetryType] = None,
+      single_shot_download: bool = False,
   ) -> str:
     """Download the contents of this blob as text.
 
@@ -631,6 +641,8 @@ class BlobMock:
         response.  (No effect on mock)
       retry:    google.api_core.retry.Retry or
         google.cloud.storage.retry.ConditionalRetryPolicy
+      single_shot_download: (Optional) If true, download the object in a single
+        request. (No effect on mock)
 
     Returns:
       Downloaded text.
@@ -648,7 +660,7 @@ class BlobMock:
           if_etag_not_match, if_generation_not_match, or
           if_metageneration_not_match) failed.
     """
-    del timeout, retry
+    del timeout, retry, single_shot_download
     if encoding is None:
       encoding = 'utf-8'
     raw_bytes = self.download_as_bytes(
@@ -680,8 +692,9 @@ class BlobMock:
       if_metageneration_match: Optional[int] = None,
       if_metageneration_not_match: Optional[int] = None,
       timeout: gcs_mock_types.TimeoutType = 60.0,
-      checksum: Optional[str] = 'md5',
+      checksum: Optional[str] = 'auto',
       retry: Optional[gcs_mock_types.RetryType] = None,
+      single_shot_download: bool = False,
   ) -> None:
     """Download the contents of this blob and stores as file.
 
@@ -706,6 +719,8 @@ class BlobMock:
         integrity of the object. (No effect on mock)
       retry:    google.api_core.retry.Retry or
         google.cloud.storage.retry.ConditionalRetryPolicy
+      single_shot_download: (Optional) If true, download the object in a single
+        request. (No effect on mock)
 
     Returns:
       None
@@ -723,7 +738,7 @@ class BlobMock:
           if_etag_not_match, if_generation_not_match, or
           if_metageneration_not_match) failed.
     """
-    del timeout, retry
+    del timeout, retry, single_shot_download
     with open(filename, 'wb') as outfile:
       outfile.write(
           self.download_as_bytes(
@@ -755,8 +770,9 @@ class BlobMock:
       if_metageneration_match: Optional[int] = None,
       if_metageneration_not_match: Optional[int] = None,
       timeout: gcs_mock_types.TimeoutType = 60.0,
-      checksum: Optional[str] = 'md5',
+      checksum: Optional[str] = 'auto',
       retry: Optional[gcs_mock_types.RetryType] = None,
+      single_shot_download: bool = False,
   ) -> None:
     """DEPRECATED, Download the contents of this blob into a file-like object.
 
@@ -781,6 +797,8 @@ class BlobMock:
         integrity of the object. (No effect on mock)
       retry:    google.api_core.retry.Retry or
         google.cloud.storage.retry.ConditionalRetryPolicy
+      single_shot_download: (Optional) If true, download the object in a single
+        request. (No effect on mock)
 
     Returns:
       None
@@ -803,6 +821,7 @@ class BlobMock:
         timeout,
         checksum,
         retry,
+        single_shot_download,
     )
     raise gcs_mock_types.GcsMockError('Method is deprecated')
 
@@ -810,7 +829,6 @@ class BlobMock:
       self,
       data: Union[bytes, str],
       content_type: Optional[str] = 'text/plain',
-      num_retries: Optional[int] = None,
       client: Optional[gcs_mock_types.GcsClientType] = None,
       predefined_acl: Optional[str] = None,
       if_generation_match: Optional[int] = None,
@@ -818,8 +836,9 @@ class BlobMock:
       if_metageneration_match: Optional[int] = None,
       if_metageneration_not_match: Optional[int] = None,
       timeout: gcs_mock_types.TimeoutType = 60.0,
-      checksum: Optional[str] = None,
+      checksum: Optional[str] = 'auto',
       retry: Optional[gcs_mock_types.RetryType] = None,
+      crc32c_checksum_value: Optional[str] = None,
   ) -> None:
     """Upload contents of this blob from a string.
 
@@ -828,7 +847,6 @@ class BlobMock:
         encoded as UTF-8.
       content_type: (Optional) Type of content being uploaded. Defaults to
         'text/plain'.
-      num_retries: Number of upload retries.
       client: (Optional) The client to use. If not passed, falls back to the
         client stored on the blob's bucket.
       predefined_acl: (Optional) Predefined access control list.
@@ -843,6 +861,9 @@ class BlobMock:
         integrity of the object. (No effect on mock)
       retry: google.api_core.retry.Retry or
         google.cloud.storage.retry.ConditionalRetryPolicy
+      crc32c_checksum_value: (Optional) This should be the checksum of the
+        entire contents of `file_obj`. Applicable while uploading object greater
+        than `_MAX_MULTIPART_SIZE` bytes.
 
     Returns:
       None
@@ -857,7 +878,7 @@ class BlobMock:
       google.api_core.exceptions.NotModified: Condition defined by (
           if_generation_not_match, or if_metageneration_not_match) failed.
     """
-    del num_retries, timeout, retry, predefined_acl
+    del timeout, retry, predefined_acl, crc32c_checksum_value
     if isinstance(data, str):
       data = data.encode('utf-8')
     self._update_state(
@@ -877,7 +898,6 @@ class BlobMock:
       self,
       filename: str,
       content_type: Optional[str] = None,
-      num_retries: Optional[int] = None,
       client: Optional[gcs_mock_types.GcsClientType] = None,
       predefined_acl: Optional[str] = None,
       if_generation_match: Optional[int] = None,
@@ -885,15 +905,15 @@ class BlobMock:
       if_metageneration_match: Optional[int] = None,
       if_metageneration_not_match: Optional[int] = None,
       timeout: gcs_mock_types.TimeoutType = 60.0,
-      checksum: Optional[str] = None,
+      checksum: Optional[str] = 'auto',
       retry: Optional[gcs_mock_types.RetryType] = None,
+      crc32c_checksum_value: Optional[str] = None,
   ) -> None:
     """Upload this blob's contents from a file.
 
     Args:
       filename: The path to the file.
       content_type: (Optional) Type of content being uploaded.
-      num_retries: Number of upload retries.
       client: (Optional) The client to use. If not passed, falls back to the
         client stored on the blob's bucket.
       predefined_acl: (Optional) Predefined access control list.
@@ -910,6 +930,9 @@ class BlobMock:
         integrity of the object. (No effect on mock)
       retry: google.api_core.retry.Retry or
         google.cloud.storage.retry.ConditionalRetryPolicy
+      crc32c_checksum_value: (Optional) This should be the checksum of the
+        entire contents of `filename`. Applicable while uploading object greater
+        than `_MAX_MULTIPART_SIZE` bytes.
 
     Returns:
       None
@@ -934,7 +957,6 @@ class BlobMock:
           rewind=True,
           size=None,
           content_type=content_type,
-          num_retries=num_retries,
           client=client,
           predefined_acl=predefined_acl,
           if_generation_match=if_generation_match,
@@ -944,6 +966,7 @@ class BlobMock:
           timeout=timeout,
           checksum=checksum,
           retry=retry,
+          crc32c_checksum_value=crc32c_checksum_value,
       )
 
   def upload_from_file(
@@ -952,7 +975,6 @@ class BlobMock:
       rewind: bool = False,
       size: Optional[int] = None,
       content_type: Optional[str] = None,
-      num_retries: Optional[int] = None,
       client: Optional[gcs_mock_types.GcsClientType] = None,
       predefined_acl: Optional[str] = None,
       if_generation_match: Optional[int] = None,
@@ -960,8 +982,9 @@ class BlobMock:
       if_metageneration_match: Optional[int] = None,
       if_metageneration_not_match: Optional[int] = None,
       timeout: gcs_mock_types.TimeoutType = 60.0,
-      checksum: Optional[str] = None,
+      checksum: Optional[str] = 'auto',
       retry: Optional[gcs_mock_types.RetryType] = None,
+      crc32c_checksum_value: Optional[str] = None,
   ) -> None:
     """Upload this blob's contents from a open file-like-object.
 
@@ -970,7 +993,6 @@ class BlobMock:
       rewind: If True, seek to the beginning of the file handle before writing.
       size: The number of bytes to be uploaded (which will be read file_obj).
       content_type: (Optional) Type of content being uploaded.
-      num_retries: Number of upload retries.
       client: (Optional) The client to use. If not passed, falls back to the
         client stored on the blob's bucket.
       predefined_acl: (Optional) Predefined access control list.
@@ -987,6 +1009,9 @@ class BlobMock:
         integrity of the object. (No effect on mock)
       retry: google.api_core.retry.Retry or
         google.cloud.storage.retry.ConditionalRetryPolicy
+      crc32c_checksum_value: (Optional) This should be the checksum of the
+        entire contents of `file_obj`. Applicable while uploading object greater
+        than `_MAX_MULTIPART_SIZE` bytes.
 
     Returns:
       None
@@ -1014,7 +1039,6 @@ class BlobMock:
     self.upload_from_string(
         data=data,
         content_type=content_type,
-        num_retries=num_retries,
         client=client,
         predefined_acl=predefined_acl,
         if_generation_match=if_generation_match,
@@ -1024,6 +1048,7 @@ class BlobMock:
         timeout=timeout,
         checksum=checksum,
         retry=retry,
+        crc32c_checksum_value=crc32c_checksum_value,
     )
 
   def compose(

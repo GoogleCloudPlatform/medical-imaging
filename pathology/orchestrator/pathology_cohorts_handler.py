@@ -28,7 +28,7 @@ from google.cloud import spanner
 from google.cloud import storage as gcs
 from google.cloud.spanner_v1 import snapshot as s
 from google.cloud.spanner_v1 import transaction as tr
-from google.cloud.spanner_v1.streamed import StreamedResultSet
+import google.cloud.spanner_v1.streamed
 from googleapiclient import discovery
 import grpc
 
@@ -435,8 +435,10 @@ def _add_slide_to_cohort(
 def _add_slide_to_export_snapshot(
     transaction, slide: slides_pb2.PathologySlide, snapshot_id: int
 ) -> int:
-  """Adds a PathologySlide to the Spanner ExportSlides table.  
-    This table captures a snapshot of the slides in a cohort at the time of export.
+  """Adds a PathologySlide to the Spanner ExportSlides table.
+
+  This table captures a snapshot of the slides in a cohort at the time of
+  export.
 
   Args:
     transaction: Transaction to run Spanner read/writes on.
@@ -606,6 +608,7 @@ def _copy_cohort(
 
   return target_cohort_id
 
+
 def _snapshot_cohort(
     transaction,
     cohort: cohorts_pb2.PathologyCohort,
@@ -621,11 +624,12 @@ def _snapshot_cohort(
   Returns:
     int - Snapshot id of cohort at time of export.
   """
-
   target_snapshot_id = (
       id_generator.OrchestratorIdGenerator.generate_new_id_for_table(
           transaction,
-          ORCHESTRATOR_TABLE_NAMES[schema_resources.OrchestratorTables.EXPORT_COHORT_SNAPSHOTS],
+          ORCHESTRATOR_TABLE_NAMES[
+              schema_resources.OrchestratorTables.EXPORT_COHORT_SNAPSHOTS
+          ],
           schema_resources.EXPORT_COHORT_SNAPSHOT_COLS,
       )
   )
@@ -633,7 +637,9 @@ def _snapshot_cohort(
   cohort_id = pathology_resources_util.get_id_from_name(cohort.name)
 
   transaction.insert(
-      ORCHESTRATOR_TABLE_NAMES[schema_resources.OrchestratorTables.EXPORT_COHORT_SNAPSHOTS],
+      ORCHESTRATOR_TABLE_NAMES[
+          schema_resources.OrchestratorTables.EXPORT_COHORT_SNAPSHOTS
+      ],
       schema_resources.EXPORT_COHORT_SNAPSHOT_COLS,
       [[
           target_snapshot_id,
@@ -644,11 +650,8 @@ def _snapshot_cohort(
   )
 
   # If slides are present, add mappings for slides.
-  if cohort.slides:
-    for slide in cohort.slides:
-      slide.scan_unique_id = str(
-        _add_slide_to_export_snapshot(transaction, slide, target_snapshot_id)
-      )
+  for slide in cohort.slides:
+    _add_slide_to_export_snapshot(transaction, slide, target_snapshot_id)
 
   return target_snapshot_id
 
@@ -1334,8 +1337,8 @@ def _process_user_access_changes(
       ):
         cloud_logging_client.info(
             f'User {user_permission.user_email} already has'
-            f' {users_pb2.PathologyUserAccessRole.Name(user_permission.access_role)} for'
-            f' cohort {cohort_id}.'
+            f' {users_pb2.PathologyUserAccessRole.Name(user_permission.access_role)}'
+            f' for cohort {cohort_id}.'
         )
         permissions_map[user_permission.user_email] = (
             user_permission.access_role
@@ -1349,9 +1352,9 @@ def _process_user_access_changes(
             [[int(cohort_id), user_id, user_permission.access_role]],
         )
         cloud_logging_client.info(
-            'Granted user'
-            f' {user_permission.user_email} {users_pb2.PathologyUserAccessRole.Name(user_permission.access_role)} for'
-            f' cohort {cohort_id}.'
+            f'Granted user {user_permission.user_email}'
+            f' {users_pb2.PathologyUserAccessRole.Name(user_permission.access_role)}'
+            f' for cohort {cohort_id}.'
         )
         permissions_map[user_permission.user_email] = (
             user_permission.access_role
@@ -1752,7 +1755,7 @@ class PathologyCohortsHandler:
 
   def _read_cohort_row(
       self, cohort_id: int, columns: Optional[List[str]] = None
-  ) -> StreamedResultSet:
+  ) -> google.cloud.spanner_v1.streamed.StreamedResultSet:
     """Returns the cohort row given the id.
 
     Args:
@@ -1869,8 +1872,8 @@ class PathologyCohortsHandler:
         raise rpc_status.RpcFailureError(
             rpc_status.build_rpc_method_status_and_log(
                 grpc.StatusCode.PERMISSION_DENIED,
-                f'User {alias} does not have permission to access cohort {cohort_id}'
-                ' or it does not exist.',
+                f'User {alias} does not have permission to access cohort'
+                f' {cohort_id} or it does not exist.',
             )
         )
       cloud_logging_client.info(f'Retrieving PathologyCohort {resource_name}.')
@@ -2678,22 +2681,32 @@ class PathologyCohortsHandler:
       dest_dicom_store = _get_dicom_store_url(cohort_to_copy)
     else:
       dest_dicom_store = None
+    try:
+      copied_cohort_id = self._spanner_client.run_in_transaction(
+          _copy_cohort,
+          cohort_to_copy,
+          dest_dicom_store,
+          current_user.user_id,
+          cohort_to_copy.cohort_metadata.is_deid,
+          cohorts_pb2.PATHOLOGY_COHORT_LIFECYCLE_STAGE_ACTIVE,
+      )
 
-    copied_cohort_id = self._spanner_client.run_in_transaction(
-        _copy_cohort,
-        cohort_to_copy,
-        dest_dicom_store,
-        current_user.user_id,
-        cohort_to_copy.cohort_metadata.is_deid,
-        cohorts_pb2.PATHOLOGY_COHORT_LIFECYCLE_STAGE_ACTIVE,
-    )
-
-    cohort_copy = self._spanner_client.run_in_transaction(
-        _get_cohort_by_id,
-        alias,
-        int(copied_cohort_id),
-        request.view != cohorts_pb2.PATHOLOGY_COHORT_VIEW_METADATA_ONLY,
-    )
+      cohort_copy = self._spanner_client.run_in_transaction(
+          _get_cohort_by_id,
+          alias,
+          int(copied_cohort_id),
+          request.view != cohorts_pb2.PATHOLOGY_COHORT_VIEW_METADATA_ONLY,
+      )
+    except Exception as exc:
+      if exc.__class__ is rpc_status.RpcFailureError:
+        raise exc
+      raise rpc_status.RpcFailureError(
+          rpc_status.build_rpc_method_status_and_log(
+              grpc.StatusCode.INTERNAL,
+              'Failed to copy cohort.',
+              exp=exc,
+          )
+      ) from exc
 
     cloud_logging_client.info(
         f'Created new PathologyCohort with resource name: {cohort_copy.name}.',
@@ -2701,12 +2714,12 @@ class PathologyCohortsHandler:
     )
 
     return cohort_copy
-  
+
   def snapshot_pathology_cohort(
       self, request: cohorts_pb2.ExportPathologyCohortRequest, alias: str
   ) -> None:
     """Creates a snapshot of a pathology cohort when an export is requested.
-    
+
     Args:
       request: A ExportPathologyCohortRequest with cohort to export.
       alias: Alias of rpc caller.
@@ -2720,25 +2733,37 @@ class PathologyCohortsHandler:
             logging_util.RpcMethodName.SNAPSHOT_PATHOLOGY_COHORT, resource_name
         )
     )
-    
+
     current_user = self._users_handler.identify_current_user(alias)
-   
+
     cohort_to_snapshot = self.get_pathology_cohort(
         cohorts_pb2.GetPathologyCohortRequest(name=resource_name), alias
     )
 
     cloud_logging_client.info(
-        f'Creating Export Snapshot of PathologyCohort with resource name: {resource_name}.'
+        'Creating Export Snapshot of PathologyCohort with resource name:'
+        f' {resource_name}.'
     )
-
-    self._spanner_client.run_in_transaction(
-        _snapshot_cohort,
-        cohort_to_snapshot,
-        current_user.user_id,
-    )
+    try:
+      self._spanner_client.run_in_transaction(
+          _snapshot_cohort,
+          cohort_to_snapshot,
+          int(current_user.user_id),
+      )
+    except Exception as exc:
+      if exc.__class__ is rpc_status.RpcFailureError:
+        raise exc
+      raise rpc_status.RpcFailureError(
+          rpc_status.build_rpc_method_status_and_log(
+              grpc.StatusCode.INTERNAL,
+              'Failed to snapshot cohort.',
+              exp=exc,
+          )
+      ) from exc
 
     cloud_logging_client.info(
-        f'Created Snapshot of Exported Cohort for PathologyCohort with resource name: {resource_name}.'
+        'Created Snapshot of Exported Cohort for PathologyCohort with resource'
+        f' name: {resource_name}.'
     )
 
   def share_pathology_cohort(
@@ -2797,12 +2822,23 @@ class PathologyCohortsHandler:
       )
 
     # Check for any invalid emails and grant valid permissions only.
-    updated_cohort, invalid_emails = self._spanner_client.run_in_transaction(
-        _share_cohort,
-        cohort_to_share,
-        request.user_access,
-        request.cohort_access,
-    )
+    try:
+      updated_cohort, invalid_emails = self._spanner_client.run_in_transaction(
+          _share_cohort,
+          cohort_to_share,
+          request.user_access,
+          request.cohort_access,
+      )
+    except Exception as exc:
+      if exc.__class__ is rpc_status.RpcFailureError:
+        raise exc
+      raise rpc_status.RpcFailureError(
+          rpc_status.build_rpc_method_status_and_log(
+              grpc.StatusCode.INTERNAL,
+              'Failed cohort permission check.',
+              exp=exc,
+          )
+      ) from exc
     if invalid_emails:
       raise rpc_status.RpcFailureError(
           rpc_status.build_rpc_method_status_and_log(

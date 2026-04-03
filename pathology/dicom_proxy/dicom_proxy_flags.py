@@ -49,7 +49,9 @@ API_PORT_FLG = flags.DEFINE_integer('port', 8080, 'port to listen on')
 
 ORIGINS_FLG = flags.DEFINE_multi_string(
     'origins',
-    secret_flag_utils.get_secret_or_env('ORIGINS', 'http://localhost:5432').split(','),
+    secret_flag_utils.get_secret_or_env(
+        'ORIGINS', 'http://localhost:5432'
+    ).split(','),
     'Sites to allow requests from for CORS.',
 )
 
@@ -542,4 +544,3 @@ BULK_DATA_PROXY_URL_FLG = flags.DEFINE_string(
     secret_flag_utils.get_secret_or_env('BULK_DATA_PROXY_URL', ''),
     'If defined sets base url for proxy bulk data responses',
 )
-

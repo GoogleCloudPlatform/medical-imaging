@@ -36,12 +36,12 @@ RUN rm -rf /usr/lib/google-cloud-sdk/bin/anthoscli \
 
 WORKDIR /
 
-#Install LibJpegTurbo 3.1.3
+#Install LibJpegTurbo 3.1.4.1
 RUN apt-get install -y nasm && \
-    wget -O libjpeg_turbo.zip https://github.com/libjpeg-turbo/libjpeg-turbo/archive/refs/tags/3.1.3.zip > /dev/null && \
+    wget -O libjpeg_turbo.zip https://github.com/libjpeg-turbo/libjpeg-turbo/archive/refs/tags/3.1.4.1.zip > /dev/null && \
     unzip libjpeg_turbo.zip > /dev/null && \
     rm libjpeg_turbo.zip && \
-    mv libjpeg-turbo-3.1.3 libjpeg-turbo && \
+    mv libjpeg-turbo-3.1.4.1 libjpeg-turbo && \
     mkdir -p /libjpeg-turbo/build && \
     cd /libjpeg-turbo/build && \
     cmake -G"Unix Makefiles" -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DBUILD_SHARED_LIBS:bool=on .. && \

@@ -121,7 +121,7 @@ CREATE TABLE SavedCohorts (
   UserId INT64 NOT NULL,
   FOREIGN KEY (UserId) REFERENCES Users (UserId)
 ) PRIMARY KEY (CohortId, UserId),
-  INTERLEAVE IN PARENT Cohorts ON DELETE CASCADE
+  INTERLEAVE IN PARENT Cohorts ON DELETE CASCADE;
 
 -- The following 2 tables were added to enable snapshots of cohorts at the time of export.
 -- Export Snapshot Table
@@ -131,17 +131,17 @@ CREATE TABLE ExportCohortSnapshots (
   ExporterUserId INT64 NOT NULL,
   CohortId INT64 NOT NULL,
   ExportTime TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
-  FOREIGN KEY (CohortId) REFERENCES Cohorts (CohortId),
-  FOREIGN KEY (ExporterUserId) REFERENCES Users (UserId)
-) PRIMARY KEY(SnapshotId)
+  FOREIGN KEY (CohortId) REFERENCES Cohorts (CohortId) ON DELETE CASCADE,
+  FOREIGN KEY (ExporterUserId) REFERENCES Users (UserId) ON DELETE CASCADE
+) PRIMARY KEY(SnapshotId);
 
 -- ExportSlides Table
 -- Maps export snapshots of cohorts to the slides which they contain.
 CREATE TABLE ExportSlides (
   SnapshotId INT64 NOT NULL,
   ScanUniqueId INT64 NOT NULL,
-  FOREIGN KEY (SnapshotId) REFERENCES ExportCohortSnapshots (SnapshotId),
-  FOREIGN KEY (ScanUniqueId) REFERENCES Slides (ScanUniqueId)
+  FOREIGN KEY (SnapshotId) REFERENCES ExportCohortSnapshots (SnapshotId) ON DELETE CASCADE,
+  FOREIGN KEY (ScanUniqueId) REFERENCES Slides (ScanUniqueId) ON DELETE CASCADE
 ) PRIMARY KEY (SnapshotId, ScanUniqueId),
   INTERLEAVE IN PARENT ExportCohortSnapshots ON DELETE CASCADE;
 

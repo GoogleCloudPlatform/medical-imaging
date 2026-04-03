@@ -175,9 +175,9 @@ py_library(
     ],
     srcs_version = "PY3",
     deps = [
+        ":ingest_const",
         "//pathology/shared_libs/logging_lib:cloud_logging_client",
         "//pathology/transformation_pipeline:ingest_flags",
-        "//pathology/transformation_pipeline/ingestion_lib:ingest_const",
         requirement("redis"),
     ],
 )

@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """Holds Gcs State for mock implementation."""
+
 import base64
 import contextlib
 import copy
@@ -64,7 +65,7 @@ def _get_file_md5_hash(path: str) -> str:
 
 
 def called_inside_context_manager(
-    method: Callable[..., Any]
+    method: Callable[..., Any],
 ) -> Callable[..., Any]:
   """Decorator tests if method is called within context manager block.
 
@@ -232,6 +233,22 @@ class GcsStateMock(contextlib.ExitStack):
       )
 
   @called_inside_context_manager
+  def delete_bucket(self, bucket_name: str) -> None:
+    """Deletes bucket.
+
+    Args:
+      bucket_name: Name of bucket to delete.
+    """
+    with self._lock:
+      if bucket_name in self._buckets:
+        del self._buckets[bucket_name]
+        return
+      raise exceptions.NotFound(
+          f'{gcs_mock_types.HttpMethod.DELETE.value} '
+          f'{gcs_mock_constants.GCS_BASE_HTTPS_URL}/b/{bucket_name}'
+      )
+
+  @called_inside_context_manager
   def _validate_bucket(
       self,
       bucket: gcs_mock_types.GcsBucketType,
@@ -254,7 +271,8 @@ class GcsStateMock(contextlib.ExitStack):
     """
     if len(bucket.name) < 3:
       raise exceptions.BadRequest(
-          f'{http_method.value} {gcs_mock_constants.GCS_BASE_HTTPS_URL}/storage/v1{{bucket.path}}'
+          f'{http_method.value}'
+          f' {gcs_mock_constants.GCS_BASE_HTTPS_URL}/storage/v1{{bucket.path}}'
           ' Bucket names must be at least 3 characters in length, got'
           f" {len(bucket.name)}: '{bucket.name}'"
       )
@@ -359,6 +377,7 @@ class GcsStateMock(contextlib.ExitStack):
       if_etag_not_match: Optional[gcs_mock_types.EtagType] = None,
       if_metageneration_match: Optional[int] = None,
       if_metageneration_not_match: Optional[int] = None,
+      soft_deleted: Optional[bool] = None,
   ) -> bool:
     """Returns True if bucket exists.
 
@@ -369,6 +388,7 @@ class GcsStateMock(contextlib.ExitStack):
       if_metageneration_match: Raise if provided value != blob.metageneration.
       if_metageneration_not_match: Raise if provided value ==
         blob.metageneration.
+      soft_deleted: Optional. Unused in mock.
 
     Raises:
       google.api_core.exceptions.BadRequest: Blob name is less than 3 chars.
@@ -382,6 +402,7 @@ class GcsStateMock(contextlib.ExitStack):
         if_etag_not_match,
         if_metageneration_match,
         if_metageneration_not_match,
+        soft_deleted,
     )
     with self._lock:
       self._validate_bucket(bucket, http_method=gcs_mock_types.HttpMethod.GET)
@@ -464,6 +485,7 @@ class GcsStateMock(contextlib.ExitStack):
       blob: gcs_mock_types.GcsBlobType,
       http_method: gcs_mock_types.HttpMethod,
       storage_op: str = '',
+      soft_deleted: Optional[bool] = None,
   ) -> str:
     """Validates if a blob exists and returns path to blob on file system.
 
@@ -471,6 +493,7 @@ class GcsStateMock(contextlib.ExitStack):
       blob: Mocked Blob.
       http_method: Method to include in exception message if blob not found.
       storage_op: Optional text to add to blob path in exception message
+      soft_deleted: Optional. Unused in mock.
 
     Returns:
       path to blob on file-system.
@@ -478,6 +501,7 @@ class GcsStateMock(contextlib.ExitStack):
     Raises:
       google.api_core.exceptions.NotFound: Blob does not exist.
     """
+    del soft_deleted
     blob_path = self._get_blob_path(blob)
     if os.path.isfile(blob_path):
       if blob_path not in self._blob_state:
@@ -505,6 +529,7 @@ class GcsStateMock(contextlib.ExitStack):
       if_generation_not_match: Optional[int],
       if_metageneration_match: Optional[int],
       if_metageneration_not_match: Optional[int],
+      soft_deleted: Optional[bool] = None,
   ) -> bool:
     """Returns true if blob exists as file in gcs mock.
 
@@ -523,6 +548,7 @@ class GcsStateMock(contextlib.ExitStack):
       if_metageneration_match: Raise if provided value != blob.metageneration.
       if_metageneration_not_match: Raise if provided value ==
         blob.metageneration.
+      soft_deleted: Optional. Unused in mock.
 
     Returns:
       True if blob exists; False if not.
@@ -542,7 +568,9 @@ class GcsStateMock(contextlib.ExitStack):
       except (exceptions.Forbidden, exceptions.NotFound) as _:
         return False
       try:
-        self._validate_blob_exists_and_return_mock_path(blob, http_method)
+        self._validate_blob_exists_and_return_mock_path(
+            blob, http_method, soft_deleted=soft_deleted
+        )
       except exceptions.NotFound:
         return False
       self._test_valid_blob_metadata(
@@ -638,6 +666,7 @@ class GcsStateMock(contextlib.ExitStack):
       if_generation_not_match: Optional[int],
       if_metageneration_match: Optional[int],
       if_metageneration_not_match: Optional[int],
+      soft_deleted: Optional[bool] = None,
   ) -> blob_state_mock.BlobStateMock:
     """Returns  blob's state on gcs mock.
 
@@ -655,6 +684,7 @@ class GcsStateMock(contextlib.ExitStack):
       if_metageneration_match: Raise if provided value != blob.metageneration.
       if_metageneration_not_match: Raise if provided value ==
         blob.metageneration.
+      soft_deleted: Optional. Unused in mock.
 
     Returns:
       Blobs state on gcs mock.
@@ -684,7 +714,9 @@ class GcsStateMock(contextlib.ExitStack):
     with self._lock:
       http_method = gcs_mock_types.HttpMethod.GET
       self._validate_bucket(blob.bucket, http_method)
-      path = self._validate_blob_exists_and_return_mock_path(blob, http_method)
+      path = self._validate_blob_exists_and_return_mock_path(
+          blob, http_method, soft_deleted=soft_deleted
+      )
       self._test_valid_blob_metadata(
           blob, http_method, 'etag', if_etag_match, if_etag_not_match
       )
@@ -811,7 +843,7 @@ class GcsStateMock(contextlib.ExitStack):
         byte range.
     """
     del raw_download
-    if checksum not in (None, 'md5', 'crc32c'):
+    if checksum not in (None, 'auto', 'md5', 'crc32c'):
       raise gcs_mock_types.GcsMockError('Invalid checksum parameter value.')
     with self._lock:
       http_method = gcs_mock_types.HttpMethod.GET
@@ -918,7 +950,7 @@ class GcsStateMock(contextlib.ExitStack):
           if_generation_not_match, or if_metageneration_not_match) failed.
     """
     with self._lock:
-      if checksum not in (None, 'md5', 'crc32c'):
+      if checksum not in (None, 'auto', 'md5', 'crc32c'):
         raise gcs_mock_types.GcsMockError('Invalid checksum parameter value.')
       http_method = gcs_mock_types.HttpMethod.PUT
       self._validate_bucket(blob.bucket, http_method)

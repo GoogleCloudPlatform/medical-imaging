@@ -15,6 +15,8 @@ load("@pathology_cloud_deps//:requirements.bzl", "requirement")
 # limitations under the License.
 # ==============================================================================
 
+package(default_applicable_licenses = ["//pathology:license"])
+
 licenses(["notice"])
 
 py_binary(

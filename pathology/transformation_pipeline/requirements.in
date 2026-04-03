@@ -1,37 +1,37 @@
 # Do not modify requirements.txt directly. Run
 # generate_requirements.sh to build requirements.txt from this file.
 # LINT.IfChange
-absl-py==2.3.1
-certifi==2026.1.4
-cryptography==46.0.3
+absl-py==2.4.0
+certifi==2026.2.25
+cryptography==46.0.6
 dataclasses-json==0.6.7
-ez-wsi-dicomweb==6.1.5
+ez-wsi-dicomweb==6.1.6
 # Manually exclude ez-wsi-dicomweb OpenCV dependency.
 # OpenCV built from source in docker.
-google-api-python-client==2.188.0
-google-cloud-core==2.5.0
-google-cloud-logging==3.13.0
-google-cloud-pubsub==2.34.0
-google-cloud-storage==3.8.0
-googleapis-common-protos==1.72.0
-google-cloud-bigquery==3.40.0
-google-cloud-secret-manager==2.26.0
-imagecodecs==2026.1.14
-numpy==2.4.1
+google-api-python-client==2.193.0
+google-cloud-core==2.5.1
+google-cloud-logging==3.15.0
+google-cloud-pubsub==2.36.0
+google-cloud-storage==3.10.1
+googleapis-common-protos==1.73.1
+google-cloud-bigquery==3.41.0
+google-cloud-secret-manager==2.27.0
+imagecodecs==2026.3.6
+numpy==2.4.4
 openslide-python==1.4.3
-pandas==2.3.3
-Pillow==12.1.0
-psutil==7.2.1
-pydicom==3.0.1
+pandas==3.0.1
+Pillow==12.1.1
+psutil==7.2.2
+pydicom==3.0.2
 pyyaml==6.0.3
-redis==7.1.0
-requests==2.32.5
-tifffile==2026.1.14
+redis==7.4.0
+requests==2.33.1
+tifffile==2026.3.3
 
 # Libs below required for localhost mode execution
-cachetools==6.2.4
-google-auth==2.47.0
-google_auth_httplib2==0.3.0
+cachetools==7.0.5
+google-auth==2.49.1
+google_auth_httplib2==0.3.1
 httplib2==0.31.2
 requests_mock==1.12.1
 requests_toolbelt==1.0.0

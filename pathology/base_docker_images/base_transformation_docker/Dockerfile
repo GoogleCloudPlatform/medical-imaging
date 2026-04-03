@@ -43,8 +43,8 @@ RUN apt-get update && \
 
 WORKDIR /
 
-#Install  v TS 20260107.0
-ARG ABSEIL_VERSION="20260107.0"
+#Install  v TS 20260107.1
+ARG ABSEIL_VERSION="20260107.1"
 RUN wget -O abseil.zip "https://github.com/abseil/abseil-cpp/archive/refs/tags/${ABSEIL_VERSION}.zip" && \
     unzip abseil.zip && \
     rm abseil.zip && \
@@ -55,8 +55,8 @@ RUN wget -O abseil.zip "https://github.com/abseil/abseil-cpp/archive/refs/tags/$
     cmake  --build . --target install &&  \
     rm -rf "/abseil-cpp-${ABSEIL_VERSION}"
 
-#Install DCMTK 3.6.9
-ARG DCMTK_VERSION="3.6.9"
+#Install DCMTK 3.7.0
+ARG DCMTK_VERSION="3.7.0"
 RUN wget -O "dcmtk-${DCMTK_VERSION}.zip" "https://github.com/DCMTK/dcmtk/archive/refs/tags/DCMTK-${DCMTK_VERSION}.zip" > /dev/null && \
     unzip "dcmtk-${DCMTK_VERSION}.zip" > /dev/null  && \
     rm "dcmtk-${DCMTK_VERSION}.zip" && \
@@ -104,8 +104,8 @@ RUN apt-get install -y libjpeg-dev ninja-build && \
 # Enable WSI2DCM and Python to find Openslide library
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib:/usr/local/lib/x86_64-linux-gnu:/usr/local/lib/aarch64-linux-gnu
 
-#Install JsonCPP 1.9.6
-ARG JSONCPP_VERSION="1.9.6"
+#Install JsonCPP 1.9.7
+ARG JSONCPP_VERSION="1.9.7"
 RUN wget -O "${JSONCPP_VERSION}.zip" "https://github.com/open-source-parsers/jsoncpp/archive/refs/tags/${JSONCPP_VERSION}.zip" > /dev/null && \
     unzip "${JSONCPP_VERSION}.zip"  > /dev/null && \
     rm "${JSONCPP_VERSION}.zip" && \

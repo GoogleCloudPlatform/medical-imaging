@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """Mock google.cloud.storage.Bucket."""
+
 import re
 import typing
 from typing import Iterator, Optional, Union
@@ -39,6 +40,7 @@ class BucketMock:
       client: Optional[gcs_mock_types.GcsClientType] = None,
       name: Optional[str] = None,
       user_project: Optional[str] = None,
+      generation: Optional[int] = None,
   ):
     """Mock google.cloud.storage.Bucket constructor.
 
@@ -47,10 +49,13 @@ class BucketMock:
       name: The name of the bucket.
       user_project: (Optional) the project ID to be conceptually billed for API
         requests. Mock doesn't do transactions against GCP so no cost.
+      generation: (Optional) If present, selects a specific revision of this
+        bucket. (Not implemented in mock.)
 
     Raises:
       ValueError: Bucket name starts or ends with invalid char.
     """
+    del generation
     self._client = client
     if name is not None:
       if not (
@@ -130,7 +135,7 @@ class BucketMock:
       if_metageneration_not_match: Optional[int] = None,
       timeout: gcs_mock_types.TimeoutType = 60.0,
       retry: Optional[gcs_mock_types.RetryType] = None,
-      soft_deleted: Optional[bool] = None,  # pylint:disable=unused-argument
+      soft_deleted: Optional[bool] = None,
       **kwargs,
   ) -> Optional[gcs_mock_types.GcsBlobType]:
     """Get a blob object by name.
@@ -184,6 +189,7 @@ class BucketMock:
           if_metageneration_not_match=if_metageneration_not_match,
           timeout=timeout,
           retry=retry,
+          soft_deleted=soft_deleted,
       )
     except exceptions.NotFound:
       return None
@@ -262,8 +268,9 @@ class BucketMock:
       timeout: gcs_mock_types.TimeoutType = 60.0,
       retry: Optional[gcs_mock_types.RetryType] = None,
       match_glob: Optional[str] = None,
-      include_folders_as_prefixes: Optional[bool] = None,  # pylint:disable=unused-argument
-      soft_deleted: Optional[bool] = None,  # pylint:disable=unused-argument
+      include_folders_as_prefixes: Optional[bool] = None,
+      soft_deleted: Optional[bool] = None,
+      page_size: Optional[int] = None,
   ) -> Iterator[gcs_mock_types.GcsBlobType]:
     """Returns iterator of blobs in a bucket.
 
@@ -297,6 +304,7 @@ class BucketMock:
       match_glob: Regular expression filter, not supported by mock.
       include_folders_as_prefixes: (Optional) Not implemented in mock.
       soft_deleted: (Optional) Not implemented in mock.
+      page_size: (Optional) Not implemented in mock.
 
     Returns:
       Iterator of buckets on client.
@@ -319,10 +327,12 @@ class BucketMock:
         versions,
         projection,
         fields,
-        None,
+        page_size,
         timeout,
         retry,
         match_glob,
+        include_folders_as_prefixes,
+        soft_deleted,
     )
 
   @classmethod
@@ -358,6 +368,7 @@ class BucketMock:
       if_metageneration_match: Optional[int] = None,
       if_metageneration_not_match: Optional[int] = None,
       retry: Optional[gcs_mock_types.RetryType] = None,
+      soft_deleted: Optional[bool] = None,
   ) -> None:
     """Loads bucket state from GCS.
 
@@ -375,6 +386,7 @@ class BucketMock:
         bucket.metageneration.
       retry: google.api_core.retry.Retry or
         google.cloud.storage.retry.ConditionalRetryPolicy; Ingored by mock.
+      soft_deleted: (Optional) Not implemented in mock.
 
     Raises:
       gcs_mock_types.GcsMockError: Invalid projection parameter
@@ -390,4 +402,39 @@ class BucketMock:
         if_etag_not_match,
         if_metageneration_match,
         if_metageneration_not_match,
+        soft_deleted,
     )
+
+  def delete(
+      self,
+      force: bool = False,
+      client: Optional[gcs_mock_types.GcsClientType] = None,
+      if_metageneration_match: Optional[int] = None,
+      if_metageneration_not_match: Optional[int] = None,
+      timeout: gcs_mock_types.TimeoutType = 60.0,
+      retry: Optional[gcs_mock_types.RetryType] = None,
+  ) -> None:
+    """Deletes a bucket from Cloud Storage Mock.
+
+    Args:
+      force: (Optional) If True, delete all objects in the bucket before
+        deleting the bucket. Not implemented in mock.
+      client: (Optional) The client to use. If not passed, falls back to the
+        client stored on the bucket.
+      if_metageneration_match: (Optional) Makes the operation conditional on
+        whether the bucket's current metageneration matches the given value.
+      if_metageneration_not_match: (Optional) Makes the operation conditional on
+        whether the bucket's current metageneration does not match the given
+        value.
+      timeout: (Optional) The amount of time, in seconds, to wait for the server
+        response.
+      retry: (Optional) How to retry the RPC.
+    """
+    del (
+        force,
+        if_metageneration_match,
+        if_metageneration_not_match,
+        timeout,
+        retry,
+    )
+    self._get_client(client).mock_state.delete_bucket(self.name)
