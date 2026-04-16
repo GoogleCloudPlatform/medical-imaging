@@ -20,7 +20,7 @@ imagecodecs==2026.3.6
 numpy==2.4.4
 openslide-python==1.4.3
 pandas==3.0.1
-Pillow==12.1.1
+Pillow==12.2.0
 psutil==7.2.2
 pydicom==3.0.2
 pyyaml==6.0.3
