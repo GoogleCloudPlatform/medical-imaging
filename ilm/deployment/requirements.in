@@ -3,7 +3,7 @@
 # to build requirements.txt from this file.
 apache-beam==2.72.0
 apache-beam[gcp]==2.72.0
-cryptography==46.0.6
+cryptography==46.0.7
 dataclasses-json==0.6.7
 future==1.0.0
 google-auth==2.49.1
