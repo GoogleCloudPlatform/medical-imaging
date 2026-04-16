@@ -5,7 +5,7 @@ absl-py==2.4.0
 cachetools==7.0.5
 certifi==2026.2.25
 # Required to use key algorithm ES256 in IAP JWT validation.
-cryptography==46.0.6
+cryptography==46.0.7
 dataclasses-json==0.6.7
 ez-wsi-dicomweb==6.1.6
 # Manually exclude ez-wsi-dicomweb OpenCV dependency.
