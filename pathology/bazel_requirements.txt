@@ -30,7 +30,7 @@ pyarrow-hotfix==0.6
 pydot==3.0.3
 objsize==0.7.0
 pyarrow==18.1.0
-orjson==3.10.12
+orjson==3.11.6
 sortedcontainers==2.4.0
 zstandard==0.23.0
 jsonschema==4.23.0
