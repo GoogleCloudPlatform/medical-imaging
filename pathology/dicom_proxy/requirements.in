@@ -25,7 +25,7 @@ numpy==2.4.4
 Pillow==12.1.1
 psutil==7.2.2
 pydicom==3.0.2
-requests==2.33.1
+requests==2.33.0
 requests-toolbelt==1.0.0
 redis[hiredis]==7.4.0
 urllib3==2.6.3
