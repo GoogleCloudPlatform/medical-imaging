@@ -319,8 +319,8 @@ class MetadataAugmenationTest(parameterized.TestCase):
         _EMPTY_SOPINSTANCE,
         resp,
     )
-    self.assertEqual(result.status, shared_test_util.http_bad_request_status())
-    self.assertEqual(result.data, b'Invalid downsample')
+    self.assertEqual(result.status, '200 OK')
+    self.assertEqual(result.data, test_msg.encode('utf-8'))
 
   @mock.patch.object(
       flask_util, 'get_includefields', autospec=True, return_value=set()

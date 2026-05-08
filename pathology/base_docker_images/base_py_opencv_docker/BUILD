@@ -14,6 +14,7 @@ load("@pathology_cloud_deps//:requirements.bzl", "requirement")
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 filegroup(
     name = "opencv_build_test",
     srcs = ["opencv_build_test.py"],

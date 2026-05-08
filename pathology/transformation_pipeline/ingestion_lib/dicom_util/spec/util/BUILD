@@ -14,8 +14,9 @@ load("@pathology_cloud_deps//:requirements.bzl", "requirement")
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+load("//devtools/python/blaze:pytype.bzl", "py_binary", "py_test")
 
-licenses(["unencumbered"])
+licenses(["notice"])
 
 py_binary(
     name = "dicom_iod_generator",

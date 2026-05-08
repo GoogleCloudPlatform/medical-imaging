@@ -452,10 +452,34 @@ ENABLE_ANNOTATIONS_ENDPOINT_FLG = flags.DEFINE_boolean(
     'Enable annotations storage and deletion endpoint.',
 )
 
+
+DEFAULT_ANNOTATOR_INSTITUTION_FLG = flags.DEFINE_string(
+    'default_annotator_institution',
+    secret_flag_utils.get_secret_or_env(
+        'DEFAULT_ANNOTATOR_INSTITUTION', 'default_institution'
+    ),
+    'Default annotator institution.',
+)
+
+
 ENABLE_DEBUG_FUNCTION_TIMING_FLG = flags.DEFINE_boolean(
     'enable_debug_function_timing',
     secret_flag_utils.get_bool_secret_or_env('ENABLE_DEBUG_FUNCTION_TIMING'),
     'Enable logging of timing for decorated functions and methods.',
+)
+
+# Metadata Augmentation Flags.
+
+# ENABLE_SPARSE_METADATA_CORRECTION_FLG adds the following tags to the instance
+# tag search response:
+# https://dicom.nema.org/medical/dicom/current/output/chtml/part18/sect_10.6.3.3.3.html
+# Per Frame Functional Groups Sequence (0028,0014)
+ENABLE_SPARSE_METADATA_CORRECTION_FLG = flags.DEFINE_boolean(
+    'enable_sparse_metadata_correction',
+    secret_flag_utils.get_bool_secret_or_env(
+        'ENABLE_SPARSE_METADATA_CORRECTION', True
+    ),
+    'Enable correction of sparse dicom metadata.',
 )
 
 # ENABLE_AUGMENTED_STUDY_SEARCH_FLG adds the following tags to the study
@@ -517,19 +541,11 @@ MAX_AUGMENTED_METADATA_DOWNLOAD_SIZE_FLG = flags.DEFINE_integer(
     'Maximum size of augmented metadata requests.',
 )
 
-DEFAULT_ANNOTATOR_INSTITUTION_FLG = flags.DEFINE_string(
-    'default_annotator_institution',
-    secret_flag_utils.get_secret_or_env(
-        'DEFAULT_ANNOTATOR_INSTITUTION', 'default_institution'
-    ),
-    'Default annotator institution.',
-)
-
 # Bulk DATA URI
 BULK_DATA_URI_PROTOCOL_FLG = flags.DEFINE_string(
     'bulkdata_uri_protocol',
     secret_flag_utils.get_secret_or_env('BULK_DATA_URI_PROTOCOL', 'https'),
-    'Protocal to return in bulkdata responses.',
+    'Protocol to return in bulkdata responses.',
 )
 
 PROXY_DICOM_STORE_BULK_DATA_FLG = flags.DEFINE_boolean(

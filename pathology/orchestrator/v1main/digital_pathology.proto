@@ -30,7 +30,6 @@ option java_package = "com.pathology.orchestrator.v1main";
 option java_outer_classname = "DigitalPathologyProto";
 option java_multiple_files = true;
 
-
 // Provides rpc methods for DPAS Orchestrator.
 service DigitalPathology {
   option (google.api.api_versioning).restriction = "all";

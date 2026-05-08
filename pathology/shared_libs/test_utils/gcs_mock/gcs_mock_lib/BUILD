@@ -17,7 +17,9 @@ load("@pathology_cloud_deps//:requirements.bzl", "requirement")
 
 licenses(["notice"])
 
-package(default_visibility = ["//pathology/shared_libs/test_utils/gcs_mock:__subpackages__"])
+package(
+    default_visibility = ["//pathology/shared_libs/test_utils/gcs_mock:__subpackages__"],
+)
 
 py_library(
     name = "client_mock",

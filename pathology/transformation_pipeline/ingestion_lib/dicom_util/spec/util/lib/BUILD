@@ -15,7 +15,9 @@ load("@pathology_cloud_deps//:requirements.bzl", "requirement")
 # limitations under the License.
 # ==============================================================================
 
-package(default_visibility = ["//pathology/transformation_pipeline/ingestion_lib/dicom_util/spec/util:__subpackages__"])
+package(
+    default_visibility = ["//pathology/transformation_pipeline/ingestion_lib/dicom_util/spec/util:__subpackages__"],
+)
 
 licenses(["notice"])
 

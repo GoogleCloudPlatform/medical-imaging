@@ -17,7 +17,9 @@ load("@pathology_cloud_deps//:requirements.bzl", "requirement")
 
 licenses(["notice"])
 
-package(default_visibility = ["//pathology/transformation_pipeline:__subpackages__"])
+package(
+    default_visibility = ["//pathology/transformation_pipeline:__subpackages__"],
+)
 
 py_library(
     name = "abstract_pubsub_msg",

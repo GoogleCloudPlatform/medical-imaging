@@ -1060,7 +1060,7 @@ def _instances_search(
     strict_slashes=False,
 )
 @logging_util.log_exceptions
-@execution_timer.log_execution_time('_studysearch')
+@execution_timer.log_execution_time('_series_search')
 @auth.validate_iap
 @compress.compressed()
 @metadata_util.ClearLocalMetadata()

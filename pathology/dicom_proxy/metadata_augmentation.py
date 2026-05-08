@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """Augment instance search and instance metadata responses."""
+
 from collections.abc import Callable
 from concurrent import futures
 import functools
@@ -51,7 +52,7 @@ _DICOM_JSON_CONTENT_TYPE = 'dicom+json'
 
 
 class _InstanceMetadataDecodeError(Exception):
-  """Error occured decodeing instance metadata response."""
+  """Error occurred decodeing instance metadata response."""
 
 
 def _stream_metadata_response(
@@ -204,7 +205,7 @@ def _decode_instance_metadata_response(
   except json.decoder.JSONDecodeError as exp:
     # If error occurred decoding JSON. Then return the response as is.
     cloud_logging_client.error(
-        'Error occured decoding DICOM metadata.',
+        'Error occurred decoding DICOM metadata.',
         {'metadata': response.data},
         exp,
     )
@@ -262,7 +263,7 @@ def augment_instance_metadata(
   # If response not ok return as is
   if response.status_code >= 300:
     cloud_logging_client.error(
-        'Error occured retrieving DICOM metadata (augment entry point)',
+        'Error occurred retrieving DICOM metadata (augment entry point)',
         {proxy_const.LogKeywords.HTTP_STATUS_CODE: response.status_code},
     )
     return response
@@ -273,9 +274,9 @@ def augment_instance_metadata(
     downsample = flask_util.parse_downsample(fl_request_args)
     enable_caching = flask_util.parse_cache_enabled(fl_request_args)
   except ValueError as ve:
-    # Return error if parameters cannot be parsed
+    # Return unaltered response if parameters cannot be parsed
     cloud_logging_client.error('Error parsing url parameters', ve)
-    return flask_util.exception_flask_response(ve)
+    return response
   base_url = flask_util.get_base_url().lower().rstrip('/')
   is_metadata_query = base_url.endswith('metadata')
   is_instances_query = base_url.endswith('instances')
@@ -296,9 +297,12 @@ def augment_instance_metadata(
   if not response.data:
     return response
 
-  correct_sparse_dicom_metadata = is_metadata_query or (
-      is_instances_query
-      and sparse_dicom_util.do_includefields_request_perframe_functional_group_seq()
+  correct_sparse_dicom_metadata = dicom_proxy_flags.ENABLE_SPARSE_METADATA_CORRECTION_FLG.value and (
+      is_metadata_query
+      or (
+          is_instances_query
+          and sparse_dicom_util.do_includefields_request_perframe_functional_group_seq()
+      )
   )
   response_status_code = response.status_code
   response_mimetype = response.content_type
@@ -339,50 +343,43 @@ def augment_instance_metadata(
     # If error occurred decoding JSON. Then return the response as is.
     return response
 
-  del response
   # Augment metadata.
   try:
-    metadata_length = len(instance_metadata_list)
     with dicom_store_util.MetadataThreadPoolDownloadManager(
-        metadata_length,
+        len(instance_metadata_list),
         dicom_proxy_flags.MAX_AUGMENTED_METADATA_DOWNLOAD_SIZE_FLG.value,
     ) as thread_pool_mgr:
       output_list = []
-      # reverse to keep poped metadata in order,
-      instance_metadata_list.reverse()
-      for _ in range(metadata_length):
-        metadata = instance_metadata_list.pop()
-        if metadata_util.is_vl_wholeside_microscopy_iod(metadata):
-          if correct_sparse_dicom_metadata and metadata_util.is_sparse_dicom(
-              metadata
-          ):
-            if downsample != 1.0:
-              msg = 'Metadata downsampling is not supported on sparse DICOM.'
-              cloud_logging_client.error(msg)
-              return flask_util.exception_flask_response(msg)
-            output_list.append(
-                sparse_dicom_util.download_and_return_sparse_dicom_metadata(
-                    dicom_web_base_url,
-                    study_instance_uid,
-                    series_instance_uid,
-                    sop_instance_uid,
-                    metadata,
-                    enable_caching,
-                    thread_pool_mgr,
-                )
-            )
-            continue
+      for metadata in instance_metadata_list:
+        if not metadata_util.is_vl_wholeside_microscopy_iod(metadata):
+          output_list.append(json.dumps(metadata, sort_keys=True))
+          continue
+        if correct_sparse_dicom_metadata and metadata_util.is_sparse_dicom(
+            metadata
+        ):
           if downsample != 1.0:
-            try:
-              metadata_util.downsample_json_metadata(metadata, downsample)
-              output_list.append(json.dumps(metadata))
-              continue
-            except metadata_util.JsonMetadataDownsampleError as err:
-              # If a error occures downsampling return the error.
-              cloud_logging_client.error(
-                  'Error downsampling JSON metadata', err
+            msg = 'Metadata downsampling is not supported on sparse DICOM.'
+            cloud_logging_client.error(msg)
+            return flask_util.exception_flask_response(msg)
+          output_list.append(
+              sparse_dicom_util.download_and_return_sparse_dicom_metadata(
+                  dicom_web_base_url,
+                  study_instance_uid,
+                  series_instance_uid,
+                  sop_instance_uid,
+                  metadata,
+                  enable_caching,
+                  thread_pool_mgr,
               )
-              return flask_util.exception_flask_response(err)
+          )
+          continue
+        if downsample != 1.0:
+          try:
+            metadata_util.downsample_json_metadata(metadata, downsample)
+          except metadata_util.JsonMetadataDownsampleError as err:
+            # If an error occurs downsampling return the error.
+            cloud_logging_client.error('Error downsampling JSON metadata', err)
+            return flask_util.exception_flask_response(err)
         output_list.append(json.dumps(metadata, sort_keys=True))
       return flask.Response(
           flask.stream_with_context(_stream_metadata_response(output_list)),
@@ -393,15 +390,14 @@ def augment_instance_metadata(
     size_limit = (
         dicom_proxy_flags.MAX_AUGMENTED_METADATA_DOWNLOAD_SIZE_FLG.value
     )
-    msg = f'DICOM instance metadata retrieval exceeded {size_limit} byte limit.'
-    cloud_logging_client.error(msg, exp)
-    status = http.HTTPStatus.BAD_REQUEST
-    return flask.Response(msg, status=status, mimetype='text/plain')
+    cloud_logging_client.error(
+        f'DICOM instance metadata retrieval exceeded {size_limit} byte limit.',
+        exp,
+    )
+    return response
   except dicom_store_util.DicomInstanceMetadataRetrievalError as exp:
-    msg = 'Error occured retrieving DICOM metadata.'
-    cloud_logging_client.error(msg, exp)
-    status = http.HTTPStatus.INTERNAL_SERVER_ERROR
-    return flask.Response(msg, status=status, mimetype='text/plain')
+    cloud_logging_client.error('Error occurred retrieving DICOM metadata.', exp)
+    return response
 
 
 def _augment_response_metadata(
@@ -411,7 +407,7 @@ def _augment_response_metadata(
   """Augment study search response metadata."""
   if response.status_code >= 300:
     cloud_logging_client.error(
-        'Error occured retrieving DICOM metadata (augment entry point)',
+        'Error occurred retrieving DICOM metadata (augment entry point)',
         {proxy_const.LogKeywords.HTTP_STATUS_CODE: response.status_code},
     )
     return response
@@ -432,7 +428,7 @@ def _augment_response_metadata(
   except json.decoder.JSONDecodeError as exp:
     # If error occurred decoding JSON. Then return the response as is.
     cloud_logging_client.error(
-        'Error occured decoding DICOM metadata.',
+        'Error occurred decoding DICOM metadata.',
         {'metadata': response.data},
         exp,
     )
@@ -450,15 +446,14 @@ def _augment_response_metadata(
     size_limit = (
         dicom_proxy_flags.MAX_AUGMENTED_METADATA_DOWNLOAD_SIZE_FLG.value
     )
-    msg = f'DICOM instance metadata retrieval exceeded {size_limit} byte limit.'
-    cloud_logging_client.error(msg, exp)
-    status = http.HTTPStatus.BAD_REQUEST
-    return flask.Response(msg, status=status, mimetype='text/plain')
+    cloud_logging_client.error(
+        f'DICOM instance metadata retrieval exceeded {size_limit} byte limit.',
+        exp,
+    )
+    return response
   except dicom_store_util.DicomInstanceMetadataRetrievalError as exp:
-    msg = 'Error occured retrieving DICOM metadata.'
-    cloud_logging_client.error(msg, exp)
-    status = http.HTTPStatus.INTERNAL_SERVER_ERROR
-    return flask.Response(msg, status=status, mimetype='text/plain')
+    cloud_logging_client.error('Error occurred retrieving DICOM metadata.', exp)
+    return response
   return flask.Response(
       flask.stream_with_context(_stream_metadata_response(results)),
       status=response.status_code,

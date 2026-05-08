@@ -14,9 +14,11 @@ load("@pathology_cloud_deps//:requirements.bzl", "requirement")
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-package(default_visibility = ["//pathology:__subpackages__"])
+package(
+    default_visibility = ["//pathology:__subpackages__"],
+)
 
-licenses(["unencumbered"])
+licenses(["notice"])
 
 exports_files(glob(["*.json"]))
 

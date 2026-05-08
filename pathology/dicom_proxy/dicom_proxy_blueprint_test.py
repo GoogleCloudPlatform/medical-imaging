@@ -1223,11 +1223,11 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
     instance_search_metadata.update(dcm.file_meta.to_json_dict())
     expected_metadata = [copy.deepcopy(instance_search_metadata)]
     if remove_per_frame_functional_groups_sequence:
-      # remove per frame functional groups sequence from the initally returned
+      # remove per frame functional groups sequence from the initially returned
       # metadata will force metadata to be retrieved via metadata augmentation
       # instance download.
       # Remove PerFrameFunctionalGroupsSequence tag from metadata returned
-      # in the inital metadata query.
+      # in the initial metadata query.
       del instance_search_metadata['52009230']
     result = _dicom_metadata_search(
         _mock_sparse_dicom(),
@@ -1382,23 +1382,21 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
     # augmentation
     dcm = _mock_sparse_dicom()
     del dcm['PerFrameFunctionalGroupsSequence']
+    dcm_json_bytes = json.dumps(dcm.to_json_dict()).encode('utf-8')
     metadata = _dicom_metadata_search(
         _mock_sparse_dicom(),
         False,
-        # metadata returned by the inital metadata query.
+        # metadata returned by the initial metadata query.
         mock_dicom_store_response=dicom_store_mock.MockHttpResponse(
             f'studies/{dcm.StudyInstanceUID}/series/{dcm.SeriesInstanceUID}/instances/{dcm.SOPInstanceUID}/metadata',
             dicom_store_mock.RequestMethod.GET,
             http.HTTPStatus.OK,
-            json.dumps(dcm.to_json_dict()).encode('utf-8'),
+            dcm_json_bytes,
             dicom_store_mock.ContentType.APPLICATION_DICOM_JSON,
         ),
     )
-    self.assertEqual(metadata.status_code, http.HTTPStatus.BAD_REQUEST)
-    self.assertEqual(
-        metadata.data.decode('utf-8'),
-        'DICOM instance metadata retrieval exceeded 1 byte limit.',
-    )
+    self.assertEqual(metadata.status_code, http.HTTPStatus.OK)
+    self.assertEqual(metadata.data, dcm_json_bytes)
 
   @parameterized.named_parameters([
       dict(
