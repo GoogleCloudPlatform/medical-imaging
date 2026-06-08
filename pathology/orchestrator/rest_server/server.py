@@ -23,11 +23,11 @@ from absl import app as absl_app
 from absl import flags
 import flask
 from google.api_core import exceptions
+from google.protobuf import json_format
 import gunicorn.app.base
 import requests
 
 from google.longrunning import operations_pb2
-from google.protobuf import json_format
 from pathology.orchestrator import grpc_util
 from pathology.orchestrator import pathology_cohorts_handler
 from pathology.orchestrator import pathology_operations_handler

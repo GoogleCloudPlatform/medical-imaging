@@ -49,7 +49,6 @@ from pathology.shared_libs.flags import flag_utils
 from pathology.shared_libs.iap_auth_lib import auth
 from pathology.shared_libs.logging_lib import cloud_logging_client
 
-
 # Types
 _Compression = enum_types.Compression
 _DicomInstanceRequest = dicom_instance_request.DicomInstanceRequest
@@ -209,12 +208,16 @@ def _parse_iccprofile(args: Mapping[str, str]) -> _ICCProfile:
 def _get_request_compression(
     accept_header: Optional[str],
     dicom_instance_metadata: metadata_util.DicomInstanceMetadata,
+    *,
+    rendered_request: bool,
 ) -> _Compression:
   """Returns the image compression format specified in the request.
 
   Args:
     accept_header: Request http accept header value.
     dicom_instance_metadata: DICOM instance metadata for instance requested.
+    rendered_request: Whether this is a DICOM rendered frames request or a
+      frames request.
 
   Returns:
     Requested compression format.
@@ -223,7 +226,7 @@ def _get_request_compression(
     ValueError: requested ccompression format is not supported.
   """
   if accept_header is None:
-    return _Compression.JPEG
+    return _Compression.JPEG if rendered_request else _Compression.RAW
   accept_header = accept_header.strip().lower()
   if not accept_header or 'image/jpeg' in accept_header:
     return _Compression.JPEG
@@ -240,6 +243,10 @@ def _get_request_compression(
       return _Compression.JPEG_TRANSCODED_TO_JPEGXL
     else:
       return _Compression.JPEGXL
+  if accept_header.endswith('transfer-syntax=*'):
+    return _Compression.AS_STORED_IN_DICOM_STORE
+  if accept_header.endswith('transfer-syntax=1.2.840.10008.1.2.1'):
+    return _Compression.RAW
   raise ValueError('Unsupported compression format.')
 
 
@@ -264,6 +271,8 @@ def _parse_request_params(
     args: Mapping[str, str],
     header: Mapping[str, str],
     dicom_instance_metadata: metadata_util.DicomInstanceMetadata,
+    *,
+    rendered_request: bool,
 ) -> _RenderFrameParams:
   """Returns RenderedFrameParams initialized from HTTP request arguments.
 
@@ -272,6 +281,7 @@ def _parse_request_params(
       RenderedFrameParams class.
     header: Passed to HTTP request.
     dicom_instance_metadata: Instance metadata for DICOM being read.
+    rendered_request: Is this a DICOM rendered frames request or frames request.
 
   Raises:
     ValueError: Error in parameter definition.
@@ -280,7 +290,9 @@ def _parse_request_params(
       flask_util.parse_downsample(args),
       _parse_interpolation(args),
       _get_request_compression(
-          header.get(flask_util.ACCEPT_HEADER_KEY), dicom_instance_metadata
+          header.get(flask_util.ACCEPT_HEADER_KEY),
+          dicom_instance_metadata,
+          rendered_request=rendered_request,
       ),
       _parse_compression_quality(args),
       _parse_iccprofile(args),
@@ -332,7 +344,8 @@ def _get_rendered_frames(
   Args:
     instance_request: DicomInstanceRequest
     frames: String encoding list of frames to render.
-    rendered_request: Is this a DICOM rendered frames request or frames request.
+    rendered_request: Whether this is a DICOM rendered frames request or a
+      frames request.
 
   Returns:
     Requested DICOM onstance frame images (flask.Response)
@@ -347,10 +360,11 @@ def _get_rendered_frames(
         instance_request.url_args,
         instance_request.url_header,
         instance_request.metadata,
+        rendered_request=rendered_request,
     )
   except ValueError as exp:
     cloud_logging_client.error('Exception parsing request params.', exp)
-    return flask_util.exception_flask_response(exp)
+    return dicom_store_util.dicom_store_proxy()
 
   if (
       not instance_request.metadata.is_tiled_full
@@ -696,10 +710,11 @@ def _rendered_wsi_instance(
         instance_request.url_args,
         instance_request.url_header,
         instance_request.metadata,
+        rendered_request=True,
     )
   except ValueError as exp:
     cloud_logging_client.error('Exception parsing request params.', exp)
-    return flask_util.exception_flask_response(exp)
+    return dicom_store_util.dicom_store_proxy()
   try:
     result = downsample_util.downsample_dicom_web_instance(
         instance_request,
@@ -1359,7 +1374,7 @@ def _general_path(
 
 
 @dicom_proxy.route(
-    f'{dicom_url_util.DICOM_WEB_INSTANCE_URL_DEFAULT_VERSION}/{bulkdata_util.PROXY_BULK_DATA_URI}/<path:path>',
+    f'{dicom_url_util.DICOM_WEB_INSTANCE_URL_DEFAULT_VERSION}/{proxy_const.BULKDATA}/<path:path>',
     methods=flask_util.GET_AND_POST_METHODS,
     endpoint='_get_bulkdata',
     defaults={
@@ -1367,7 +1382,7 @@ def _general_path(
     },
 )
 @dicom_proxy.route(
-    f'{dicom_url_util.DICOM_WEB_INSTANCE_URL}/{bulkdata_util.PROXY_BULK_DATA_URI}/<path:path>',
+    f'{dicom_url_util.DICOM_WEB_INSTANCE_URL}/{proxy_const.BULKDATA}/<path:path>',
     methods=flask_util.GET_AND_POST_METHODS,
     endpoint='_get_bulkdata',
 )

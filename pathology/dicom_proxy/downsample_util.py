@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """Util that generates transcoded and/or downsampled frame images."""
+
 import collections
 import dataclasses
 import math
@@ -413,6 +414,8 @@ def _get_frames_no_downsampling(
     raise _DownsamplingFrameRequestError(
         _ERROR_RETRIEVING_DICOM_FRAMES
     ) from exp
+  if params.compression == enum_types.Compression.AS_STORED_IN_DICOM_STORE:
+    params.compression = source_frames.compression
   result = [
       source_frames.images[dicom_frame_index]
       for dicom_frame_index in frame_indexes
@@ -575,7 +578,6 @@ def get_rendered_dicom_frames(
   downsample_metadata = dicom_instance_source.metadata.downsample(
       params.downsample
   )
-
   if max(dicom_frame_indexes) > downsample_metadata.number_of_frames:
     msg = (
         'Requesting frame # > metadata number of frames; '

@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """DICOM Proxy enum types."""
+
 import dataclasses
 import enum
 from typing import NewType
@@ -40,6 +41,7 @@ class Compression(enum.Enum):
   JPEG2000 = 6
   JPEGXL = 7
   JPEG_TRANSCODED_TO_JPEGXL = 8
+  AS_STORED_IN_DICOM_STORE = 9  # Return as stored on server.
 
 
 ICCProfile = NewType('ICCProfile', str)

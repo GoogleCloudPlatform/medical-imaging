@@ -17,6 +17,10 @@
 from pathology.dicom_proxy import enum_types
 from pathology.shared_libs.iap_auth_lib import auth
 
+BULKDATA = 'bulkdata'
+BULKDATA_URI = 'BulkDataURI'
+LOCALHOST = 'localhost'
+
 
 class HeaderKeywords:
   AUTH_HEADER_KEY = 'authorization'

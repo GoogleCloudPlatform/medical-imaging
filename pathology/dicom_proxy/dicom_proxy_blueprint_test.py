@@ -58,7 +58,6 @@ from pathology.dicom_proxy import user_auth_util
 from pathology.shared_libs.iap_auth_lib import auth
 from pathology.shared_libs.test_utils.dicom_store_mock import dicom_store_mock
 
-
 # Mark flags as parsed to avoid UnparsedFlagAccessError for tests using
 # --test_srcdir flag in parameters.
 flags.FLAGS.mark_as_parsed()
@@ -814,6 +813,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
             shared_test_util.create_mock_dicom_instance_metadata(
                 '1.2.840.10008.1.2.4.50'
             ),
+            rendered_request=True,
         ),
         expected,
     )
@@ -825,6 +825,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
             shared_test_util.create_mock_dicom_instance_metadata(
                 '1.2.840.10008.1.2.4.112'
             ),
+            rendered_request=True,
         ),
         _Compression.JPEGXL,
     )
@@ -836,6 +837,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
           shared_test_util.create_mock_dicom_instance_metadata(
               '1.2.840.10008.1.2.4.50'
           ),
+          rendered_request=True,
       )
 
   def test_parse_request_params(self):
@@ -848,7 +850,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
     }
     header = {'accept': ' Image/Jpeg '}
     result = dicom_proxy_blueprint._parse_request_params(
-        params, header, _Compression.JPEG
+        params, header, _Compression.JPEG, rendered_request=True
     )
     self.assertEqual(result.downsample, 2.5)
     self.assertEqual(result.interpolation, _Interpolation.AREA)
@@ -871,7 +873,14 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
         response.data, b'Frame string contains invalid chars Frames:abc'
     )
 
-  def test_get_rendered_frames_invalid_params(self):
+  @mock.patch.object(
+      dicom_store_util,
+      'dicom_store_proxy',
+      spec_set=True,
+      autospec=True,
+      return_value='proxy_response',
+  )
+  def test_get_rendered_frames_invalid_params(self, mock_dicom_store_proxy):
     local_instance = _LocalDicomInstance(
         shared_test_util.jpeg_encoded_pydicom_instance_cache(),
         {},
@@ -882,8 +891,8 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
     response = dicom_proxy_blueprint._get_rendered_frames(
         local_instance, frames, rendered_request
     )
-    self.assertEqual(response.status_code, http.HTTPStatus.BAD_REQUEST)
-    self.assertEqual(response.data, b'Unsupported compression format.')
+    mock_dicom_store_proxy.assert_called_once()
+    self.assertEqual(response, 'proxy_response')
 
   def test_get_rendered_frames_invalid_dimension_organization(self):
     local_instance = _LocalDicomInstance(
@@ -930,18 +939,61 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
     self.assertEqual(response.content_type, 'image/jpeg')
     self.assertLen(response.data, 8418)
 
-  def test_get_rendered_frames_request(self):
+  @parameterized.named_parameters(
+      dict(
+          testcase_name='as_stored_on_server',
+          accept_header=(
+              'multipart/related; type="application/octet-stream";'
+              ' transfer-syntax=*'
+          ),
+          expected_length=17846,
+          rendered_request=False,
+      ),
+      dict(
+          testcase_name='raw',
+          accept_header=(
+              'multipart/related; type="application/octet-stream";'
+              ' transfer-syntax=1.2.840.10008.1.2.1'
+          ),
+          expected_length=393572,
+          rendered_request=False,
+      ),
+      dict(
+          testcase_name='jpeg',
+          accept_header=(
+              'multipart/related; type="image/jpeg";'
+              ' transfer-syntax=1.2.840.10008.1.2.4.50'
+          ),
+          expected_length=17846,
+          rendered_request=False,
+      ),
+      dict(
+          testcase_name='default_frame_retrieval',
+          accept_header='',
+          expected_length=393572,
+          rendered_request=False,
+      ),
+      dict(
+          testcase_name='default_rendered_frame_retrieval',
+          accept_header='',
+          expected_length=17846,
+          rendered_request=True,
+      ),
+  )
+  def test_get_rendered_frames_request(
+      self, accept_header, expected_length, rendered_request
+  ):
     local_instance = _LocalDicomInstance(
-        shared_test_util.jpeg_encoded_pydicom_instance_cache()
+        shared_test_util.jpeg_encoded_pydicom_instance_cache(),
+        url_header={'accept': accept_header} if accept_header else None,
     )
     frames = '1,2'
-    rendered_request = False
     response = dicom_proxy_blueprint._get_rendered_frames(
         local_instance, frames, rendered_request
     )
     self.assertEqual(response.status_code, http.HTTPStatus.OK)
     self.assertStartsWith(response.content_type, 'multipart/related; boundary=')
-    self.assertLen(response.data, 17846)
+    self.assertLen(response.data, expected_length)
     multipart_data = requests_toolbelt.MultipartDecoder(
         response.data, response.content_type
     )
@@ -1037,16 +1089,22 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
       self.assertEqual(response.content_type, 'image/png')
       self.assertEqual(response.data, b'test_data')
 
-  def test_rendered_wsi_instance_returns_error_parameters(self):
+  @flagsaver.flagsaver(validate_iap=False)
+  @mock.patch.object(
+      dicom_store_util,
+      'dicom_store_proxy',
+      autospec=True,
+      return_value='proxy_response',
+  )
+  def test_rendered_wsi_instance_returns_error_parameters(self, proxy_mock):
     local_instance = _LocalDicomInstance(
         shared_test_util.jpeg_encoded_pydicom_instance_cache(),
         {'downsample': '0.5'},
     )
 
     result = dicom_proxy_blueprint._rendered_wsi_instance(local_instance)
-
-    self.assertEqual(result.status, shared_test_util.http_bad_request_status())
-    self.assertEqual(result.data, b'Invalid downsample')
+    proxy_mock.assert_called_once()
+    self.assertEqual(result, 'proxy_response')
 
   @flagsaver.flagsaver(max_number_of_frame_per_request=0)
   def test_rendered_wsi_instance_returns_downsample_error(self):
@@ -1134,7 +1192,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
       self.assertEqual(response.content_type, 'image/png')
       self.assertEqual(response.data, b'test_data')
 
-  @parameterized.named_parameters([
+  @parameterized.named_parameters(
       dict(
           testcase_name='WSI_ANNOTATION',
           dcm=shared_test_util.wsi_dicom_annotation_instance(),
@@ -1149,7 +1207,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
           dcm=shared_test_util.jpeg_encoded_dicom_instance(),
           expected_bulkdata_tags=['/00020001'],
       ),
-  ])
+  )
   @flagsaver.flagsaver(proxy_dicom_store_bulk_data=True)
   def test_get_instance_dicom_store_bulkdata_enabled_success(
       self, dcm, expected_bulkdata_tags
@@ -1246,7 +1304,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
     for index, metadata in enumerate(md):
       self.assertEqual(metadata, expected_metadata[index])
 
-  @parameterized.named_parameters([
+  @parameterized.named_parameters(
       dict(
           testcase_name='WSI_ANNOTATION',
           dcm=shared_test_util.wsi_dicom_annotation_instance(),
@@ -1261,7 +1319,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
           dcm=shared_test_util.jpeg_encoded_dicom_instance(),
           expected_bulkdata_tags=['/00020001'],
       ),
-  ])
+  )
   @flagsaver.flagsaver(proxy_dicom_store_bulk_data=True)
   def test_get_instance_metadata_dicom_store_bulkdata_proxy_response_success(
       self,
@@ -1398,7 +1456,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
     self.assertEqual(metadata.status_code, http.HTTPStatus.OK)
     self.assertEqual(metadata.data, dcm_json_bytes)
 
-  @parameterized.named_parameters([
+  @parameterized.named_parameters(
       dict(
           testcase_name='WSI_ANNOTATION',
           dcm=shared_test_util.wsi_dicom_annotation_instance(),
@@ -1407,7 +1465,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
           testcase_name='WSI_INSTANCE',
           dcm=shared_test_util.jpeg_encoded_dicom_instance(),
       ),
-  ])
+  )
   def test_get_annotation_metadata_not_found(
       self,
       dcm,
@@ -1441,12 +1499,12 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
       )
 
   def test_get_frame_instance(self):
-    self.assertLen(_get_frame_instance(False).data, 8604)
+    self.assertLen(_get_frame_instance(False).data, 196805)
 
   def test_get_frame_instance_rendered_request(self):
     self.assertLen(_get_frame_instance(True).data, 8418)
 
-  @parameterized.named_parameters([
+  @parameterized.named_parameters(
       dict(
           testcase_name='baseline',
           param={},
@@ -1482,7 +1540,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
           param={'viewport': '128,128,100,20,100,200'},
           ground_truth_filename='cropped_patch_scaled_viewport.jpeg',
       ),
-  ])
+  )
   def test_get_frame_rendered_viewport(self, param, ground_truth_filename):
     ground_truth_path = shared_test_util.get_testdir_path(
         'rendered_frame', ground_truth_filename
@@ -1495,7 +1553,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
   def test_get_instance_rendered(self):
     self.assertLen(_get_instance_rendered().data, 180747)
 
-  @parameterized.named_parameters([
+  @parameterized.named_parameters(
       dict(
           testcase_name='baseline',
           param={},
@@ -1531,7 +1589,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
           param={'viewport': '256,256,100,20,100,200'},
           ground_truth_filename='cropped_patch_scaled_viewport.jpeg',
       ),
-  ])
+  )
   def test_get_instance_rendered_viewport(self, param, ground_truth_filename):
     ground_truth_path = shared_test_util.get_testdir_path(
         'rendered_instance', ground_truth_filename
@@ -1556,6 +1614,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
   @mock.patch.object(
       dicom_store_util,
       'dicom_store_proxy',
+      spec_set=True,
       autospec=True,
       return_value='PROXY_RESPONSE',
   )
@@ -1591,7 +1650,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
     url = f'{root}/tile/{base_url}/studies/{dcm.StudyInstanceUID}/series/{dcm.SeriesInstanceUID}/instances/{dcm.SOPInstanceUID}/rendered'
     self.assertIn(url.encode('utf-8'), response.data)
 
-  @parameterized.named_parameters([
+  @parameterized.named_parameters(
       dict(
           testcase_name='frame_request', is_rendered=False, expected_suffix=''
       ),
@@ -1600,7 +1659,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
           is_rendered=True,
           expected_suffix='/rendered',
       ),
-  ])
+  )
   def test_redirect_frame_instance_missing_series_query(
       self, is_rendered, expected_suffix
   ):
@@ -1624,7 +1683,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
     url = f'{root}/tile/{base_url}/studies/{dcm.StudyInstanceUID}/series/{dcm.SeriesInstanceUID}/instances/{dcm.SOPInstanceUID}/frames/1{expected_suffix}'
     self.assertIn(url.encode('utf-8'), response.data)
 
-  @parameterized.named_parameters([
+  @parameterized.named_parameters(
       dict(
           testcase_name='undefined_viewport',
           param={},
@@ -1645,7 +1704,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
           param={'viewport': '1,2,3,4,5,6'},
           expected=render_frame_params.Viewport(['1', '2', '3', '4', '5', '6']),
       ),
-  ])
+  )
   def test_parse_viewport(self, param, expected):
     self.assertEqual(dicom_proxy_blueprint._parse_viewport(param), expected)
 

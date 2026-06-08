@@ -374,11 +374,11 @@ py_library(
         "metadata_util.py",
     ],
     deps = [
-        ":bulkdata_util",
         ":cache_enabled_type",
         ":dicom_proxy_flags",
         ":dicom_store_util",
         ":dicom_url_util",
+        ":proxy_const",
         ":redis_cache",
         ":user_auth_util",
         "//pathology/shared_libs/logging_lib:cloud_logging_client",
@@ -964,6 +964,7 @@ py_test(
         ":bulkdata_util",
         ":dicom_url_util",
         ":flask_util",
+        ":proxy_const",
         requirement("Flask"),
     ],
 )

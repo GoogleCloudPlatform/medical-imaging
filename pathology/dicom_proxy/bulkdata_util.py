@@ -13,7 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 """Utility for detecting testing if store supports returning uri bulk metadata."""
-import functools
 import re
 
 import flask
@@ -23,39 +22,18 @@ from pathology.dicom_proxy import dicom_url_util
 from pathology.dicom_proxy import flask_util
 
 # match stores bulkdata uri.
-PROXY_BULK_DATA_URI = 'bulkdata'
 _GET_TILE_SERVER_PROJECT_REGEX = re.compile(
     '(http|https)://.*?/(projects/.*?/locations/.*?/datasets/.*?/dicomStores/.*?/dicomWeb)/.*'
 )
 _HEALTHCARE_API_BULKDATA_RESPONSE = re.compile(
-    r'"https://healthcare\.googleapis\.com/.+?/projects/.+?/locations/.+?/'
-    r'datasets/.+?/dicomStores/.+?/dicomWeb/studies/(.+?)/series/(.+?)/'
-    r'instances/(.+?)/bulkdata/(.+?)"'.encode('utf-8'),
+    r'https://healthcare\.googleapis\.com/.+?/projects/.+?/locations/.+?/'
+    r'datasets/.+?/dicomStores/.+?/dicomWeb'.encode('utf-8'),
     re.IGNORECASE,
 )
-BULK_DATA_URI_KEY = 'BulkDataURI'
-LOCALHOST = 'localhost'
 
 
 class _UnexpectedDicomJsonMetadataError(Exception):
   pass
-
-
-def _func_match(baseurl: bytes, match: re.Match[bytes]) -> bytes:
-  studies, series, instance, path = match.groups()
-  return b''.join((
-      b'"',
-      baseurl,
-      b'/studies/',
-      studies,
-      b'/series/',
-      series,
-      b'/instances/',
-      instance,
-      f'/{PROXY_BULK_DATA_URI}/'.encode('utf-8'),
-      path,
-      b'"',
-  ))
 
 
 def _set_bulk_data_uri_protocal(bulk_data_uri: str) -> str:
@@ -100,5 +78,5 @@ def proxy_dicom_store_bulkdata_response(
     # unchanged.
     return
   response.data = _HEALTHCARE_API_BULKDATA_RESPONSE.sub(
-      functools.partial(_func_match, base_url.encode('utf-8')), response.data
+      base_url.encode('utf-8'), response.data
   )

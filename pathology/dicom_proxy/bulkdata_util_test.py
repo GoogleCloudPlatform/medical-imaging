@@ -22,6 +22,7 @@ import flask
 from pathology.dicom_proxy import bulkdata_util
 from pathology.dicom_proxy import dicom_url_util
 from pathology.dicom_proxy import flask_util
+from pathology.dicom_proxy import proxy_const
 
 _DICOMSTORE_BASEURL = dicom_url_util.DicomWebBaseURL(
     'V1', 'GCP_PROJECTID', 'GCP_LOCATION', 'FOO_DATASET', 'BAR_DICOMSTORE'
@@ -99,7 +100,7 @@ _TEST_METADATA_WITH_BULKDATA_URI = [
         metadata={
             '123': {
                 _VR: 'OB',
-                bulkdata_util.BULK_DATA_URI_KEY: 'abc',
+                proxy_const.BULKDATA_URI: 'abc',
             }
         },
     ),
@@ -109,7 +110,7 @@ _TEST_METADATA_WITH_BULKDATA_URI = [
             '123': {_VR: 'LO', _VALUE: ['abc']},
             '456': {
                 _VR: 'OB',
-                bulkdata_util.BULK_DATA_URI_KEY: 'abc',
+                proxy_const.BULKDATA_URI: 'abc',
             },
         },
     ),
@@ -118,12 +119,14 @@ _TEST_METADATA_WITH_BULKDATA_URI = [
         metadata={
             '123': {
                 _VR: _SQ,
-                _VALUE: [{
-                    '123': {
-                        _VR: 'OB',
-                        bulkdata_util.BULK_DATA_URI_KEY: 'abc',
+                _VALUE: [
+                    {
+                        '123': {
+                            _VR: 'OB',
+                            proxy_const.BULKDATA_URI: 'abc',
+                        }
                     }
-                }],
+                ],
             }
         },
     ),
@@ -138,7 +141,7 @@ _TEST_METADATA_WITH_BULKDATA_URI = [
                         _VALUE: [{
                             '123': {
                                 _VR: 'OB',
-                                bulkdata_util.BULK_DATA_URI_KEY: 'abc',
+                                proxy_const.BULKDATA_URI: 'abc',
                             }
                         }],
                     }

@@ -30,11 +30,11 @@ import dataclasses_json
 import numpy as np
 import pydicom
 
-from pathology.dicom_proxy import bulkdata_util
 from pathology.dicom_proxy import cache_enabled_type
 from pathology.dicom_proxy import dicom_proxy_flags
 from pathology.dicom_proxy import dicom_store_util
 from pathology.dicom_proxy import dicom_url_util
+from pathology.dicom_proxy import proxy_const
 from pathology.dicom_proxy import redis_cache
 from pathology.dicom_proxy import user_auth_util
 from pathology.shared_libs.logging_lib import cloud_logging_client
@@ -427,7 +427,7 @@ def _get_bulkdatauri(metadata: Mapping[str, Any], key: str) -> str:
     String metadata key value.
   """
   try:
-    return str(metadata[key].get(bulkdata_util.BULK_DATA_URI_KEY, ''))
+    return str(metadata[key].get(proxy_const.BULKDATA_URI, ''))
   except (IndexError, KeyError, TypeError) as _:
     return ''
 
@@ -786,7 +786,7 @@ def get_instance_metadata_from_local_instance(
       dicom_md = ds.to_json_dict()
   dicom_md.update(file_meta)
   return _init_metadata_from_json(
-      dicom_url_util.DicomSeriesUrl(bulkdata_util.LOCALHOST),
+      dicom_url_util.DicomSeriesUrl(proxy_const.LOCALHOST),
       dicom_md,
       cache_enabled_type.CachingEnabled(False),
   )
