@@ -39,7 +39,6 @@ from pathology.dicom_proxy import redis_cache
 from pathology.dicom_proxy import user_auth_util
 from pathology.shared_libs.logging_lib import cloud_logging_client
 
-
 # Metadata Flag Cache Const
 _SECONDS_IN_HOUR = 3600
 _SECONDS_IN_MIN = 60
@@ -298,6 +297,11 @@ class DicomInstanceMetadata:
     Returns:
       Downsampled metadata.
     """
+    if downsample == 1.0:
+      # No change to metadata, return self avoids recomputing
+      # number of frames which can stop the server from correctly returning a
+      # frame in the instance metadata is incorrect.
+      return self
     total_pixel_matrix_columns = max(
         int(self.total_pixel_matrix_columns / downsample), 1
     )
@@ -946,4 +950,5 @@ def downsample_json_metadata(
   return True
 
 
-os.register_at_fork(after_in_child=_init_fork_module_state)
+if hasattr(os, 'register_at_fork'):
+  os.register_at_fork(after_in_child=_init_fork_module_state)
