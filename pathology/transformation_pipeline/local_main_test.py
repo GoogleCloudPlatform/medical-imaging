@@ -61,10 +61,10 @@ class LocalhostMainTest(absltest.TestCase):
 
   def setUp(self):
     super().setUp()
-    gke_main._LICENSE_FILE_PATH = gen_test_util.test_file_path(
+    gke_main._LICENSE_FILE_PATH = gen_test_util.test_file_path(  # pyrefly: ignore[bad-assignment]
         '../ThirdParty_LICENSE.docker'
     )
-    local_main._CONTAINER_BASE_DIR = self.create_tempdir().full_path
+    local_main._CONTAINER_BASE_DIR = self.create_tempdir().full_path  # pyrefly: ignore[bad-assignment]
 
   def tearDown(self):
     gke_main._LICENSE_FILE_PATH = _LICENSE_PATH
@@ -76,7 +76,7 @@ class LocalhostMainTest(absltest.TestCase):
 
   @flagsaver.flagsaver(localhost_dicom_store='/mock/dicom_store')
   def test_cannot_read_write_metadata_dirs_raises(self):
-    local_main._CONTAINER_BASE_DIR = gen_test_util.test_file_path(
+    local_main._CONTAINER_BASE_DIR = gen_test_util.test_file_path(  # pyrefly: ignore[bad-assignment]
         'localhost_not_found'
     )
     with flagsaver.flagsaver(
@@ -193,7 +193,7 @@ class LocalhostMainTest(absltest.TestCase):
           local_main.main(unused_argv=None)
 
   def test_gke_main_requires_license(self):
-    gke_main._LICENSE_FILE_PATH = ''
+    gke_main._LICENSE_FILE_PATH = ''  # pyrefly: ignore[bad-assignment]
     with flagsaver.flagsaver(
         poll_image_ingestion_dir=False,
         gcs_ingest_study_instance_uid_source=ingest_flags.UidSource.DICOM,
@@ -212,7 +212,7 @@ class LocalhostMainTest(absltest.TestCase):
           local_main.main(unused_argv=None)
 
   def test_local_main_missing_dicom_store_def_raises(self):
-    gke_main._LICENSE_FILE_PATH = ''
+    gke_main._LICENSE_FILE_PATH = ''  # pyrefly: ignore[bad-assignment]
     with flagsaver.flagsaver(
         poll_image_ingestion_dir=False,
         gcs_ingest_study_instance_uid_source=ingest_flags.UidSource.DICOM,

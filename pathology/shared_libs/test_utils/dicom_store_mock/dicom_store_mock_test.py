@@ -613,7 +613,7 @@ class DicomStoreMockTest(parameterized.TestCase):
     with dicom_store_mock.MockDicomStores(_MOCK_STORE_URL) as mk:
       mk[_MOCK_STORE_URL].set_dicom_store_disk_storage(temp_dir)
       with pydicom.dcmread(source_file) as dcm:
-        mk[_MOCK_STORE_URL].add_instance(dcm)
+        mk[_MOCK_STORE_URL].add_instance(dcm)  # pyrefly: ignore[bad-argument-type]
         expected_path = os.path.join(
             temp_dir,
             f'{dcm.StudyInstanceUID}/{dcm.SeriesInstanceUID}/{dcm.SOPInstanceUID}.dcm',
@@ -628,7 +628,7 @@ class DicomStoreMockTest(parameterized.TestCase):
     with dicom_store_mock.MockDicomStores(_MOCK_STORE_URL) as mk:
       mk[_MOCK_STORE_URL].set_dicom_store_disk_storage(temp_dir)
       with pydicom.dcmread(source_file) as dcm:
-        mk[_MOCK_STORE_URL].add_instance(dcm)
+        mk[_MOCK_STORE_URL].add_instance(dcm)  # pyrefly: ignore[bad-argument-type]
       result = requests.delete(
           f'{_MOCK_STORE_URL}/studies/{studyuid}', headers=headers
       )
@@ -739,7 +739,7 @@ class DicomStoreMockTest(parameterized.TestCase):
     with dicom_store_mock.MockDicomStores(_MOCK_STORE_URL) as mk:
       mk[_MOCK_STORE_URL].set_dicom_store_disk_storage(temp_dir)
       with pydicom.dcmread(source_file) as dcm:
-        mk[_MOCK_STORE_URL].add_instance(dcm)
+        mk[_MOCK_STORE_URL].add_instance(dcm)  # pyrefly: ignore[bad-argument-type]
         studyuid = dcm.StudyInstanceUID
         seriesuid = dcm.SeriesInstanceUID
         instanceuid = dcm.SOPInstanceUID
@@ -762,7 +762,7 @@ class DicomStoreMockTest(parameterized.TestCase):
     ) as mk:
       mk[_MOCK_STORE_URL].set_dicom_store_disk_storage(temp_dir)
       with pydicom.dcmread(source_file) as dcm:
-        mk[_MOCK_STORE_URL].add_instance(dcm)
+        mk[_MOCK_STORE_URL].add_instance(dcm)  # pyrefly: ignore[bad-argument-type]
         studyuid = dcm.StudyInstanceUID
         seriesuid = dcm.SeriesInstanceUID
         instanceuid = dcm.SOPInstanceUID
@@ -774,7 +774,7 @@ class DicomStoreMockTest(parameterized.TestCase):
               response.json(),
               [
                   dicom_store_mock._pydicom_file_dataset_to_json(
-                      dcm, dicom_store_mock._FilterBinaryTagOperation.REMOVE
+                      dcm, dicom_store_mock._FilterBinaryTagOperation.REMOVE  # pyrefly: ignore[bad-argument-type]
                   ),
               ],
           )
@@ -788,7 +788,7 @@ class DicomStoreMockTest(parameterized.TestCase):
     with dicom_store_mock.MockDicomStores(_MOCK_STORE_URL) as mk:
       mk[_MOCK_STORE_URL].set_dicom_store_disk_storage(temp_dir)
       with pydicom.dcmread(source_file) as dcm:
-        mk[_MOCK_STORE_URL].add_instance(dcm)
+        mk[_MOCK_STORE_URL].add_instance(dcm)  # pyrefly: ignore[bad-argument-type]
         studyuid = dcm.StudyInstanceUID
         seriesuid = dcm.SeriesInstanceUID
         instanceuid = dcm.SOPInstanceUID
@@ -811,7 +811,7 @@ class DicomStoreMockTest(parameterized.TestCase):
     with dicom_store_mock.MockDicomStores(_MOCK_STORE_URL) as mk:
       mk[_MOCK_STORE_URL].set_dicom_store_disk_storage(temp_dir)
       with pydicom.dcmread(source_file) as dcm:
-        mk[_MOCK_STORE_URL].add_instance(dcm)
+        mk[_MOCK_STORE_URL].add_instance(dcm)  # pyrefly: ignore[bad-argument-type]
         studyuid = dcm.StudyInstanceUID
         seriesuid = dcm.SeriesInstanceUID
         instanceuid = dcm.SOPInstanceUID
@@ -834,7 +834,7 @@ class DicomStoreMockTest(parameterized.TestCase):
     with dicom_store_mock.MockDicomStores(_MOCK_STORE_URL) as mk:
       mk[_MOCK_STORE_URL].set_dicom_store_disk_storage(temp_dir)
       with pydicom.dcmread(source_file) as dcm:
-        mk[_MOCK_STORE_URL].add_instance(dcm)
+        mk[_MOCK_STORE_URL].add_instance(dcm)  # pyrefly: ignore[bad-argument-type]
         studyuid = dcm.StudyInstanceUID
         seriesuid = dcm.SeriesInstanceUID
         instanceuid = dcm.SOPInstanceUID
@@ -859,7 +859,7 @@ class DicomStoreMockTest(parameterized.TestCase):
     with dicom_store_mock.MockDicomStores(_MOCK_STORE_URL) as mk:
       mk[_MOCK_STORE_URL].set_dicom_store_disk_storage(temp_dir)
       with pydicom.dcmread(source_file) as dcm:
-        mk[_MOCK_STORE_URL].add_instance(dcm)
+        mk[_MOCK_STORE_URL].add_instance(dcm)  # pyrefly: ignore[bad-argument-type]
         studyuid = dcm.StudyInstanceUID
         seriesuid = dcm.SeriesInstanceUID
         instanceuid = dcm.SOPInstanceUID
@@ -887,7 +887,7 @@ class DicomStoreMockTest(parameterized.TestCase):
     with dicom_store_mock.MockDicomStores(_MOCK_STORE_URL) as mk:
       mk[_MOCK_STORE_URL].set_dicom_store_disk_storage(temp_dir)
       with pydicom.dcmread(source_file) as dcm:
-        mk[_MOCK_STORE_URL].add_instance(dcm)
+        mk[_MOCK_STORE_URL].add_instance(dcm)  # pyrefly: ignore[bad-argument-type]
         studyuid = dcm.StudyInstanceUID
         seriesuid = dcm.SeriesInstanceUID
         instanceuid = dcm.SOPInstanceUID
@@ -910,7 +910,7 @@ class DicomStoreMockTest(parameterized.TestCase):
     with dicom_store_mock.MockDicomStores(_MOCK_STORE_URL) as mk:
       mk[_MOCK_STORE_URL].set_dicom_store_disk_storage(temp_dir)
       with pydicom.dcmread(source_file) as dcm:
-        mk[_MOCK_STORE_URL].add_instance(dcm)
+        mk[_MOCK_STORE_URL].add_instance(dcm)  # pyrefly: ignore[bad-argument-type]
         studyuid = dcm.StudyInstanceUID
         seriesuid = dcm.SeriesInstanceUID
         instanceuid = dcm.SOPInstanceUID

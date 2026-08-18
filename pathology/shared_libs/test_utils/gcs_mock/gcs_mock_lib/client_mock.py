@@ -251,7 +251,7 @@ class ClientMock:
       GcsMockError: page_token set to non-default value. Functionality not
         implemented in mock.
     """
-    del (
+    del (  # pyrefly: ignore[unsupported-delete]
         fields,
         project,
         page_size,
@@ -380,7 +380,7 @@ class ClientMock:
         bucket does not exist to ensure code implemented in mock handles case.
       google.api_core.exceptions.NotFound: Blob bucket does not exist.
     """
-    del (
+    del (  # pyrefly: ignore[unsupported-delete]
         include_trailing_delimiter,
         versions,
         fields,
@@ -460,7 +460,7 @@ class ClientMock:
     Raises:
       google.cloud.exceptions.Conflict: If bucket already exists.
     """
-    del (
+    del (  # pyrefly: ignore[unsupported-delete]
         project,
         location,
         data_locations,

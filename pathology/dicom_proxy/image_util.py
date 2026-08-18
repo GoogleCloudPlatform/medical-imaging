@@ -356,7 +356,7 @@ def _encode_jpeg(
     else:
       # If image is opencv, convert from OPENCV BGR to RGB and generate PIL
       # image.
-      pil_img = _opencv_to_pil_image(img).image
+      pil_img = _opencv_to_pil_image(img).image  # pyrefly: ignore[bad-argument-type]
     # Save RGB image to JPEG
     # PIL currently supports saveing JPEG with subsampling=0 for higher quality
     # OpenCV does not.

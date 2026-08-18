@@ -118,7 +118,7 @@ def _should_upgrade(
   """Whether instance should be upgraded based on metadata and conditions."""
   if not metadata.access_metadata:
     raise ValueError(f'Instance metadata missing access info: {metadata}')
-  for condition_index, condition in enumerate(upgrade_conditions):
+  for condition_index, condition in enumerate(upgrade_conditions):  # pyrefly: ignore[bad-argument-type]
     condition_date_after = _convert_to_date(condition.date_after)
     if condition.access_count_higher_or_equal_to:
       condition_access_count_higher_or_equal_to = (
@@ -134,7 +134,7 @@ def _should_upgrade(
         _optional_equal(metadata.modality, condition.modality),
         _optional_equal(metadata.sop_class_uid, condition.sop_class_uid),
         _optional_in(metadata.image_type, condition.image_type),
-        _is_in_range(metadata.pixel_spacing, condition.pixel_spacing_range),
+        _is_in_range(metadata.pixel_spacing, condition.pixel_spacing_range),  # pyrefly: ignore[bad-argument-type]
         _optional_larger(metadata_date, condition_date_after),
         _optional_smaller(metadata.size_bytes, condition.size_bytes_lower_than),
         _optional_larger_or_equal(
@@ -161,7 +161,7 @@ def _should_downgrade(
   """Whether instance should be downgraded based on metadata and conditions."""
   if not metadata.access_metadata:
     raise ValueError(f'Instance metadata missing access info: {metadata}')
-  for condition_index, condition in enumerate(downgrade_conditions):
+  for condition_index, condition in enumerate(downgrade_conditions):  # pyrefly: ignore[bad-argument-type]
     condition_date_before = _convert_to_date(condition.date_before)
     if condition.access_count_lower_or_equal_to:
       condition_access_count_lower_or_equal_to = (
@@ -177,7 +177,7 @@ def _should_downgrade(
         _optional_equal(metadata.modality, condition.modality),
         _optional_equal(metadata.sop_class_uid, condition.sop_class_uid),
         _optional_in(metadata.image_type, condition.image_type),
-        _is_in_range(metadata.pixel_spacing, condition.pixel_spacing_range),
+        _is_in_range(metadata.pixel_spacing, condition.pixel_spacing_range),  # pyrefly: ignore[bad-argument-type]
         _optional_smaller(metadata_date, condition_date_before),
         _optional_larger(metadata.size_bytes, condition.size_bytes_larger_than),
         _optional_smaller_or_equal(

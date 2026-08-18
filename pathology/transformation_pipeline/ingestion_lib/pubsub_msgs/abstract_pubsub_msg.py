@@ -23,12 +23,12 @@ from google.cloud import pubsub_v1
 class AbstractPubSubMsg(metaclass=abc.ABCMeta):
   """Decodes and stores received cloud pub/sub msg."""
 
-  def __init__(self, msg: pubsub_v1.types.ReceivedMessage):
+  def __init__(self, msg: pubsub_v1.types.ReceivedMessage):  # pyrefly: ignore[missing-attribute]
     self._ignore_msg = False
     self._received_msg = msg
 
   @property
-  def received_msg(self) -> pubsub_v1.types.ReceivedMessage:
+  def received_msg(self) -> pubsub_v1.types.ReceivedMessage:  # pyrefly: ignore[missing-attribute]
     return self._received_msg
 
   @property

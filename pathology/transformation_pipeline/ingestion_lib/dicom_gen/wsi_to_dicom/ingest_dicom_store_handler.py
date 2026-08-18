@@ -78,7 +78,7 @@ class IngestDicomStorePubSubHandler(
     )
 
   def decode_pubsub_msg(
-      self, msg: pubsub_v1.types.ReceivedMessage
+      self, msg: pubsub_v1.types.ReceivedMessage  # pyrefly: ignore[missing-attribute]
   ) -> abstract_pubsub_msg.AbstractPubSubMsg:
     """Returns decoded pub/sub message.
 
@@ -232,7 +232,7 @@ class IngestDicomStorePubSubHandler(
       return
     # Delete original DICOM from store.
     if not self._current_instance.dicom_store_client.delete_resource_from_dicom_store(
-        dcm.dicom_gen.source_uri
+        dcm.dicom_gen.source_uri  # pyrefly: ignore[bad-argument-type]
     ):
       cloud_logging_client.warning(
           'Failed to delete original DICOM instance from DICOM store: '
@@ -244,14 +244,12 @@ class IngestDicomStorePubSubHandler(
         f'Uploading {dcm.dicom_gen.source_uri} to DICOM store.'
     )
     try:
-      upload_result = (
-          self._current_instance.dicom_store_client.upload_to_dicom_store(
-              dicom_paths=dcm.files_to_upload.main_store_instances,
-              discover_existing_series_option=(
-                  dicom_store_client.DiscoverExistingSeriesOptions.IGNORE
-              ),
-              copy_to_bucket_metadata=gcs_metadata,
-          )
+      upload_result = self._current_instance.dicom_store_client.upload_to_dicom_store(
+          dicom_paths=dcm.files_to_upload.main_store_instances,  # pyrefly: ignore[bad-argument-type]
+          discover_existing_series_option=(
+              dicom_store_client.DiscoverExistingSeriesOptions.IGNORE
+          ),
+          copy_to_bucket_metadata=gcs_metadata,
       )
       if upload_result.slide_has_instances_in_dicom_store():
         self.log_debug_url(
@@ -371,7 +369,7 @@ class IngestDicomStorePubSubHandler(
     dicom_gen_dir = os.path.join(self.root_working_dir, 'gen_dicom')
     os.mkdir(dicom_gen_dir)
     dcm = self._ingest_dicom_handler.generate_dicom(
-        dicom_gen_dir, ingest_file, polling_client.current_msg.message_id, self
+        dicom_gen_dir, ingest_file, polling_client.current_msg.message_id, self  # pyrefly: ignore[missing-attribute]
     )
     if not self.validate_redis_lock_held(transform_lock):
       polling_client.nack(
@@ -382,7 +380,7 @@ class IngestDicomStorePubSubHandler(
     self._update_dicom_instance_in_dicom_store(
         dcm,
         gcs_metadata={
-            'pubsub_message_id': str(polling_client.current_msg.message_id)
+            'pubsub_message_id': str(polling_client.current_msg.message_id)  # pyrefly: ignore[missing-attribute]
         },
     )
     polling_client.ack()

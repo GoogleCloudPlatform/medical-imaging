@@ -130,7 +130,9 @@ class _TranscodedRenderedDicomFrames(_RenderedDicomFrames):
       if is_frame_patch:
         image = typing.cast(
             _DicomInstanceFramePatch, image
-        ).get_downsampled_image(decoded_source_frames)
+        ).get_downsampled_image(
+            decoded_source_frames  # pyrefly: ignore[bad-argument-type]
+        )  # pyrefly: ignore[bad-argument-type]
       elif (
           icc_profile_transform is None
           and not params.is_viewport_defined()
@@ -140,11 +142,11 @@ class _TranscodedRenderedDicomFrames(_RenderedDicomFrames):
         # transcoding JPEGXL derieved from JPEG to JPEG with no icc profile
         # correction
         try:
-          encoded_images.append(image_util.transcode_jpxl_to_jpeg(image))
+          encoded_images.append(image_util.transcode_jpxl_to_jpeg(image))  # pyrefly: ignore[bad-argument-type]
           continue
         except image_util.JpegxlToJpegTranscodeError:
           image = image_util.decode_image_bytes(
-              image, source_dicom_metadata.dicom_transfer_syntax
+              image, source_dicom_metadata.dicom_transfer_syntax  # pyrefly: ignore[bad-argument-type]
           )
       elif (
           icc_profile_transform is None
@@ -157,11 +159,11 @@ class _TranscodedRenderedDicomFrames(_RenderedDicomFrames):
           )
       ):
         # transcoding JPEG to JPEGXL with no icc profile correction
-        encoded_images.append(image_util.transcode_jpeg_to_jpxl(image))
+        encoded_images.append(image_util.transcode_jpeg_to_jpxl(image))  # pyrefly: ignore[bad-argument-type]
         continue
       else:
         image = image_util.decode_image_bytes(
-            image, source_dicom_metadata.dicom_transfer_syntax
+            image, source_dicom_metadata.dicom_transfer_syntax  # pyrefly: ignore[bad-argument-type]
         )
       if icc_profile_transform is None:
         icc_profile = None
@@ -433,7 +435,7 @@ def _get_frames_no_downsampling(
   # transcode images
   metrics.images_transcoded = True
   return _TranscodedRenderedDicomFrames(
-      result,
+      result,  # pyrefly: ignore[bad-argument-type]
       icc_profile_transform,
       params,
       None,
@@ -642,7 +644,7 @@ def get_rendered_dicom_frames(
         dicom_instance_source, params, minibatch_frame_request, metrics
     )
     transcoded_frames = _TranscodedRenderedDicomFrames(
-        minibatch.frame_patches,
+        minibatch.frame_patches,  # pyrefly: ignore[bad-argument-type]
         icc_profile_transform,
         params,
         minibatch_frame_request.frames_retrieved,
@@ -738,7 +740,7 @@ def downsample_dicom_instance(
                   min(
                       framenumber
                       + dicom_proxy_flags.MAX_NUMBER_OF_FRAMES_PER_REQUEST_FLG.value,
-                      max_frame_count + 1,
+                      max_frame_count + 1,  # pyrefly: ignore[unsupported-operation]
                   ),
               )
           )
@@ -766,7 +768,7 @@ def downsample_dicom_instance(
         )
       else:
         decoded_image = image_util.decode_image_bytes(
-            undecoded_image, dicom_instance.metadata
+            undecoded_image, dicom_instance.metadata  # pyrefly: ignore[bad-argument-type]
         )
       if instance_image is None:
         instance_image = np.zeros(
@@ -786,7 +788,7 @@ def downsample_dicom_instance(
     py_end += tile_height
   if clip_image_dim:
     # crop image to actual image dimensions
-    instance_image = instance_image[:height, :width, ...]
+    instance_image = instance_image[:height, :width, ...]  # pyrefly: ignore[unsupported-operation]
   icc_profile_transform = dicom_instance.icc_profile_transform(
       orig_params.icc_profile
   )
@@ -796,10 +798,10 @@ def downsample_dicom_instance(
     icc_profile = icc_profile_transform.rendered_icc_profile
   return_metrics.images_transcoded = True  # all images re-compressed here.
   return _RenderedDicomFrames(
-      [
+      [  # pyrefly: ignore[bad-argument-type]
           image_util.encode_image(
               image_util.transform_image_viewport(
-                  instance_image, orig_params.viewport
+                  instance_image, orig_params.viewport  # pyrefly: ignore[bad-argument-type]
               ),
               orig_params.compression,  # type: ignore
               orig_params.quality,

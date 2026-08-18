@@ -43,15 +43,15 @@ class GCSFileMsg(abstract_pubsub_msg.AbstractPubSubMsg):
       raise ValueError(f'Blob does not exist {gcs_file_path}')
 
   @property
-  def received_msg(self) -> pubsub_v1.types.ReceivedMessage:
+  def received_msg(self) -> pubsub_v1.types.ReceivedMessage:  # pyrefly: ignore[missing-attribute]
     data = json.dumps({'name': self._filename, 'bucket': self._bucket_name})
-    message = pubsub_v1.types.PubsubMessage(
+    message = pubsub_v1.types.PubsubMessage(  # pyrefly: ignore[missing-attribute]
         attributes={'eventType': 'OBJECT_FINALIZE'},
         data=data.encode('utf-8'),
         message_id=self._messageid,
         publish_time=google.api_core.datetime_helpers.DatetimeWithNanoseconds.now(),
     )
-    return pubsub_v1.types.ReceivedMessage(
+    return pubsub_v1.types.ReceivedMessage(  # pyrefly: ignore[missing-attribute]
         ack_id=self._ack_id, message=message, delivery_attempt=1
     )
 

@@ -69,7 +69,7 @@ class _AutoLockUnlocker(contextlib.AbstractContextManager):
       return
     r_client.release_lock(self._lock_name, ignore_redis_exception=True)
     self._unlock_log[ingest_const.LogKeywords.LOCK_HELD_SEC] = (
-        time.time() - self._start_time
+        time.time() - self._start_time  # pyrefly: ignore[unsupported-operation]
     )
     cloud_logging_client.info(
         f'Released transformation lock: {self._lock_name}', self._unlock_log
@@ -126,11 +126,11 @@ class RedisClient:
       with cls._instance_creation_lock:
         if cls._instance is None:
           RedisClient()
-    return cls._instance
+    return cls._instance  # pyrefly: ignore[bad-return]
 
   @property
   def redis_ip(self) -> str:
-    return self._redis_ip
+    return self._redis_ip  # pyrefly: ignore[bad-return]
 
   @property
   def redis_port(self) -> int:
@@ -138,7 +138,7 @@ class RedisClient:
 
   @property
   def client(self) -> redis.Redis:
-    return self._client_instance
+    return self._client_instance  # pyrefly: ignore[bad-return]
 
   def extend_lock_timeouts(self, amount: int):
     """Interface for thread to call to extend TTL on Redis keys.
@@ -158,7 +158,7 @@ class RedisClient:
     Returns:
       True if success
     """
-    return self._client_instance.ping()
+    return self._client_instance.ping()  # pyrefly: ignore[missing-attribute]
 
   def acquire_non_blocking_lock(
       self,

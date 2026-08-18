@@ -79,7 +79,7 @@ def validate_iap(request_handler: Callable[..., Any]) -> Callable[..., Any]:
       return request_handler(*args, **kwargs)
 
     token = _get_flask_headers().get(IAP_JWT_HEADER, None)
-    if _is_valid(token, JWT_AUD_FLG.value):
+    if _is_valid(token, JWT_AUD_FLG.value):  # pyrefly: ignore[bad-argument-type]
       return request_handler(*args, **kwargs)
 
     return flask.abort(http.HTTPStatus.UNAUTHORIZED)

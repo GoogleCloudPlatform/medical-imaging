@@ -96,8 +96,8 @@ def _gen_ancillary_dicom_instance(
   sop_class_id = dicom_standard.dicom_standard_util().get_sop_classname_uid(
       'VL Whole Slide Microscopy Image Storage'
   )
-  file_meta.MediaStorageSOPClassUID = sop_class_id
-  file_meta.TransferSyntaxUID = ingest_const.DicomImageTransferSyntax.JPEG_LOSSY
+  file_meta.MediaStorageSOPClassUID = sop_class_id  # pyrefly: ignore[bad-assignment]
+  file_meta.TransferSyntaxUID = ingest_const.DicomImageTransferSyntax.JPEG_LOSSY  # pyrefly: ignore[bad-assignment]
   # end todo
   ds = pydicom.dataset.FileDataset(
       '', ds, file_meta=file_meta, preamble=b'\0' * 128

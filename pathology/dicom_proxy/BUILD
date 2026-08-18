@@ -592,6 +592,15 @@ py_binary(
 # ==================================================
 # Tests.
 py_test(
+    name = "server_cors_test",
+    srcs = ["server_cors_test.py"],
+    deps = [
+        requirement("absl-py"),
+        ":server_lib",
+    ],
+)
+
+py_test(
     name = "annotations_util_test",
     srcs = ["annotations_util_test.py"],
     deps = [

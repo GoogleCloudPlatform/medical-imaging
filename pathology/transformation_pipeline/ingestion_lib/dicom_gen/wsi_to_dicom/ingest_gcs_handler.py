@@ -295,7 +295,7 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
             ' file regular expression.',
             {
                 ingest_const.LogKeywords.MATCHED_REGEX: (
-                    ingest_flags.GCS_IGNORE_FILE_REGEXS_FLG.value[index]
+                    ingest_flags.GCS_IGNORE_FILE_REGEXS_FLG.value[index]  # pyrefly: ignore[unsupported-operation]
                 ),
                 ingest_const.LogKeywords.GCS_IGNORE_FILE_REGEXS: (
                     ingest_flags.GCS_IGNORE_FILE_REGEXS_FLG.value
@@ -336,7 +336,7 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
       cloud_logging_client.info('File moved to ignore bucket.', struct_msg)
 
   def decode_pubsub_msg(
-      self, msg: pubsub_v1.types.ReceivedMessage
+      self, msg: pubsub_v1.types.ReceivedMessage  # pyrefly: ignore[missing-attribute]
   ) -> abstract_pubsub_msg.AbstractPubSubMsg:
     """Returns decoded GCS pub/sub message.
 
@@ -545,7 +545,7 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
       additional_error_msg = 'Failed to copy to failure bucket.'
     # Very last step is to delete blob from ingest bucket.
     elif not cloud_storage_client.del_blob(
-        uri=ingest_file.source_uri, ignore_file_not_found=True
+        uri=ingest_file.source_uri, ignore_file_not_found=True  # pyrefly: ignore[bad-argument-type]
     ):
       additional_error_msg = 'Failed to delete from ingest bucket.'
     else:
@@ -596,16 +596,18 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
     )
     pipeline_passthrough_params[
         ingest_const.OofPassThroughKeywords.SOURCE_DICOM_IN_MAIN_STORE
-    ] = (ds_client.dicomweb_path == self.dcm_store_client.dicomweb_path)
+    ] = (
+        ds_client.dicomweb_path == self.dcm_store_client.dicomweb_path  # pyrefly: ignore[missing-attribute]
+    )  # pyrefly: ignore[missing-attribute]
     try:
       return ingestion_complete_pubsub.create_ingest_complete_pubsub_msg(
-          ds_client.dicomweb_path,
-          self._oof_trigger_config.pubsub_topic,
+          ds_client.dicomweb_path,  # pyrefly: ignore[missing-attribute]
+          self._oof_trigger_config.pubsub_topic,  # pyrefly: ignore[missing-attribute]
           store_results.ingested,
           store_results.previously_ingested,
           pipeline_passthrough_params,
-          self._oof_trigger_config.use_oof_legacy_pipeline,
-          self._oof_trigger_config.inference_config,
+          self._oof_trigger_config.use_oof_legacy_pipeline,  # pyrefly: ignore[missing-attribute]
+          self._oof_trigger_config.inference_config,  # pyrefly: ignore[missing-attribute]
       )
     except ingestion_complete_pubsub.CreatePubSubMessageError:
       return None
@@ -642,8 +644,8 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
     if (
         files_to_upload.oof_store_instances
         and self.is_oof_ingestion_enabled
-        and self._oof_trigger_config.dicom_store.dicomweb_path
-        == self.dcm_store_client.dicomweb_path
+        and self._oof_trigger_config.dicom_store.dicomweb_path  # pyrefly: ignore[missing-attribute]
+        == self.dcm_store_client.dicomweb_path  # pyrefly: ignore[missing-attribute]
     ):
       # If OOF is enabled and files are to be uploaded to OOF and the OOF DICOM
       # store and Main store are both defined as the same DICOM store then
@@ -659,11 +661,11 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
           'Uploading main results.',
           {
               ingest_const.LogKeywords.MAIN_DICOM_STORE: (
-                  self.dcm_store_client.dicomweb_path
+                  self.dcm_store_client.dicomweb_path  # pyrefly: ignore[missing-attribute]
               )
           },
       )
-      main_store_results = self.dcm_store_client.upload_to_dicom_store(
+      main_store_results = self.dcm_store_client.upload_to_dicom_store(  # pyrefly: ignore[missing-attribute]
           list(files_to_upload.main_store_instances),
           discover_series_option,
           dst_metadata,
@@ -691,7 +693,7 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
             'Uploading OOF results.',
             {
                 ingest_const.LogKeywords.MAIN_DICOM_STORE: (
-                    self._oof_trigger_config.dicom_store.dicomweb_path
+                    self._oof_trigger_config.dicom_store.dicomweb_path  # pyrefly: ignore[missing-attribute]
                 )
             },
         )
@@ -700,20 +702,16 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
             main_store_results.slide_series_instance_uid_in_dicom_store,
         )
 
-        oof_ingest_results = (
-            self._oof_trigger_config.dicom_store.upload_to_dicom_store(
-                list(files_to_upload.oof_store_instances),
-                not main_store_results.slide_has_instances_in_dicom_store(),
-                dst_metadata,
-                copy_to_bucket_enabled=False,
-            )
+        oof_ingest_results = self._oof_trigger_config.dicom_store.upload_to_dicom_store(  # pyrefly: ignore[missing-attribute]
+            list(files_to_upload.oof_store_instances),
+            not main_store_results.slide_has_instances_in_dicom_store(),
+            dst_metadata,
+            copy_to_bucket_enabled=False,
         )
         # Overwrite ingest_complete_msg with OOF specific message.
-        ingest_complete_oof_trigger_msg = (
-            self._create_ingest_complete_pubsub_msg(
-                oof_ingest_results,
-                self._oof_trigger_config.dicom_store,
-            )
+        ingest_complete_oof_trigger_msg = self._create_ingest_complete_pubsub_msg(
+            oof_ingest_results,
+            self._oof_trigger_config.dicom_store,  # pyrefly: ignore[missing-attribute]
         )
       if ingest_complete_oof_trigger_msg is None:
         cloud_logging_client.warning(
@@ -793,15 +791,15 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
     """
     dicom_gen_dir = os.path.join(self.root_working_dir, 'gen_dicom')
     os.mkdir(dicom_gen_dir)
-    dicom = self.current_handler.generate_dicom(
+    dicom = self.current_handler.generate_dicom(  # pyrefly: ignore[missing-attribute]
         dicom_gen_dir,
         ingest_file,
-        polling_client.current_msg.message_id,
+        polling_client.current_msg.message_id,  # pyrefly: ignore[missing-attribute]
         self,
     )
     cloud_logging_client.info('DICOM generation complete.')
     dst_metadata = {
-        'pubsub_message_id': str(polling_client.current_msg.message_id)
+        'pubsub_message_id': str(polling_client.current_msg.message_id)  # pyrefly: ignore[missing-attribute]
     }
     dicom_upload_discover_existing_series_option = (
         dicom_store_client.DiscoverExistingSeriesOptions.USE_HASH
@@ -835,7 +833,7 @@ class IngestGcsPubSubHandler(abstract_dicom_generation.AbstractDicomGeneration):
       ds_upload_result: Optional[_UploadToDicomStoresResult],
   ) -> None:
     dst_metadata = {
-        'pubsub_message_id': str(polling_client.current_msg.message_id)
+        'pubsub_message_id': str(polling_client.current_msg.message_id)  # pyrefly: ignore[missing-attribute]
     }
     del_file = (
         ingest_flags.DELETE_FILE_FROM_INGEST_AT_BUCKET_AT_INGEST_SUCCESS_OR_FAILURE_FLG.value

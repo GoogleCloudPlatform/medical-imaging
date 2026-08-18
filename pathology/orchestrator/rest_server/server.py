@@ -267,7 +267,7 @@ def get_pathology_cohort(user_id: str, cohort_id: str) -> flask.Response:
   request = cohorts_pb2.GetPathologyCohortRequest(
       name=f'{_convert_user_id_to_name(user_id)}/pathologyCohorts/{cohort_id}'
   )
-  _get_view(request)
+  _get_view(request)  # pyrefly: ignore[bad-argument-type]
   _get_link_token(request)
   try:
     response = cohorts_handler.get_pathology_cohort(request, user_email)
@@ -292,7 +292,7 @@ def list_pathology_cohorts(user_id: str) -> flask.Response:
   request = cohorts_pb2.ListPathologyCohortsRequest(
       parent=_convert_user_id_to_name(user_id),
   )
-  _get_view(request)
+  _get_view(request)  # pyrefly: ignore[bad-argument-type]
   _get_filter(request)
   try:
     response = cohorts_handler.list_pathology_cohorts(request, user_email)
@@ -664,17 +664,17 @@ class GunicornApplication(gunicorn.app.base.BaseApplication):
     super().__init__()
 
   def load_config(self):
-    self.cfg.set('worker_class', GUNICORN_WORKER_CLASS_FLG.value)
-    self.cfg.set('workers', str(GUNICORN_WORKERS_FLG.value))
-    self.cfg.set('threads', str(GUNICORN_THREADS_FLG.value))
-    self.cfg.set('print_config', 'true')  # Print the configuration
-    self.cfg.set('timeout', '180')  # Extend timeout
-    self.cfg.set('bind', '0.0.0.0:%s' % API_PORT_FLG.value)
-    self.cfg.set('accesslog', '-')
-    self.cfg.set(
+    self.cfg.set('worker_class', GUNICORN_WORKER_CLASS_FLG.value)  # pyrefly: ignore[missing-attribute]
+    self.cfg.set('workers', str(GUNICORN_WORKERS_FLG.value))  # pyrefly: ignore[missing-attribute]
+    self.cfg.set('threads', str(GUNICORN_THREADS_FLG.value))  # pyrefly: ignore[missing-attribute]
+    self.cfg.set('print_config', 'true')  # Print the configuration  # pyrefly: ignore[missing-attribute]
+    self.cfg.set('timeout', '180')  # Extend timeout  # pyrefly: ignore[missing-attribute]
+    self.cfg.set('bind', '0.0.0.0:%s' % API_PORT_FLG.value)  # pyrefly: ignore[missing-attribute]
+    self.cfg.set('accesslog', '-')  # pyrefly: ignore[missing-attribute]
+    self.cfg.set(  # pyrefly: ignore[missing-attribute]
         'access_log_format', '%(u)s "%(r)s" %(s)s "%(f)s" "%({body}i)s"'
     )
-    cloud_logging_client.info('Gunicorn configuration', self.cfg.settings)
+    cloud_logging_client.info('Gunicorn configuration', self.cfg.settings)  # pyrefly: ignore[missing-attribute]
 
   def load(self) -> flask.Flask:
     return self.application

@@ -129,7 +129,7 @@ class GcsStateMock(contextlib.ExitStack):
           raise gcs_mock_types.GcsMockError(
               f'Path: "{path}" does not reference a directory.'
           )
-        self._buckets[bucket_name] = path.rstrip('/')
+        self._buckets[bucket_name] = path.rstrip('/')  # pyrefly: ignore[unsupported-operation]
       self._init_mock_metadata_state()
       return self
     except:
@@ -218,9 +218,9 @@ class GcsStateMock(contextlib.ExitStack):
     with self._lock:
       if bucket.name not in self._buckets:
         try:
-          bucket_path = os.path.join(self._get_temp_dir_path(), bucket.name)
+          bucket_path = os.path.join(self._get_temp_dir_path(), bucket.name)  # pyrefly: ignore[no-matching-overload]
           os.mkdir(bucket_path)
-          self._buckets[bucket.name] = bucket_path
+          self._buckets[bucket.name] = bucket_path  # pyrefly: ignore[unsupported-operation]
           return
         except FileExistsError:
           pass
@@ -269,8 +269,9 @@ class GcsStateMock(contextlib.ExitStack):
         bucket does not exist to ensure code implemented in mock handles case.
       google.api_core.exceptions.NotFound: Bucket does not exist.
     """
-    if len(bucket.name) < 3:
+    if len(bucket.name) < 3:  # pyrefly: ignore[bad-argument-type]
       raise exceptions.BadRequest(
+          # pyrefly: ignore[bad-argument-type]
           f'{http_method.value}'
           f' {gcs_mock_constants.GCS_BASE_HTTPS_URL}/storage/v1{{bucket.path}}'
           ' Bucket names must be at least 3 characters in length, got'
@@ -317,11 +318,11 @@ class GcsStateMock(contextlib.ExitStack):
     file_paths = []
     with self._lock:
       self._validate_bucket(bucket, http_method=gcs_mock_types.HttpMethod.GET)
-      bucket_path = self._buckets[bucket.name]
-      for dir_struct in os.walk(bucket_path):
+      bucket_path = self._buckets[bucket.name]  # pyrefly: ignore[bad-index]
+      for dir_struct in os.walk(bucket_path):  # pyrefly: ignore[bad-argument-type]
         dirpath, _, dir_filenames = dir_struct
         # add one for file seperator
-        blob_dir = dirpath[len(bucket_path) :].lstrip('/')
+        blob_dir = dirpath[len(bucket_path) :].lstrip('/')  # pyrefly: ignore[bad-argument-type]
         for name in dir_filenames:
           if not blob_dir:
             file_paths.append(name)
@@ -350,7 +351,7 @@ class GcsStateMock(contextlib.ExitStack):
     bucket_path = self._buckets.get(bucket.name)
     if bucket_path is None:
       return ''
-    return os.path.join(bucket_path, blob.name)
+    return os.path.join(bucket_path, blob.name)  # pyrefly: ignore[no-matching-overload]
 
   @called_inside_context_manager
   def _init_mock_metadata_state(self) -> None:
@@ -397,7 +398,7 @@ class GcsStateMock(contextlib.ExitStack):
         bucket does not exist to ensure code implemented in mock handles case.
       google.api_core.exceptions.NotFound: Bucket does not exist.
     """
-    del (
+    del (  # pyrefly: ignore[unsupported-delete]
         if_etag_match,
         if_etag_not_match,
         if_metageneration_match,
@@ -648,7 +649,7 @@ class GcsStateMock(contextlib.ExitStack):
           if_metageneration_not_match,
       )
       blob_state = self._blob_state[path]
-      blob_state.metageneration += 1
+      blob_state.metageneration += 1  # pyrefly: ignore[unsupported-operation]
       blob_state.metadata = (
           {} if blob.metadata is None else copy.copy(blob.metadata)
       )
@@ -878,7 +879,7 @@ class GcsStateMock(contextlib.ExitStack):
             )
           infile.seek(start)
         if end is not None:
-          return (infile.read(end - start + 1), source_blob_state)
+          return (infile.read(end - start + 1), source_blob_state)  # pyrefly: ignore[unsupported-operation]
         return (infile.read(), source_blob_state)
 
   @called_inside_context_manager
@@ -1058,7 +1059,7 @@ class GcsStateMock(contextlib.ExitStack):
           path = self._validate_blob_exists_and_return_mock_path(
               source_blob, http_method
           )
-          component_count += self._blob_state[path].component_count
+          component_count += self._blob_state[path].component_count  # pyrefly: ignore[unsupported-operation]
           with open(path, 'rb') as infile:
             source_bytes.write(infile.read())
         path = self._get_blob_path(blob)

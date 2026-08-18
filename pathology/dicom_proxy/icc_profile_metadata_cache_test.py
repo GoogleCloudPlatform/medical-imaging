@@ -45,8 +45,8 @@ class ColorConversionUtilTest(parameterized.TestCase):
     icc_profile_metadata_cache._is_debugging = True
 
   def test_init_fork_module_state(self):
-    icc_profile_metadata_cache._metadata_cache_lock = 'mock'
-    icc_profile_metadata_cache._metadata_cache = 'mock'
+    icc_profile_metadata_cache._metadata_cache_lock = 'mock'  # pyrefly: ignore[bad-assignment]
+    icc_profile_metadata_cache._metadata_cache = 'mock'  # pyrefly: ignore[bad-assignment]
     icc_profile_metadata_cache._init_fork_module_state()
     self.assertIsNotNone(icc_profile_metadata_cache._metadata_cache_lock)
     self.assertNotEqual(icc_profile_metadata_cache._metadata_cache_lock, 'mock')

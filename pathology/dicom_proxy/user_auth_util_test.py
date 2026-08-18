@@ -151,11 +151,56 @@ class UserAuthUtilTest(parameterized.TestCase):
       self.assertEqual(auth.email, service_account_email)
 
   def test_init_fork_module_state(self):
-    user_auth_util._auth_cache = None
-    user_auth_util._auth_cache_lock = None
+    user_auth_util._auth_cache = None  # pyrefly: ignore[bad-assignment]
+    user_auth_util._auth_cache_lock = None  # pyrefly: ignore[bad-assignment]
     user_auth_util._init_fork_module_state()
     self.assertIsInstance(user_auth_util._auth_cache, cachetools.LRUCache)
     self.assertIsNotNone(user_auth_util._auth_cache_lock)
+
+  @flagsaver.flagsaver(
+      enable_app_default_credentials=False,
+      validate_iap=False,
+      strip_inbound_authorization=True,
+  )
+  def test_strip_inbound_authorization_removes_auth_header(self):
+    """Authorization header is stripped when strip_inbound_authorization=True."""
+    auth_header = {
+        proxy_const.HeaderKeywords.AUTH_HEADER_KEY: 'Bearer client_token',
+        proxy_const.HeaderKeywords.AUTHORITY_HEADER_KEY: 'some-scope',
+    }
+    user_auth = user_auth_util.AuthSession(auth_header)
+    # The Authorization header must be absent from the forwarded headers.
+    self.assertEqual(user_auth.authorization, '')
+    # authority should still be forwarded (it is not stripped).
+    self.assertEqual(
+        user_auth.authority,
+        auth_header[proxy_const.HeaderKeywords.AUTHORITY_HEADER_KEY],
+    )
+
+  @flagsaver.flagsaver(
+      enable_app_default_credentials=False,
+      validate_iap=False,
+      strip_inbound_authorization=False,
+  )
+  def test_strip_inbound_authorization_false_preserves_auth_header(self):
+    """Authorization header is preserved when strip_inbound_authorization=False."""
+    bearer_token = 'Bearer client_token'
+    auth_header = {proxy_const.HeaderKeywords.AUTH_HEADER_KEY: bearer_token}
+    with mock.patch.object(
+        user_auth_util,
+        '_get_email_from_bearer_token',
+        autospec=True,
+        return_value='user@example.com',
+    ):
+      user_auth = user_auth_util.AuthSession(auth_header)
+    self.assertEqual(user_auth.authorization, bearer_token)
+
+  @flagsaver.flagsaver(enable_app_default_credentials=False, validate_iap=True)
+  def test_auth_session_email_raises_when_not_set(self):
+    """email property raises if no user identity is present."""
+    user_auth = user_auth_util.AuthSession(None)
+    with self.assertRaises(user_auth_util.UserEmailRetrievalError):
+      _ = user_auth.email
 
 
 if __name__ == '__main__':

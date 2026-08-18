@@ -157,7 +157,7 @@ def _build_dicom_instance(
         private_tags, ds
     )
   _add_instance_refs_to_dicom(ds, series_uid, reference_instances)
-  file_meta.ImplementationClassUID = ingest_const.SC_IMPLEMENTATION_CLASS_UID
+  file_meta.ImplementationClassUID = ingest_const.SC_IMPLEMENTATION_CLASS_UID  # pyrefly: ignore[bad-assignment]
   file_meta.ImplementationVersionName = ingest_const.IMPLEMENTATION_VERSION_NAME
   # end todo
   fd = pydicom.dataset.FileDataset(
@@ -259,7 +259,7 @@ def create_raw_dicom_secondary_capture_from_img(
       private_tags,
   )
   ds.file_meta.TransferSyntaxUID = (
-      ingest_const.DicomImageTransferSyntax.EXPLICIT_VR_LITTLE_ENDIAN
+      ingest_const.DicomImageTransferSyntax.EXPLICIT_VR_LITTLE_ENDIAN  # pyrefly: ignore[bad-assignment]
   )
   ds.LossyImageCompression = '00'  # Image is encoded as RAW RGB bytes
   return ds
@@ -337,7 +337,7 @@ def create_encapsulated_jpeg_dicom_secondary_capture(
   # Image bytes JPEG Baseline (Process 1):
   # Default Transfer Syntax for Lossy JPEG 8-bit Image Compression
   ds.file_meta.TransferSyntaxUID = (
-      ingest_const.DicomImageTransferSyntax.JPEG_LOSSY
+      ingest_const.DicomImageTransferSyntax.JPEG_LOSSY  # pyrefly: ignore[bad-assignment]
   )
   ds.LossyImageCompression = '01'  # Image is a lossy jpg
   ds.LossyImageCompressionMethod = 'ISO_10918_1'

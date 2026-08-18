@@ -236,14 +236,14 @@ class IngestDicomTest(parameterized.TestCase):
   )
   def test_is_dicom_file_already_ingested_false(self, dcm_json):
     dcm_path = dicom_test_util.create_test_dicom_instance(
-        self.create_tempdir(), dcm_json=dcm_json
+        self.create_tempdir(), dcm_json=dcm_json  # pyrefly: ignore[bad-argument-type]
     )
     ingest = ingest_dicom.IngestDicom(
         dicom_store_triggered_ingest=False,
         override_study_uid_with_metadata=True,
         metadata_client=metadata_storage_client.MetadataStorageClient(),
     )
-    self.assertFalse(ingest.is_dicom_file_already_ingested(dcm_path))
+    self.assertFalse(ingest.is_dicom_file_already_ingested(dcm_path))  # pyrefly: ignore[bad-argument-type]
 
   @parameterized.named_parameters([
       dict(
@@ -289,14 +289,14 @@ class IngestDicomTest(parameterized.TestCase):
   ])
   def test_is_dicom_file_already_ingested_private_tags_true(self, dcm_json):
     dcm_path = dicom_test_util.create_test_dicom_instance(
-        self.create_tempdir(), dcm_json=dcm_json
+        self.create_tempdir(), dcm_json=dcm_json  # pyrefly: ignore[bad-argument-type]
     )
     ingest = ingest_dicom.IngestDicom(
         dicom_store_triggered_ingest=False,
         override_study_uid_with_metadata=True,
         metadata_client=metadata_storage_client.MetadataStorageClient(),
     )
-    self.assertTrue(ingest.is_dicom_file_already_ingested(dcm_path))
+    self.assertTrue(ingest.is_dicom_file_already_ingested(dcm_path))  # pyrefly: ignore[bad-argument-type]
 
   @mock.patch.object(
       decode_slideid,
@@ -515,9 +515,9 @@ class IngestDicomTest(parameterized.TestCase):
   )
   def test_is_dicom_instance_already_ingested(self, dcm_json, expected_result):
     dcm_path = dicom_test_util.create_test_dicom_instance(
-        self.create_tempdir(), dcm_json=dcm_json
+        self.create_tempdir(), dcm_json=dcm_json  # pyrefly: ignore[bad-argument-type]
     )
-    with pydicom.dcmread(dcm_path) as dcm:
+    with pydicom.dcmread(dcm_path) as dcm:  # pyrefly: ignore[bad-argument-type]
       study_instance_uid = dcm.StudyInstanceUID
       series_instance_uid = dcm.SeriesInstanceUID
       sop_instance_uid = dcm.SOPInstanceUID

@@ -537,8 +537,8 @@ class DicomUtilTest(parameterized.TestCase):
     self.assertLen(tags, 3)
     self.assertIsNone(tags['BarcodeValue'])
     self.assertEqual(_get_value(tags['NumberOfOpticalPaths']), 5)
-    self.assertEqual(tags['OpticalPathSequence'][0].PatientName, 'Test')
-    self.assertEqual(tags['OpticalPathSequence'][1].PatientName, 'Test')
+    self.assertEqual(tags['OpticalPathSequence'][0].PatientName, 'Test')  # pyrefly: ignore[unsupported-operation]
+    self.assertEqual(tags['OpticalPathSequence'][1].PatientName, 'Test')  # pyrefly: ignore[unsupported-operation]
 
   def test_get_pydicom_tags_from_dataset(self):
     temp_dir = self.create_tempdir()
@@ -554,7 +554,7 @@ class DicomUtilTest(parameterized.TestCase):
 
     with pydicom.dcmread(test_dicom_path, defer_size='512 KB') as reference_dcm:
       tags = dicom_util.get_pydicom_tags(
-          reference_dcm,
+          reference_dcm,  # pyrefly: ignore[bad-argument-type]
           'BarcodeValue',
           ('NumberOfOpticalPaths', 'OpticalPathSequence'),
       )
@@ -562,8 +562,8 @@ class DicomUtilTest(parameterized.TestCase):
     self.assertLen(tags, 3)
     self.assertIsNone(tags['BarcodeValue'])
     self.assertEqual(_get_value(tags['NumberOfOpticalPaths']), 5)
-    self.assertEqual(tags['OpticalPathSequence'][0].PatientName, 'Test')
-    self.assertEqual(tags['OpticalPathSequence'][1].PatientName, 'Test')
+    self.assertEqual(tags['OpticalPathSequence'][0].PatientName, 'Test')  # pyrefly: ignore[unsupported-operation]
+    self.assertEqual(tags['OpticalPathSequence'][1].PatientName, 'Test')  # pyrefly: ignore[unsupported-operation]
 
   @parameterized.named_parameters(
       dict(
@@ -1013,7 +1013,7 @@ class DicomUtilTest(parameterized.TestCase):
     mock_frame_data = (''.join([str(i) for i in range(0, 10)])).encode('utf-8')
     file_meta = pydicom.dataset.FileMetaDataset()
     file_meta.TransferSyntaxUID = (
-        ingest_const.DicomImageTransferSyntax.JPEG_LOSSY
+        ingest_const.DicomImageTransferSyntax.JPEG_LOSSY  # pyrefly: ignore[bad-assignment]
     )
     ds = pydicom.FileDataset(
         '', pydicom.Dataset(), file_meta=file_meta, preamble=b'\0' * 128
@@ -1069,7 +1069,7 @@ class DicomUtilTest(parameterized.TestCase):
     large_frame_data = np.arange(0, 1024, dtype=np.uint32).tobytes()
     file_meta = pydicom.dataset.FileMetaDataset()
     file_meta.TransferSyntaxUID = (
-        ingest_const.DicomImageTransferSyntax.JPEG_LOSSY
+        ingest_const.DicomImageTransferSyntax.JPEG_LOSSY  # pyrefly: ignore[bad-assignment]
     )
     ds = pydicom.FileDataset(
         '', pydicom.Dataset(), file_meta=file_meta, preamble=b'\0' * 128
@@ -1083,7 +1083,7 @@ class DicomUtilTest(parameterized.TestCase):
         dicom_util._MAX_PIXEL_DATA_SIZE_FOR_BASIC_OFFSET_TABLE
     )
     try:
-      dicom_util._MAX_PIXEL_DATA_SIZE_FOR_BASIC_OFFSET_TABLE = 0xFF
+      dicom_util._MAX_PIXEL_DATA_SIZE_FOR_BASIC_OFFSET_TABLE = 0xFF  # pyrefly: ignore[bad-assignment]
       dicom_util.if_missing_create_encapsulated_frame_offset_table(ds)
     finally:
       dicom_util._MAX_PIXEL_DATA_SIZE_FOR_BASIC_OFFSET_TABLE = (
@@ -1119,7 +1119,7 @@ class DicomUtilTest(parameterized.TestCase):
   def test_create_offset_tables_nop_if_no_pixel_data(self):
     file_meta = pydicom.dataset.FileMetaDataset()
     file_meta.TransferSyntaxUID = (
-        ingest_const.DicomImageTransferSyntax.JPEG_LOSSY
+        ingest_const.DicomImageTransferSyntax.JPEG_LOSSY  # pyrefly: ignore[bad-assignment]
     )
     ds = pydicom.FileDataset(
         '', pydicom.Dataset(), file_meta=file_meta, preamble=b'\0' * 128
@@ -1132,7 +1132,7 @@ class DicomUtilTest(parameterized.TestCase):
   def test_create_offset_tables_nop_if_not_encapsulated_pixel_data(self):
     file_meta = pydicom.dataset.FileMetaDataset()
     file_meta.TransferSyntaxUID = (
-        ingest_const.DicomImageTransferSyntax.IMPLICIT_VR_LITTLE_ENDIAN
+        ingest_const.DicomImageTransferSyntax.IMPLICIT_VR_LITTLE_ENDIAN  # pyrefly: ignore[bad-assignment]
     )
     ds = pydicom.FileDataset(
         '', pydicom.Dataset(), file_meta=file_meta, preamble=b'\0' * 128
@@ -1151,7 +1151,7 @@ class DicomUtilTest(parameterized.TestCase):
   def test_create_offset_tables_nop_if_has_basic_offset_tables(self):
     file_meta = pydicom.dataset.FileMetaDataset()
     file_meta.TransferSyntaxUID = (
-        ingest_const.DicomImageTransferSyntax.JPEG_LOSSY
+        ingest_const.DicomImageTransferSyntax.JPEG_LOSSY  # pyrefly: ignore[bad-assignment]
     )
     ds = pydicom.FileDataset(
         '', pydicom.Dataset(), file_meta=file_meta, preamble=b'\0' * 128
@@ -1169,7 +1169,7 @@ class DicomUtilTest(parameterized.TestCase):
   def test_create_offset_tables_nop_if_has_extended_offset_tables(self):
     file_meta = pydicom.dataset.FileMetaDataset()
     file_meta.TransferSyntaxUID = (
-        ingest_const.DicomImageTransferSyntax.JPEG_LOSSY
+        ingest_const.DicomImageTransferSyntax.JPEG_LOSSY  # pyrefly: ignore[bad-assignment]
     )
     ds = pydicom.FileDataset(
         '', pydicom.Dataset(), file_meta=file_meta, preamble=b'\0' * 128

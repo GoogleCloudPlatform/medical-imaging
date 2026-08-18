@@ -115,7 +115,7 @@ class _IngestOpenslideTest(contextlib.ExitStack):
     self.dicom_gen = abstract_dicom_generation.GeneratedDicomFiles(
         self._input_file_container_path, f'gs://input/{ self._filename}'
     )
-    self.handler: ingest_gcs_handler.IngestGcsPubSubHandler = None
+    self.handler: ingest_gcs_handler.IngestGcsPubSubHandler = None  # pyrefly: ignore[bad-assignment]
 
   def __enter__(self) -> _IngestOpenslideTest:
     super().__enter__()

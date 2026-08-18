@@ -875,9 +875,9 @@ class FrameCachingUtilTest(parameterized.TestCase):
     )
 
   def test_init_fork_module_state(self) -> None:
-    frame_caching_util._cache_instance_thread_lock = 'mock'
-    frame_caching_util._active_cache_loading_instances = 'mock'
-    frame_caching_util._last_cleanup_preemptive_cache_loading = 'mock'
+    frame_caching_util._cache_instance_thread_lock = 'mock'  # pyrefly: ignore[bad-assignment]
+    frame_caching_util._active_cache_loading_instances = 'mock'  # pyrefly: ignore[bad-assignment]
+    frame_caching_util._last_cleanup_preemptive_cache_loading = 'mock'  # pyrefly: ignore[bad-assignment]
     frame_caching_util._init_fork_module_state()
     self.assertIsNotNone(frame_caching_util._cache_instance_thread_lock)
     self.assertNotEqual(frame_caching_util._cache_instance_thread_lock, 'mock')

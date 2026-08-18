@@ -158,7 +158,7 @@ class IngestFlatImage(ingest_base.IngestBase):
       dcm_json = self.get_slide_dicom_json_formatted_metadata(
           self._sop_class.name,
           self.slide_id,
-          abstract_dicom_handler.dcm_store_client,
+          abstract_dicom_handler.dcm_store_client,  # pyrefly: ignore[bad-argument-type]
       ).dicom_json
       generated_series_instance_uid = ingest_base.initialize_metadata_study_and_series_uids_for_non_dicom_image_triggered_ingestion(
           abstract_dicom_handler,

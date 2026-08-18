@@ -228,7 +228,7 @@ def _convert_isyntax_to_tiff(
 def _ack(
     pubsub_subscriber: Optional[pubsub_v1.SubscriberClient],
     subscription_path,
-    message: pubsub_v1.types.ReceivedMessage,
+    message: pubsub_v1.types.ReceivedMessage,  # pyrefly: ignore[missing-attribute]
 ) -> None:
   if pubsub_subscriber is None:
     return
@@ -253,7 +253,7 @@ def main(argv: Sequence[str]) -> None:
         filename = blob.name
         bucket_name = blob.bucket.name
         subscription_path = ''
-        message = pubsub_v1.types.ReceivedMessage()
+        message = pubsub_v1.types.ReceivedMessage()  # pyrefly: ignore[missing-attribute]
       else:
         pubsub_subscriber = stack.enter_context(pubsub_v1.SubscriberClient())
         subscription_path = pubsub_subscriber.subscription_path(
@@ -283,7 +283,7 @@ def main(argv: Sequence[str]) -> None:
           cloud_logging_client.info(
               f'Ignoring pub/sub msg with event type: {event_type}'
           )
-          _ack(pubsub_subscriber, subscription_path, message)
+          _ack(pubsub_subscriber, subscription_path, message)  # pyrefly: ignore[bad-argument-type]
           continue
         try:
           pubsub_msg_data_dict = json.loads(message.data.decode('utf-8'))
@@ -291,7 +291,7 @@ def main(argv: Sequence[str]) -> None:
           cloud_logging_client.error(
               'Error decoding pub/sub msg.', json_decode_exception
           )
-          _ack(pubsub_subscriber, subscription_path, message)
+          _ack(pubsub_subscriber, subscription_path, message)  # pyrefly: ignore[bad-argument-type]
           continue
         try:
           filename = pubsub_msg_data_dict['name']
@@ -302,7 +302,7 @@ def main(argv: Sequence[str]) -> None:
               pubsub_msg_data_dict,
               pub_sub_msg_decode_exp,
           )
-          _ack(pubsub_subscriber, subscription_path, message)
+          _ack(pubsub_subscriber, subscription_path, message)  # pyrefly: ignore[bad-argument-type]
           continue
       cloud_logging_client.info(
           f'Received pub/sub msg; filename: {filename}, bucket_name:'
@@ -313,7 +313,7 @@ def main(argv: Sequence[str]) -> None:
       bucket = client.get_bucket(bucket_name)
       with tempfile.TemporaryDirectory() as tmp_dir:
         with PubSubKeepAliveThread(
-            pubsub_subscriber, subscription_path, message.ack_id
+            pubsub_subscriber, subscription_path, message.ack_id  # pyrefly: ignore[bad-argument-type]
         ):
           local_filename = os.path.join(tmp_dir, os.path.basename(filename))
           try:
@@ -343,7 +343,7 @@ def main(argv: Sequence[str]) -> None:
               cloud_storage_client.del_blob(
                   uri=source_uri, ignore_file_not_found=True
               )
-            _ack(pubsub_subscriber, subscription_path, message)
+            _ack(pubsub_subscriber, subscription_path, message)  # pyrefly: ignore[bad-argument-type]
             cloud_logging_client.info(f'Conversion {status}: {filename}')
 
 

@@ -53,8 +53,8 @@ class RedisClientTest(parameterized.TestCase):
       redis_client.RedisClient()
 
   def test_fork_init(self):
-    redis_client.RedisClient._instance = 'mock'
-    redis_client.RedisClient._instance_creation_lock = 'mock'
+    redis_client.RedisClient._instance = 'mock'  # pyrefly: ignore[bad-assignment]
+    redis_client.RedisClient._instance_creation_lock = 'mock'  # pyrefly: ignore[bad-assignment]
     redis_client.RedisClient.init_fork_module_state()
     self.assertIsNone(redis_client.RedisClient._instance)
     self.assertNotIsInstance(
@@ -95,7 +95,7 @@ class RedisClientTest(parameterized.TestCase):
   def test_redis_lock_expire_owned_false(self):
     cl = redis_client.redis_client()
     cl.acquire_non_blocking_lock(
-        _MOCK_LOCK_NAME, _MOCK_TOKEN_VALUE, 0.1, self._context_block
+        _MOCK_LOCK_NAME, _MOCK_TOKEN_VALUE, 0.1, self._context_block  # pyrefly: ignore[bad-argument-type]
     )  # pytype: disable=wrong-arg-types
     time.sleep(0.3)
     self.assertFalse(cl.is_lock_owned(_MOCK_LOCK_NAME))
@@ -111,7 +111,7 @@ class RedisClientTest(parameterized.TestCase):
   def test_expired_redis_lock_release_raises(self):
     cl = redis_client.redis_client()
     cl.acquire_non_blocking_lock(
-        _MOCK_LOCK_NAME, _MOCK_TOKEN_VALUE, 0.1, self._context_block
+        _MOCK_LOCK_NAME, _MOCK_TOKEN_VALUE, 0.1, self._context_block  # pyrefly: ignore[bad-argument-type]
     )  # pytype: disable=wrong-arg-types
     time.sleep(0.3)
     with self.assertRaises(redis.exceptions.LockError):
@@ -120,7 +120,7 @@ class RedisClientTest(parameterized.TestCase):
   def test_reacquireing_overwrites_ttl(self):
     cl = redis_client.redis_client()
     cl.acquire_non_blocking_lock(
-        _MOCK_LOCK_NAME, _MOCK_TOKEN_VALUE, 0.1, self._context_block
+        _MOCK_LOCK_NAME, _MOCK_TOKEN_VALUE, 0.1, self._context_block  # pyrefly: ignore[bad-argument-type]
     )  # pytype: disable=wrong-arg-types
     cl.acquire_non_blocking_lock(
         _MOCK_LOCK_NAME, _MOCK_TOKEN_VALUE, 10, self._context_block
@@ -131,7 +131,7 @@ class RedisClientTest(parameterized.TestCase):
   def test_expired_redis_lock_release_ignore_exception_does_not_raise(self):
     cl = redis_client.redis_client()
     cl.acquire_non_blocking_lock(
-        _MOCK_LOCK_NAME, _MOCK_TOKEN_VALUE, 0.1, self._context_block
+        _MOCK_LOCK_NAME, _MOCK_TOKEN_VALUE, 0.1, self._context_block  # pyrefly: ignore[bad-argument-type]
     )  # pytype: disable=wrong-arg-types
     time.sleep(0.3)
     cl.release_lock(_MOCK_LOCK_NAME, ignore_redis_exception=True)
@@ -158,7 +158,7 @@ class RedisClientTest(parameterized.TestCase):
   def test_extend_all_locks(self):
     cl = redis_client.redis_client()
     cl.acquire_non_blocking_lock(
-        _MOCK_LOCK_NAME, _MOCK_TOKEN_VALUE, 0.5, self._context_block
+        _MOCK_LOCK_NAME, _MOCK_TOKEN_VALUE, 0.5, self._context_block  # pyrefly: ignore[bad-argument-type]
     )  # pytype: disable=wrong-arg-types
     cl.extend_lock_timeouts(10)
     time.sleep(0.7)
@@ -167,7 +167,7 @@ class RedisClientTest(parameterized.TestCase):
   def test_extend_all_locks_still_timeout(self):
     cl = redis_client.redis_client()
     cl.acquire_non_blocking_lock(
-        _MOCK_LOCK_NAME, _MOCK_TOKEN_VALUE, 0.5, self._context_block
+        _MOCK_LOCK_NAME, _MOCK_TOKEN_VALUE, 0.5, self._context_block  # pyrefly: ignore[bad-argument-type]
     )  # pytype: disable=wrong-arg-types
     cl.extend_lock_timeouts(0.1)  # pytype: disable=wrong-arg-types
     time.sleep(2)
@@ -175,7 +175,7 @@ class RedisClientTest(parameterized.TestCase):
 
   def test_redis_lost_connection_acquire_lock_raises(self):
     cl = redis_client.redis_client()
-    cl.client.redis_server_connected = False
+    cl.client.redis_server_connected = False  # pyrefly: ignore[missing-attribute]
     with self.assertRaises(redis.exceptions.ConnectionError):
       cl.acquire_non_blocking_lock(
           _MOCK_LOCK_NAME, _MOCK_TOKEN_VALUE, 10, self._context_block
@@ -186,7 +186,7 @@ class RedisClientTest(parameterized.TestCase):
     cl.acquire_non_blocking_lock(
         _MOCK_LOCK_NAME, _MOCK_TOKEN_VALUE, 10, self._context_block
     )
-    cl.client.redis_server_connected = False
+    cl.client.redis_server_connected = False  # pyrefly: ignore[missing-attribute]
     with self.assertRaises(redis.exceptions.ConnectionError):
       cl.is_lock_owned(_MOCK_LOCK_NAME)
 
@@ -195,7 +195,7 @@ class RedisClientTest(parameterized.TestCase):
     cl.acquire_non_blocking_lock(
         _MOCK_LOCK_NAME, _MOCK_TOKEN_VALUE, 10, self._context_block
     )
-    cl.client.redis_server_connected = False
+    cl.client.redis_server_connected = False  # pyrefly: ignore[missing-attribute]
     with self.assertRaises(redis.exceptions.ConnectionError):
       cl.release_lock(_MOCK_LOCK_NAME, False)
 
@@ -204,7 +204,7 @@ class RedisClientTest(parameterized.TestCase):
     cl.acquire_non_blocking_lock(
         _MOCK_LOCK_NAME, _MOCK_TOKEN_VALUE, 10, self._context_block
     )
-    cl.client.redis_server_connected = False
+    cl.client.redis_server_connected = False  # pyrefly: ignore[missing-attribute]
     self.assertIsNone(cl.release_lock(_MOCK_LOCK_NAME, True))
 
   def test_redis_lost_connection_extend_locks_raise(self):
@@ -212,7 +212,7 @@ class RedisClientTest(parameterized.TestCase):
     cl.acquire_non_blocking_lock(
         _MOCK_LOCK_NAME, _MOCK_TOKEN_VALUE, 10, self._context_block
     )
-    cl.client.redis_server_connected = False
+    cl.client.redis_server_connected = False  # pyrefly: ignore[missing-attribute]
     with self.assertRaises(redis.exceptions.ConnectionError):
       cl.extend_lock_timeouts(10)
 

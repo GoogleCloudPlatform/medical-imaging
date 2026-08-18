@@ -233,7 +233,7 @@ def _decode_instance_metadata_response(
       _add_retrieve_url_to_metadata(
           metadata, _retrieve_instance_url(dicom_web_base_url, instance_md)
       )
-  return instance_metadata_list
+  return instance_metadata_list  # pyrefly: ignore[bad-return]
 
 
 def augment_instance_metadata(

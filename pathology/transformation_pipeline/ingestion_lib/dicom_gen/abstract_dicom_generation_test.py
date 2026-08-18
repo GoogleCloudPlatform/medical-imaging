@@ -48,7 +48,7 @@ class AbstractDicomGenerationForTest(
   ) -> abstract_dicom_generation.TransformationLock:
     return abstract_dicom_generation.TransformationLock('mock_lock')
 
-  def generate_dicom_and_push_to_store(self, ingest_file_list, polling_client):
+  def generate_dicom_and_push_to_store(self, ingest_file_list, polling_client):  # pyrefly: ignore[bad-override]
     pass
 
   def decode_pubsub_msg(self, msg):

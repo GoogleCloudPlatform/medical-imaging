@@ -48,7 +48,7 @@ def _mock_inference_pubsub_msg(
     pngfile: str,
     params: Mapping[str, Any],
     mock_source_dicom_instance: str,
-) -> pubsub_v1.types.ReceivedMessage:
+) -> pubsub_v1.types.ReceivedMessage:  # pyrefly: ignore[missing-attribute]
   with pydicom.dcmread(mock_source_dicom_instance) as dcm:
     study_instance_uid = dcm.StudyInstanceUID
     series_instance_uid = dcm.SeriesInstanceUID
@@ -65,10 +65,10 @@ def _mock_inference_pubsub_msg(
   now = time.time()
   seconds = int(now)
   nanos = int((now - seconds) * 10**9)
-  timestamp = pubsub_v1.types.Timestamp(seconds=seconds, nanos=nanos)
-  return pubsub_v1.types.ReceivedMessage(
+  timestamp = pubsub_v1.types.Timestamp(seconds=seconds, nanos=nanos)  # pyrefly: ignore[missing-attribute]
+  return pubsub_v1.types.ReceivedMessage(  # pyrefly: ignore[missing-attribute]
       ack_id='ack_id',
-      message=pubsub_v1.types.PubsubMessage(
+      message=pubsub_v1.types.PubsubMessage(  # pyrefly: ignore[missing-attribute]
           data=json.dumps(msg).encode('utf-8'),
           message_id='message_id',
           publish_time=timestamp,
@@ -120,7 +120,7 @@ class AiPngtoDicomSecondaryCaptureTest(parameterized.TestCase):
   def get_png_to_dicom_converter(
       self,
       mock_dicomweb_url: str,
-      pubsub_msg: pubsub_v1.types.ReceivedMessage,
+      pubsub_msg: pubsub_v1.types.ReceivedMessage,  # pyrefly: ignore[missing-attribute]
       local_path: str,
   ) -> png_to_dicom.AiPngtoDicomSecondaryCapture:
     png_to_dicom_converter = png_to_dicom.AiPngtoDicomSecondaryCapture(
@@ -139,7 +139,7 @@ class AiPngtoDicomSecondaryCaptureTest(parameterized.TestCase):
             local_path, mock_triggering_msg.uri
         )
     )
-    png_to_dicom_converter.root_working_dir = self.create_tempdir()
+    png_to_dicom_converter.root_working_dir = self.create_tempdir()  # pyrefly: ignore[bad-argument-type]
     return png_to_dicom_converter
 
   @parameterized.parameters([

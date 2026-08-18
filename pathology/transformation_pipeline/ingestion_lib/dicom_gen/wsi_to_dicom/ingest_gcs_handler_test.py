@@ -63,14 +63,14 @@ def _wsiref_dict_from_files(
 
 def _create_test_pubsub_msg(
     name: str, bucket: str = 'bogus'
-) -> pubsub_v1.types.ReceivedMessage:
+) -> pubsub_v1.types.ReceivedMessage:  # pyrefly: ignore[missing-attribute]
   data = json.dumps({'name': name, 'bucket': bucket})
-  message = pubsub_v1.types.PubsubMessage(
+  message = pubsub_v1.types.PubsubMessage(  # pyrefly: ignore[missing-attribute]
       attributes={'eventType': 'OBJECT_FINALIZE'},
       data=data.encode('utf-8'),
       message_id='test',
   )
-  return pubsub_v1.types.ReceivedMessage(
+  return pubsub_v1.types.ReceivedMessage(  # pyrefly: ignore[missing-attribute]
       ack_id='5', message=message, delivery_attempt=1
   )
 
@@ -287,9 +287,9 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
     self.assertIsNone(ingest.decoded_file_ext)
 
   def test_decode_pubsubmsg_no_data(self):
-    pubsub_msg = pubsub_v1.types.ReceivedMessage(
+    pubsub_msg = pubsub_v1.types.ReceivedMessage(  # pyrefly: ignore[missing-attribute]
         ack_id='5',
-        message=pubsub_v1.types.PubsubMessage(
+        message=pubsub_v1.types.PubsubMessage(  # pyrefly: ignore[missing-attribute]
             attributes={'eventType': 'OBJECT_FINALIZE'},
             data=None,
             message_id='test',
@@ -302,9 +302,9 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
     self.assertIsNone(ingest.decoded_file_ext)
 
   def test_decode_pubsubmsg_missing_event_type(self):
-    pubsub_msg = pubsub_v1.types.ReceivedMessage(
+    pubsub_msg = pubsub_v1.types.ReceivedMessage(  # pyrefly: ignore[missing-attribute]
         ack_id='5',
-        message=pubsub_v1.types.PubsubMessage(
+        message=pubsub_v1.types.PubsubMessage(  # pyrefly: ignore[missing-attribute]
             data=json.dumps({'name': 'foo', 'bucket': 'bar'}), message_id='test'
         ),
         delivery_attempt=1,
@@ -315,9 +315,9 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
     self.assertIsNone(ingest.decoded_file_ext)
 
   def test_decode_pubsubmsg_invalid_event_type(self):
-    pubsub_msg = pubsub_v1.types.ReceivedMessage(
+    pubsub_msg = pubsub_v1.types.ReceivedMessage(  # pyrefly: ignore[missing-attribute]
         ack_id='5',
-        message=pubsub_v1.types.PubsubMessage(
+        message=pubsub_v1.types.PubsubMessage(  # pyrefly: ignore[missing-attribute]
             attributes={'eventType': 'OTHER'},
             data=json.dumps({'name': 'foo', 'bucket': 'bar'}),
             message_id='test',
@@ -473,7 +473,7 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
             pubsub_topic=pubsub_topic_name
         )
     )
-    dicomweb_path = ingest_handler.dcm_store_client.dicomweb_path
+    dicomweb_path = ingest_handler.dcm_store_client.dicomweb_path  # pyrefly: ignore[missing-attribute]
     ingest = [
         dicom_test_util.create_mock_dpas_generated_dicom_fref(
             {ingest_const.DICOMTagKeywords.SERIES_INSTANCE_UID: '1'}
@@ -595,19 +595,19 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
           None,
       )
 
-    self.assert_ingested(expected_ingested, [], result.main_store_results)
+    self.assert_ingested(expected_ingested, [], result.main_store_results)  # pyrefly: ignore[bad-argument-type]
     self.assertIsNone(result.oof_ingest_results)
     if not oof_pubsub_topic:
       self.assertIsNone(result.ingest_complete_oof_trigger_msg)
     else:
       self.assert_oof_trigger(
-          result.ingest_complete_oof_trigger_msg,
+          result.ingest_complete_oof_trigger_msg,  # pyrefly: ignore[bad-argument-type]
           mock_dicom_store_url,
           result.main_store_results,
           True,
       )
     mock_dicom_store[mock_dicom_store_url].assert_uid_in_store(
-        self, result.main_store_results.slide_instances_in_dicom_store
+        self, result.main_store_results.slide_instances_in_dicom_store  # pyrefly: ignore[bad-argument-type]
     )
 
   @mock.patch.object(pubsub_v1.PublisherClient, 'get_topic', autospec=True)
@@ -629,7 +629,7 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
         # Previously ingested DICOM should be found based on common private
         # tag hash value. With instance being ingested.
         dcm.SeriesInstanceUID = '92329.92392'
-        mock_dicom_store[mock_dicom_store_url].add_instance(dcm)
+        mock_dicom_store[mock_dicom_store_url].add_instance(dcm)  # pyrefly: ignore[bad-argument-type]
         # expected previous ingestion should match previously ingested DICOM.
         expected_ingested[0]['SeriesInstanceUID'] = dcm.SeriesInstanceUID
 
@@ -639,16 +639,16 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
           None,
       )
 
-    self.assert_ingested([], expected_ingested, result.main_store_results)
+    self.assert_ingested([], expected_ingested, result.main_store_results)  # pyrefly: ignore[bad-argument-type]
     self.assertIsNone(result.oof_ingest_results)
     self.assert_oof_trigger(
-        result.ingest_complete_oof_trigger_msg,
+        result.ingest_complete_oof_trigger_msg,  # pyrefly: ignore[bad-argument-type]
         mock_dicom_store_url,
         result.main_store_results,
         True,
     )
     mock_dicom_store[mock_dicom_store_url].assert_uid_in_store(
-        self, result.main_store_results.slide_instances_in_dicom_store
+        self, result.main_store_results.slide_instances_in_dicom_store  # pyrefly: ignore[bad-argument-type]
     )
 
   @mock.patch.object(pubsub_v1.PublisherClient, 'get_topic', autospec=True)
@@ -673,16 +673,16 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
           None,
       )
 
-    self.assert_ingested([], expected_ingested, result.main_store_results)
+    self.assert_ingested([], expected_ingested, result.main_store_results)  # pyrefly: ignore[bad-argument-type]
     self.assertIsNone(result.oof_ingest_results)
     self.assert_oof_trigger(
-        result.ingest_complete_oof_trigger_msg,
+        result.ingest_complete_oof_trigger_msg,  # pyrefly: ignore[bad-argument-type]
         mock_dicom_store_url,
         result.main_store_results,
         True,
     )
     mock_dicom_store[mock_dicom_store_url].assert_uid_in_store(
-        self, result.main_store_results.slide_instances_in_dicom_store
+        self, result.main_store_results.slide_instances_in_dicom_store  # pyrefly: ignore[bad-argument-type]
     )
 
   @mock.patch.object(pubsub_v1.PublisherClient, 'get_topic', autospec=True)
@@ -727,19 +727,19 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
           dicom_store_client.DiscoverExistingSeriesOptions.USE_HASH,
           None,
       )
-    self.assert_ingested(expected_main_ingested, [], result.main_store_results)
-    self.assert_ingested(expected_oof_ingested, [], result.oof_ingest_results)
+    self.assert_ingested(expected_main_ingested, [], result.main_store_results)  # pyrefly: ignore[bad-argument-type]
+    self.assert_ingested(expected_oof_ingested, [], result.oof_ingest_results)  # pyrefly: ignore[bad-argument-type]
     self.assert_oof_trigger(
-        result.ingest_complete_oof_trigger_msg,
+        result.ingest_complete_oof_trigger_msg,  # pyrefly: ignore[bad-argument-type]
         mock_oof_dicom_store_url,
-        result.oof_ingest_results,
+        result.oof_ingest_results,  # pyrefly: ignore[bad-argument-type]
         False,
     )
     mock_dicom_stores[mock_main_dicom_store_url].assert_uid_in_store(
-        self, result.main_store_results.slide_instances_in_dicom_store
+        self, result.main_store_results.slide_instances_in_dicom_store  # pyrefly: ignore[bad-argument-type]
     )
     mock_dicom_stores[mock_oof_dicom_store_url].assert_uid_in_store(
-        self, result.oof_ingest_results.slide_instances_in_dicom_store
+        self, result.oof_ingest_results.slide_instances_in_dicom_store  # pyrefly: ignore[missing-attribute]
     )
 
   @parameterized.named_parameters([
@@ -889,7 +889,7 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
         oof_trigger_config=None,
         metadata_client=metadata_storage_client.MetadataStorageClient(),
     )
-    ingest.root_working_dir = self.create_tempdir()
+    ingest.root_working_dir = self.create_tempdir()  # pyrefly: ignore[bad-argument-type]
     os.mkdir(ingest.img_dir)
     _, ext = os.path.splitext(filename)
     ingest._decoded_file_ext = ext.lower()
@@ -938,7 +938,7 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
           oof_trigger_config=None,
           metadata_client=metadata_storage_client.MetadataStorageClient(),
       )
-      ingest_handler.root_working_dir = self.create_tempdir()
+      ingest_handler.root_working_dir = self.create_tempdir()  # pyrefly: ignore[bad-argument-type]
       os.mkdir(ingest_handler.img_dir)
       _, ext = os.path.splitext(filename)
       ingest_handler._decoded_file_ext = ext.lower()
@@ -978,7 +978,7 @@ class IngestGcsPubSubHandlerTest(parameterized.TestCase):
           metadata_client=metadata_storage_client.MetadataStorageClient(),
           oof_trigger_config=None,
       )
-      ingest_handler.root_working_dir = self.create_tempdir()
+      ingest_handler.root_working_dir = self.create_tempdir()  # pyrefly: ignore[bad-argument-type]
       os.mkdir(ingest_handler.img_dir)
       _, ext = os.path.splitext(filename)
       ingest_handler._decoded_file_ext = ext.lower()

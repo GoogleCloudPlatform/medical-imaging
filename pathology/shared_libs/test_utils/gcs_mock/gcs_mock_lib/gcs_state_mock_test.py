@@ -116,7 +116,7 @@ class GcsStateMockTest(parameterized.TestCase):
         source_bucket_path = self.create_tempdir().full_path
         config[source_bucket_name] = source_bucket_path
       if source_blob_name is not None:
-        source_blob_path = os.path.join(source_bucket_path, source_blob_name)
+        source_blob_path = os.path.join(source_bucket_path, source_blob_name)  # pyrefly: ignore[no-matching-overload]
         with open(source_blob_path, 'wb') as outfile:
           outfile.write(source_blob_data)
     return config
@@ -527,7 +527,7 @@ class GcsStateMockTest(parameterized.TestCase):
       )
       # created after test started
       self.assertGreaterEqual(
-          (result.time_created - test_start_time).microseconds, 0
+          (result.time_created - test_start_time).microseconds, 0  # pyrefly: ignore[unsupported-operation]
       )
       self.assertEqual(
           dataclasses.asdict(result),
@@ -666,7 +666,7 @@ class GcsStateMockTest(parameterized.TestCase):
         },
     )
     self.assertGreaterEqual(
-        (metadata.time_created - start_time).microseconds, 0
+        (metadata.time_created - start_time).microseconds, 0  # pyrefly: ignore[unsupported-operation]
     )
     self.assertIsNotNone(metadata.etag)
 
@@ -701,7 +701,7 @@ class GcsStateMockTest(parameterized.TestCase):
         },
     )
     self.assertGreaterEqual(
-        (metadata.time_created - start_time).microseconds, 0
+        (metadata.time_created - start_time).microseconds, 0  # pyrefly: ignore[unsupported-operation]
     )
     self.assertIsNotNone(metadata.etag)
 

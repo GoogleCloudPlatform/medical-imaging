@@ -211,7 +211,7 @@ class DicomSlideCoordinatesMicroscopicImageTest(parameterized.TestCase):
         dtype=np.uint8,
     )
     np.testing.assert_array_almost_equal(
-        gen_test_util.decode_image_from_bytes(gen_bytes),
+        gen_test_util.decode_image_from_bytes(gen_bytes),  # pyrefly: ignore[bad-argument-type]
         gen_test_util.decode_image_from_file(
             gen_test_util.test_file_path(output_image)
         ),
@@ -334,7 +334,7 @@ class DicomSlideCoordinatesMicroscopicImageTest(parameterized.TestCase):
         dtype=np.uint8,
     )
     np.testing.assert_array_almost_equal(
-        gen_test_util.decode_image_from_bytes(gen_bytes),
+        gen_test_util.decode_image_from_bytes(gen_bytes),  # pyrefly: ignore[bad-argument-type]
         gen_test_util.decode_image_from_file(
             gen_test_util.test_file_path('logo_tags_tif_converted.jp2')
         ),
@@ -388,7 +388,7 @@ class DicomSlideCoordinatesMicroscopicImageTest(parameterized.TestCase):
         dtype=np.uint8,
     )
     np.testing.assert_array_almost_equal(
-        gen_test_util.decode_image_from_bytes(gen_bytes),
+        gen_test_util.decode_image_from_bytes(gen_bytes),  # pyrefly: ignore[bad-argument-type]
         gen_test_util.decode_image_from_file(
             gen_test_util.test_file_path('logo_tags_tif_converted.jp2')
         ),

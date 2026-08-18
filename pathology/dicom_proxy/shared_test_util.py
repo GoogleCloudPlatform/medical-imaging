@@ -172,7 +172,7 @@ def rgb_image_almost_equal(
     image_1: bytes, image_2: bytes, threshold: int = 3
 ) -> bool:
   """Test image RGB bytes values are close."""
-  return np.all(
+  return np.all(  # pyrefly: ignore[bad-return]
       np.abs(
           _get_decoded_image_bytes(image_1) - _get_decoded_image_bytes(image_2)
       )

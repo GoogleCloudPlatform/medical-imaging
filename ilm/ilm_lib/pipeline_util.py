@@ -60,7 +60,7 @@ def read_ilm_config(
   """Reads ILM pipeline config from GCS."""
   config_str = read_gcs_file(config_gcs_uri)
   try:
-    return ilm_config.ImageLifecycleManagementConfig.from_json(config_str)
+    return ilm_config.ImageLifecycleManagementConfig.from_json(config_str)  # pyrefly: ignore[missing-attribute]
   except Exception as exp:
     logging.error(
         'Failed to read ILM config from %s with error: %s',

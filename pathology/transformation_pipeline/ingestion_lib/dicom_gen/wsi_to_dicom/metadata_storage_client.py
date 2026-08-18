@@ -199,7 +199,7 @@ class _BigQueryMetadataTableUtil:
           ingest_flags.METADATA_PRIMARY_KEY_COLUMN_NAME_FLG.value
       )
       bq_log[ingest_const.LogKeywords.BIGQUERY_TABLE_COLUMN_NAMES] = (
-          self.column_names
+          self.column_names  # pyrefly: ignore[unsupported-operation]
       )
       cloud_logging_client.error(msg, bq_log)
       raise MetadataNotFoundExceptionError(msg)

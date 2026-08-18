@@ -180,7 +180,7 @@ class FrameRetrievalUtilTest(parameterized.TestCase):
     compression = _Compression.JPEG
     frame_numbers = [1, 2, 3]
     frame_data = (len(frame_numbers) - 1) * [
-        frame_retrieval_util.FrameData(bytearray(b'1234'), True)
+        frame_retrieval_util.FrameData(bytearray(b'1234'), True)  # pyrefly: ignore[bad-argument-type]
     ]
     with self.assertRaises(
         frame_retrieval_util._InvalidNumberOfReturnedFramesError
@@ -193,7 +193,7 @@ class FrameRetrievalUtilTest(parameterized.TestCase):
     compression = None
     frame_numbers = [1, 2, 3]
     frame_data = (len(frame_numbers)) * [
-        frame_retrieval_util.FrameData(bytearray(b'1234'), True)
+        frame_retrieval_util.FrameData(bytearray(b'1234'), True)  # pyrefly: ignore[bad-argument-type]
     ]
     with self.assertRaises(ValueError):
       frame_retrieval_util._create_frame_images(
@@ -209,7 +209,7 @@ class FrameRetrievalUtilTest(parameterized.TestCase):
     test_bytes = b'1234'
     frame_data = len(frame_numbers) * [
         frame_retrieval_util.FrameData(
-            bytearray(test_bytes), downloaded_from_store
+            bytearray(test_bytes), downloaded_from_store  # pyrefly: ignore[bad-argument-type]
         )
     ]
     expected_dict = {fnum: test_bytes for fnum in frame_numbers}
@@ -317,7 +317,7 @@ class FrameRetrievalUtilTest(parameterized.TestCase):
           'rb',
       ) as infile:
         self.assertTrue(
-            shared_test_util.rgb_image_almost_equal(img, infile.read())
+            shared_test_util.rgb_image_almost_equal(img, infile.read())  # pyrefly: ignore[bad-argument-type]
         )
 
   @mock.patch.object(redis.Redis, 'set', autospec=True)

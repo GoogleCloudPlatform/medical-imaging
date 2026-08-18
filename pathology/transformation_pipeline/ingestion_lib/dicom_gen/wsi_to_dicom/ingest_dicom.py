@@ -105,7 +105,7 @@ class IngestDicom(ingest_base.IngestBase):
     """
     try:
       with pydicom.dcmread(path, force=False) as dcm:
-        return dcm
+        return dcm  # pyrefly: ignore[bad-return]
     except (
         pydicom.errors.InvalidDicomError,
         TypeError,
@@ -228,7 +228,7 @@ class IngestDicom(ingest_base.IngestBase):
     dcm_json = self.get_slide_dicom_json_formatted_metadata(
         sop_class_name,
         slide_id,
-        abstract_dicom_handler.dcm_store_client,
+        abstract_dicom_handler.dcm_store_client,  # pyrefly: ignore[bad-argument-type]
     ).dicom_json
     ingest_base.initialize_metadata_study_and_series_uids_for_dicom_triggered_ingestion(
         dcm.StudyInstanceUID,
@@ -299,7 +299,7 @@ class IngestDicom(ingest_base.IngestBase):
           exp,
       )
       return False
-    log[ingest_const.LogKeywords.METADATA] = dicom_json_metadata
+    log[ingest_const.LogKeywords.METADATA] = dicom_json_metadata  # pyrefly: ignore[unsupported-operation]
     if not dicom_json_metadata:
       cloud_logging_client.warning(
           'Could not find metadata for DICOM instance. Possibly '
@@ -314,7 +314,7 @@ class IngestDicom(ingest_base.IngestBase):
       )
       raise UnexpectedDicomMetadataError()
     dicom_instance_tags = set(dicom_json_metadata[0])
-    log[ingest_const.LogKeywords.DICOM_TAGS] = dicom_instance_tags
+    log[ingest_const.LogKeywords.DICOM_TAGS] = dicom_instance_tags  # pyrefly: ignore[unsupported-operation]
     return _contains_already_ingested_dicom_tags(dicom_instance_tags, log)
 
   def is_dicom_file_already_ingested(self, dcm_path: str) -> bool:
@@ -328,7 +328,7 @@ class IngestDicom(ingest_base.IngestBase):
           dcm_path,
           defer_size='512 KB',
           force=False,
-          specific_tags=_DICOM_ALREADY_INGESTED_TAGS,
+          specific_tags=_DICOM_ALREADY_INGESTED_TAGS,  # pyrefly: ignore[bad-argument-type]
       ) as dcm:
         # Specific Character Set tag is included if reading specific tags. Using
         # intersection to original set of specific tags to avoid this issue.
@@ -409,14 +409,14 @@ class IngestDicom(ingest_base.IngestBase):
     try:
       self._update_metadata(
           dicom_gen,
-          dcm,
+          dcm,  # pyrefly: ignore[bad-argument-type]
           self.slide_id,
           message_id,
           abstract_dicom_handler,
       )
 
       generated_dicom_path = os.path.join(dicom_gen_dir, _OUTPUT_DICOM_FILENAME)
-      pydicom_version_util.save_as_validated_dicom(dcm, generated_dicom_path)
+      pydicom_version_util.save_as_validated_dicom(dcm, generated_dicom_path)  # pyrefly: ignore[bad-argument-type]
       dicom_gen.generated_dicom_files = [generated_dicom_path]
       upload_file_list = dicom_gen.generated_dicom_files
       dest_uri = self.ingest_succeeded_uri

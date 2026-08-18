@@ -70,7 +70,7 @@ class DICOMJSONUtilTest(parameterized.TestCase):
 
   def test_merge_json_metadata_with_pydicom_ds_empty_ds(self):
     dcm = dicom_test_util.create_test_dicom_instance()
-    merged_dicom = dicom_json_util.merge_json_metadata_with_pydicom_ds(dcm, {})
+    merged_dicom = dicom_json_util.merge_json_metadata_with_pydicom_ds(dcm, {})  # pyrefly: ignore[bad-argument-type]
     self.assertEqual(merged_dicom, dicom_test_util.create_test_dicom_instance())
 
   def test_merge_json_metadata_with_pydicom_ds_overrides_tags(self):
@@ -82,7 +82,7 @@ class DICOMJSONUtilTest(parameterized.TestCase):
     dcm2.SeriesInstanceUID = '5'
     dcm2.SOPInstanceUID = '6'
     merged_dcm = dicom_json_util.merge_json_metadata_with_pydicom_ds(
-        dcm, json.loads(dcm2.to_json())
+        dcm, json.loads(dcm2.to_json())  # pyrefly: ignore[bad-argument-type]
     )
     self.assertEqual(merged_dcm.StudyInstanceUID, '4')
     self.assertEqual(merged_dcm.SeriesInstanceUID, '5')
@@ -97,7 +97,7 @@ class DICOMJSONUtilTest(parameterized.TestCase):
     dcm2.SeriesInstanceUID = '5'
     dcm2.SOPInstanceUID = '6'
     merged_dcm = dicom_json_util.merge_json_metadata_with_pydicom_ds(
-        dcm,
+        dcm,  # pyrefly: ignore[bad-argument-type]
         json.loads(dcm2.to_json()),
         tags_to_skip=dicom_json_util.UID_TRIPLE_TAGS,
     )

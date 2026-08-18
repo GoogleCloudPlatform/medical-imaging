@@ -197,7 +197,7 @@ class _InstanceFrameAccessor(Sequence[bytes]):
     """Return the number of frames defined in the pixel data."""
     return self._number_of_frames
 
-  def __getitem__(self, frame_list_index: int) -> bytes:
+  def __getitem__(self, frame_list_index: int) -> bytes:  # pyrefly: ignore[bad-override]
     """Return the frame bytes encoded in DICOM pixel data."""
     if self._unencapsulated_step != 0:
       # if unencapsulated, offset is a multiple of frame size.
@@ -219,7 +219,7 @@ class _InstanceFrameAccessor(Sequence[bytes]):
       # get length of frame data
       frame_length = int.from_bytes(
           self._pixel_data[start - 4 : start],
-          byteorder=self._byte_order,
+          byteorder=self._byte_order,  # pyrefly: ignore[bad-argument-type]
           signed=False,
       )
       # compute index of end frame data byte.
@@ -236,10 +236,10 @@ class PyDicomSingleInstanceCache:
     self._filepath = path
     with pydicom.dcmread(self._filepath) as ds:
       self._metadata = metadata_util.get_instance_metadata_from_local_instance(
-          ds
+          ds  # pyrefly: ignore[bad-argument-type]
       )
       self._dicom_icc_profile = _get_iccprofile_from_local_dataset(ds)
-      self._frames = _InstanceFrameAccessor(ds)
+      self._frames = _InstanceFrameAccessor(ds)  # pyrefly: ignore[bad-argument-type]
 
   @property
   def path(self) -> PyDicomFilePath:

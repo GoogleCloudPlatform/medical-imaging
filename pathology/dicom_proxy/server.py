@@ -93,7 +93,7 @@ def handle_preflight_methods() -> Optional[flask.Response]:
         status=http.HTTPStatus.FORBIDDEN
     )  # Block unapproved origins
 
-  response = flask.Response(status=http.HTTPStatus.OK)
+  response = flask.Response(status=http.HTTPStatus.NO_CONTENT)
   response.headers['Access-Control-Allow-Origin'] = origin  # Reflect origin
 
   # Conditionally allow credentials
@@ -114,6 +114,10 @@ def handle_preflight_methods() -> Optional[flask.Response]:
   response.headers['Access-Control-Allow-Methods'] = allowed_methods_header
   response.headers['Access-Control-Allow-Headers'] = flask.request.headers.get(
       'Access-Control-Request-Headers', 'Content-Type, Authorization'
+  )
+  # Cache preflight results in the browser to reduce repeated round-trips.
+  response.headers['Access-Control-Max-Age'] = str(
+      dicom_proxy_flags.CORS_MAX_AGE_FLG.value
   )
 
   return response
@@ -138,6 +142,11 @@ def add_security_headers(response: flask.Response) -> flask.Response:
     response.headers['Access-Control-Allow-Origin'] = origin
     if dicom_proxy_flags.ALLOW_CREDENTIALS_FLG.value:
       response.headers['Access-Control-Allow-Credentials'] = 'true'
+    # Allow browser clients to read DICOMweb response headers such as those
+    # used by STOW-RS (Content-Location, Warning).
+    response.headers['Access-Control-Expose-Headers'] = (
+        'Content-Location, Warning'
+    )
 
   response.headers['X-Frame-Options'] = 'SAMEORIGIN'
   response.headers['X-XSS-Protection'] = '0'
@@ -196,15 +205,15 @@ class GunicornApplication(gunicorn.app.base.BaseApplication):
     super().__init__()
 
   def load_config(self):
-    self.cfg.set('worker_class', 'gthread')
-    self.cfg.set('workers', str(dicom_proxy_flags.GUNICORN_WORKERS_FLG.value))
-    self.cfg.set('threads', str(dicom_proxy_flags.GUNICORN_THREADS_FLG.value))
-    self.cfg.set('bind', 'unix:/tmp/gunicorn.sock')
-    self.cfg.set('accesslog', '-')
-    self.cfg.set(
+    self.cfg.set('worker_class', 'gthread')  # pyrefly: ignore[missing-attribute]
+    self.cfg.set('workers', str(dicom_proxy_flags.GUNICORN_WORKERS_FLG.value))  # pyrefly: ignore[missing-attribute]
+    self.cfg.set('threads', str(dicom_proxy_flags.GUNICORN_THREADS_FLG.value))  # pyrefly: ignore[missing-attribute]
+    self.cfg.set('bind', 'unix:/tmp/gunicorn.sock')  # pyrefly: ignore[missing-attribute]
+    self.cfg.set('accesslog', '-')  # pyrefly: ignore[missing-attribute]
+    self.cfg.set(  # pyrefly: ignore[missing-attribute]
         'access_log_format', '%(u)s "%(r)s" %(s)s "%(f)s" "%({body}i)s"'
     )
-    cloud_logging_client.info('Gunicorn configuration', self.cfg.settings)
+    cloud_logging_client.info('Gunicorn configuration', self.cfg.settings)  # pyrefly: ignore[missing-attribute]
 
   def load(self) -> flask.Flask:
     return self.application

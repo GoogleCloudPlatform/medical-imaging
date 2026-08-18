@@ -135,6 +135,12 @@ class AuthSession:
           norm_dict,
           proxy_const.HeaderKeywords.AUTHORITY_HEADER_KEY,
       )
+      # When the proxy uses service-account credentials, a client-supplied
+      # Authorization header conflicts with those credentials and causes HTTP
+      # 500 errors upstream. Strip it so the proxy's own credentials take
+      # precedence (see STRIP_INBOUND_AUTHORIZATION_FLG).
+      if dicom_proxy_flags.STRIP_INBOUND_AUTHORIZATION_FLG.value:
+        self._auth_dict.pop(proxy_const.HeaderKeywords.AUTH_HEADER_KEY, None)
       if dicom_proxy_flags.VALIDATE_IAP_FLG.value:
         _add_key_if_defined_in_source(
             self._userid_dict,
@@ -154,6 +160,7 @@ class AuthSession:
           self._userid_dict[_EMAIL_DERIVED_FROM_BEARER_TOKEN] = (
               _get_email_from_bearer_token(bearer_token)
           )
+
     if (
         dicom_proxy_flags.ENABLE_APPLICATION_DEFAULT_CREDENTIALS_FLG.value
         and proxy_const.HeaderKeywords.AUTH_HEADER_KEY not in self._auth_dict

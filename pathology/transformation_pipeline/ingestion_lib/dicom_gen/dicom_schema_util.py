@@ -426,7 +426,7 @@ class SchemaDICOMTag:
   @property
   def tag_value_source(self) -> str:
     """Returns schema key defining tag value e.g."META", "STATIC_VALUE, or "SQ"."""
-    return self._schema_tag_value_source
+    return self._schema_tag_value_source  # pyrefly: ignore[bad-return]
 
   def is_tag_schema_define_seq(self) -> bool:
     """Returns True if schema value initializes a SQ."""
@@ -615,7 +615,7 @@ class SchemaDICOMTag:
     """Returns true if tags value has been initialized."""
     if not self.is_tag_schema_define_seq():
       return self._value is not None
-    for dataset in self._value:
+    for dataset in self._value:  # pyrefly: ignore[not-iterable]
       if dataset.is_any_value_set():
         return True
     return False
@@ -646,7 +646,7 @@ class SchemaDICOMTag:
     tag = dicom_standard.dicom_standard_util().get_tag(address)
     if tag is None:
       raise DICOMSchemaError(f'Tag address: {address} not found in DICOM Spec.')
-    return tag.vr
+    return tag.vr  # pyrefly: ignore[bad-return]
 
   @classmethod
   def get_kw_address(cls, keyword: str) -> str:
@@ -947,7 +947,7 @@ class SchemaDICOMTag:
         elif vr in ('OB', 'OD', 'OF', 'OW', 'UN'):
           data_element['InlineBinary'] = value
         elif vr == 'AT':
-          data_element['Value'] = [dicomtag.DicomTag.standardize_address(value)]
+          data_element['Value'] = [dicomtag.DicomTag.standardize_address(value)]  # pyrefly: ignore[bad-argument-type]
         elif isinstance(value, list):
           data_element['Value'] = value
         else:
@@ -955,7 +955,7 @@ class SchemaDICOMTag:
     else:
       # if setting a sequence initialize the sequence to write
       child_datasets = []
-      for child in self._value:
+      for child in self._value:  # pyrefly: ignore[not-iterable]
         if child.is_any_value_set():
           dataset_json = child.get_dicom_json()
           child_datasets.append(dataset_json)
@@ -1016,7 +1016,7 @@ class SchemaDicomDatasetBlock:
             f'exception: {traceback.format_exc()}'
         ) from exp
       tag = SchemaDICOMTag(
-          address, vr_types, schema_tag_def, iod_tag.required, self
+          address, vr_types, schema_tag_def, iod_tag.required, self  # pyrefly: ignore[bad-argument-type]
       )
       self._tags[address] = tag
 
@@ -1037,7 +1037,7 @@ class SchemaDicomDatasetBlock:
     parent_list = list()
     while parent is not None:
       if not strip_sq_index:
-        index = parent.get_sq_index(block)
+        index = parent.get_sq_index(block)  # pyrefly: ignore[bad-argument-type]
         if index is not None:
           parent_list.append(f'[{index}]')
       parent_list.append(parent.address)
@@ -1083,7 +1083,7 @@ class SchemaDicomDatasetBlock:
       if tag.is_value_set():
         self._is_any_value_set = True
         break
-    return self._is_any_value_set
+    return self._is_any_value_set  # pyrefly: ignore[bad-return]
 
   def get_dicom_json(self) -> Dict[str, Any]:
     """Returns JSON representation of initialized dataset."""
@@ -1199,7 +1199,7 @@ def get_json_dicom(
         if isinstance(col_name_list, str):
           col_name_list = [col_name_list]
         metadata_value_list = []
-        for col_name in col_name_list:
+        for col_name in col_name_list:  # pyrefly: ignore[not-iterable]
           if not metadata.has_column_name(col_name):
             # Enable a newer schema to be used with older CSV data.
             # Omit missing value and log warning
@@ -1230,7 +1230,7 @@ def get_json_dicom(
         child_dataset_tags = []
         tag_block_list = []
         tag.value = tag_block_list
-        for child_dataset_schema in tag.seq_metadata:
+        for child_dataset_schema in tag.seq_metadata:  # pyrefly: ignore[not-iterable]
           if not isinstance(child_dataset_schema, dict):
             raise DICOMSchemaTagError(tag, 'Sequence should contain dict')
           block = SchemaDicomDatasetBlock(

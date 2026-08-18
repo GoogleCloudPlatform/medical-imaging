@@ -103,7 +103,7 @@ class _CloudStorageClientProjectState:
 
   @classmethod
   def gcp_project(cls) -> str:
-    return _CloudStorageClientProjectState._project
+    return _CloudStorageClientProjectState._project  # pyrefly: ignore[bad-return]
 
   @classmethod
   def reset_storage_client(cls, project: str):

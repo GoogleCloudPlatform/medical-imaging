@@ -81,7 +81,8 @@ class DigitalPathologyServicer(
     """
     try:
       return self._cohorts_handler.create_pathology_cohort(
-          request, grpc_util.get_email(context))
+          request, grpc_util.get_email(context)  # pyrefly: ignore[bad-argument-type]
+      )  # pyrefly: ignore[bad-argument-type]
     except rpc_status.RpcFailureError as e:
       return parse_status_response(e.status, context)
 
@@ -99,7 +100,8 @@ class DigitalPathologyServicer(
     """
     try:
       return self._cohorts_handler.get_pathology_cohort(
-          request, grpc_util.get_email(context))
+          request, grpc_util.get_email(context)  # pyrefly: ignore[bad-argument-type]
+      )  # pyrefly: ignore[bad-argument-type]
     except rpc_status.RpcFailureError as e:
       return parse_status_response(e.status, context)
 
@@ -117,7 +119,8 @@ class DigitalPathologyServicer(
     """
     try:
       return self._cohorts_handler.delete_pathology_cohort(
-          request, grpc_util.get_email(context))
+          request, grpc_util.get_email(context)  # pyrefly: ignore[bad-argument-type]
+      )  # pyrefly: ignore[bad-argument-type]
     except rpc_status.RpcFailureError as e:
       return parse_status_response(e.status, context)
 
@@ -136,7 +139,8 @@ class DigitalPathologyServicer(
     """
     try:
       return self._cohorts_handler.list_pathology_cohorts(
-          request, grpc_util.get_email(context))
+          request, grpc_util.get_email(context)  # pyrefly: ignore[bad-argument-type]
+      )  # pyrefly: ignore[bad-argument-type]
     except rpc_status.RpcFailureError as e:
       return parse_status_response(e.status, context)
 
@@ -155,7 +159,8 @@ class DigitalPathologyServicer(
     """
     try:
       return self._cohorts_handler.update_pathology_cohort(
-          request, grpc_util.get_email(context))
+          request, grpc_util.get_email(context)  # pyrefly: ignore[bad-argument-type]
+      )  # pyrefly: ignore[bad-argument-type]
     except rpc_status.RpcFailureError as e:
       return parse_status_response(e.status, context)
 
@@ -173,7 +178,8 @@ class DigitalPathologyServicer(
     """
     try:
       return self._cohorts_handler.undelete_pathology_cohort(
-          request, grpc_util.get_email(context))
+          request, grpc_util.get_email(context)  # pyrefly: ignore[bad-argument-type]
+      )  # pyrefly: ignore[bad-argument-type]
     except rpc_status.RpcFailureError as e:
       return parse_status_response(e.status, context)
 
@@ -191,7 +197,8 @@ class DigitalPathologyServicer(
     """
     try:
       return self._cohorts_handler.export_pathology_cohort(
-          request, grpc_util.get_email(context))
+          request, grpc_util.get_email(context)  # pyrefly: ignore[bad-argument-type]
+      )  # pyrefly: ignore[bad-argument-type]
     except rpc_status.RpcFailureError as e:
       return parse_status_response(e.status, context)
 
@@ -209,7 +216,8 @@ class DigitalPathologyServicer(
     """
     try:
       return self._cohorts_handler.transfer_deid_pathology_cohort(
-          request, grpc_util.get_email(context))
+          request, grpc_util.get_email(context)  # pyrefly: ignore[bad-argument-type]
+      )  # pyrefly: ignore[bad-argument-type]
     except rpc_status.RpcFailureError as e:
       return parse_status_response(e.status, context)
 
@@ -227,7 +235,8 @@ class DigitalPathologyServicer(
     """
     try:
       return self._cohorts_handler.copy_pathology_cohort(
-          request, grpc_util.get_email(context))
+          request, grpc_util.get_email(context)  # pyrefly: ignore[bad-argument-type]
+      )  # pyrefly: ignore[bad-argument-type]
     except rpc_status.RpcFailureError as e:
       return parse_status_response(e.status, context)
 
@@ -248,7 +257,8 @@ class DigitalPathologyServicer(
     """
     try:
       return self._cohorts_handler.share_pathology_cohort(
-          request, grpc_util.get_email(context))
+          request, grpc_util.get_email(context)  # pyrefly: ignore[bad-argument-type]
+      )  # pyrefly: ignore[bad-argument-type]
     except rpc_status.RpcFailureError as e:
       return parse_status_response(e.status, context)
 
@@ -267,7 +277,8 @@ class DigitalPathologyServicer(
     """
     try:
       return self._cohorts_handler.save_pathology_cohort(
-          request, grpc_util.get_email(context))
+          request, grpc_util.get_email(context)  # pyrefly: ignore[bad-argument-type]
+      )  # pyrefly: ignore[bad-argument-type]
     except rpc_status.RpcFailureError as e:
       return parse_status_response(e.status, context)
 
@@ -286,7 +297,8 @@ class DigitalPathologyServicer(
     """
     try:
       return self._cohorts_handler.unsave_pathology_cohort(
-          request, grpc_util.get_email(context))
+          request, grpc_util.get_email(context)  # pyrefly: ignore[bad-argument-type]
+      )  # pyrefly: ignore[bad-argument-type]
     except rpc_status.RpcFailureError as e:
       return parse_status_response(e.status, context)
 
@@ -358,7 +370,8 @@ class DigitalPathologyServicer(
     """
     try:
       return self._users_handler.identify_current_user(
-          grpc_util.get_email(context))
+          grpc_util.get_email(context)  # pyrefly: ignore[bad-argument-type]
+      )  # pyrefly: ignore[bad-argument-type]
     except rpc_status.RpcFailureError as e:
       return parse_status_response(e.status, context)
 

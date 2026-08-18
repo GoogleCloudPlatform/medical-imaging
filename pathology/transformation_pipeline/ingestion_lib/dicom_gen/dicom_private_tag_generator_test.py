@@ -53,12 +53,10 @@ class DicomPrivateTagGeneratorTest(absltest.TestCase):
 
   def testAddDicomPrivateTagToFile(self):
     file_meta = pydicom.dataset.FileMetaDataset()
-    file_meta.MediaStorageSOPClassUID = (
-        dicom_standard.dicom_standard_util().get_sop_classname_uid(
-            'Secondary Capture Image Storage'
-        )
+    file_meta.MediaStorageSOPClassUID = dicom_standard.dicom_standard_util().get_sop_classname_uid(  # pyrefly: ignore[bad-assignment]
+        'Secondary Capture Image Storage'
     )
-    file_meta.MediaStorageSOPInstanceUID = '1.2.3.4'
+    file_meta.MediaStorageSOPInstanceUID = '1.2.3.4'  # pyrefly: ignore[bad-assignment]
     base_ds = pydicom.Dataset()
     ds = pydicom.dataset.FileDataset(
         '', base_ds, file_meta=file_meta, preamble=b'\0' * 128

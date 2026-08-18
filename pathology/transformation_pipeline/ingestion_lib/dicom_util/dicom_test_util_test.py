@@ -43,7 +43,7 @@ class DicomTestUtilTest(absltest.TestCase):
     dcm_path = dicom_test_util.create_test_dicom_instance(
         self.create_tempdir().full_path
     )
-    dcm = pydicom.dcmread(dcm_path)
+    dcm = pydicom.dcmread(dcm_path)  # pyrefly: ignore[bad-argument-type]
     self.assertIsNotNone(dcm)
 
 

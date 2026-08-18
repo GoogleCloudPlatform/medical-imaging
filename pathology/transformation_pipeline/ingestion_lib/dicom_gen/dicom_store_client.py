@@ -257,10 +257,10 @@ def _similar_dimension(
   if dcm_file_physical_dim == existing_file_physical_dim:
     return True
   try:
-    dcm_file_physical_dim = float(dcm_file_physical_dim)
-    existing_file_physical_dim = float(existing_file_physical_dim)
-    return math.floor(dcm_file_physical_dim * 10.0) == math.floor(
-        existing_file_physical_dim * 10.0
+    dcm_file_physical_dim = float(dcm_file_physical_dim)  # pyrefly: ignore[bad-assignment]
+    existing_file_physical_dim = float(existing_file_physical_dim)  # pyrefly: ignore[bad-assignment]
+    return math.floor(dcm_file_physical_dim * 10.0) == math.floor(  # pyrefly: ignore[unsupported-operation]
+        existing_file_physical_dim * 10.0  # pyrefly: ignore[unsupported-operation]
     )
   except ValueError as _:
     return False

@@ -144,7 +144,7 @@ class DicomInstanceIngestionSets:
     else:
       self._main = _get_downsampled_dicom_files(
           dicom_files,
-          downsamples.main_store,
+          downsamples.main_store,  # pyrefly: ignore[bad-argument-type]
           include_largest_downsampled_dicom=True,
       )
     if force_upload_to_main_store_list is not None:
@@ -223,7 +223,7 @@ def _get_wsi2dcm_cmdline(
     cmd_line.append('--levels=999')
     cmd_line.append('--stopDownsamplingAtSingleFrame')
   else:
-    downsamples = downsample_config.main_store.union(downsample_config.oof)
+    downsamples = downsample_config.main_store.union(downsample_config.oof)  # pyrefly: ignore[missing-attribute]
     downsamples = sorted(list(downsamples))
     downsamples = ' '.join([str(ds) for ds in downsamples])
     cmd_line.append(f'--downsamples {downsamples}')
@@ -443,7 +443,7 @@ def _correct_missing_study_instance_uid_in_metadata(
   )
   dicom_client = abstract_dicom_handler.dcm_store_client
   try:
-    study_uid_found = dicom_client.study_instance_uid_search(
+    study_uid_found = dicom_client.study_instance_uid_search(  # pyrefly: ignore[missing-attribute]
         accession_number=accession_number,
         patient_id=patient_id,
         limit=2,
@@ -624,11 +624,9 @@ def initialize_metadata_study_and_series_uids_for_non_dicom_image_triggered_inge
   # Search to determine if a slide was already partially added. If it was
   # add any remaining imaging to the existing series.
   dcm_store_client = abstract_dicom_handler.dcm_store_client
-  series_uid = (
-      dcm_store_client.get_series_uid_and_existing_dicom_for_study_and_hash(
-          study_uid, dicom_gen.hash
-      ).series_instance_uid
-  )
+  series_uid = dcm_store_client.get_series_uid_and_existing_dicom_for_study_and_hash(  # pyrefly: ignore[missing-attribute]
+      study_uid, dicom_gen.hash
+  ).series_instance_uid
   generated_series_instance_uid = False
   if series_uid is None and initialize_series_uid_from_metadata:
     # enable series uid to be defined in metadata.
@@ -774,7 +772,7 @@ class IngestBase(metaclass=abc.ABCMeta):
 
   @property
   def slide_id(self) -> str:
-    return self._slide_id
+    return self._slide_id  # pyrefly: ignore[bad-return]
 
   @property
   def is_metadata_free_slide_id(self) -> bool:

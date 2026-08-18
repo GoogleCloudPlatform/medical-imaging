@@ -88,7 +88,7 @@ class AiPngtoDicomSecondaryCapture(
     client.delete_series_from_dicom_store(study_uid, series_uid)
 
   def decode_pubsub_msg(
-      self, msg: pubsub_v1.types.ReceivedMessage
+      self, msg: pubsub_v1.types.ReceivedMessage  # pyrefly: ignore[missing-attribute]
   ) -> inference_pubsub_msg.InferencePubSubMsg:
     """Returns pub/sub message decoder for OOF result ingestion.
 
@@ -200,8 +200,8 @@ class AiPngtoDicomSecondaryCapture(
     Returns:
       Transformation pipeline lock.
     """
-    study_uid = self._current_msg.study_uid
-    series_uid = self._current_msg.series_uid
+    study_uid = self._current_msg.study_uid  # pyrefly: ignore[missing-attribute]
+    series_uid = self._current_msg.series_uid  # pyrefly: ignore[missing-attribute]
     slide_id_lock = ingest_const.RedisLockKeywords.ML_TRIGGERED_INGESTION % (
         study_uid,
         series_uid,
@@ -225,7 +225,7 @@ class AiPngtoDicomSecondaryCapture(
     # Parse message publish_time
     current_msg = self._current_msg
     publish_datetime = datetime.datetime.fromtimestamp(
-        current_msg.publish_time.nanosecond, datetime.timezone.utc
+        current_msg.publish_time.nanosecond, datetime.timezone.utc  # pyrefly: ignore[missing-attribute]
     )
     publish_date = publish_datetime.date()
     publish_time = publish_datetime.timetz()
@@ -237,14 +237,14 @@ class AiPngtoDicomSecondaryCapture(
     ds.TimeOfSecondaryCapture = publish_time.isoformat('microseconds').replace(
         ':', ''
     )
-    ds.SecondaryCaptureDeviceManufacturersModelName = current_msg.model_name
-    ds.SecondaryCaptureDeviceSoftwareVersions = current_msg.model_version
+    ds.SecondaryCaptureDeviceManufacturersModelName = current_msg.model_name  # pyrefly: ignore[missing-attribute]
+    ds.SecondaryCaptureDeviceSoftwareVersions = current_msg.model_version  # pyrefly: ignore[missing-attribute]
 
     # Pass oof score to be created as private tag with value stored as
     # Decimal String (DS) Clip oof store to keep in DS VR type length limts
-    oof_score = current_msg.whole_slide_score
+    oof_score = current_msg.whole_slide_score  # pyrefly: ignore[missing-attribute]
     private_tags = abstract_dicom_generation.get_private_tags_for_gen_dicoms(
-        ingest_file, current_msg.message_id
+        ingest_file, current_msg.message_id  # pyrefly: ignore[missing-attribute]
     )
     try:
       oof_score = str(round(float(oof_score), 3))
@@ -258,7 +258,7 @@ class AiPngtoDicomSecondaryCapture(
       cloud_logging_client.info(
           'Adding rounded OOF score',
           {
-              'msg_oof_score': str(current_msg.whole_slide_score),
+              'msg_oof_score': str(current_msg.whole_slide_score),  # pyrefly: ignore[missing-attribute]
               'rounded_score': str(oof_score),
           },
       )
@@ -267,7 +267,7 @@ class AiPngtoDicomSecondaryCapture(
     if not private_tags:
       cloud_logging_client.warning(
           'OOF Result without oof score',
-          {'pub/msg_oof_score': str(current_msg.whole_slide_score)},
+          {'pub/msg_oof_score': str(current_msg.whole_slide_score)},  # pyrefly: ignore[missing-attribute]
       )
 
     dicom_gen_dir = os.path.join(self.root_working_dir, 'gen_dicom')
@@ -275,15 +275,15 @@ class AiPngtoDicomSecondaryCapture(
     ingest_file.generated_dicom_files = self._convert_png_to_dicom(
         ingest_file.localfile,
         dicom_gen_dir,
-        current_msg.study_uid,
-        current_msg.series_uid,
+        current_msg.study_uid,  # pyrefly: ignore[missing-attribute]
+        current_msg.series_uid,  # pyrefly: ignore[missing-attribute]
         dcm_metadata=ds,
-        instances=current_msg.instances,
+        instances=current_msg.instances,  # pyrefly: ignore[missing-attribute]
         private_tags=private_tags,
     )
     # URI to copy ingested images to at pipeline completion.
     # None = not copied & images will be deleted following ingest.
-    ingest_file.destination_uri = None
+    ingest_file.destination_uri = None  # pyrefly: ignore[missing-attribute]
 
     if not ingest_file.generated_dicom_files:
       cloud_logging_client.error('An error occurred converting to DICOM.')
@@ -295,9 +295,9 @@ class AiPngtoDicomSecondaryCapture(
       )
       return
     dst_metadata = {
-        'pubsub_message_id': str(polling_client.current_msg.message_id)
+        'pubsub_message_id': str(polling_client.current_msg.message_id)  # pyrefly: ignore[missing-attribute]
     }
-    ingest_results = self.dcm_store_client.upload_to_dicom_store(
+    ingest_results = self.dcm_store_client.upload_to_dicom_store(  # pyrefly: ignore[missing-attribute]
         ingest_file.generated_dicom_files,
         dicom_store_client.DiscoverExistingSeriesOptions.USE_STUDY_AND_SERIES,
         dst_metadata,
@@ -305,14 +305,12 @@ class AiPngtoDicomSecondaryCapture(
     ingested_dicoms = ingest_results.ingested
     previously_ingested_dicoms = ingest_results.previously_ingested
 
-    oof_source_dicom_store = (
-        ingestion_dicom_store_urls.normalize_dicom_store_url(
-            self._current_msg.dicomstore_path, dicom_web=True
-        )
+    oof_source_dicom_store = ingestion_dicom_store_urls.normalize_dicom_store_url(
+        self._current_msg.dicomstore_path, dicom_web=True  # pyrefly: ignore[missing-attribute]
     )
     # Check if clean up is needed and clean up instances used for ML.
     if oof_source_dicom_store == self._dicom_store_to_clean:
-      source_dcm_in_main_store = self._current_msg.additional_params.get(
+      source_dcm_in_main_store = self._current_msg.additional_params.get(  # pyrefly: ignore[missing-attribute]
           ingest_const.OofPassThroughKeywords.SOURCE_DICOM_IN_MAIN_STORE, True
       )
       if source_dcm_in_main_store:
@@ -326,14 +324,14 @@ class AiPngtoDicomSecondaryCapture(
       else:
         self._delete_instance_from_dicom_store(
             oof_source_dicom_store,
-            self._current_msg.study_uid,
-            self._current_msg.series_uid,
+            self._current_msg.study_uid,  # pyrefly: ignore[missing-attribute]
+            self._current_msg.series_uid,  # pyrefly: ignore[missing-attribute]
         )
 
     if ingested_dicoms or previously_ingested_dicoms:
       # very last step is to delete blob from ingest bucket.
       if not cloud_storage_client.del_blob(
-          uri=ingest_file.source_uri, ignore_file_not_found=True
+          uri=ingest_file.source_uri, ignore_file_not_found=True  # pyrefly: ignore[bad-argument-type]
       ):
         # if delete failed retry
         polling_client.nack()

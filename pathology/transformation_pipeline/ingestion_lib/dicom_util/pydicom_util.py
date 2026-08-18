@@ -72,7 +72,7 @@ class DICOMTagPath:
   def get_dicom_dataset(self, ds: pydicom.Dataset) -> pydicom.Dataset:
     """Returns DICOM dataset which holds tag defined by path."""
     for path_element in self._tag_path[:-1]:
-      ds = ds[path_element.tag.address][path_element.sequence_index]
+      ds = ds[path_element.tag.address][path_element.sequence_index]  # pyrefly: ignore[bad-index]
     return ds
 
 
@@ -88,18 +88,18 @@ def set_dataset_tag_value(
   """
   dicom_util = dicom_standard.dicom_standard_util()
   address = dicom_util.get_keyword_address(tag_keyword)
-  vr_type = (list(dicom_util.get_tag_vr(address)))[0]
+  vr_type = (list(dicom_util.get_tag_vr(address)))[0]  # pyrefly: ignore[bad-argument-type]
   try:
     del dicom[tag_keyword]
   except KeyError:
     pass
   vr_set = {vr_type}
-  if dicom_util.is_vr_int_type(vr_set):
-    dicom.add(pydicom.DataElement(address, vr_type, int(value)))
-  elif dicom_util.is_vr_float_type(vr_set):
-    dicom.add(pydicom.DataElement(address, vr_type, float(value)))
+  if dicom_util.is_vr_int_type(vr_set):  # pyrefly: ignore[bad-argument-type]
+    dicom.add(pydicom.DataElement(address, vr_type, int(value)))  # pyrefly: ignore[bad-argument-type]
+  elif dicom_util.is_vr_float_type(vr_set):  # pyrefly: ignore[bad-argument-type]
+    dicom.add(pydicom.DataElement(address, vr_type, float(value)))  # pyrefly: ignore[bad-argument-type]
   else:
-    dicom.add(pydicom.DataElement(address, vr_type, str(value)))
+    dicom.add(pydicom.DataElement(address, vr_type, str(value)))  # pyrefly: ignore[bad-argument-type]
 
 
 def set_dataset_tag_value_if_undefined(
@@ -144,7 +144,7 @@ def _get_undefined_dicom_tags_by_type(
   """
   iod_path = [path_element.tag.keyword for path_element in dicom_tag_path.path]
   dataset = dicom_standard.dicom_iod_dataset_util().get_iod_dicom_dataset(
-      iod_name, iod_path=iod_path, require_modules=require_modules
+      iod_name, iod_path=iod_path, require_modules=require_modules  # pyrefly: ignore[bad-argument-type]
   )
   if dataset is None:
     return []
@@ -159,7 +159,7 @@ def _get_undefined_dicom_tags_by_type(
       continue
     if tag_address in ds:
       if tag.is_sq() and ds[tag_address].VR == 'SQ':
-        for index, inner_ds in enumerate(ds[tag_address]):
+        for index, inner_ds in enumerate(ds[tag_address]):  # pyrefly: ignore[bad-argument-type]
           tag_list.extend(
               _get_undefined_dicom_tags_by_type(
                   iod_name,

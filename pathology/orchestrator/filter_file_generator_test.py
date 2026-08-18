@@ -470,7 +470,7 @@ class FilterFileGeneratorTest(parameterized.TestCase):
       self, filename, expected_spacing
   ):
     self.assertEqual(
-        filter_file_generator._get_instance_pixel_spacing(
+        filter_file_generator._get_instance_pixel_spacing(  # pyrefly: ignore[missing-attribute]
             _read_test_json(filename)
         ).min_spacing,  # type: ignore
         expected_spacing,

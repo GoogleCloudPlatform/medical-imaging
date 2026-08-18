@@ -41,7 +41,7 @@ class AbstractPubSubMsgHandler(metaclass=abc.ABCMeta):
 
   @abc.abstractmethod
   def decode_pubsub_msg(
-      self, msg: pubsub_v1.types.ReceivedMessage
+      self, msg: pubsub_v1.types.ReceivedMessage  # pyrefly: ignore[missing-attribute]
   ) -> abstract_pubsub_msg.AbstractPubSubMsg:
     """Pass pubsub msg to decoder described in DICOM Gen.
 

@@ -572,8 +572,8 @@ class RedisCacheTest(parameterized.TestCase):
     self.assertEqual(redis_cache._get_redis_db_last_flushed(), 5)
 
   def test_init_fork_module_state(self) -> None:
-    redis_cache._redis_host_instance_lock = 'mock'
-    redis_cache._redis_host_instance = 'mock'
+    redis_cache._redis_host_instance_lock = 'mock'  # pyrefly: ignore[bad-assignment]
+    redis_cache._redis_host_instance = 'mock'  # pyrefly: ignore[bad-assignment]
     redis_cache._init_fork_module_state()
     self.assertNotEqual(redis_cache._redis_host_instance_lock, 'mock')
     self.assertIsNotNone(redis_cache._redis_host_instance_lock)

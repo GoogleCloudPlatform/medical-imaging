@@ -260,19 +260,19 @@ class MetadataUtilTest(parameterized.TestCase):
     )
     downsampled_metadata = copy.copy(_EXPECTED_METADATA)
     downsampled_metadata[_TOTAL_PIXEL_MATRIX_COLUMNS] = max(
-        int(downsampled_metadata[_TOTAL_PIXEL_MATRIX_COLUMNS] / 2), 1
+        int(downsampled_metadata[_TOTAL_PIXEL_MATRIX_COLUMNS] / 2), 1  # pyrefly: ignore[unsupported-operation]
     )
     downsampled_metadata[_TOTAL_PIXEL_MATRIX_ROWS] = max(
-        int(downsampled_metadata[_TOTAL_PIXEL_MATRIX_ROWS] / 2), 1
+        int(downsampled_metadata[_TOTAL_PIXEL_MATRIX_ROWS] / 2), 1  # pyrefly: ignore[unsupported-operation]
     )
     downsampled_metadata[_NUMBER_OF_FRAMES] = int(
         math.ceil(
             float(downsampled_metadata[_TOTAL_PIXEL_MATRIX_ROWS])
-            / float(downsampled_metadata[_ROWS])
+            / float(downsampled_metadata[_ROWS])  # pyrefly: ignore[bad-argument-type]
         )
         * math.ceil(
             float(downsampled_metadata[_TOTAL_PIXEL_MATRIX_COLUMNS])
-            / float(downsampled_metadata[_COLUMNS])
+            / float(downsampled_metadata[_COLUMNS])  # pyrefly: ignore[bad-argument-type]
         )
     )
 
@@ -283,7 +283,7 @@ class MetadataUtilTest(parameterized.TestCase):
   def test_metadata_pad_image_to_frame_same_dim_is_no_op(self):
     expected_columns = _EXPECTED_METADATA[_COLUMNS]
     expected_rows = _EXPECTED_METADATA[_ROWS]
-    img = np.zeros((expected_rows, expected_columns, 3), dtype=np.uint8)
+    img = np.zeros((expected_rows, expected_columns, 3), dtype=np.uint8)  # pyrefly: ignore[no-matching-overload]
     metadata = shared_test_util.jpeg_encoded_dicom_instance_metadata()
     self.assertIs(metadata.pad_image_to_frame(img), img)
 
@@ -331,7 +331,7 @@ class MetadataUtilTest(parameterized.TestCase):
     with shared_test_util.jpeg_encoded_dicom_instance() as ds:
       self.assertEqual(
           dataclasses.asdict(
-              metadata_util.get_instance_metadata_from_local_instance(ds)
+              metadata_util.get_instance_metadata_from_local_instance(ds)  # pyrefly: ignore[bad-argument-type]
           ),
           _expected_metadata({
               'metadata_source': {
@@ -687,8 +687,8 @@ class MetadataUtilTest(parameterized.TestCase):
     mock_redis_set.assert_not_called()
 
   def test_init_fork_module_state(self):
-    metadata_util._metadata_cache = None
-    metadata_util._metadata_cache_lock = None
+    metadata_util._metadata_cache = None  # pyrefly: ignore[bad-assignment]
+    metadata_util._metadata_cache_lock = None  # pyrefly: ignore[bad-assignment]
     metadata_util._init_fork_module_state()
     self.assertIsNotNone(metadata_util._metadata_cache_lock)
     self.assertIsInstance(metadata_util._metadata_cache, cachetools.TTLCache)

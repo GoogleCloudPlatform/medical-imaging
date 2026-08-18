@@ -80,7 +80,7 @@ def _test_dcm_with_icc_profile(
       dcm.OpticalPathSequence[index].ICCProfile = icc_profile
       if colorspace:
         dcm.OpticalPathSequence[index].ColorSpace = colorspace
-    return dcm
+    return dcm  # pyrefly: ignore[bad-return]
 
 
 class ColorConversionUtilTest(parameterized.TestCase):
@@ -904,8 +904,8 @@ class ColorConversionUtilTest(parameterized.TestCase):
       )
 
   def test_init_fork_module_state(self):
-    color_conversion_util._cache_lock = 'mock'
-    color_conversion_util._icc_transform_cache = 'mock'
+    color_conversion_util._cache_lock = 'mock'  # pyrefly: ignore[bad-assignment]
+    color_conversion_util._icc_transform_cache = 'mock'  # pyrefly: ignore[bad-assignment]
     color_conversion_util._init_fork_module_state()
     self.assertIsNotNone(color_conversion_util._cache_lock)
     self.assertNotEqual(color_conversion_util._cache_lock, 'mock')

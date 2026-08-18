@@ -149,7 +149,7 @@ class RequestSessionHandler:
 
   def __setstate__(self, dct: MutableMapping[str, Any]) -> None:
     """Init session to empty on de-serializing."""
-    self.__dict__ = dct
+    self.__dict__ = dct  # pyrefly: ignore[bad-assignment]
     self._session = None
 
   def __del__(self):
@@ -503,7 +503,7 @@ def _create_frame_images(
       1 for frame_data in frame_images if frame_data.downloaded_from_dicom_store
   ])
   return FrameImages(
-      {
+      {  # pyrefly: ignore[bad-argument-type]
           frame_index: image_mem.image
           for frame_index, image_mem in zip(frame_numbers, frame_images)
       },

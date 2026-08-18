@@ -451,7 +451,7 @@ class ImageUtilTest(parameterized.TestCase):
         PIL.Image.fromarray(np.zeros((100, 100, 3), dtype=np.uint8))
     )
     self.assertIs(
-        image_util.transform_image_viewport(image, undefined_viewport).image,
+        image_util.transform_image_viewport(image, undefined_viewport).image,  # pyrefly: ignore[missing-attribute]
         image.image,
     )
 
@@ -507,7 +507,7 @@ class ImageUtilTest(parameterized.TestCase):
   ):
     img = np.zeros((100, 10, 3), dtype=np.uint8)
     self.assertEqual(
-        image_util.transform_image_viewport(img, viewport).image.size,
+        image_util.transform_image_viewport(img, viewport).image.size,  # pyrefly: ignore[missing-attribute]
         expected_dim,
     )
 
@@ -573,7 +573,7 @@ class ImageUtilTest(parameterized.TestCase):
   def test_transform_image_viewport(self, viewport, expected):
     img = np.asarray([[1, 2], [3, 4]], dtype=np.uint8)
     np.testing.assert_array_equal(
-        np.asarray(image_util.transform_image_viewport(img, viewport).image),
+        np.asarray(image_util.transform_image_viewport(img, viewport).image),  # pyrefly: ignore[missing-attribute]
         expected,
     )
 

@@ -249,7 +249,7 @@ def _read_deid_tag_keep_list() -> List[str]:
             ),
         )
     )
-  deid_keep_list = _parse_deid_keep_list(deid_keep_list)
+  deid_keep_list = _parse_deid_keep_list(deid_keep_list)  # pyrefly: ignore[bad-argument-type]
   if not deid_keep_list:
     raise rpc_status.RpcFailureError(
         rpc_status.build_rpc_method_status_and_log(
@@ -1448,7 +1448,7 @@ def _share_cohort(
   )
   # Overwrite cohort resource with only added permissions.
   cohort.ClearField('user_access')
-  cohort.user_access.extend(_convert_map_to_permissions(permissions_map))
+  cohort.user_access.extend(_convert_map_to_permissions(permissions_map))  # pyrefly: ignore[bad-argument-type]
   return (cohort, invalid_emails)
 
 

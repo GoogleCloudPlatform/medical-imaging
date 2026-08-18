@@ -480,7 +480,7 @@ class _MockDicomStoreFileSystemStorage(_MockDicomStoreAbstractStorage):
               _DICOM_SOP_INSTANCE_UID_TAG,
           ],
       ) as dcm:
-        return self._get_uid_tuple(dcm)
+        return self._get_uid_tuple(dcm)  # pyrefly: ignore[bad-argument-type]
     except (
         OSError,
         FileNotFoundError,
@@ -936,7 +936,7 @@ class MockDicomStoreClient(contextlib.ContextDecorator):
     ):
       return
     old_interface = self._dicom_storage
-    self._dicom_storage = _MockDicomStoreFileSystemStorage(path)
+    self._dicom_storage = _MockDicomStoreFileSystemStorage(path)  # pyrefly: ignore[bad-assignment]
     # Copy all instances from old interface to new interface.
     for instance in old_interface.get_instances(*_ALL_DICOM_INSTANCES_IN_STORE):
       self._dicom_storage.add_instance(instance)
@@ -1032,7 +1032,7 @@ class MockDicomStoreClient(contextlib.ContextDecorator):
             mock_response.http_content_type,
         )
     for handler in self._request_handlers:
-      response = handler(request)
+      response = handler(request)  # pyrefly: ignore[bad-argument-type]
       if response is not None:
         return response
     return None
@@ -1117,7 +1117,7 @@ class MockDicomStoreClient(contextlib.ContextDecorator):
     if request.method != method.value:
       return None
     url_regex = _join_url_parts(self._dicomweb_path, reg_ex)
-    return re.fullmatch(url_regex, request.url, re.IGNORECASE)
+    return re.fullmatch(url_regex, request.url, re.IGNORECASE)  # pyrefly: ignore[no-matching-overload]
 
   def _study_metadata_request(
       self, request: requests.Request
@@ -1197,10 +1197,10 @@ class MockDicomStoreClient(contextlib.ContextDecorator):
     """
     if limit is None or not limit:
       return list(metadata)
-    limit = int(limit)
+    limit = int(limit)  # pyrefly: ignore[bad-assignment]
     limited_metadata = []
     for count, data in enumerate(metadata):
-      if count >= limit:
+      if count >= limit:  # pyrefly: ignore[unsupported-operation]
         break
       limited_metadata.append(data)
     return limited_metadata
@@ -1415,7 +1415,7 @@ class MockDicomStoreClient(contextlib.ContextDecorator):
     index = 0
     while index < len(bulkuri_parts):
       try:
-        metadata = metadata[bulkuri_parts[index]]
+        metadata = metadata[bulkuri_parts[index]]  # pyrefly: ignore[bad-assignment]
       except KeyError:
         return None
       index += 1
@@ -1430,7 +1430,7 @@ class MockDicomStoreClient(contextlib.ContextDecorator):
         return None
       index += 1
       try:
-        metadata = metadata[sq_index]
+        metadata = metadata[sq_index]  # pyrefly: ignore[bad-assignment]
       except (IndexError, KeyError) as _:
         return None
     return None
@@ -1637,13 +1637,13 @@ class MockDicomStoreClient(contextlib.ContextDecorator):
     if result is None:
       return None
     add_study_instance_uid_filter = result.groups()[1]
-    if not self._can_write(request.headers):
+    if not self._can_write(request.headers):  # pyrefly: ignore[bad-argument-type]
       return _build_response(
           http.HTTPStatus.UNAUTHORIZED,
           '',
           ContentType.TEXT_HTML,
       )
-    request_content_type = _get_content_type(request.headers)
+    request_content_type = _get_content_type(request.headers)  # pyrefly: ignore[bad-argument-type]
     lower_content_type = request_content_type.lower()
     dcm_instance_list = []
     try:
@@ -1652,7 +1652,7 @@ class MockDicomStoreClient(contextlib.ContextDecorator):
         request_content = request.body
       else:
         # If streaming Read
-        request_content = request.body.read()
+        request_content = request.body.read()  # pyrefly: ignore[missing-attribute]
       if lower_content_type.startswith('application/dicom'):
         dcm_instance_list = [_decode_pydicom(request_content)]
       elif lower_content_type.startswith('multipart/related;'):

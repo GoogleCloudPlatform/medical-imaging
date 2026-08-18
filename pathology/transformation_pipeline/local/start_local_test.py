@@ -126,7 +126,7 @@ class StartLocalhostTest(parameterized.TestCase):
   def test_discover_adc_credentials_windows(
       self, *unused_mocks, mock_cred, expected
   ):
-    start_local._WINDOWS_ADC_PATH = gen_test_util.test_file_path(mock_cred)
+    start_local._WINDOWS_ADC_PATH = gen_test_util.test_file_path(mock_cred)  # pyrefly: ignore[bad-assignment]
     self.assertEqual(
         bool(start_local._discover_adc_credentials()), expected
     )
@@ -144,7 +144,7 @@ class StartLocalhostTest(parameterized.TestCase):
   def test_discover_adc_credentials_linux(
       self, *unused_mocks, mock_cred, expected
   ):
-    start_local._LINUX_ADC_PATH = gen_test_util.test_file_path(mock_cred)
+    start_local._LINUX_ADC_PATH = gen_test_util.test_file_path(mock_cred)  # pyrefly: ignore[bad-assignment]
     self.assertEqual(
         bool(start_local._discover_adc_credentials()), expected
     )
@@ -1129,7 +1129,7 @@ class StartLocalhostTest(parameterized.TestCase):
               '1.3.6.1.4.1.11129.5.7.999',
           )
           self.assertEqual(
-              set(ingest_flags.INGEST_IGNORE_ROOT_DIR_FLG.value),
+              set(ingest_flags.INGEST_IGNORE_ROOT_DIR_FLG.value),  # pyrefly: ignore[bad-argument-type]
               {'foo', 'magic'},
           )
           self.assertEqual(

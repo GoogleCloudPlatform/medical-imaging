@@ -583,7 +583,7 @@ class BlobMock:
       gcs_mock_types.GcsMockError: Method is deprecated.
     """
 
-    del (
+    del (  # pyrefly: ignore[unsupported-delete]
         client,
         start,
         end,
@@ -752,7 +752,7 @@ class BlobMock:
               if_generation_not_match,
               if_metageneration_match,
               if_metageneration_not_match,
-              checksum,
+              checksum,  # pyrefly: ignore[bad-argument-type]
           )
       )
 
@@ -806,7 +806,7 @@ class BlobMock:
     Raises:
       gcs_mock_types.GcsMockError: Method is deprecated.
     """
-    del (
+    del (  # pyrefly: ignore[unsupported-delete]
         file_obj,
         client,
         start,
@@ -1160,7 +1160,7 @@ class BlobMock:
         client
     ).mock_state.blob_rewrite(
         typing.cast(google.cloud.storage.Blob, self),
-        source,
+        source,  # pyrefly: ignore[bad-argument-type]
         token,
         if_generation_match,
         if_generation_not_match,

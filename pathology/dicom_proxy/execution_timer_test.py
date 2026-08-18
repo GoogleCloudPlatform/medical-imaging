@@ -152,7 +152,7 @@ class ExecutionTimerTest(absltest.TestCase):
     try:
       test_thread.start()
       time.sleep(1)
-      self.assertTrue(execution_timer._is_running(test_thread.native_id))
+      self.assertTrue(execution_timer._is_running(test_thread.native_id))  # pyrefly: ignore[bad-argument-type]
     finally:
       test_thread.stop()
 

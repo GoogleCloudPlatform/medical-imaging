@@ -59,7 +59,7 @@ def build_rpc_method_status_and_log(
     RpcMethodStatus instance.
   """
   if exp is None:
-    exp = {}
+    exp = {}  # pyrefly: ignore[bad-assignment]
   if log_struct is None:
     cloud_logging_client.error(error_msg, exp, {'error_code': code.name})
   else:

@@ -372,8 +372,8 @@ def _should_deid_instance(
 
   if (
       min_pixel_spacing_threshold is not None
-      and instance_pixel_spacing.is_defined
-      and instance_pixel_spacing.min_spacing < min_pixel_spacing_threshold
+      and instance_pixel_spacing.is_defined  # pyrefly: ignore[missing-attribute]
+      and instance_pixel_spacing.min_spacing < min_pixel_spacing_threshold  # pyrefly: ignore[missing-attribute]
   ):
     cloud_logging_client.warning(
         'Skipping instance estimated image pixel spacing is smaller than '
@@ -382,7 +382,7 @@ def _should_deid_instance(
             'DeID_Max_Magnification': '{_DEID_MAX_MAGNIFICATION_FLG.value}X',
             'dicom_instance': instance_path,
             'dicom_instance_min_pixel_spacing': (
-                instance_pixel_spacing.min_spacing
+                instance_pixel_spacing.min_spacing  # pyrefly: ignore[missing-attribute]
             ),
             'pixel_spacing_threshold': min_pixel_spacing_threshold,
         },

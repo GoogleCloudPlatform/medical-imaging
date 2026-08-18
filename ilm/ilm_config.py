@@ -236,9 +236,9 @@ class MoveRule:
       self,
   ) -> List[ToHigherAvailabilityCondition | ToLowerAvailabilityCondition]:
     if self.upgrade_conditions:
-      return self.upgrade_conditions
+      return self.upgrade_conditions  # pyrefly: ignore[bad-return]
     if self.downgrade_conditions:
-      return self.downgrade_conditions
+      return self.downgrade_conditions  # pyrefly: ignore[bad-return]
     return []
 
 

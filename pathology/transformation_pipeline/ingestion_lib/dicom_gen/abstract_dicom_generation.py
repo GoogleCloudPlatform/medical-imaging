@@ -294,7 +294,7 @@ class AbstractDicomGeneration(
 
   @abc.abstractmethod
   def decode_pubsub_msg(
-      self, msg: pubsub_v1.types.ReceivedMessage
+      self, msg: pubsub_v1.types.ReceivedMessage  # pyrefly: ignore[missing-attribute]
   ) -> abstract_pubsub_msg.AbstractPubSubMsg:
     """Pass pubsub msg to decoder described in DICOM Gen.
 
@@ -310,7 +310,7 @@ class AbstractDicomGeneration(
   @property
   def root_working_dir(self) -> str:
     """Root working dir of container."""
-    return self._root_working_dir
+    return self._root_working_dir  # pyrefly: ignore[bad-return]
 
   @root_working_dir.setter
   def root_working_dir(self, val: str):
@@ -465,10 +465,10 @@ class AbstractDicomGeneration(
     # unlocked context.
     r_client.acquire_non_blocking_lock(
         lock_name,
-        token,
+        token,  # pyrefly: ignore[bad-argument-type]
         ingest_const.MESSAGE_TTL_S,
         self._process_message_context_block,
-        lock_log,
+        lock_log,  # pyrefly: ignore[bad-argument-type]
     )
     cloud_logging_client.info(
         f'Acquired transformation lock: {lock_name}', lock_log
@@ -524,7 +524,7 @@ class AbstractDicomGeneration(
 
         ingest_file.hash = hash_util.sha512hash(
             ingest_file.localfile,
-            {ingest_const.LogKeywords.URI: ingest_file.source_uri},
+            {ingest_const.LogKeywords.URI: ingest_file.source_uri},  # pyrefly: ignore[bad-argument-type]
         )
         self._generate_dicom_and_push_to_store_lock_wrapper(
             ingest_file, polling_client
@@ -588,7 +588,7 @@ class AbstractDicomGeneration(
       return
     except Exception as exp:
       self.handle_unexpected_exception(
-          polling_client.current_msg, ingest_file, exp
+          polling_client.current_msg, ingest_file, exp  # pyrefly: ignore[bad-argument-type]
       )
       polling_client.ack()
       raise exp

@@ -110,7 +110,7 @@ class _MockPubSubSubscriptionState:
       ack_str = str(self._ack_id)
       self._pubsub_ack_dict[ack_str] = _QueuedFile(fname, schedualed_time)
       self._undelivered_file_dict_ackid[fname] = ack_str
-      self._smallest_queued_file_timeout = min(
+      self._smallest_queued_file_timeout = min(  # pyrefly: ignore[bad-assignment]
           schedualed_time, self._smallest_queued_file_timeout
       )
     if new_files:
@@ -147,7 +147,7 @@ class _MockPubSubSubscriptionState:
       raise google.api_core.exceptions.InvalidArgument(
           'You have passed an invalid ack ID to the service'
       ) from exp
-    self._smallest_queued_file_timeout = min(
+    self._smallest_queued_file_timeout = min(  # pyrefly: ignore[bad-assignment]
         new_time, self._smallest_queued_file_timeout
     )
 
@@ -169,7 +169,7 @@ class _MockPubSubSubscriptionState:
     if found_ack_id is None:
       self._smallest_queued_file_timeout = 0
       return None
-    self._smallest_queued_file_timeout = found_time
+    self._smallest_queued_file_timeout = found_time  # pyrefly: ignore[bad-assignment]
     # test file is not open by something else.
     try:
       fd = os.open(found_file_path, os.O_RDONLY | os.O_NONBLOCK)
@@ -193,7 +193,7 @@ class _MockPubSubSubscriptionState:
 
   def pull(
       self, pubsub_id: str
-  ) -> Optional[google.cloud.pubsub_v1.types.ReceivedMessage]:
+  ) -> Optional[google.cloud.pubsub_v1.types.ReceivedMessage]:  # pyrefly: ignore[missing-attribute]
     """Pull one pubsub message."""
     self._update_directory_monitor()
     ack_id = self._get_next_msg_ack_id()
@@ -206,9 +206,9 @@ class _MockPubSubSubscriptionState:
       file_path = file_path[len(self._monitor_directory) :]
     file_path = file_path.lstrip('/')
     self._pubsub_ack_dict[ack_id].timeout = time.time() + self.ack_deadline
-    return google.cloud.pubsub_v1.types.ReceivedMessage(
+    return google.cloud.pubsub_v1.types.ReceivedMessage(  # pyrefly: ignore[missing-attribute]
         ack_id=ack_id,
-        message=google.cloud.pubsub_v1.types.PubsubMessage(
+        message=google.cloud.pubsub_v1.types.PubsubMessage(  # pyrefly: ignore[missing-attribute]
             message_id=pubsub_id,
             attributes={'eventType': 'OBJECT_FINALIZE'},
             data=json.dumps({
@@ -246,7 +246,7 @@ class _MockPubSubState:
 
   def pull(
       self, subscription: str
-  ) -> Optional[google.cloud.pubsub_v1.types.ReceivedMessage]:
+  ) -> Optional[google.cloud.pubsub_v1.types.ReceivedMessage]:  # pyrefly: ignore[missing-attribute]
     if not self._generate_pubsub_messages:
       return None
     self._pubsub_message_id += 1
@@ -274,7 +274,7 @@ class _MockSubscriberClient(contextlib.ExitStack):
       self,
       request: Optional[
           Union[
-              google.cloud.pubsub_v1.types.GetSubscriptionRequest,
+              google.cloud.pubsub_v1.types.GetSubscriptionRequest,  # pyrefly: ignore[missing-attribute]
               Mapping[Any, Any],
           ]
       ] = None,
@@ -286,15 +286,15 @@ class _MockSubscriberClient(contextlib.ExitStack):
       ] = _DEFAULT_VALUE,
       timeout: Union[float, object] = _DEFAULT_VALUE,
       metadata: Sequence[Tuple[str, str]] = (),
-  ) -> google.cloud.pubsub_v1.types.Subscription:
+  ) -> google.cloud.pubsub_v1.types.Subscription:  # pyrefly: ignore[missing-attribute]
     """Returns mock description of the pub-sub description."""
     del retry, timeout, metadata
     if subscription is None and request is not None:
       subscription = request.get('subscription')
-    sub_def = google.cloud.pubsub_v1.types.Subscription()
+    sub_def = google.cloud.pubsub_v1.types.Subscription()  # pyrefly: ignore[missing-attribute]
     # Ack deadline
     sub_def.ack_deadline_seconds = (
-        self._mock_state.get_subscription_ack_deadline(subscription)
+        self._mock_state.get_subscription_ack_deadline(subscription)  # pyrefly: ignore[bad-argument-type]
     )
     # Messages never expire.
     sub_def.expiration_policy.ttl = (
@@ -306,7 +306,7 @@ class _MockSubscriberClient(contextlib.ExitStack):
       self,
       request: Optional[
           Union[
-              google.cloud.pubsub_v1.types.AcknowledgeRequest, Mapping[Any, Any]
+              google.cloud.pubsub_v1.types.AcknowledgeRequest, Mapping[Any, Any]  # pyrefly: ignore[missing-attribute]
           ]
       ] = None,
       *,
@@ -325,14 +325,14 @@ class _MockSubscriberClient(contextlib.ExitStack):
       subscription = request.get('subscription')
     if ack_ids is None and request is not None:
       ack_ids = request.get('ack_ids')
-    for ack_id in ack_ids:
-      self._mock_state.acknowledge(subscription, ack_id)
+    for ack_id in ack_ids:  # pyrefly: ignore[not-iterable]
+      self._mock_state.acknowledge(subscription, ack_id)  # pyrefly: ignore[bad-argument-type]
 
   def modify_ack_deadline(
       self,
       request: Optional[
           Union[
-              google.cloud.pubsub_v1.types.ModifyAckDeadlineRequest,
+              google.cloud.pubsub_v1.types.ModifyAckDeadlineRequest,  # pyrefly: ignore[missing-attribute]
               Mapping[Any, Any],
           ]
       ] = None,
@@ -355,15 +355,15 @@ class _MockSubscriberClient(contextlib.ExitStack):
       ack_ids = request.get('ack_ids')
     if ack_deadline_seconds is None and request is not None:
       ack_deadline_seconds = request.get('ack_deadline_seconds')
-    for ack_id in ack_ids:
+    for ack_id in ack_ids:  # pyrefly: ignore[not-iterable]
       self._mock_state.modify_ack_deadline(
-          subscription, ack_id, ack_deadline_seconds
+          subscription, ack_id, ack_deadline_seconds  # pyrefly: ignore[bad-argument-type]
       )
 
   def pull(
       self,
       request: Optional[
-          Union[google.cloud.pubsub_v1.types.PullRequest, Mapping[Any, Any]]
+          Union[google.cloud.pubsub_v1.types.PullRequest, Mapping[Any, Any]]  # pyrefly: ignore[missing-attribute]
       ] = None,
       *,
       subscription: Optional[str] = None,
@@ -375,9 +375,9 @@ class _MockSubscriberClient(contextlib.ExitStack):
       ] = _DEFAULT_VALUE,
       timeout: Union[float, object] = _DEFAULT_VALUE,
       metadata: Sequence[Tuple[str, str]] = (),
-  ) -> google.cloud.pubsub_v1.types.PullResponse:
+  ) -> google.cloud.pubsub_v1.types.PullResponse:  # pyrefly: ignore[missing-attribute]
     """Pull one pubsub message."""
-    del (
+    del (  # pyrefly: ignore[unsupported-delete]
         return_immediately,
         retry,
         timeout,
@@ -394,11 +394,11 @@ class _MockSubscriberClient(contextlib.ExitStack):
       subscription = request.get('subscription', '')
     received_messages = []
     for _ in range(max_messages):
-      pubsub_msg = self._mock_state.pull(subscription)
+      pubsub_msg = self._mock_state.pull(subscription)  # pyrefly: ignore[bad-argument-type]
       if pubsub_msg is None:
         break
       received_messages.append(pubsub_msg)
-    return google.cloud.pubsub_v1.types.PullResponse(
+    return google.cloud.pubsub_v1.types.PullResponse(  # pyrefly: ignore[missing-attribute]
         received_messages=received_messages
     )
 

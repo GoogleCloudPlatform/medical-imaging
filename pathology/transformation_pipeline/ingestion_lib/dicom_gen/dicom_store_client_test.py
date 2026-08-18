@@ -919,7 +919,7 @@ class DicomStoreClientTest(parameterized.TestCase):
     for idx in range(3):
       dicom_list.append(
           dicom_test_util.create_test_dicom_instance(
-              temp_dir=self.create_tempdir(),
+              temp_dir=self.create_tempdir(),  # pyrefly: ignore[bad-argument-type]
               study='1.2.3',
               series=f'1.2.3.{idx}',
               sop_instance_uid=f'1.2.3.4.{idx}',
@@ -982,7 +982,7 @@ class DicomStoreClientTest(parameterized.TestCase):
   def test_upload_single_instance_to_dicom_store_fails(
       self, error_code, mock_requests, _
   ):
-    dcm_path = dicom_test_util.create_test_dicom_instance(self.create_tempdir())
+    dcm_path = dicom_test_util.create_test_dicom_instance(self.create_tempdir())  # pyrefly: ignore[bad-argument-type]
     mock_response = mock.Mock()
     mock_response.status_code = error_code
     http_error = requests.HTTPError(
@@ -994,7 +994,7 @@ class DicomStoreClientTest(parameterized.TestCase):
 
     client = dicom_store_client.DicomStoreClient(_DICOM_WEBPATH)
     with self.assertRaises(requests.HTTPError):
-      _ = client._upload_single_instance_to_dicom_store(dcm_path)
+      _ = client._upload_single_instance_to_dicom_store(dcm_path)  # pyrefly: ignore[bad-argument-type]
 
   @requests_mock.mock()
   @mock.patch(
@@ -1005,7 +1005,7 @@ class DicomStoreClientTest(parameterized.TestCase):
   def test_upload_single_instance_to_dicom_store_is_duplicate_succeeds(
       self, mock_requests, _
   ):
-    dcm_path = dicom_test_util.create_test_dicom_instance(self.create_tempdir())
+    dcm_path = dicom_test_util.create_test_dicom_instance(self.create_tempdir())  # pyrefly: ignore[bad-argument-type]
     mock_response = mock.Mock()
     mock_response.status_code = 409
     http_error = requests.HTTPError('409 error', response=mock_response)
@@ -1014,7 +1014,7 @@ class DicomStoreClientTest(parameterized.TestCase):
     )
 
     client = dicom_store_client.DicomStoreClient(_DICOM_WEBPATH)
-    dcm_save_result = client._upload_single_instance_to_dicom_store(dcm_path)
+    dcm_save_result = client._upload_single_instance_to_dicom_store(dcm_path)  # pyrefly: ignore[bad-argument-type]
     self.assertTrue(dcm_save_result.is_duplicate)
 
   @requests_mock.mock()
@@ -1026,22 +1026,22 @@ class DicomStoreClientTest(parameterized.TestCase):
   def test_upload_single_instance_to_dicom_store_existing_is_duplicate_succeeds(
       self, mock_requests, _
   ):
-    dcm_path = dicom_test_util.create_test_dicom_instance(self.create_tempdir())
+    dcm_path = dicom_test_util.create_test_dicom_instance(self.create_tempdir())  # pyrefly: ignore[bad-argument-type]
     existing_dicoms = [
         wsi_dicom_file_ref.init_wsi_dicom_file_ref_from_file(
-            dicom_test_util.create_test_dicom_instance(
-                self.create_tempdir(), series='4.5.6'
+            dicom_test_util.create_test_dicom_instance(  # pyrefly: ignore[bad-argument-type]
+                self.create_tempdir(), series='4.5.6'  # pyrefly: ignore[bad-argument-type]
             )
         ),
         wsi_dicom_file_ref.init_wsi_dicom_file_ref_from_file(
-            dicom_test_util.create_test_dicom_instance(self.create_tempdir())
+            dicom_test_util.create_test_dicom_instance(self.create_tempdir())  # pyrefly: ignore[bad-argument-type]
         ),
     ]
     mock_requests.post('http://healthcare/mock/dicomWeb/studies')
 
     client = dicom_store_client.DicomStoreClient(_DICOM_WEBPATH)
     dcm_save_result = client._upload_single_instance_to_dicom_store(
-        dcm_path, existing_dicoms
+        dcm_path, existing_dicoms  # pyrefly: ignore[bad-argument-type]
     )
     self.assertTrue(dcm_save_result.is_duplicate)
 
@@ -1054,11 +1054,11 @@ class DicomStoreClientTest(parameterized.TestCase):
   def test_upload_single_instance_to_dicom_store_no_existing_succeeds(
       self, mock_requests, _
   ):
-    dcm_path = dicom_test_util.create_test_dicom_instance(self.create_tempdir())
+    dcm_path = dicom_test_util.create_test_dicom_instance(self.create_tempdir())  # pyrefly: ignore[bad-argument-type]
     mock_requests.post('http://healthcare/mock/dicomWeb/studies')
 
     client = dicom_store_client.DicomStoreClient(_DICOM_WEBPATH)
-    dcm_save_result = client._upload_single_instance_to_dicom_store(dcm_path)
+    dcm_save_result = client._upload_single_instance_to_dicom_store(dcm_path)  # pyrefly: ignore[bad-argument-type]
     self.assertFalse(dcm_save_result.is_duplicate)
 
   @requests_mock.mock()
@@ -1070,16 +1070,16 @@ class DicomStoreClientTest(parameterized.TestCase):
   def test_upload_single_instance_to_dicom_store_existing_not_duplicate_succeeds(
       self, mock_requests, _
   ):
-    dcm_path = dicom_test_util.create_test_dicom_instance(self.create_tempdir())
+    dcm_path = dicom_test_util.create_test_dicom_instance(self.create_tempdir())  # pyrefly: ignore[bad-argument-type]
     existing_dicoms = [
         wsi_dicom_file_ref.init_wsi_dicom_file_ref_from_file(
-            dicom_test_util.create_test_dicom_instance(
-                self.create_tempdir(), series='4.5.6'
+            dicom_test_util.create_test_dicom_instance(  # pyrefly: ignore[bad-argument-type]
+                self.create_tempdir(), series='4.5.6'  # pyrefly: ignore[bad-argument-type]
             )
         ),
         wsi_dicom_file_ref.init_wsi_dicom_file_ref_from_file(
-            dicom_test_util.create_test_dicom_instance(
-                self.create_tempdir(), series='7.8.9'
+            dicom_test_util.create_test_dicom_instance(  # pyrefly: ignore[bad-argument-type]
+                self.create_tempdir(), series='7.8.9'  # pyrefly: ignore[bad-argument-type]
             )
         ),
     ]
@@ -1087,7 +1087,7 @@ class DicomStoreClientTest(parameterized.TestCase):
 
     client = dicom_store_client.DicomStoreClient(_DICOM_WEBPATH)
     dcm_save_result = client._upload_single_instance_to_dicom_store(
-        dcm_path, existing_dicoms
+        dcm_path, existing_dicoms  # pyrefly: ignore[bad-argument-type]
     )
     self.assertFalse(dcm_save_result.is_duplicate)
 

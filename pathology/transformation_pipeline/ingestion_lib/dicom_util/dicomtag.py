@@ -49,14 +49,14 @@ class DicomTag:
       )
     # if vr is not defined. attempt to define vr code from standard
     if vr is None:
-      vr = dicom_standard.dicom_standard_util().get_tag_vr(number)
+      vr = dicom_standard.dicom_standard_util().get_tag_vr(number)  # pyrefly: ignore[bad-assignment]
       if not vr:
         raise ValueError(f'vr type defined for tag address {number}')
-      if len(vr) > 1:
+      if len(vr) > 1:  # pyrefly: ignore[bad-argument-type]
         raise ValueError(
             f'vr type not optional tag has indeterminate vr types: {vr}'
         )
-      vr = vr.pop()
+      vr = vr.pop()  # pyrefly: ignore[missing-attribute]
 
     # initialize attributes
     self._keyword = keyword
@@ -65,7 +65,7 @@ class DicomTag:
 
     # validate that vr matches expectations
     expected_vr = dicom_standard.dicom_standard_util().get_tag_vr(number)
-    if vr not in expected_vr:
+    if vr not in expected_vr:  # pyrefly: ignore[not-iterable]
       raise ValueError(
           f'Tag vr: {vr} type does not match address definitions {expected_vr}.'
       )
@@ -73,7 +73,7 @@ class DicomTag:
     kw_address = dicom_standard.dicom_standard_util().get_keyword_address(
         keyword
     )
-    kw_address = DicomTag.standardize_address(kw_address)
+    kw_address = DicomTag.standardize_address(kw_address)  # pyrefly: ignore[bad-argument-type]
     if number != kw_address:
       raise ValueError(
           f'Tag address {number} and keyword {keyword}'

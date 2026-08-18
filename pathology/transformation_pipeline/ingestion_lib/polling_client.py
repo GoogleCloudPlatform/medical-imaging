@@ -123,7 +123,7 @@ class PollingClient(abstract_polling_client.AbstractPollingClient):
       break
     subscription = _SubscriptionAssets(  # pytype: disable=wrong-arg-types  # py311-upgrade
         subscription_path='',
-        msg_handler=msg_handler,
+        msg_handler=msg_handler,  # pyrefly: ignore[bad-argument-type]
         ack_deadline_seconds=ingest_const.MESSAGE_TTL_S,
     )
     self._subscriptions = [subscription]
@@ -235,7 +235,7 @@ class PollingClient(abstract_polling_client.AbstractPollingClient):
       self._ack_monitor.set_pubsub_msg(msg, self._current_msg_start_time)
 
   def _clear_current_msg(self):
-    self.current_msg = None
+    self.current_msg = None  # pyrefly: ignore[bad-argument-type]
 
   def _test_log_message_timeout(self, ack_time_extension: float):
     """Tests and logs if time msg ack in less time than pub/sub requirement.
@@ -335,7 +335,7 @@ class PollingClient(abstract_polling_client.AbstractPollingClient):
         self._pubsub_subscriber.acknowledge(
             request={
                 'subscription': self._current_subscription.subscription_path,
-                'ack_ids': [self.current_msg.ack_id],
+                'ack_ids': [self.current_msg.ack_id],  # pyrefly: ignore[missing-attribute]
             }
         )
         if log_ack:
@@ -363,14 +363,14 @@ class PollingClient(abstract_polling_client.AbstractPollingClient):
         self._pubsub_subscriber.modify_ack_deadline(
             request={
                 'subscription': self._current_subscription.subscription_path,
-                'ack_ids': [self.current_msg.ack_id],
+                'ack_ids': [self.current_msg.ack_id],  # pyrefly: ignore[missing-attribute]
                 'ack_deadline_seconds': retry_ttl,  # ack_deadline_seconds
             }
         )
       cloud_logging_client.warning('Retrying msg')
 
   def _decode_pubsub_msg(
-      self, msg: pubsub_v1.types.ReceivedMessage
+      self, msg: pubsub_v1.types.ReceivedMessage  # pyrefly: ignore[missing-attribute]
   ) -> abstract_pubsub_msg.AbstractPubSubMsg:
     """Pass pubsub msg to decoder described in DICOM Gen.
 
@@ -385,7 +385,7 @@ class PollingClient(abstract_polling_client.AbstractPollingClient):
     return self._current_subscription.msg_handler.decode_pubsub_msg(msg)
 
   def _no_message_received(
-      self, response: pubsub_v1.types.PullResponse
+      self, response: pubsub_v1.types.PullResponse  # pyrefly: ignore[missing-attribute]
   ) -> bool:
     """Test if no message was received.
 
@@ -448,7 +448,7 @@ class PollingClient(abstract_polling_client.AbstractPollingClient):
       True if message received.
     """
     if self._is_polling_pubsub():
-      response = self._pubsub_subscriber.pull(
+      response = self._pubsub_subscriber.pull(  # pyrefly: ignore[missing-attribute]
           subscription=self._current_subscription.subscription_path,
           max_messages=1,
           return_immediately=False,
@@ -490,7 +490,7 @@ class PollingClient(abstract_polling_client.AbstractPollingClient):
     if msg.ignore:
       cloud_logging_client.debug(
           'Pub/sub msg acked and ignored.',
-          {ingest_const.LogKeywords.URI: self.current_msg.uri},
+          {ingest_const.LogKeywords.URI: self.current_msg.uri},  # pyrefly: ignore[missing-attribute]
       )
       self.ack(log_ack=False)
       self._clear_current_msg()

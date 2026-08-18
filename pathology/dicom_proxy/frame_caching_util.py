@@ -363,7 +363,7 @@ class _CacheWholeInstance:
       msg, struct_log = self._get_completion_msg_and_log(start_time)
       number_of_frames = instance_request.metadata.number_of_frames
       msg = f'{msg}; NumberOfFrames: {number_of_frames}.'
-      struct_log['frames_cached'] = number_of_frames
+      struct_log['frames_cached'] = number_of_frames  # pyrefly: ignore[unsupported-operation]
       cloud_logging_client.info(msg, struct_log)
     except Exception as exp:
       redis = redis_cache.RedisCache()
@@ -613,7 +613,7 @@ class _CacheInstanceFrameBlock:
       log_struct[NUMBER_OF_FRAMES_CACHED] = len(frame_list)
       instance_request.get_raw_dicom_frames(render_params, frame_list)
       elapsed_time = time.time() - start_time
-      log_struct[ELAPSED_TIME] = elapsed_time
+      log_struct[ELAPSED_TIME] = elapsed_time  # pyrefly: ignore[unsupported-operation]
       cloud_logging_client.info(
           f'Done Frame Block Cache; Loaded: {len(frame_list)}(# of frames);'
           f' Elapsed time: {elapsed_time:.3f}(sec)',

@@ -23,18 +23,18 @@ from pathology.transformation_pipeline.ingestion_lib.pubsub_msgs import dicom_st
 class DicomStorePubsubMsgTest(absltest.TestCase):
 
   def test_msg_missing_data(self):
-    pubsub_msg = pubsub_v1.types.ReceivedMessage(
+    pubsub_msg = pubsub_v1.types.ReceivedMessage(  # pyrefly: ignore[missing-attribute]
         ack_id='ack_id',
-        message=pubsub_v1.types.PubsubMessage(message_id='message_id'),
+        message=pubsub_v1.types.PubsubMessage(message_id='message_id'),  # pyrefly: ignore[missing-attribute]
     )
     dicom_msg = dicom_store_pubsub_msg.DicomStorePubSubMsg(pubsub_msg)
     self.assertTrue(dicom_msg.ignore)
 
   def test_valid_dicom_store_msg(self):
     dicom_instance = 'projects/123/locations/us-central1/datasets/some-dataset/dicomStores/some-datastore/dicomWeb/studies/1.2.3/series/1.2.3.4/instances/1.2.3.4.5'
-    pubsub_msg = pubsub_v1.types.ReceivedMessage(
+    pubsub_msg = pubsub_v1.types.ReceivedMessage(  # pyrefly: ignore[missing-attribute]
         ack_id='ack_id',
-        message=pubsub_v1.types.PubsubMessage(
+        message=pubsub_v1.types.PubsubMessage(  # pyrefly: ignore[missing-attribute]
             data=dicom_instance.encode('utf8'), message_id='message_id'
         ),
     )

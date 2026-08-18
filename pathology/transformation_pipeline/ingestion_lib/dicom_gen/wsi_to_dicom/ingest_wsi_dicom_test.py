@@ -255,7 +255,7 @@ class _IngestWsiDicomTest(contextlib.ExitStack):
     self.dicom_gen = abstract_dicom_generation.GeneratedDicomFiles(
         self._input_file_container_path, f'gs://input/{self._filename}'
     )
-    self.handler: ingest_gcs_handler.IngestGcsPubSubHandler = None
+    self.handler: ingest_gcs_handler.IngestGcsPubSubHandler = None  # pyrefly: ignore[bad-assignment]
 
   def __enter__(self) -> _IngestWsiDicomTest:
     super().__enter__()
@@ -281,7 +281,7 @@ def _ingest_wsi_dicom_generate_dicom_test_shim(
     override_study_uid_with_metadata: bool,
     slide_id: str = 'MD-04-3-A1-2',
 ) -> ingest_base.GenDicomResult:
-  filename = os.path.basename(source_dicom.filename)
+  filename = os.path.basename(source_dicom.filename)  # pyrefly: ignore[no-matching-overload]
   filename = f'{slide_id}_{filename}'
   study_uid_source = (
       ingest_flags.UidSource.METADATA
@@ -1339,7 +1339,7 @@ class IngestWsiDicomTest(parameterized.TestCase):
     self.assertEqual(result.dest_uri, 'gs://output/success')
     self._verify_generated_dicom_json_equal(
         result,
-        _load_expected_json(
+        _load_expected_json(  # pyrefly: ignore[bad-argument-type]
             expected_json, override_study_uid_with_metadata, dcm
         ),
     )
@@ -1404,7 +1404,7 @@ class IngestWsiDicomTest(parameterized.TestCase):
     expected_json = _load_expected_json(
         expected_json, override_study_uid_with_metadata, dcm
     )
-    self._verify_generated_dicom_json_equal(result, expected_json)
+    self._verify_generated_dicom_json_equal(result, expected_json)  # pyrefly: ignore[bad-argument-type]
 
   @parameterized.parameters([True, False])
   @mock.patch.object(
@@ -1643,7 +1643,7 @@ class IngestWsiDicomTest(parameterized.TestCase):
     self.assertEqual(result.dest_uri, 'gs://output/success')
     self._verify_generated_dicom_json_equal(
         result,
-        _load_expected_json(
+        _load_expected_json(  # pyrefly: ignore[bad-argument-type]
             expected_json, override_study_uid_with_metadata, dcm
         ),
     )
@@ -1692,7 +1692,7 @@ class IngestWsiDicomTest(parameterized.TestCase):
     self.assertEqual(result.dest_uri, 'gs://output/success')
     self._verify_generated_dicom_json_equal(
         result,
-        _load_expected_json(
+        _load_expected_json(  # pyrefly: ignore[bad-argument-type]
             expected_json, override_study_uid_with_metadata, dcm
         ),
     )

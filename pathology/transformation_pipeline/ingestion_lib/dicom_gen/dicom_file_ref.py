@@ -171,9 +171,9 @@ class DicomFileRef(
       return False
     tag_keys = set(other.tags)
     if test_tags is not None:
-      test_tags = set(test_tags)
-      tag_keys = tag_keys & test_tags
-      if len(tag_keys) != len(test_tags):
+      test_tags = set(test_tags)  # pyrefly: ignore[bad-assignment]
+      tag_keys = tag_keys & test_tags  # pyrefly: ignore[unsupported-operation]
+      if len(tag_keys) != len(test_tags):  # pyrefly: ignore[bad-argument-type]
         raise ValueError('Only tags defined in dicom_file_ref can be specified')
     if ignore_tags is not None:
       tag_keys = tag_keys - set(ignore_tags)
@@ -217,11 +217,11 @@ def _fill_ref(
   Returns:
     DicomFileRef
   """
-  dicom_file_ref.set_source(source)
-  for keyword in dicom_file_ref.tags:
-    is_private = dicom_file_ref.is_tag_private(keyword)
+  dicom_file_ref.set_source(source)  # pyrefly: ignore[missing-attribute]
+  for keyword in dicom_file_ref.tags:  # pyrefly: ignore[missing-attribute]
+    is_private = dicom_file_ref.is_tag_private(keyword)  # pyrefly: ignore[missing-attribute]
     kw_val = get_keyword_value(dicom_data, keyword, is_private)
-    dicom_file_ref.set_tag_value(keyword, kw_val)
+    dicom_file_ref.set_tag_value(keyword, kw_val)  # pyrefly: ignore[missing-attribute]
   return dicom_file_ref
 
 
@@ -269,11 +269,11 @@ def _get_dicom_keyword_value(
   """
   if is_private:
     # retrieve the last byte of key which is unique to the private tag
-    keyword = int(keyword, 16) & 0x000000FF
+    keyword = int(keyword, 16) & 0x000000FF  # pyrefly: ignore[bad-assignment]
     try:
       tag_val = dcm.get_private_item(
           int(ingest_const.DICOMTagKeywords.GROUP_ADDRESS, 16),
-          keyword,
+          keyword,  # pyrefly: ignore[bad-argument-type]
           ingest_const.PRIVATE_TAG_CREATOR,
       )
     except KeyError:
@@ -285,8 +285,8 @@ def _get_dicom_keyword_value(
       keyword, striphex=True
   )
   try:
-    value = dcm[hex_address].value
-    tag_vr = dcm[hex_address].VR
+    value = dcm[hex_address].value  # pyrefly: ignore[bad-index]
+    tag_vr = dcm[hex_address].VR  # pyrefly: ignore[bad-index]
   except KeyError:
     value = ''
     tag_vr = ''
@@ -309,7 +309,7 @@ def init_from_loaded_file(path: str, dcm: DCMFile, dicom_file_ref: T) -> T:
   Raises:
      pydicom.errors.InvalidDicomError : Invalid DICOM file
   """
-  return _fill_ref(path, dcm, _get_dicom_keyword_value, dicom_file_ref)
+  return _fill_ref(path, dcm, _get_dicom_keyword_value, dicom_file_ref)  # pyrefly: ignore[bad-argument-type]
 
 
 def init_from_file(path: str, dicom_file_ref: T) -> T:
@@ -326,7 +326,7 @@ def init_from_file(path: str, dicom_file_ref: T) -> T:
      pydicom.errors.InvalidDicomError: Invalid DICOM file
   """
   with pydicom.dcmread(path, defer_size='512 KB') as dcm:
-    return _fill_ref(path, dcm, _get_dicom_keyword_value, dicom_file_ref)
+    return _fill_ref(path, dcm, _get_dicom_keyword_value, dicom_file_ref)  # pyrefly: ignore[bad-argument-type]
 
 
 def _get_json_keyword_value(
@@ -350,7 +350,7 @@ def _get_json_keyword_value(
         keyword, striphex=True
     )
     #  Get the value of the hex addess
-  tag_data = json_dict.get(hex_address)
+  tag_data = json_dict.get(hex_address)  # pyrefly: ignore[bad-argument-type]
   if not tag_data:
     return ''  # tag is not define. valid for some tags
   tag_value = tag_data.get('Value')  # returns a list of strings.
@@ -373,4 +373,4 @@ def init_from_json(json_dict: DCMJson, dicom_file_ref: T) -> T:
   Raises:
      KeyError or IndexError: Invalid Json
   """
-  return _fill_ref('JSON', json_dict, _get_json_keyword_value, dicom_file_ref)
+  return _fill_ref('JSON', json_dict, _get_json_keyword_value, dicom_file_ref)  # pyrefly: ignore[bad-argument-type]

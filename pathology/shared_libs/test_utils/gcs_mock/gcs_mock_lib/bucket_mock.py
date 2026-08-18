@@ -316,7 +316,7 @@ class BucketMock:
       google.api_core.exceptions.NotFound: Blob bucket does not exist.
     """
     return self._get_client(client).list_blobs(
-        self.name,
+        self.name,  # pyrefly: ignore[bad-argument-type]
         max_results,
         page_token,
         prefix,
@@ -430,7 +430,7 @@ class BucketMock:
         response.
       retry: (Optional) How to retry the RPC.
     """
-    del (
+    del (  # pyrefly: ignore[unsupported-delete]
         force,
         if_metageneration_match,
         if_metageneration_not_match,

@@ -387,9 +387,9 @@ class DicomStandardIODUtil(object):
       DICOMSpecMetadataError: DICOM IOD name not found.
     """
     if require_modules is None:
-      require_modules = set()
+      require_modules = set()  # pyrefly: ignore[bad-assignment]
     else:
-      require_modules = {_module_name_search(name) for name in require_modules}
+      require_modules = {_module_name_search(name) for name in require_modules}  # pyrefly: ignore[bad-assignment]
     module_list = self._iod_modules.get(self._get_iod_primary_module(iod_name))
     if module_list is None:
       raise DICOMSpecMetadataError(f'IOD: {iod_name} not found.')
@@ -398,9 +398,9 @@ class DicomStandardIODUtil(object):
       name = module['name']
       ref = module['ref']
       usage = module['usage']
-      if usage != 'M' and _module_name_search(name) in require_modules:
+      if usage != 'M' and _module_name_search(name) in require_modules:  # pyrefly: ignore[not-iterable]
         usage = 'M'
-      return_module_list.append(ModuleDef(name, ref, usage))
+      return_module_list.append(ModuleDef(name, ref, usage))  # pyrefly: ignore[bad-argument-type]
     return return_module_list
 
   def get_iod_functional_group_modules(
@@ -500,9 +500,9 @@ class DicomStandardIODUtil(object):
     """
     if module is None:
       return [module.ref for module in self.get_iod_modules(iod_name)]
-    for module in self.get_iod_modules(iod_name):
-      if module.name == module:
-        return module.ref
+    for module in self.get_iod_modules(iod_name):  # pyrefly: ignore[bad-assignment]
+      if module.name == module:  # pyrefly: ignore[missing-attribute]
+        return module.ref  # pyrefly: ignore[missing-attribute]
 
   def is_repeated_group_element_tag(self, tag_address: str) -> bool:
     """Returns True if tag address defines a repeated group element tag address.

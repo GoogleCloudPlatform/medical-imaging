@@ -34,7 +34,7 @@ class InferencePubSubMsg(abstract_pubsub_msg.AbstractPubSubMsg):
   """Decodes and stores pub/sub msg received from inference pipeline."""
 
   def __init__(
-      self, msg: pubsub_v1.types.ReceivedMessage, parse_legacy_pipeline_msg=True
+      self, msg: pubsub_v1.types.ReceivedMessage, parse_legacy_pipeline_msg=True  # pyrefly: ignore[missing-attribute]
   ):
     super().__init__(msg)
     try:
@@ -59,7 +59,7 @@ class InferencePubSubMsg(abstract_pubsub_msg.AbstractPubSubMsg):
 
   def _parse_inference_pipeline_msg(self):
     try:
-      inference_msg = inference_pubsub_message.OutputPubSubMessage.from_json(
+      inference_msg = inference_pubsub_message.OutputPubSubMessage.from_json(  # pyrefly: ignore[missing-attribute]
           self._received_msg.message.data.decode('utf-8')
       )
     except json.decoder.JSONDecodeError as exp:

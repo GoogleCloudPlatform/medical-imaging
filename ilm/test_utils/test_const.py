@@ -40,7 +40,7 @@ ILM_CONFIG = ilm_config.ImageLifecycleManagementConfig(
         ),
         log_entries_date_equal_or_after='20231120',
     ),
-    instances_disallow_list=frozenset([INSTANCE_DISALLOW_LIST]),
+    instances_disallow_list=frozenset([INSTANCE_DISALLOW_LIST]),  # pyrefly: ignore[bad-argument-type]
     storage_class_config=ilm_config.StorageClassConfig(
         move_rules=[
             ilm_config.MoveRule(
@@ -56,7 +56,7 @@ ILM_CONFIG = ilm_config.ImageLifecycleManagementConfig(
             ilm_config.MoveRule(
                 from_storage_class=ilm_config.StorageClass.ARCHIVE,
                 to_storage_class=ilm_config.StorageClass.STANDARD,
-                upgrade_conditions=[
+                upgrade_conditions=[  # pyrefly: ignore[bad-argument-type]
                     ilm_config.ToLowerAvailabilityCondition(modality='CR'),
                 ],
             ),

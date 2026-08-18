@@ -585,7 +585,7 @@ class _MissingSeriesRedirectTestContext(contextlib.ExitStack):
     self._base_url = base_url
     self._param = param
 
-  def __enter__(self) -> contextlib.ExitStack:
+  def __enter__(self) -> contextlib.ExitStack:  # pyrefly: ignore[bad-override]
     super().__enter__()
     self.enter_context(
         mock.patch.object(
@@ -850,7 +850,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
     }
     header = {'accept': ' Image/Jpeg '}
     result = dicom_proxy_blueprint._parse_request_params(
-        params, header, _Compression.JPEG, rendered_request=True
+        params, header, _Compression.JPEG, rendered_request=True  # pyrefly: ignore[bad-argument-type]
     )
     self.assertEqual(result.downsample, 2.5)
     self.assertEqual(result.interpolation, _Interpolation.AREA)
@@ -1213,7 +1213,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
       self, dcm, expected_bulkdata_tags
   ):
     try:
-      bulkdata_util._is_debugging = False
+      bulkdata_util._is_debugging = False  # pyrefly: ignore[missing-attribute]
       metadata = _dicom_instance_search(
           dcm, True, proxy_root='https://proxy.com', proxy_path='tile'
       )
@@ -1228,7 +1228,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
       )
       self.assertEqual(md, expected_bulkdata_tags)
     finally:
-      bulkdata_util._is_debugging = True
+      bulkdata_util._is_debugging = True  # pyrefly: ignore[missing-attribute]
 
   def test_get_sparse_dicom_instance_tags(self):
     dcm = _mock_sparse_dicom()
@@ -1327,7 +1327,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
       expected_bulkdata_tags,
   ):
     try:
-      bulkdata_util._is_debugging = False
+      bulkdata_util._is_debugging = False  # pyrefly: ignore[missing-attribute]
       metadata = _dicom_metadata_search(
           dcm, True, proxy_root='https://proxy.com', proxy_path='tile'
       )
@@ -1342,7 +1342,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
       )
       self.assertEqual(md, expected_bulkdata_tags)
     finally:
-      bulkdata_util._is_debugging = True
+      bulkdata_util._is_debugging = True  # pyrefly: ignore[missing-attribute]
 
   def test_get_wsi_instance_tags_success(self):
     dcm = shared_test_util.jpeg_encoded_dicom_instance()

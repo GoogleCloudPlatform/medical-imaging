@@ -33,7 +33,7 @@ GUNICORN_WORKERS_FLG = flags.DEFINE_integer(
     'gunicorn_workers',
     int(
         secret_flag_utils.get_secret_or_env(
-            'GUNICORN_WORKERS', int(os.cpu_count() * 3.4)
+            'GUNICORN_WORKERS', int(os.cpu_count() * 3.4)  # pyrefly: ignore[unsupported-operation]
         )
     ),
     'Number of processes GUnicorn should launch',
@@ -114,6 +114,33 @@ ALLOW_CREDENTIALS_FLG = flags.DEFINE_boolean(
     'allow_credentials',
     secret_flag_utils.get_bool_secret_or_env('ALLOW_CREDENTIALS', False),
     'Allow credentials.',
+)
+
+CORS_MAX_AGE_FLG = flags.DEFINE_integer(
+    'cors_max_age',
+    int(secret_flag_utils.get_secret_or_env('CORS_MAX_AGE', 3600)),
+    (
+        'Number of seconds browsers may cache a CORS preflight response. '
+        'Set to 0 to disable caching.'
+    ),
+)
+
+# When the proxy injects its own service-account credentials (i.e.
+# ENABLE_APPLICATION_DEFAULT_CREDENTIALS is True), a client-supplied
+# Authorization header conflicts with those credentials and causes the
+# upstream Cloud Healthcare API to return HTTP 500.  Enable this flag to
+# strip inbound Authorization headers before they are forwarded upstream.
+STRIP_INBOUND_AUTHORIZATION_FLG = flags.DEFINE_boolean(
+    'strip_inbound_authorization',
+    secret_flag_utils.get_bool_secret_or_env(
+        'STRIP_INBOUND_AUTHORIZATION', False
+    ),
+    (
+        'Strip the inbound Authorization header from requests before proxying '
+        'to the upstream DICOM store. Useful when the proxy injects its own '
+        'service-account credentials and a forwarded Bearer token would '
+        'conflict, causing HTTP 500 errors.'
+    ),
 )
 
 # ICC Profile Cache Config.

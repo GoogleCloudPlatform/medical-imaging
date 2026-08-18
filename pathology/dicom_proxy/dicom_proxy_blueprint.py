@@ -458,11 +458,11 @@ def _missing_series_uid_redirect(
     for the Series Instance UID.
   """
   headers = user_auth_util.AuthSession(flask_util.get_headers())
-  study_instance_uid = dicom_url_util.StudyInstanceUID(study_instance_uid)
-  sop_instance_uid = dicom_url_util.SOPInstanceUID(sop_instance_uid)
+  study_instance_uid = dicom_url_util.StudyInstanceUID(study_instance_uid)  # pyrefly: ignore[bad-assignment]
+  sop_instance_uid = dicom_url_util.SOPInstanceUID(sop_instance_uid)  # pyrefly: ignore[bad-assignment]
   try:
     s_uid = metadata_util.get_series_instance_uid_for_study_and_instance_uid(
-        headers, url_base, study_instance_uid, sop_instance_uid
+        headers, url_base, study_instance_uid, sop_instance_uid  # pyrefly: ignore[bad-argument-type]
     )
   except metadata_util.GetSeriesInstanceUIDError as exp:
     cloud_logging_client.debug(

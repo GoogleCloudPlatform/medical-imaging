@@ -532,8 +532,8 @@ def validate_dicom_files(
     )
 
   return DicomFileInfo(
-      study_uid,
-      series_uid,
+      study_uid,  # pyrefly: ignore[bad-argument-type]
+      series_uid,  # pyrefly: ignore[bad-argument-type]
       barcode_value,
       original_image,
       wsi_image_filerefs,

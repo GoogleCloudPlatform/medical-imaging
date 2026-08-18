@@ -705,7 +705,7 @@ def _get_pydicom_sopclassuid(dcm_bytes: IO[bytes]) -> str:
     pydicom.errors.InvalidDicomError: Bytes are invalid.
   """
   with pydicom.dcmread(
-      dcm_bytes, specific_tags=[_SOP_CLASS_UID_DICOM_TAG_ADDRESS]
+      dcm_bytes, specific_tags=[_SOP_CLASS_UID_DICOM_TAG_ADDRESS]  # pyrefly: ignore[bad-argument-type]
   ) as dcm:
     return dcm.SOPClassUID
 
@@ -857,7 +857,7 @@ def store_instance(
             )
           # Upload instance to DICOM store using service account credientals.
           return _upload_wsi_annotation(
-              service_account, dcm, store_instance_path, headers
+              service_account, dcm, store_instance_path, headers  # pyrefly: ignore[bad-argument-type]
           )
       except pydicom.errors.InvalidDicomError as exp:
         cloud_logging_client.error('Invalid DICOM instance.', base_log, exp)

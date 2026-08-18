@@ -728,7 +728,7 @@ def set_sop_instance_uid(ds: pydicom.Dataset, sop_instance_uid: str) -> None:
     ds: Py_dicom_dataset.
     sop_instance_uid: SOP instance UID to use.
   """
-  ds.file_meta.MediaStorageSOPInstanceUID = sop_instance_uid
+  ds.file_meta.MediaStorageSOPInstanceUID = sop_instance_uid  # pyrefly: ignore[bad-assignment]
   ds.SOPInstanceUID = sop_instance_uid
 
 
@@ -941,7 +941,7 @@ def add_metadata_to_generated_wsi_dicom(
   dicom_json_util.merge_json_metadata_with_pydicom_ds(dcm_file, dcm_json)
   set_frametype_to_imagetype(dcm_file)
   dcm_file.file_meta.ImplementationClassUID = (
-      ingest_const.WSI_IMPLEMENTATION_CLASS_UID
+      ingest_const.WSI_IMPLEMENTATION_CLASS_UID  # pyrefly: ignore[bad-assignment]
   )
   dcm_file.file_meta.ImplementationVersionName = (
       ingest_const.IMPLEMENTATION_VERSION_NAME
@@ -1122,7 +1122,7 @@ def set_all_defined_pydicom_tags(
     None
   """
   set_defined_pydicom_tags(
-      dcm, tag_value_map, tag_value_map, overwrite_existing_values=True
+      dcm, tag_value_map, tag_value_map, overwrite_existing_values=True  # pyrefly: ignore[bad-argument-type]
   )  # pytype: disable=wrong-arg-types  # mapping-is-not-sequence
 
 

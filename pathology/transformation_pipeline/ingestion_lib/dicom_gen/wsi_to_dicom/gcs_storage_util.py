@@ -61,7 +61,7 @@ def move_ingested_dicom_and_publish_ingest_complete(
   if (
       delete_file_in_ingestion_bucket_at_ingest_success_or_failure
       and not cloud_storage_client.del_blob(
-          uri=source_uri, ignore_file_not_found=True
+          uri=source_uri, ignore_file_not_found=True  # pyrefly: ignore[bad-argument-type]
       )
   ):
     raise CloudStorageBlobMoveError()

@@ -132,7 +132,7 @@ class IngestionCompletePubsubTest(parameterized.TestCase):
         imaged_volume_height: '40',
         total_pixel_matrix_rows: '200',
     }]
-    ingestion_complete_pubsub._add_derived_pixel_spacing(ingest_dicoms)
+    ingestion_complete_pubsub._add_derived_pixel_spacing(ingest_dicoms)  # pyrefly: ignore[bad-argument-type]
     self.assertDictEqual(
         ingest_dicoms[0],
         {
@@ -304,7 +304,7 @@ class IngestionCompletePubsubTest(parameterized.TestCase):
           inference_config=inference_config,
       )
     with self.assertRaises(inference_pubsub_message.PubSubValidationError):
-      inference_pubsub_message.InferencePubSubMessage.from_json(
+      inference_pubsub_message.InferencePubSubMessage.from_json(  # pyrefly: ignore[missing-attribute]
           pubsub_msg.message.decode('utf-8')
       )
 
@@ -361,10 +361,8 @@ class IngestionCompletePubsubTest(parameterized.TestCase):
             'pubsub_topic_name': _PUBSUB_TOPIC_NAME,
         },
     )
-    inference_pubsub = (
-        inference_pubsub_message.InferencePubSubMessage.from_json(
-            pubsub_msg.message.decode('utf-8')
-        )
+    inference_pubsub = inference_pubsub_message.InferencePubSubMessage.from_json(  # pyrefly: ignore[missing-attribute]
+        pubsub_msg.message.decode('utf-8')
     )
     self.assertEqual(
         inference_pubsub.image_refs,

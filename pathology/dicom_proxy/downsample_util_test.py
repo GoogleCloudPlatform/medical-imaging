@@ -88,8 +88,8 @@ def _get_local_dicom_instance_and_params(
   cache = pydicom_single_instance_read_cache.PyDicomSingleInstanceCache(path)
   if params is None:
     params = {}
-  params = _RenderFrameParams(**params)
-  return (_LocalDicomInstance(cache), params)
+  params = _RenderFrameParams(**params)  # pyrefly: ignore[bad-assignment]
+  return (_LocalDicomInstance(cache), params)  # pyrefly: ignore[bad-return]
 
 
 def _get_jpeg_encoded_dicom_local_instance_and_params(

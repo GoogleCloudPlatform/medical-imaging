@@ -172,7 +172,7 @@ def _get_candidate_slide_ids_from_filename(
         ingest_const.ErrorMsgs.FILENAME_MISSING_SLIDE_METADATA_PRIMARY_KEY,
         _FILENAME_MISSING_SLIDE_METADATA_PRIMARY_KEY_ERROR_LEVEL,
     )
-  log['candidate_slide_metadata_primary_keys'] = candidate_slide_ids
+  log['candidate_slide_metadata_primary_keys'] = candidate_slide_ids  # pyrefly: ignore[unsupported-operation]
   cloud_logging_client.info(
       f'Identified candidate slide metadata primary key(s) in {filename}.', log
   )
@@ -298,7 +298,7 @@ def get_slide_id_from_filename(
       ' metadata primary key.',
       {'tested_slide_id_candidates': candidate_slide_ids},
   )
-  raise current_exception
+  raise current_exception  # pyrefly: ignore[bad-raise]
 
 
 def get_slide_id_from_ancillary_images(
@@ -357,7 +357,7 @@ def get_slide_id_from_ancillary_images(
       return slide_id
     except SlideIdIdentificationError as exp:
       current_exception = highest_error_level_exception(current_exception, exp)
-  raise current_exception
+  raise current_exception  # pyrefly: ignore[bad-raise]
 
 
 def get_metadata_free_slide_id(

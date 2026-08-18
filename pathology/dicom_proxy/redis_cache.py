@@ -239,7 +239,7 @@ class RedisCache:
               'new_value': new_value,
           },
       )
-      return result
+      return result  # pyrefly: ignore[bad-return]
     except redis.exceptions.ConnectionError:
       self._cache_enabled = cache_enabled_type.CachingEnabled(False)
     return False
@@ -285,7 +285,7 @@ class RedisCache:
         return result
       if result == _REDIS_NONE_VALUE:
         return RedisResult(None)
-      return RedisResult(result)
+      return RedisResult(result)  # pyrefly: ignore[bad-argument-type]
     except redis.exceptions.ConnectionError as exp:
       cloud_logging_client.warning('Error getting value from Redis Cache.', exp)
       return None
@@ -369,7 +369,7 @@ class RedisCache:
             f' {flush_interval}, time: {time.time()}'
         )
         try:
-          lazyfree_pending_objects = self._redis.info('memory').get(
+          lazyfree_pending_objects = self._redis.info('memory').get(  # pyrefly: ignore[missing-attribute]
               'lazyfree_pending_objects', 0
           )
           if lazyfree_pending_objects > 0:
@@ -397,7 +397,7 @@ class RedisCache:
 
   def delete(self, cache_key: str) -> int:
     try:
-      return self._redis.delete(cache_key)
+      return self._redis.delete(cache_key)  # pyrefly: ignore[bad-return]
     except redis.exceptions.ConnectionError:
       return 0
 

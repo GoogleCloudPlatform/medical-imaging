@@ -178,10 +178,10 @@ def _crop_dicom_to_frame_edge(
 
 if __name__ == '__main__':
   _crop_dicom_to_frame_edge(
-      SOURCE_DICOM_INSTANCE_FLG.value,
+      SOURCE_DICOM_INSTANCE_FLG.value,  # pyrefly: ignore[bad-argument-type]
       ORIGIN_X_PIXEL_FLG.value,
       ORIGIN_Y_PIXEL_FLG.value,
-      WIDTH_FLG.value,
-      HEIGHT_FLG.value,
-      OUTPUT_DICOM_INSTANCE_FLG.value,
+      WIDTH_FLG.value,  # pyrefly: ignore[bad-argument-type]
+      HEIGHT_FLG.value,  # pyrefly: ignore[bad-argument-type]
+      OUTPUT_DICOM_INSTANCE_FLG.value,  # pyrefly: ignore[bad-argument-type]
   )

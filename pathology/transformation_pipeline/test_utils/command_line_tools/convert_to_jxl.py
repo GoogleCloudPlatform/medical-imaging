@@ -102,7 +102,7 @@ def transform_dicom_pixel_data(unused_args: Sequence[str]) -> None:
   transcode_jpeg = transcode_jpeg_flag.value
   if output_filename is None:
     output_filename = input_filename
-  with pydicom.dcmread(input_filename) as ds:
+  with pydicom.dcmread(input_filename) as ds:  # pyrefly: ignore[bad-argument-type]
     if ds.DimensionOrganizationType != 'TILED_FULL':
       raise ValueError(
           'DimensionOrganizationType is not TILED_FULL. '
@@ -144,19 +144,19 @@ def transform_dicom_pixel_data(unused_args: Sequence[str]) -> None:
         * ds.TotalPixelMatrixRows
         * ds.TotalPixelMatrixFocalPlanes
     ) / len(ds.PixelData)
-    ds.file_meta.TransferSyntaxUID = transfer_syntax_uid
+    ds.file_meta.TransferSyntaxUID = transfer_syntax_uid  # pyrefly: ignore[bad-assignment]
     # pylint: disable=unexpected-keyword-arg
     if _PYDICOM_MAJOR_VERSION <= 2:
       ds.is_implicit_VR = False
       ds.is_little_endian = True
-      ds.save_as(output_filename, write_like_original=False)
+      ds.save_as(output_filename, write_like_original=False)  # pyrefly: ignore[bad-argument-type]
     else:
       ds.save_as(
-          output_filename,
-          enforce_file_format=False,
-          little_endian=ds.file_meta.TransferSyntaxUID != '1.2.840.10008.1.2.2',
-          implicit_vr=ds.file_meta.TransferSyntaxUID == '1.2.840.10008.1.2',
-          force_encoding=True,
+          output_filename,  # pyrefly: ignore[bad-argument-type]
+          enforce_file_format=False,  # pyrefly: ignore[unexpected-keyword]
+          little_endian=ds.file_meta.TransferSyntaxUID != '1.2.840.10008.1.2.2',  # pyrefly: ignore[unexpected-keyword]
+          implicit_vr=ds.file_meta.TransferSyntaxUID == '1.2.840.10008.1.2',  # pyrefly: ignore[unexpected-keyword]
+          force_encoding=True,  # pyrefly: ignore[unexpected-keyword]
       )
     # pylint: enable=unexpected-keyword-arg
 

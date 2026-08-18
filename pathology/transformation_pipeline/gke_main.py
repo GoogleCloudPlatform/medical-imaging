@@ -149,7 +149,7 @@ def _run_default_ingest() -> None:
       ingest_failed_uri=ingest_flags.INGEST_FAILED_URI_FLG.value,
       dicom_store_web_path=ingestion_dicom_store_urls.get_main_dicom_web_url(),
       ingest_ignore_root_dirs=frozenset(
-          ingest_flags.INGEST_IGNORE_ROOT_DIR_FLG.value
+          ingest_flags.INGEST_IGNORE_ROOT_DIR_FLG.value  # pyrefly: ignore[bad-argument-type]
       ),
       metadata_client=metadata_client,
       oof_trigger_config=_get_oof_trigger_config(),

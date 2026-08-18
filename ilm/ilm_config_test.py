@@ -73,7 +73,7 @@ _ILM_CONFIG = ilm_config.ImageLifecycleManagementConfig(
     dry_run=True,
     dicom_store_config=_DICOM_STORE_CONFIG,
     logs_config=_LOGS_CONFIG,
-    instances_disallow_list=['instance0', 'instance1'],
+    instances_disallow_list=['instance0', 'instance1'],  # pyrefly: ignore[bad-argument-type]
     storage_class_config=ilm_config.StorageClassConfig(
         move_rules=[_MOVE_RULE_DOWNGRADE, _MOVE_RULE_UPGRADE],
     ),

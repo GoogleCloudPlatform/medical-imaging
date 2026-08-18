@@ -738,7 +738,7 @@ class ImageRef:
                 project=self.gcp_project
             )
           blob.reload(client=ImageRefGCPClientCache.client)
-        self.size_b += blob.size
+        self.size_b += blob.size  # pyrefly: ignore[unsupported-operation]
     return self.size_b
 
 
@@ -1063,7 +1063,7 @@ def _load_dataset_description() -> Mapping[str, Dataset]:
       raise ValueError(msg)
     value = {key.lower().strip(): val for key, val in value.items()}
     ds = Dataset(
-        value.get('name', key), value.get('path'), value.get('is_wsi', True)
+        value.get('name', key), value.get('path'), value.get('is_wsi', True)  # pyrefly: ignore[bad-argument-type]
     )
     if (
         isinstance(key, str)
@@ -1194,7 +1194,7 @@ def update_dcm(
   dcm.BarcodeValue = '' if IDENTIFY_DICOM_BY_FILENAME_FLG.value else barcode
   dcm.StudyInstanceUID = study_uid
   dcm.SeriesInstanceUID = series_uid
-  dcm.file_meta.MediaStorageSOPInstanceUID = sop_instance_uid
+  dcm.file_meta.MediaStorageSOPInstanceUID = sop_instance_uid  # pyrefly: ignore[bad-assignment]
   dcm.SOPInstanceUID = sop_instance_uid
   if HASH_PRIVATE_TAG in dcm:
     del dcm[HASH_PRIVATE_TAG]
@@ -1429,12 +1429,12 @@ class LocalWriter(Writer):
 
   def write_metadata(self, metadata_path: str):
     shutil.copy(
-        metadata_path, os.path.join(self._output_dir, OUTPUT_CSV_FILENAME)
+        metadata_path, os.path.join(self._output_dir, OUTPUT_CSV_FILENAME)  # pyrefly: ignore[no-matching-overload]
     )
 
   def write_image(self, image_path: str):
     shutil.copy(
-        image_path, os.path.join(self._output_dir, os.path.basename(image_path))
+        image_path, os.path.join(self._output_dir, os.path.basename(image_path))  # pyrefly: ignore[no-matching-overload]
     )
 
 
@@ -1445,7 +1445,7 @@ class GcsWriter(Writer):
     self._images_bucket = GCS_OUTPUT_IMAGES_URI_FLG.value
     self._gcp_project = GCP_OUTPUT_PROJECT_FLG.value
     self._storage_client = storage.Client(GCP_OUTPUT_PROJECT_FLG.value)
-    cloud_storage_client.reset_storage_client(self._gcp_project)
+    cloud_storage_client.reset_storage_client(self._gcp_project)  # pyrefly: ignore[bad-argument-type]
 
   def write_metadata(self, metadata_path: str):
     if BIG_QUERY_TABLE_ID_FLG.value:
@@ -1468,7 +1468,7 @@ class DicomStoreWriter(Writer):
     )
     self._gcp_project = GCP_OUTPUT_PROJECT_FLG.value
     self._storage_client = storage.Client(GCP_OUTPUT_PROJECT_FLG.value)
-    cloud_storage_client.reset_storage_client(self._gcp_project)
+    cloud_storage_client.reset_storage_client(self._gcp_project)  # pyrefly: ignore[bad-argument-type]
 
   def write_metadata(self, metadata_path: str):
     if BIG_QUERY_TABLE_ID_FLG.value:
@@ -1579,8 +1579,8 @@ def cleanup_artifacts(study_instance_uids: List[str], primary_keys: List[str]):
     primary_keys: List of primary keys values to delete from Big Query Table.
   """
   # Remove duplicates.
-  study_instance_uids = set(study_instance_uids)
-  primary_keys = set(primary_keys)
+  study_instance_uids = set(study_instance_uids)  # pyrefly: ignore[bad-assignment]
+  primary_keys = set(primary_keys)  # pyrefly: ignore[bad-assignment]
 
   if CLEANUP_ARTIFACTS_DELAY_SECONDS_FLG.value > 0:
     logging.info(
@@ -1591,7 +1591,7 @@ def cleanup_artifacts(study_instance_uids: List[str], primary_keys: List[str]):
     _wait(CLEANUP_ARTIFACTS_DELAY_SECONDS_FLG.value)
 
   logging.info('Cleaning up metadata CSV...')
-  cloud_storage_client.reset_storage_client(GCP_OUTPUT_PROJECT_FLG.value)
+  cloud_storage_client.reset_storage_client(GCP_OUTPUT_PROJECT_FLG.value)  # pyrefly: ignore[bad-argument-type]
   cloud_storage_client.del_blob(get_gcs_output_metadata_path())
 
   bq_table_id = BIG_QUERY_TABLE_ID_FLG.value

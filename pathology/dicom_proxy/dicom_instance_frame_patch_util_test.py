@@ -242,7 +242,7 @@ class DicomInstanceFramePatchUtilTest(parameterized.TestCase):
       expected_img_bytes = infile.read()
     cache = shared_test_util.jpeg_encoded_pydicom_instance_cache()
     frames = {
-        fn: image_util.decode_image_bytes(cache.get_frame(fn), cache.metadata)
+        fn: image_util.decode_image_bytes(cache.get_frame(fn), cache.metadata)  # pyrefly: ignore[bad-argument-type]
         for fn in range(cache.metadata.number_of_frames)
     }
     metadata = cache.metadata
@@ -275,7 +275,7 @@ class DicomInstanceFramePatchUtilTest(parameterized.TestCase):
     )
     self.assertEqual(img.shape, (metadata.rows, metadata.columns, 3))
     self.assertTrue(
-        shared_test_util.rgb_image_almost_equal(encoded_img, expected_img_bytes)
+        shared_test_util.rgb_image_almost_equal(encoded_img, expected_img_bytes)  # pyrefly: ignore[bad-argument-type]
     )
 
 

@@ -118,7 +118,7 @@ class _GenTestDicom:
     self._dcm.SpecimenLabelInImage = 'NO'
     self._dcm.DimensionOrganizationType = ingest_const.TILED_FULL
     self._dcm.file_meta.TransferSyntaxUID = (
-        ingest_const.DicomImageTransferSyntax.EXPLICIT_VR_LITTLE_ENDIAN
+        ingest_const.DicomImageTransferSyntax.EXPLICIT_VR_LITTLE_ENDIAN  # pyrefly: ignore[bad-assignment]
     )
     self._set_image_frame_type(image_type)
 
@@ -471,7 +471,7 @@ class ValidateIngestedDicomTest(parameterized.TestCase):
     self.assertEqual(original_ref.study_instance_uid, result.study_uid)
     self.assertEqual(original_ref.series_instance_uid, result.series_uid)
     self.assertEqual(original_ref.barcode_value, result.barcode_value)
-    self.assertTrue(original_ref.equals(result.original_image))
+    self.assertTrue(original_ref.equals(result.original_image))  # pyrefly: ignore[bad-argument-type]
     self.assertLen(result.wsi_image_filerefs, len(dcm_list))
     returned_wsi_filerefs = set(result.wsi_image_filerefs)
     for path in dcm_list:
@@ -574,7 +574,7 @@ class ValidateIngestedDicomTest(parameterized.TestCase):
       self, image_type
   ):
     dcm_list, original_dcm = self._gen_first_dicom(image_type)
-    original_dcm.file_meta.TransferSyntaxUID = '1.2.3'
+    original_dcm.file_meta.TransferSyntaxUID = '1.2.3'  # pyrefly: ignore[bad-assignment]
     original_dcm.save_as(dcm_list[0])
     dcm_list = ingest_wsi_dicom.get_dicom_filerefs_list(dcm_list)
     with self.assertRaises(ingested_dicom_file_ref.DicomIngestError):

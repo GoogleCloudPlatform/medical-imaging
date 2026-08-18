@@ -99,7 +99,7 @@ class PubSubAckTimeoutMonitor(threading.Thread):
             'Pub/sub message ack timeout will not be extended.'
         )
         return
-      self._current_msg_extended_ack_timeout = 0.0
+      self._current_msg_extended_ack_timeout = 0.0  # pyrefly: ignore[bad-assignment]
       self._current_msg_ack_id = current_msg.ack_id
       self._current_msg_start_time = current_msg_start_time
       self._was_message_just_initialized = True  # Set message_init to true to
@@ -112,7 +112,7 @@ class PubSubAckTimeoutMonitor(threading.Thread):
     if self._current_msg_ack_id is None:
       return
     if self._subscription_path:
-      self._pubsub_subscriber.modify_ack_deadline(
+      self._pubsub_subscriber.modify_ack_deadline(  # pyrefly: ignore[missing-attribute]
           request={
               'subscription': self._subscription_path,
               'ack_ids': [self._current_msg_ack_id],
@@ -121,8 +121,8 @@ class PubSubAckTimeoutMonitor(threading.Thread):
               ),  # ack_deadline_seconds
           }
       )
-    elapsed_time = time.time() - self._current_msg_start_time
-    self._current_msg_extended_ack_timeout = elapsed_time
+    elapsed_time = time.time() - self._current_msg_start_time  # pyrefly: ignore[unsupported-operation]
+    self._current_msg_extended_ack_timeout = elapsed_time  # pyrefly: ignore[bad-assignment]
     cloud_logging_client.info(
         'Ack deadline extended',
         {ingest_const.LogKeywords.EXTENDING_ACK_DEADLINE_SEC: elapsed_time},

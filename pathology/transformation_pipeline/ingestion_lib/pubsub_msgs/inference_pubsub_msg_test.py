@@ -48,9 +48,9 @@ _ADDITIONAL_PAYLOAD = {'additional-value': 42}
 class InferencePubsubMsgTest(absltest.TestCase):
 
   def test_legacy_oof_msg_missing_data(self):
-    pubsub_msg = pubsub_v1.types.ReceivedMessage(
+    pubsub_msg = pubsub_v1.types.ReceivedMessage(  # pyrefly: ignore[missing-attribute]
         ack_id='ack_id',
-        message=pubsub_v1.types.PubsubMessage(message_id='message_id'),
+        message=pubsub_v1.types.PubsubMessage(message_id='message_id'),  # pyrefly: ignore[missing-attribute]
     )
     parsed_msg = inference_pubsub_msg.InferencePubSubMsg(
         pubsub_msg, parse_legacy_pipeline_msg=True
@@ -70,9 +70,9 @@ class InferencePubsubMsgTest(absltest.TestCase):
         'model_version': _MODEL_VERSION,
         'additional_params': _ADDITIONAL_PAYLOAD,
     }
-    pubsub_msg = pubsub_v1.types.ReceivedMessage(
+    pubsub_msg = pubsub_v1.types.ReceivedMessage(  # pyrefly: ignore[missing-attribute]
         ack_id='ack_id',
-        message=pubsub_v1.types.PubsubMessage(
+        message=pubsub_v1.types.PubsubMessage(  # pyrefly: ignore[missing-attribute]
             message_id='message_id',
             data=json.dumps(oof_msg_dict).encode('utf-8'),
         ),
@@ -98,9 +98,9 @@ class InferencePubsubMsgTest(absltest.TestCase):
     self.assertEqual(parsed_msg.image_paths, [_HEATMAP_SUBPATH])
 
   def test_inference_msg_missing_data(self):
-    pubsub_msg = pubsub_v1.types.ReceivedMessage(
+    pubsub_msg = pubsub_v1.types.ReceivedMessage(  # pyrefly: ignore[missing-attribute]
         ack_id='ack_id',
-        message=pubsub_v1.types.PubsubMessage(message_id='message_id'),
+        message=pubsub_v1.types.PubsubMessage(message_id='message_id'),  # pyrefly: ignore[missing-attribute]
     )
     parsed_msg = inference_pubsub_msg.InferencePubSubMsg(
         pubsub_msg, parse_legacy_pipeline_msg=False
@@ -122,11 +122,11 @@ class InferencePubsubMsgTest(absltest.TestCase):
         whole_slide_score=_WHOLE_SLIDE_SCORE,
         additional_payload=json.dumps(_ADDITIONAL_PAYLOAD),
     )
-    pubsub_msg = pubsub_v1.types.ReceivedMessage(
+    pubsub_msg = pubsub_v1.types.ReceivedMessage(  # pyrefly: ignore[missing-attribute]
         ack_id='ack_id',
-        message=pubsub_v1.types.PubsubMessage(
+        message=pubsub_v1.types.PubsubMessage(  # pyrefly: ignore[missing-attribute]
             message_id='message_id',
-            data=inference_msg.to_json().encode('utf-8'),
+            data=inference_msg.to_json().encode('utf-8'),  # pyrefly: ignore[missing-attribute]
         ),
     )
     parsed_msg = inference_pubsub_msg.InferencePubSubMsg(

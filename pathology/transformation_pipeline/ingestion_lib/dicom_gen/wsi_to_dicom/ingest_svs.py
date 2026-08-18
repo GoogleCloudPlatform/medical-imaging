@@ -265,7 +265,7 @@ class IngestSVS(ingest_base.IngestBase):
       wsi_dcm_json = self.get_slide_dicom_json_formatted_metadata(
           ingest_const.DicomSopClasses.WHOLE_SLIDE_IMAGE.name,
           self.slide_id,
-          abstract_dicom_handler.dcm_store_client,
+          abstract_dicom_handler.dcm_store_client,  # pyrefly: ignore[bad-argument-type]
       ).dicom_json
       generated_series_instance_uid = ingest_base.initialize_metadata_study_and_series_uids_for_non_dicom_image_triggered_ingestion(
           abstract_dicom_handler,
@@ -296,11 +296,9 @@ class IngestSVS(ingest_base.IngestBase):
           dicom_gen, message_id
       )
 
-      additional_wsi_metadata = (
-          dicom_util.get_additional_wsi_specific_dicom_metadata(
-              abstract_dicom_handler.dcm_store_client,
-              wsi_dcm_json,
-          )
+      additional_wsi_metadata = dicom_util.get_additional_wsi_specific_dicom_metadata(
+          abstract_dicom_handler.dcm_store_client,  # pyrefly: ignore[bad-argument-type]
+          wsi_dcm_json,
       )
       add_metadata_to_wsi_dicom_files(
           dicom_gen,
@@ -315,15 +313,13 @@ class IngestSVS(ingest_base.IngestBase):
       )
       additional_ancillary_dicom_metadata.update(svs_metadata)
       upload_file_list = dicom_gen.generated_dicom_files
-      force_upload_to_main_store_list = (
-          ancillary_dicom_gen.generate_ancillary_dicom(
-              dicom_gen,
-              self._ancillary_images,
-              wsi_dcm_json,
-              private_tags,
-              additional_wsi_metadata,
-              additional_ancillary_dicom_metadata,
-          )
+      force_upload_to_main_store_list = ancillary_dicom_gen.generate_ancillary_dicom(
+          dicom_gen,
+          self._ancillary_images,
+          wsi_dcm_json,
+          private_tags,
+          additional_wsi_metadata,
+          additional_ancillary_dicom_metadata,  # pyrefly: ignore[bad-argument-type]
       )
       dest_uri = self.ingest_succeeded_uri
     except (

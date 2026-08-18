@@ -645,7 +645,7 @@ class GenerateReportDoFn(beam.DoFn):
             condition_results.unfinished_count,
         )
         summarized_report_results.append(
-            csv_separator.join([
+            csv_separator.join([  # pyrefly: ignore[bad-argument-type]
                 str(i)
                 for i in [
                     from_storage_class.value,
@@ -661,7 +661,7 @@ class GenerateReportDoFn(beam.DoFn):
         )
         if self._detailed_report:
           detailed_report_results.append(
-              csv_separator.join([
+              csv_separator.join([  # pyrefly: ignore[bad-argument-type]
                   str(i)
                   for i in [
                       from_storage_class.value,

@@ -47,7 +47,7 @@ def run() -> None:
   logging.info(
       'Starting pipeline with options %s and ILM config %s',
       pipeline_options.get_all_options(),
-      json.dumps(json.loads(ilm_cfg.to_json()), indent=2),
+      json.dumps(json.loads(ilm_cfg.to_json()), indent=2),  # pyrefly: ignore[missing-attribute]
   )
 
   with beam.Pipeline(options=pipeline_options) as pipeline:

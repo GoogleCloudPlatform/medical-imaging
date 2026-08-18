@@ -141,10 +141,10 @@ class AncillaryDicomGenTest(parameterized.TestCase):
     shutil.copyfile(test_img_path, test_img)
 
     ds = pydicom.dataset.Dataset()
-    ds.file_meta = pydicom.dataset.Dataset()
-    ds.file_meta.MediaStorageSOPClassUID = '1.2.840.10008.5.1.4.1.1.77.1.6'
-    ds.file_meta.TransferSyntaxUID = '1.2.840.10008.1.2.4.50'
-    ds.file_meta.MediaStorageSOPInstanceUID = '4.5.6'
+    ds.file_meta = pydicom.dataset.Dataset()  # pyrefly: ignore[bad-assignment]
+    ds.file_meta.MediaStorageSOPClassUID = '1.2.840.10008.5.1.4.1.1.77.1.6'  # pyrefly: ignore[bad-assignment]
+    ds.file_meta.TransferSyntaxUID = '1.2.840.10008.1.2.4.50'  # pyrefly: ignore[bad-assignment]
+    ds.file_meta.MediaStorageSOPInstanceUID = '4.5.6'  # pyrefly: ignore[bad-assignment]
     ds.PatientName = 'test'
     ds.StudyInstanceUID = '1.2.3'
     ds.SeriesInstanceUID = '4.5.6'

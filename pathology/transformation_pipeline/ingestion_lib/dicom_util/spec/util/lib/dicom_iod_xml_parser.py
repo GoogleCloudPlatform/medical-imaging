@@ -401,7 +401,7 @@ class DicomIodXmlParser(dicom_abstract_xml_parser.DicomAbstractXmlParser):
           obj = InlineObject(3)
         if obj is not None:
           for val in parsed_row:
-            obj.set_val(val)
+            obj.set_val(val)  # pyrefly: ignore[bad-argument-type]
           if obj.is_init():
             line_block.append(obj)
         elif len(parsed_row) == 2:
@@ -414,7 +414,7 @@ class DicomIodXmlParser(dicom_abstract_xml_parser.DicomAbstractXmlParser):
           if _FUNCTIONAL_GROUP_MACRO_REGEX.fullmatch(first_line):  # pytype: disable=attribute-error
             prefix_offset = first_line.index('Include') + len('Include')
             obj = LinkedObject(
-                prefix=first_line[:prefix_offset],
+                prefix=first_line[:prefix_offset],  # pyrefly: ignore[bad-argument-type]
                 linked_resource='table_IODFunctionalGroupMacros',
             )
             line_block.append(obj)

@@ -36,7 +36,7 @@ class PollingClientTest(parameterized.TestCase):
 
   def setUp(self):
     super().setUp()
-    sub_def = pubsub_v1.types.Subscription()
+    sub_def = pubsub_v1.types.Subscription()  # pyrefly: ignore[missing-attribute]
     sub_def.ack_deadline_seconds = 600
     sub_def.expiration_policy.ttl = pubsub_v1.types.duration_pb2.Duration(
         seconds=0
@@ -94,7 +94,7 @@ class PollingClientTest(parameterized.TestCase):
     # results in the mock leaking an instance of the polling client. In lue of
     # mocking, method call is replaced and method call counting is done directly
     # in the unit test.
-    handler.process_message = self._mock_process_msg
+    handler.process_message = self._mock_process_msg  # pyrefly: ignore[bad-assignment]
     return handler
 
   @flagsaver.flagsaver(pod_hostname='test_pod')
@@ -240,7 +240,7 @@ class PollingClientTest(parameterized.TestCase):
   )
   @mock.patch.object(pubsub_v1.SubscriberClient, 'pull', autospec=True)
   def test_run_ingestion_no_message_succeeds(self, pubsub_mock, run_mk):
-    pubsub_mock.return_value = pubsub_v1.types.PullResponse(
+    pubsub_mock.return_value = pubsub_v1.types.PullResponse(  # pyrefly: ignore[missing-attribute]
         received_messages=[]
     )
     with polling_client.PollingClient(
@@ -265,9 +265,9 @@ class PollingClientTest(parameterized.TestCase):
   def test_run_ingestion_one_message_succeeds(
       self, handler_decode_mk, pubsub_mk, run_mk
   ):
-    pubsub_msg = pubsub_v1.types.ReceivedMessage(
+    pubsub_msg = pubsub_v1.types.ReceivedMessage(  # pyrefly: ignore[missing-attribute]
         ack_id='ack_id',
-        message=pubsub_v1.types.PubsubMessage(
+        message=pubsub_v1.types.PubsubMessage(  # pyrefly: ignore[missing-attribute]
             message_id='message_id',
             attributes={'eventType': 'OBJECT_FINALIZE'},
             data=json.dumps({
@@ -276,7 +276,7 @@ class PollingClientTest(parameterized.TestCase):
             }).encode('utf-8'),
         ),
     )
-    pubsub_mk.return_value = pubsub_v1.types.PullResponse(
+    pubsub_mk.return_value = pubsub_v1.types.PullResponse(  # pyrefly: ignore[missing-attribute]
         received_messages=[pubsub_msg]
     )
     handler_decode_mk.return_value = (
@@ -307,15 +307,15 @@ class PollingClientTest(parameterized.TestCase):
   def test_run_ingestion_one_message_fails_invalid_data(
       self, handler_decode_mk, pubsub_mk, run_mk
   ):
-    pubsub_msg = pubsub_v1.types.ReceivedMessage(
+    pubsub_msg = pubsub_v1.types.ReceivedMessage(  # pyrefly: ignore[missing-attribute]
         ack_id='ack_id',
-        message=pubsub_v1.types.PubsubMessage(
+        message=pubsub_v1.types.PubsubMessage(  # pyrefly: ignore[missing-attribute]
             message_id='message_id',
             attributes={'eventType': 'OBJECT_FINALIZE'},
             data=None,
         ),
     )
-    pubsub_mk.return_value = pubsub_v1.types.PullResponse(
+    pubsub_mk.return_value = pubsub_v1.types.PullResponse(  # pyrefly: ignore[missing-attribute]
         received_messages=[pubsub_msg]
     )
     handler_decode_mk.return_value = (

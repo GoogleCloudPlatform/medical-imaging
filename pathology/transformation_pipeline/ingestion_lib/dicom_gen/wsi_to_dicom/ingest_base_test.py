@@ -161,7 +161,7 @@ class _MockAbstractDicomGenerationForTest(
   ) -> abstract_dicom_generation.TransformationLock:
     return abstract_dicom_generation.TransformationLock('mock_lock')
 
-  def generate_dicom_and_push_to_store(self, ingest_file_list, polling_client):
+  def generate_dicom_and_push_to_store(self, ingest_file_list, polling_client):  # pyrefly: ignore[bad-override]
     pass
 
   def decode_pubsub_msg(self, msg):
@@ -348,7 +348,7 @@ class _IngestBaseTestDriver(ingest_base.IngestBase):
       dicom_gen: abstract_dicom_generation.GeneratedDicomFiles,
       abstract_dicom_handler: abstract_dicom_generation.AbstractDicomGeneration,
   ) -> str:
-    return self._slide_id
+    return self._slide_id  # pyrefly: ignore[bad-return]
 
   def generate_dicom(
       self,

@@ -894,7 +894,7 @@ def _handle_log(
 ) -> None:
   if _is_logging_to_cloud_ops():
     return
-  for line in proc.stdout:
+  for line in proc.stdout:  # pyrefly: ignore[not-iterable]
     line_str = line.decode('utf-8')
     sys.stdout.write(line_str)
     if log_file is not None:

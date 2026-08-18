@@ -24,7 +24,7 @@ from pathology.transformation_pipeline.ingestion_lib.pubsub_msgs import abstract
 class CloudStoragePubSubMsg(abstract_pubsub_msg.AbstractPubSubMsg):
   """Decodes and stores received cloud storage pub/sub msg."""
 
-  def __init__(self, msg: pubsub_v1.types.ReceivedMessage):
+  def __init__(self, msg: pubsub_v1.types.ReceivedMessage):  # pyrefly: ignore[missing-attribute]
     super().__init__(msg)
     # decode received pub/sub message data field.
     try:

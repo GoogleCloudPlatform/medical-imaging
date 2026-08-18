@@ -82,7 +82,7 @@ def decode_image_from_file(path: str) -> np.ndarray:
 def write_test_dicom(path: str, base_ds: pydicom.Dataset):
   file_meta = pydicom.dataset.FileMetaDataset()
   file_meta.TransferSyntaxUID = (
-      ingest_const.DicomImageTransferSyntax.EXPLICIT_VR_LITTLE_ENDIAN
+      ingest_const.DicomImageTransferSyntax.EXPLICIT_VR_LITTLE_ENDIAN  # pyrefly: ignore[bad-assignment]
   )
   ds = pydicom.dataset.FileDataset(
       '', base_ds, file_meta=file_meta, preamble=b'\0' * 128

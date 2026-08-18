@@ -743,7 +743,7 @@ def get_instance_metadata(
   result = redis.get(cache_key)
   if result is not None:
     if result.value is not None:
-      return DicomInstanceMetadata.from_json(result.value.decode('utf-8'))
+      return DicomInstanceMetadata.from_json(result.value.decode('utf-8'))  # pyrefly: ignore[missing-attribute]
   try:
     result = dicom_store_util.get_dicom_instance_metadata(
         user_auth, series_url, instance
@@ -764,7 +764,7 @@ def get_instance_metadata(
     # set cache only if metadata is read.
     redis.set(
         cache_key,
-        return_metadata.to_json(sort_keys=True).encode('utf-8'),
+        return_metadata.to_json(sort_keys=True).encode('utf-8'),  # pyrefly: ignore[missing-attribute]
         ttl_sec=_dicom_metadata_cache_ttl(),
     )
   return return_metadata
@@ -923,9 +923,9 @@ def downsample_json_metadata(
             f'DICOM tag {address} is undefined cannot return number of frames'
             ' in downsampled DICOM instance.'
         )
-    frames_per_row = math.ceil(float(total_pixel_matrix_rows) / float(rows))
+    frames_per_row = math.ceil(float(total_pixel_matrix_rows) / float(rows))  # pyrefly: ignore[bad-argument-type]
     frames_per_column = math.ceil(
-        float(total_pixel_matrix_columns) / float(columns)
+        float(total_pixel_matrix_columns) / float(columns)  # pyrefly: ignore[bad-argument-type]
     )
     number_of_frames = int(frames_per_row * frames_per_column)
     _set_tag_int_value(
@@ -933,10 +933,10 @@ def downsample_json_metadata(
     )
     if number_of_frames == 1:
       _set_tag_int_value(
-          metadata, _COLUMNS_DICOM_ADDRESS_TAG, total_pixel_matrix_columns
+          metadata, _COLUMNS_DICOM_ADDRESS_TAG, total_pixel_matrix_columns  # pyrefly: ignore[bad-argument-type]
       )
       _set_tag_int_value(
-          metadata, _ROWS_DICOM_ADDRESS_TAG, total_pixel_matrix_rows
+          metadata, _ROWS_DICOM_ADDRESS_TAG, total_pixel_matrix_rows  # pyrefly: ignore[bad-argument-type]
       )
 
   try:

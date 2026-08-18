@@ -577,7 +577,7 @@ def upload_instance_to_dicom_store(
   """
   if headers is None:
     headers = {}
-  flask_util.add_key_value_to_dict(headers, 'Content-Type', 'application/dicom')
+  flask_util.add_key_value_to_dict(headers, 'Content-Type', 'application/dicom')  # pyrefly: ignore[bad-argument-type]
   headers = user_auth.add_to_header(headers)
   with io.BytesIO() as f:
     dataset.save_as(f)
@@ -644,7 +644,7 @@ def upload_multipart_to_dicom_store(
   """
   if headers is None:
     headers = {}
-  flask_util.add_key_value_to_dict(headers, 'Content-Type', content_type)
+  flask_util.add_key_value_to_dict(headers, 'Content-Type', content_type)  # pyrefly: ignore[bad-argument-type]
   headers = user_auth.add_to_header(headers)
   base_log = {
       proxy_const.LogKeywords.DICOMWEB_URL: dicom_path,
@@ -731,7 +731,7 @@ def _add_parameters_to_url(url: str, params_to_add: List[str]) -> str:
     else:
       url, params = match.groups()
   url = url.rstrip('/')
-  params_to_add = '&'.join(params_to_add)
+  params_to_add = '&'.join(params_to_add)  # pyrefly: ignore[bad-assignment]
   if params:
     params = f'{params}&{params_to_add}'
   else:

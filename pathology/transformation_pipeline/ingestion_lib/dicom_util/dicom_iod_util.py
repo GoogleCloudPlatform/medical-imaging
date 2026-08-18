@@ -730,7 +730,7 @@ class DicomIODDatasetUtil:
         )
       # intermediate nodes of the must be sq tags.
       if tag.is_sq():
-        dataset_level = tag.sq_dataset
+        dataset_level = tag.sq_dataset  # pyrefly: ignore[bad-assignment]
       elif index + 1 != len(iod_path):
         # if node is not sq tag and node is not a leaf then path is incorrect.
         decoded_tag = '.'.join(iod_path[: index + 1])
@@ -800,7 +800,7 @@ class DicomIODDatasetUtil:
       dataset_level = self._get_iod_dataset_at_path(
           dataset_level, iod_name, iod_path
       )
-    return dataset_level
+    return dataset_level  # pyrefly: ignore[bad-return]
 
   def get_root_level_iod_tag_keywords(
       self,
@@ -853,4 +853,4 @@ class DicomIODDatasetUtil:
       dataset_level = self._get_iod_dataset_at_path(
           dataset_level, iod_name, iod_path
       )
-    return dataset_level
+    return dataset_level  # pyrefly: ignore[bad-return]

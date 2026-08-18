@@ -106,7 +106,7 @@ def add_dicom_tag(
     value = int(value)
   else:
     value = str(value)
-  dicom_meta[tag_hex] = _convert_to_dicom_format(value, vr)
+  dicom_meta[tag_hex] = _convert_to_dicom_format(value, vr)  # pyrefly: ignore[bad-argument-type]
 
 
 def create_metadata_dict() -> MutableMapping[str, MutableMapping[str, Any]]:
@@ -181,7 +181,7 @@ def create_mock_dpas_generated_dicom_fref(
       ingest_const.DICOMTagKeywords.HASH_PRIVATE_TAG: 'ABCDEFG',
   }
   if metadata_changes is not None:
-    metadata_updates.update(metadata_changes)
+    metadata_updates.update(metadata_changes)  # pyrefly: ignore[no-matching-overload]
   metadata = _create_json_wsi_metadata(metadata_updates)
   return wsi_dicom_file_ref.init_wsi_dicom_file_ref_from_json(metadata)
 
@@ -219,14 +219,14 @@ def create_test_dicom_instance(
   base_ds = pydicom.Dataset.from_json(json.dumps(dcm_json or {}))
   dcm = pydicom.FileDataset(filename, dataset=base_ds, preamble=b'\0' * 128)
   dcm.file_meta = pydicom.dataset.FileMetaDataset()
-  dcm.file_meta.MediaStorageSOPClassUID = sop_class_uid
+  dcm.file_meta.MediaStorageSOPClassUID = sop_class_uid  # pyrefly: ignore[bad-assignment]
   dcm.file_meta.TransferSyntaxUID = (
-      ingest_const.DicomImageTransferSyntax.EXPLICIT_VR_LITTLE_ENDIAN
+      ingest_const.DicomImageTransferSyntax.EXPLICIT_VR_LITTLE_ENDIAN  # pyrefly: ignore[bad-assignment]
   )
   if sop_class_uid == ingest_const.DicomSopClasses.WHOLE_SLIDE_IMAGE.uid:
-    dcm.file_meta.MediaStorageSOPInstanceUID = sop_instance_uid
+    dcm.file_meta.MediaStorageSOPInstanceUID = sop_instance_uid  # pyrefly: ignore[bad-assignment]
     dcm.file_meta.ImplementationClassUID = (
-        ingest_const.WSI_IMPLEMENTATION_CLASS_UID
+        ingest_const.WSI_IMPLEMENTATION_CLASS_UID  # pyrefly: ignore[bad-assignment]
     )
   dcm.StudyInstanceUID = study
   dcm.SeriesInstanceUID = series

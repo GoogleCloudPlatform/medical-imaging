@@ -108,11 +108,11 @@ class DicomUidValueMap(Generic[UidMapType]):
         return iter([])
       if is_instance_level:
         return iter([child])
-      return child._get_instances(uid, _increment_uid_index(uid_index))  # pylint: disable=protected-access
+      return child._get_instances(uid, _increment_uid_index(uid_index))  # pylint: disable=protected-access  # pyrefly: ignore[missing-attribute]
     if is_instance_level:
-      return iter(self._uid_value_map.values())
+      return iter(self._uid_value_map.values())  # pyrefly: ignore[bad-return]
     return itertools.chain.from_iterable([
-        value._get_instances(uid, _increment_uid_index(uid_index))  # pylint: disable=protected-access
+        value._get_instances(uid, _increment_uid_index(uid_index))  # pylint: disable=protected-access  # pyrefly: ignore[missing-attribute]
         for value in self._uid_value_map.values()
     ])
 
@@ -164,7 +164,7 @@ class DicomUidValueMap(Generic[UidMapType]):
       if study_or_series_uid_map is None:
         study_or_series_uid_map = DicomUidValueMap()
         uid_value_map[study_or_series_uid] = study_or_series_uid_map
-      uid_value_map = study_or_series_uid_map._uid_value_map  # pylint: disable=protected-access
+      uid_value_map = study_or_series_uid_map._uid_value_map  # pylint: disable=protected-access  # pyrefly: ignore[missing-attribute]
     sop_instance_uid = uid[_UIDIndex.SOP_INSTANCE_UID.value]
     if sop_instance_uid in uid_value_map:
       return False

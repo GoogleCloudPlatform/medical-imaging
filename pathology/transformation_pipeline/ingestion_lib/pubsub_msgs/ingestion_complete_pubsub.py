@@ -61,7 +61,7 @@ def read_inference_pipeline_config_from_json(
   with open(config_path, 'r') as f:
     config_str = f.read()
   try:
-    config = inference_pubsub_message.InferenceConfig.from_json(config_str)
+    config = inference_pubsub_message.InferenceConfig.from_json(config_str)  # pyrefly: ignore[missing-attribute]
   except (
       json.decoder.JSONDecodeError,
       inference_pubsub_message.PubSubValidationError,
@@ -185,8 +185,8 @@ def _create_oof_pipeline_pubsub_msg(
                   transform_types.IngestCompletePubSub(
                       ingest='success',
                       dicom_store=dicomstore_web_path,
-                      ingest_dicoms=ingest_dicoms,
-                      duplicate_dicoms=duplicate_dicoms,
+                      ingest_dicoms=ingest_dicoms,  # pyrefly: ignore[bad-argument-type]
+                      duplicate_dicoms=duplicate_dicoms,  # pyrefly: ignore[bad-argument-type]
                       pipeline_passthrough_params=dct,
                   )
               )
@@ -281,7 +281,7 @@ def _create_inference_pipeline_pubsub_msg(
         'Error occurred creating InferencePubSubMessage'
     ) from exp
   return PubSubMsg(
-      topic_name, inference_pubsub_msg.to_json().encode('utf-8'), log_struct
+      topic_name, inference_pubsub_msg.to_json().encode('utf-8'), log_struct  # pyrefly: ignore[missing-attribute]
   )
 
 
@@ -329,10 +329,10 @@ def create_ingest_complete_pubsub_msg(
     series_uid = 'SeriesInstanceUID is uninitialized'
 
   # Convert list of DICOM_file_refs to list of dicts.
-  ingest_dicoms = [
+  ingest_dicoms = [  # pyrefly: ignore[bad-assignment]
       typing.cast(_WSIDicomFileRefDict, dcm.dict()) for dcm in ingest_dicoms
   ]
-  duplicate_dicoms = [
+  duplicate_dicoms = [  # pyrefly: ignore[bad-assignment]
       typing.cast(_WSIDicomFileRefDict, dcm.dict()) for dcm in duplicate_dicoms
   ]
 
@@ -346,16 +346,16 @@ def create_ingest_complete_pubsub_msg(
 
   # Add pixel spacing to pub/sub msg.
   if ingest_dicoms:
-    _add_derived_pixel_spacing(ingest_dicoms)
+    _add_derived_pixel_spacing(ingest_dicoms)  # pyrefly: ignore[bad-argument-type]
   if duplicate_dicoms:
-    _add_derived_pixel_spacing(duplicate_dicoms)
+    _add_derived_pixel_spacing(duplicate_dicoms)  # pyrefly: ignore[bad-argument-type]
 
   if create_legacy_pipeline_msg:
     return _create_oof_pipeline_pubsub_msg(
         dicomstore_web_path,
         topic_name,
-        ingest_dicoms,
-        duplicate_dicoms,
+        ingest_dicoms,  # pyrefly: ignore[bad-argument-type]
+        duplicate_dicoms,  # pyrefly: ignore[bad-argument-type]
         pipeline_passthrough_params,
         log_struct,
     )
@@ -368,8 +368,8 @@ def create_ingest_complete_pubsub_msg(
       inference_config,
       dicomstore_web_path,
       topic_name,
-      ingest_dicoms,
-      duplicate_dicoms,
+      ingest_dicoms,  # pyrefly: ignore[bad-argument-type]
+      duplicate_dicoms,  # pyrefly: ignore[bad-argument-type]
       pipeline_passthrough_params,
       log_struct,
   )
@@ -392,7 +392,7 @@ def publish_pubsubmsg(msg: PubSubMsg):
         'pubsub_message': msg.message,
     }
     try:
-      future = publisher.publish(msg.topic_name, msg.message)  # pylint: disable=too-many-function-args
+      future = publisher.publish(msg.topic_name, msg.message)  # pylint: disable=too-many-function-args  # pyrefly: ignore[bad-argument-count, bad-argument-type]
       msg_id = future.result()
       cloud_logging_client.info(
           f'DICOM ingest complete pub/sub msg {msg_id} published.',

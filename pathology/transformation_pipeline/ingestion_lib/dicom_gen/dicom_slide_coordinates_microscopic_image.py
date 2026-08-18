@@ -310,11 +310,11 @@ def _create_dicom(
   base_ds = pydicom.Dataset.from_json(json.dumps(dcm_json))
 
   file_meta = pydicom.dataset.FileMetaDataset()
-  file_meta.ImplementationClassUID = ingest_const.SCMI_IMPLEMENTATION_CLASS_UID
+  file_meta.ImplementationClassUID = ingest_const.SCMI_IMPLEMENTATION_CLASS_UID  # pyrefly: ignore[bad-assignment]
   file_meta.ImplementationVersionName = ingest_const.IMPLEMENTATION_VERSION_NAME
-  file_meta.MediaStorageSOPClassUID = sop_class.uid
-  file_meta.MediaStorageSOPInstanceUID = instance_uid
-  file_meta.TransferSyntaxUID = metadata.transfer_syntax
+  file_meta.MediaStorageSOPClassUID = sop_class.uid  # pyrefly: ignore[bad-assignment]
+  file_meta.MediaStorageSOPInstanceUID = instance_uid  # pyrefly: ignore[bad-assignment]
+  file_meta.TransferSyntaxUID = metadata.transfer_syntax  # pyrefly: ignore[bad-assignment]
 
   ds = pydicom.dataset.FileDataset(
       filename_or_obj='',

@@ -117,9 +117,9 @@ class IngestDicomStorePubSubHandlerTest(parameterized.TestCase):
 
   def test_decode_pubsub_msg_no_data(self):
     ingest = _create_ingestion_handler()
-    pubsub_msg = pubsub_v1.types.ReceivedMessage(
+    pubsub_msg = pubsub_v1.types.ReceivedMessage(  # pyrefly: ignore[missing-attribute]
         ack_id='5',
-        message=pubsub_v1.types.PubsubMessage(data=None, message_id='test'),
+        message=pubsub_v1.types.PubsubMessage(data=None, message_id='test'),  # pyrefly: ignore[missing-attribute]
         delivery_attempt=1,
     )
     msg = ingest.decode_pubsub_msg(pubsub_msg)
@@ -128,9 +128,9 @@ class IngestDicomStorePubSubHandlerTest(parameterized.TestCase):
   def test_decode_pubsub_msg_invalid_format(self):
     ingest = _create_ingestion_handler()
     dcm = 'projects/proj/.../studies/1.2.3/series/1.2.3.4/instances/1.2.3.4.5'
-    pubsub_msg = pubsub_v1.types.ReceivedMessage(
+    pubsub_msg = pubsub_v1.types.ReceivedMessage(  # pyrefly: ignore[missing-attribute]
         ack_id='5',
-        message=pubsub_v1.types.PubsubMessage(
+        message=pubsub_v1.types.PubsubMessage(  # pyrefly: ignore[missing-attribute]
             data=dcm.encode('utf-8'), message_id='test'
         ),
         delivery_attempt=1,
@@ -141,9 +141,9 @@ class IngestDicomStorePubSubHandlerTest(parameterized.TestCase):
   def test_decode_pubsub_msg_already_ingested(self):
     ingest = _create_ingestion_handler()
     dcm = f'projects/proj/locations/loc/datasets/dat/dicomStores/store/dicomWeb/studies/1.2.3/series/1.2.3.4/instances/{ingest_const.DPAS_UID_PREFIX}.123'
-    pubsub_msg = pubsub_v1.types.ReceivedMessage(
+    pubsub_msg = pubsub_v1.types.ReceivedMessage(  # pyrefly: ignore[missing-attribute]
         ack_id='5',
-        message=pubsub_v1.types.PubsubMessage(
+        message=pubsub_v1.types.PubsubMessage(  # pyrefly: ignore[missing-attribute]
             data=dcm.encode('utf-8'), message_id='test'
         ),
         delivery_attempt=1,
@@ -172,9 +172,9 @@ class IngestDicomStorePubSubHandlerTest(parameterized.TestCase):
         'projects/proj/locations/loc/datasets/dat/dicomStores/store/dicomWeb'
     )
     dcm = f'{dcm_store}/studies/{study_uid}/series/{series_uid}/instances/{instance_uid}'
-    pubsub_msg = pubsub_v1.types.ReceivedMessage(
+    pubsub_msg = pubsub_v1.types.ReceivedMessage(  # pyrefly: ignore[missing-attribute]
         ack_id='5',
-        message=pubsub_v1.types.PubsubMessage(
+        message=pubsub_v1.types.PubsubMessage(  # pyrefly: ignore[missing-attribute]
             data=dcm.encode('utf-8'), message_id='test'
         ),
         delivery_attempt=1,
@@ -194,7 +194,7 @@ class IngestDicomStorePubSubHandlerTest(parameterized.TestCase):
         ingest._current_instance.viewer_debug_url, _VIEWER_DEBUG_URL
     )
     self.assertEqual(
-        ingest._current_instance.dicom_store_client.dicomweb_path,
+        ingest._current_instance.dicom_store_client.dicomweb_path,  # pyrefly: ignore[missing-attribute]
         f'https://healthcare.googleapis.com/v1/{dcm_store}',
     )
     self.assertEqual(ingest._viewer_debug_url, _VIEWER_DEBUG_URL)
@@ -237,9 +237,9 @@ class IngestDicomStorePubSubHandlerTest(parameterized.TestCase):
         'projects/proj/locations/loc/datasets/dat/dicomStores/store/dicomWeb'
     )
     dcm = f'{dicom_store_path}/studies/{study_uid}/series/{series_uid}/instances/{instance_uid}'
-    pubsub_msg = pubsub_v1.types.ReceivedMessage(
+    pubsub_msg = pubsub_v1.types.ReceivedMessage(  # pyrefly: ignore[missing-attribute]
         ack_id='5',
-        message=pubsub_v1.types.PubsubMessage(
+        message=pubsub_v1.types.PubsubMessage(  # pyrefly: ignore[missing-attribute]
             data=dcm.encode('utf-8'), message_id='test'
         ),
         delivery_attempt=1,
@@ -257,7 +257,7 @@ class IngestDicomStorePubSubHandlerTest(parameterized.TestCase):
         ingest._current_instance.viewer_debug_url, _VIEWER_DEBUG_URL
     )
     self.assertEqual(
-        ingest._current_instance.dicom_store_client.dicomweb_path,
+        ingest._current_instance.dicom_store_client.dicomweb_path,  # pyrefly: ignore[missing-attribute]
         f'https://healthcare.googleapis.com/v1/{dicom_store_path}',
     )
     self.assertEqual(ingest._viewer_debug_url, _VIEWER_DEBUG_URL)
@@ -274,9 +274,9 @@ class IngestDicomStorePubSubHandlerTest(parameterized.TestCase):
         'projects/proj/locations/loc/datasets/dat/dicomStores/store/dicomWeb'
     )
     dcm = f'{dcm_store}/studies/{study_uid}/series/{series_uid}/instances/{instance_uid}'
-    pubsub_msg = pubsub_v1.types.ReceivedMessage(
+    pubsub_msg = pubsub_v1.types.ReceivedMessage(  # pyrefly: ignore[missing-attribute]
         ack_id='5',
-        message=pubsub_v1.types.PubsubMessage(
+        message=pubsub_v1.types.PubsubMessage(  # pyrefly: ignore[missing-attribute]
             data=dcm.encode('utf-8'), message_id='test'
         ),
         delivery_attempt=1,

@@ -398,7 +398,7 @@ def _remove_duplicate_generated_dicom(
     # Ignoring Study Instance UID to fix: b/240621864
     if not dicom_store_client.is_dpas_dicom_wsidcmref_in_list(
         gen_file_ref,
-        ingested_files,
+        ingested_files,  # pyrefly: ignore[bad-argument-type]
         ignore_source_image_hash_tag=True,
         ignore_tags=[
             ingest_const.DICOMTagKeywords.STUDY_INSTANCE_UID,
@@ -581,9 +581,9 @@ def _add_metadata_to_generated_dicom_files(
   with pydicom.dcmread(
       source_dicom_ref.source, defer_size='512 KB'
   ) as reference_dcm:
-    reference_icc_profile = _get_icc_profile(reference_dcm)
+    reference_icc_profile = _get_icc_profile(reference_dcm)  # pyrefly: ignore[bad-argument-type]
     dcm_tags = dicom_util.get_pydicom_tags(
-        reference_dcm, additional_tags_to_copy
+        reference_dcm, additional_tags_to_copy  # pyrefly: ignore[bad-argument-type]
     )
   for dicom_path in gen_dicom:
     try:
@@ -644,7 +644,7 @@ def _common_init_for_externally_generated_dicom_instance(
       == ingest_const.DicomImageTransferSyntax.IMPLICIT_VR_LITTLE_ENDIAN
   ):
     dcm_file.file_meta.TransferSyntaxUID = (
-        ingest_const.DicomImageTransferSyntax.EXPLICIT_VR_LITTLE_ENDIAN
+        ingest_const.DicomImageTransferSyntax.EXPLICIT_VR_LITTLE_ENDIAN  # pyrefly: ignore[bad-assignment]
     )
   pydicom_version_util.set_little_endian_explicit_vr(dcm_file)
   dcm_file.InstanceNumber = instance_number_util.get_instance_number(dcm_file)
@@ -840,7 +840,7 @@ class IngestWsiDicom(ingest_base.IngestBase):
     Raises:
       DetermineSlideIDError: Cannot determine slide id of ingested DICOM.
     """
-    dicom_gen.hash = None
+    dicom_gen.hash = None  # pyrefly: ignore[bad-argument-type]
     unzip_dir = os.path.join(abstract_dicom_handler.img_dir, 'archive')
     os.mkdir(unzip_dir)
     dicom_file_list = _unarchive_zipfile(dicom_gen.localfile, unzip_dir)
@@ -862,7 +862,7 @@ class IngestWsiDicom(ingest_base.IngestBase):
       )
     try:
       slide_id = _determine_slideid(
-          dicom_file_info.barcode_value,
+          dicom_file_info.barcode_value,  # pyrefly: ignore[bad-argument-type]
           dicom_gen,
           dicom_file_info.wsi_image_filerefs,
           self.metadata_storage_client,
@@ -959,7 +959,7 @@ class IngestWsiDicom(ingest_base.IngestBase):
       try:
         with pydicom.dcmread(dicom_path, force=True) as dcm_file:
           _common_init_for_externally_generated_dicom_instance(
-              dcm_file, private_tags, instance_number_util, metadata
+              dcm_file, private_tags, instance_number_util, metadata  # pyrefly: ignore[bad-argument-type]
           )
           dicom_util.add_missing_type2_dicom_metadata(dcm_file)
           dcm_file.save_as(dicom_path)
@@ -1032,7 +1032,7 @@ class IngestWsiDicom(ingest_base.IngestBase):
       dcm_metadata = self.get_slide_dicom_json_formatted_metadata(
           ingest_const.DicomSopClasses.WHOLE_SLIDE_IMAGE.name,
           self.slide_id,
-          abstract_dicom_handler.dcm_store_client,
+          abstract_dicom_handler.dcm_store_client,  # pyrefly: ignore[bad-argument-type]
       )
       wsi_dcm_json = dcm_metadata.dicom_json
       wsi_table_row = dcm_metadata.metadata_table_row
@@ -1089,12 +1089,10 @@ class IngestWsiDicom(ingest_base.IngestBase):
       private_tags = abstract_dicom_generation.get_private_tags_for_gen_dicoms(
           dicom_gen, message_id
       )
-      additional_wsi_metadata = (
-          dicom_util.get_additional_wsi_specific_dicom_metadata(
-              abstract_dicom_handler.dcm_store_client,
-              wsi_dcm_json,
-              dicom_file_info.wsi_image_filerefs,
-          )
+      additional_wsi_metadata = dicom_util.get_additional_wsi_specific_dicom_metadata(
+          abstract_dicom_handler.dcm_store_client,  # pyrefly: ignore[bad-argument-type]
+          wsi_dcm_json,
+          dicom_file_info.wsi_image_filerefs,  # pyrefly: ignore[bad-argument-type]
       )
       # Add metadata to DICOM
       if dicom_file_info.original_image is None:
@@ -1127,7 +1125,7 @@ class IngestWsiDicom(ingest_base.IngestBase):
               instance_number_util,
               wsi_table_row,
               wsi_dcm_json,
-              abstract_dicom_handler.dcm_store_client,
+              abstract_dicom_handler.dcm_store_client,  # pyrefly: ignore[bad-argument-type]
           )
       )
       dest_uri = self.ingest_succeeded_uri

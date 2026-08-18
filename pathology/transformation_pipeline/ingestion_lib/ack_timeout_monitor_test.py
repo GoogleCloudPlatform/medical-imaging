@@ -36,9 +36,9 @@ class _MockPubSubMsg(cloud_storage_pubsub_msg.CloudStoragePubSubMsg):
 
   def __init__(self):
     super().__init__(
-        pubsub_v1.types.ReceivedMessage(
+        pubsub_v1.types.ReceivedMessage(  # pyrefly: ignore[missing-attribute]
             ack_id='ack_id',
-            message=pubsub_v1.types.PubsubMessage(
+            message=pubsub_v1.types.PubsubMessage(  # pyrefly: ignore[missing-attribute]
                 message_id='message_id',
                 data=json.dumps(dict(name='foo', bucket='bar')).encode('utf-8'),
             ),
@@ -216,7 +216,7 @@ class AckTimeoutMonitorTest(parameterized.TestCase):
         )
         mk_auth.assert_called_once()
         self.assertGreater(
-            redis_client.redis_client().client.get_lock_expire_time(lock_name),
+            redis_client.redis_client().client.get_lock_expire_time(lock_name),  # pyrefly: ignore[missing-attribute]
             6 + lock_time,
         )
 
