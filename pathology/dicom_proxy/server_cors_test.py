@@ -196,6 +196,18 @@ class HandlePreflightMethodsTest(parameterized.TestCase):
     )
     self.assertEqual(response.status_code, http.HTTPStatus.NO_CONTENT)
 
+  @flagsaver.flagsaver(origins=['*'], cors_max_age=3600)
+  def test_options_wildcard_origin_returns_204_and_allow_origin(self):
+    response = self.client.options(
+        '/healthcheck',
+        headers={
+            'Origin': _BLOCKED_ORIGIN,
+            'Access-Control-Request-Method': 'GET',
+        },
+    )
+    self.assertEqual(response.status_code, http.HTTPStatus.NO_CONTENT)
+    self.assertEqual(response.headers.get('Access-Control-Allow-Origin'), '*')
+
 
 class AddSecurityHeadersTest(parameterized.TestCase):
   """Tests for the after_request security headers hook."""
@@ -250,6 +262,11 @@ class AddSecurityHeadersTest(parameterized.TestCase):
   def test_get_approved_origin_no_credentials_when_disabled(self):
     response = self.client.get('/', headers={'Origin': _ALLOWED_ORIGIN})
     self.assertIsNone(response.headers.get('Access-Control-Allow-Credentials'))
+
+  @flagsaver.flagsaver(origins=['*'])
+  def test_get_wildcard_origin_returns_allow_origin(self):
+    response = self.client.get('/', headers={'Origin': _BLOCKED_ORIGIN})
+    self.assertEqual(response.headers.get('Access-Control-Allow-Origin'), '*')
 
 
 if __name__ == '__main__':

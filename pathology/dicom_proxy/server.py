@@ -31,7 +31,6 @@ from pathology.dicom_proxy import redis_cache
 from pathology.shared_libs.build_version import build_version
 from pathology.shared_libs.logging_lib import cloud_logging_client
 
-
 DEFAULT_TEXT_MIMETYPE = 'text/html; charset=utf-8'
 HEALTH_CHECK_HTML = 'Digital_Pathology_Proxy_Server-Blueprint-Health-Check'
 LOCAL_REDIS_SERVER_DISABLED = 'Error connecting to local Redis instance.'
@@ -73,6 +72,18 @@ flask_app.wsgi_app = proxy_fix.ProxyFix(
 flask_app.register_blueprint(dicom_proxy_blueprint.dicom_proxy)
 
 
+def _get_allowed_origin(origin: str, allowed_origins: set[str]) -> str:
+  """Returns allowed origin or wildcard if permitted."""
+  origin = origin.strip()
+  if origin.lower() in allowed_origins:
+    return origin
+  # Check if allow all origins is set to wildcard.
+  if '*' in allowed_origins:
+    return '*'
+  # otherwise return orign requested but not allowed.
+  return origin
+
+
 @flask_app.before_request
 def handle_preflight_methods() -> Optional[flask.Response]:
   """Handles preflight OPTIONS requests for CORS and conditionally allows credentials.
@@ -83,11 +94,11 @@ def handle_preflight_methods() -> Optional[flask.Response]:
   if flask.request.method.lower() != 'options':
     return None
 
-  origin = flask.request.headers.get('Origin')
+  origin = flask.request.headers.get('Origin', '')
   allowed_origins = {  # Normalize to set for fast lookup
       o.strip().lower() for o in dicom_proxy_flags.ORIGINS_FLG.value
   }
-
+  origin = _get_allowed_origin(origin, allowed_origins)
   if not origin or origin.lower() not in allowed_origins:
     return flask.Response(
         status=http.HTTPStatus.FORBIDDEN
@@ -133,11 +144,11 @@ def add_security_headers(response: flask.Response) -> flask.Response:
   Returns:
     The modified flask.Response object with security headers added.
   """
-  origin = flask.request.headers.get('Origin')
+  origin = flask.request.headers.get('Origin', '')
   allowed_origins = {
       o.strip().lower() for o in dicom_proxy_flags.ORIGINS_FLG.value
   }
-
+  origin = _get_allowed_origin(origin, allowed_origins)
   if origin and origin.lower() in allowed_origins:
     response.headers['Access-Control-Allow-Origin'] = origin
     if dicom_proxy_flags.ALLOW_CREDENTIALS_FLG.value:
