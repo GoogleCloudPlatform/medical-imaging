@@ -344,6 +344,7 @@ py_library(
     deps = [
         ":dicom_proxy_flags",
         ":enum_types",
+        ":metadata_util",
         ":render_frame_params",
         requirement("pillow"),
         requirement("opencv-python-headless"),
@@ -774,7 +775,6 @@ py_test(
         ":enum_types",
         ":frame_retrieval_util",
         ":image_util",
-        ":metadata_util",
         ":pydicom_single_instance_read_cache",
         ":render_frame_params",
         ":shared_test_util",
@@ -799,6 +799,7 @@ py_test(
         ":color_conversion_util",
         ":enum_types",
         ":image_util",
+        ":metadata_util",
         ":render_frame_params",
         ":shared_test_util",
         requirement("pillow"),

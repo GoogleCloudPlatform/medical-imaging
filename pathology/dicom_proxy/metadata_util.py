@@ -83,15 +83,15 @@ _MICROSCOPY_BULK_SIMPLE_ANNOTATIONS_IOD = '1.2.840.10008.5.1.4.1.1.91.1'
 
 _JPEG_TRANSCODED_TO_JPEGXL_TRANSFER_SYNTAX = '1.2.840.10008.1.2.4.111'
 _JPEG_BASELINE_TRANSFER_SYNTAX = '1.2.840.10008.1.2.4.50'
-_IMPLICIT_VR_ENDIAN = '1.2.840.10008.1.2'
-_EXPLICIT_VR_LITTLE_ENDIAN = '1.2.840.10008.1.2.1'
-_DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN = '1.2.840.10008.1.2.1.99'
+IMPLICIT_VR_LITTLE_ENDIAN = '1.2.840.10008.1.2'
+EXPLICIT_VR_LITTLE_ENDIAN = '1.2.840.10008.1.2.1'
+DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN = '1.2.840.10008.1.2.1.99'
 _EXPLICIT_VR_BIG_ENDIAN = '1.2.840.10008.1.2.2'
 
 _UNENCAPSULATED_TRANSFER_SYNTAXS = {
-    _IMPLICIT_VR_ENDIAN,
-    _EXPLICIT_VR_LITTLE_ENDIAN,
-    _DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN,
+    IMPLICIT_VR_LITTLE_ENDIAN,
+    EXPLICIT_VR_LITTLE_ENDIAN,
+    DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN,
     _EXPLICIT_VR_BIG_ENDIAN,
 }
 
@@ -388,6 +388,25 @@ class DicomInstanceMetadata:
     """
     return (
         self.dicom_transfer_syntax == _JPEG_TRANSCODED_TO_JPEGXL_TRANSFER_SYNTAX
+    )
+
+  @property
+  def is_uncompressed_little_endian(self) -> bool:
+    """Tests if metadata transfer syntax is uncompressed little endian.
+
+    Returns True if the DICOM transfer syntax is either:
+      1.2.840.10008.1.2   Implicit VR Little Endian
+      1.2.840.10008.1.2.1 Explicit VR Little Endian
+      1.2.840.10008.1.2.1.99 Deflated Explicit VR Little Endian
+
+    Returns:
+      True if DICOM transfer syntax is Implicit VR Little Endian or Explicit VR
+      Little Endian or Deflated Explicit VR Little Endian.
+    """
+    return self.dicom_transfer_syntax in (
+        IMPLICIT_VR_LITTLE_ENDIAN,
+        EXPLICIT_VR_LITTLE_ENDIAN,
+        DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN,
     )
 
 

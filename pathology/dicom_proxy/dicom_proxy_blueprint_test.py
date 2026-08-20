@@ -1010,7 +1010,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
   def test_failed_get_rendered_frames_request(self, *unused_mocks):
     local_instance = _LocalDicomInstance(
         shared_test_util.jpeg_encoded_pydicom_instance_cache(
-            {'dicom_transfer_syntax': metadata_util._IMPLICIT_VR_ENDIAN}
+            {'dicom_transfer_syntax': metadata_util.IMPLICIT_VR_LITTLE_ENDIAN}
         )
     )
     params = dict(
@@ -1076,7 +1076,7 @@ class DicomProxyBlueprintTest(parameterized.TestCase):
         data = infile.read()
       mock_request.register_uri(
           'GET',
-          'https://healthcare.googleapis.com/v1/projects/test-project/locations/us-west1/datasets/bigdata/dicomStores/bigdicomstore/dicomWeb/studies/1.2.3/series/1.2.3.4/instances/1.2.276.0.7230010.3.1.4.296485376.89.1688794081.412405',
+          'https://healthcare.googleapis.com/v1/projects/test-project/locations/us-west1/datasets/bigdata/dicomStores/bigdicomstore/dicomWeb/studies/1.2.3/series/1.2.3.4/instances/1.2.3.4.5/frames/1',
           status_code=http.HTTPStatus.OK,
           content=data,
       )

@@ -226,7 +226,11 @@ def _get_request_compression(
     ValueError: requested ccompression format is not supported.
   """
   if accept_header is None:
-    return _Compression.JPEG if rendered_request else _Compression.RAW
+    return (
+        _Compression.JPEG
+        if rendered_request
+        else _Compression.EXPLICIT_VR_LITTLE_ENDIAN
+    )
   accept_header = accept_header.strip().lower()
   if not accept_header or 'image/jpeg' in accept_header:
     return _Compression.JPEG
@@ -245,8 +249,10 @@ def _get_request_compression(
       return _Compression.JPEGXL
   if accept_header.endswith('transfer-syntax=*'):
     return _Compression.AS_STORED_IN_DICOM_STORE
+  if accept_header.endswith('transfer-syntax=1.2.840.10008.1.2'):
+    return _Compression.IMPLICIT_VR_LITTLE_ENDIAN
   if accept_header.endswith('transfer-syntax=1.2.840.10008.1.2.1'):
-    return _Compression.RAW
+    return _Compression.EXPLICIT_VR_LITTLE_ENDIAN
   raise ValueError('Unsupported compression format.')
 
 

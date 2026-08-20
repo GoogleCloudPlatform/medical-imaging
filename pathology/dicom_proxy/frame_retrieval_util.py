@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """DICOM frame retrieval utility."""
+
 from collections.abc import Mapping
 from concurrent import futures
 import copy
@@ -78,6 +79,25 @@ _JPEGXL_JPEG_RECOMPRESSION_APPLICATION_OCTET_STREAM = (
 _JPEGXL_APPLICATION_OCTET_STREAM = (
     b'application/octet-stream; transfer-syntax=1.2.840.10008.1.2.4.112'
 )
+# Uncompressed little-endian content types returned by the DICOM store when
+# frames are requested with transfer-syntax=* and the stored transfer syntax is
+# Implicit VR Little Endian (1.2.840.10008.1.2) or Explicit VR Little Endian
+# (1.2.840.10008.1.2.1).
+_IMPLICIT_VR_LITTLE_ENDIAN_APPLICATION_OCTET_STREAM = (
+    b'application/octet-stream; transfer-syntax=1.2.840.10008.1.2'
+)
+_EXPLICIT_VR_LITTLE_ENDIAN_APPLICATION_OCTET_STREAM = (
+    b'application/octet-stream; transfer-syntax=1.2.840.10008.1.2.1'
+)
+_DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN_APPLICATION_OCTET_STREAM = (
+    b'application/octet-stream; transfer-syntax=1.2.840.10008.1.2.1.99'
+)
+
+_UNCOMPRESSED_LITTLE_ENDIAN_CONTENT_TYPES = frozenset([
+    _IMPLICIT_VR_LITTLE_ENDIAN_APPLICATION_OCTET_STREAM,
+    _EXPLICIT_VR_LITTLE_ENDIAN_APPLICATION_OCTET_STREAM,
+    _DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN_APPLICATION_OCTET_STREAM,
+])
 _SUPPORTED_BULK_DATA_REQUESTS = (
     _BASELINE_JPEG_MIME_TYPE_AND_TRANSFER_SYNTAX,
     _JPEG2000_LOSSLESS_MIME_TYPE_AND_TRANSFER_SYNTAX,
@@ -248,7 +268,14 @@ def get_raw_frame_data(
     for index in range(part_count):
       part = multipart_data.parts[index]
       content_type = part.headers.get(_CONTENT_TYPE.encode('utf-8'))
-      if content_type not in _SUPPORTED_BULK_DATA_REQUESTS:
+      if content_type in _SUPPORTED_BULK_DATA_REQUESTS:
+        pass  # supported compressed format, fall through to content check below
+      elif content_type in _UNCOMPRESSED_LITTLE_ENDIAN_CONTENT_TYPES:
+        # Implicit VR Little Endian (1.2.840.10008.1.2) and Explicit VR Little
+        # Endian (1.2.840.10008.1.2.1) frames arrive as raw uncompressed pixel
+        # bytes. Accept and append them to frame_data.
+        pass
+      else:
         raise DicomFrameRequestError(
             response,
             msg=(
@@ -470,12 +497,16 @@ class FrameImages:
   images: MutableMapping[int, bytes]  # Mapping of frame number: bytes.
   compression: _Compression  # Compression format of bytes
   number_of_frames_downloaded_from_store: int
+  source_frame_content_type: (
+      str  # DICOM transfer-syntax MIME content type of frames.
+  )
 
 
 def _create_frame_images(
     frame_numbers: List[int],
     frame_images: List[FrameData],
     compression: Optional[_Compression],
+    source_frame_content_type: str,
 ) -> FrameImages:
   """Creates FrameImages dataclass.
 
@@ -483,6 +514,9 @@ def _create_frame_images(
     frame_numbers: List of frame numbers.
     frame_images: Corresponding list of frame images.
     compression: Image compression encoding.
+    source_frame_content_type: DICOM transfer-syntax MIME content type of the
+      returned frames (e.g. ``application/octet-stream;
+      transfer-syntax=1.2.840.10008.1.2``).
 
   Raises:
     _InvalidNumberOfReturnedFramesError: len of frame numbers != len of frame
@@ -509,6 +543,7 @@ def _create_frame_images(
       },
       compression,
       number_of_frames_downloaded_from_store,
+      source_frame_content_type,
   )
 
 
@@ -571,11 +606,21 @@ def get_dicom_frame_map(
     # quality because the image are returned from the store without transcoding.
     # Returning a rendered instance of JPEG encoded instance from the DICOM
     # store will result in decoding and re-encoding the encoded instance to
-    # jpeg. Raw retrieval just returns stored bytes.
+    # jpeg. Raw retrieval just returns stored bytes or the bytes are requested
+    # as stored in the DICOM store.
     #
     # The DICOM Proxy only supports direct decoding of Baseline JPEG, JPEG2000,
     # or RAW encoded pixel data.
-    if metadata.is_baseline_jpeg or metadata.is_jpeg2000 or metadata.is_jpegxl:
+    if (
+        (
+            render_params.compression
+            == enum_types.Compression.AS_STORED_IN_DICOM_STORE
+        )
+        or metadata.is_uncompressed_little_endian
+        or metadata.is_baseline_jpeg
+        or metadata.is_jpeg2000
+        or metadata.is_jpegxl
+    ):
       if is_local_file:
         frame_images = get_local_frame_list(dicom_instance_source, frames)
       else:
@@ -598,10 +643,20 @@ def get_dicom_frame_map(
           frame_images = []
 
       # frame retrieval may return empty if instances are returned from
-      # an instance which has transfer syntrax other than Jpeg Baseline,
-      # jpeg 2000, or JPGX
+      # an instance which has transfer syntax other than uncompressed, Jpeg
+      # Baseline, jpeg 2000, or JPGX
       if frame_images:
-        if metadata.is_baseline_jpeg:
+        if metadata.dicom_transfer_syntax in (
+            metadata_util.EXPLICIT_VR_LITTLE_ENDIAN,
+            metadata_util.DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN,
+        ):
+          returned_image_compression = _Compression.EXPLICIT_VR_LITTLE_ENDIAN
+        elif (
+            metadata.dicom_transfer_syntax
+            == metadata_util.IMPLICIT_VR_LITTLE_ENDIAN
+        ):
+          returned_image_compression = _Compression.IMPLICIT_VR_LITTLE_ENDIAN
+        elif metadata.is_baseline_jpeg:
           returned_image_compression = _Compression.JPEG
         elif metadata.is_jpeg2000:
           returned_image_compression = _Compression.JPEG2000
@@ -609,10 +664,16 @@ def get_dicom_frame_map(
           returned_image_compression = _Compression.JPEG_TRANSCODED_TO_JPEGXL
         elif metadata.is_jpegxl:
           returned_image_compression = _Compression.JPEGXL
+        elif render_params.compression == _Compression.AS_STORED_IN_DICOM_STORE:
+          returned_image_compression = _Compression.AS_STORED_IN_DICOM_STORE
         else:
           returned_image_compression = None
         return _create_frame_images(
-            frames, frame_images, returned_image_compression
+            frames,
+            frame_images,
+            returned_image_compression,
+            'application/octet-stream;'
+            f' transfer-syntax={metadata.dicom_transfer_syntax}',
         )
 
     if is_local_file:
@@ -626,12 +687,17 @@ def get_dicom_frame_map(
               user_auth, dicom_instance_source, frame_number, render_params
           )
       )
+    compression = dicom_url_util.get_rendered_frame_compression(
+        render_params.compression
+    )
+    source_frame_content_type = dicom_url_util.get_rendered_frame_content_type(
+        render_params.compression
+    )
     return _create_frame_images(
         frames,
         _get_rendered_frame_list(params),
-        dicom_url_util.get_rendered_frame_compression(
-            render_params.compression
-        ),
+        compression,
+        source_frame_content_type,
     )
   except _InvalidNumberOfReturnedFramesError as exp:
     if isinstance(dicom_instance_source, _PyDicomSingleInstanceCache):

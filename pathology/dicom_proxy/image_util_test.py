@@ -28,6 +28,7 @@ import PIL.Image
 from pathology.dicom_proxy import color_conversion_util
 from pathology.dicom_proxy import enum_types
 from pathology.dicom_proxy import image_util
+from pathology.dicom_proxy import metadata_util
 from pathology.dicom_proxy import render_frame_params
 from pathology.dicom_proxy import shared_test_util
 
@@ -178,11 +179,13 @@ class ImageUtilTest(parameterized.TestCase):
     height = 67
     width = 100
     channels = 3
-
-    # Decode using opencv decoder, claim image is a JPEG.
-    decoded_img = image_util.decode_image_bytes(
-        imgbytes, '1.2.840.10008.1.2.4.50'
+    md = mock.create_autospec(
+        metadata_util.DicomInstanceMetadata, instance=True
     )
+    md.is_uncompressed_little_endian = False
+    md.dicom_transfer_syntax = '1.2.840.10008.1.2.4.50'
+    # Decode using opencv decoder, claim image is a JPEG.
+    decoded_img = image_util.decode_image_bytes(imgbytes, md)
 
     self.assertEqual(decoded_img.shape, (height, width, channels))
     self.assertEqual(_img_bytes_hash(decoded_img), expected)
@@ -205,7 +208,9 @@ class ImageUtilTest(parameterized.TestCase):
 
   def test_encode_pil_image_raw(self):
     img = _test_pil_image()
-    encoded_img = image_util.encode_image(img, _Compression.RAW, 75, None)
+    encoded_img = image_util.encode_image(
+        img, _Compression.EXPLICIT_VR_LITTLE_ENDIAN, 75, None
+    )
     self.assertEqual(encoded_img, img.image.tobytes())
 
   def test_encode_pil_image_numpy(self):
@@ -272,13 +277,13 @@ class ImageUtilTest(parameterized.TestCase):
       (_Compression.WEBP, 'WEBP'),
       (_Compression.PNG, 'PNG'),
       (_Compression.GIF, 'GIF'),
-      (_Compression.RAW, ''),
+      (_Compression.EXPLICIT_VR_LITTLE_ENDIAN, ''),
       (_Compression.NUMPY, ''),
   ])
   def test_encode_opencv_image(self, compression, expected_format):
     img = _test_opencv_image()
     encoded_img = image_util.encode_image(img, compression, 75, None)
-    if compression == _Compression.RAW:
+    if compression == _Compression.EXPLICIT_VR_LITTLE_ENDIAN:
       # Byte ordering should be RGB
       self.assertEqual(encoded_img, _test_pil_image().image.tobytes())
       return
@@ -411,10 +416,13 @@ class ImageUtilTest(parameterized.TestCase):
 
   @mock.patch.object(PIL.Image, 'open', autospec=True)
   def test_cv2_loaded_bw_image(self, mock_pil_open):
+    md = mock.create_autospec(
+        metadata_util.DicomInstanceMetadata, instance=True
+    )
+    md.is_uncompressed_little_endian = False
+    md.dicom_transfer_syntax = '1.2.840.10008.1.2.4.50'
     with open(shared_test_util.get_testdir_path('bw.jpeg'), 'rb') as infile:
-      decoded_img = image_util.decode_image_bytes(
-          infile.read(), '1.2.840.10008.1.2.4.50'
-      )
+      decoded_img = image_util.decode_image_bytes(infile.read(), md)
     np.testing.assert_array_equal(
         decoded_img, np.full((4, 4, 3), 255, dtype=np.uint8)
     )
@@ -422,10 +430,13 @@ class ImageUtilTest(parameterized.TestCase):
 
   @mock.patch.object(cv2, 'imdecode', autospec=True)
   def test_pil_loaded_bw_image(self, mock_cv2_imdecode):
+    md = mock.create_autospec(
+        metadata_util.DicomInstanceMetadata, instance=True
+    )
+    md.is_uncompressed_little_endian = False
+    md.dicom_transfer_syntax = '1.2.840.10008.1.2.4.90'
     with open(shared_test_util.get_testdir_path('bw.jpeg'), 'rb') as infile:
-      decoded_img = image_util.decode_image_bytes(
-          infile.read(), '1.2.840.10008.1.2.4.90'
-      )
+      decoded_img = image_util.decode_image_bytes(infile.read(), md)
     np.testing.assert_array_equal(
         decoded_img, np.full((4, 4, 3), 255, dtype=np.uint8)
     )

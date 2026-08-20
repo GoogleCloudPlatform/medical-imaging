@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """Tests for parameters exceptions and return types."""
+
 import dataclasses
 import filecmp
 import os
@@ -31,7 +32,6 @@ from pathology.dicom_proxy import pydicom_single_instance_read_cache
 from pathology.dicom_proxy import render_frame_params
 from pathology.dicom_proxy import shared_test_util
 from pathology.dicom_proxy import user_auth_util
-
 
 # Types
 _AuthSession = user_auth_util.AuthSession
@@ -331,7 +331,7 @@ class ParametersExceptionsAndReturnTypesTest(parameterized.TestCase):
     params = _RenderFrameParams()
 
     rf = parameters_exceptions_and_return_types.RenderedDicomFrames(
-        byte_list, params, _Metrics(6, 4)
+        byte_list, params.compression, '', _Metrics(6, 4)
     )
 
     self.assertEqual(rf.images, byte_list)
@@ -343,17 +343,25 @@ class ParametersExceptionsAndReturnTypesTest(parameterized.TestCase):
       (_Compression.JPEG, 'image/jpeg'),
       (_Compression.PNG, 'image/png'),
       (_Compression.WEBP, 'image/webp'),
-      (_Compression.RAW, 'image/raw'),
+      (_Compression.EXPLICIT_VR_LITTLE_ENDIAN, 'application/octet-stream'),
+      (_Compression.IMPLICIT_VR_LITTLE_ENDIAN, 'application/octet-stream'),
       (_Compression.GIF, 'image/gif'),
       (_Compression.JPEG_TRANSCODED_TO_JPEGXL, 'image/jxl'),
       (_Compression.JPEGXL, 'image/jxl'),
+      (_Compression.AS_STORED_IN_DICOM_STORE, 'MOCK_SOURCE_FRAME_MIME_TYPE'),
       (999, None),
   ])
   def test_rendered_dicom_frame_content_type(self, compression, expected):
     params = _RenderFrameParams()
     params.compression = compression
+    _mock_source_frame_content_type = (
+        'MOCK_SOURCE_FRAME_MIME_TYPE; transfer-syntax=MOCK_TRANSFER_SYNTAX'
+    )
     rf = parameters_exceptions_and_return_types.RenderedDicomFrames(
-        [b'1234', b'5678'], params, _Metrics(6, 4)
+        [b'1234', b'5678'],
+        params.compression,
+        _mock_source_frame_content_type,
+        _Metrics(6, 4),
     )
 
     if expected is None:
@@ -367,8 +375,12 @@ class ParametersExceptionsAndReturnTypesTest(parameterized.TestCase):
       (_Compression.PNG, 'image/png'),
       (_Compression.WEBP, 'image/webp'),
       (
-          _Compression.RAW,
+          _Compression.EXPLICIT_VR_LITTLE_ENDIAN,
           'application/octet-stream; transfer-syntax=1.2.840.10008.1.2.1',
+      ),
+      (
+          _Compression.IMPLICIT_VR_LITTLE_ENDIAN,
+          'application/octet-stream; transfer-syntax=1.2.840.10008.1.2',
       ),
       (
           _Compression.JPEG_TRANSCODED_TO_JPEGXL,
@@ -380,14 +392,24 @@ class ParametersExceptionsAndReturnTypesTest(parameterized.TestCase):
       ),
       (_Compression.GIF, 'image/gif'),
       (999, None),
+      (
+          _Compression.AS_STORED_IN_DICOM_STORE,
+          'MOCK_SOURCE_FRAME_MIME_TYPE; transfer-syntax=MOCK_TRANSFER_SYNTAX',
+      ),
   ])
   def test_rendered_dicom_frame_multipart_content_type(
       self, compression, expected
   ):
+    _mock_source_frame_content_type = (
+        'MOCK_SOURCE_FRAME_MIME_TYPE; transfer-syntax=MOCK_TRANSFER_SYNTAX'
+    )
     params = _RenderFrameParams()
     params.compression = compression
     rf = parameters_exceptions_and_return_types.RenderedDicomFrames(
-        [b'1234', b'5678'], params, _Metrics(6, 4)
+        [b'1234', b'5678'],
+        params.compression,
+        _mock_source_frame_content_type,
+        _Metrics(6, 4),
     )
 
     if expected is None:

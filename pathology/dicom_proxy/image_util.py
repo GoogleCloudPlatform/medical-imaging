@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """Image encoding, decoding, and downsampling utility."""
+
 import dataclasses
 import io
 import math
@@ -28,6 +29,7 @@ import PIL.ImageOps
 
 from pathology.dicom_proxy import dicom_proxy_flags
 from pathology.dicom_proxy import enum_types
+from pathology.dicom_proxy import metadata_util
 from pathology.dicom_proxy import render_frame_params
 
 # Types
@@ -75,28 +77,66 @@ def transcode_jpeg_to_jpxl(img: bytes) -> bytes:
   return imagecodecs.jpegxl_encode_jpeg(img, numthreads=1)
 
 
-def decode_image_bytes(frame: bytes, dicom_transfer_syntax: str) -> np.ndarray:
-  """Decode compressed image bytes to BRG image.
+def decode_image_bytes(
+    frame: bytes, dicom_instance_metadata: metadata_util.DicomInstanceMetadata
+) -> np.ndarray:
+  """Decode compressed image bytes to BGR image.
 
   Args:
     frame: Raw image bytes (compressed blob).
-    dicom_transfer_syntax: frame bytes encoded in.
+    dicom_instance_metadata: DICOM metadata of the image.
 
   Returns:
     Decompressed image.
   """
+  if dicom_instance_metadata.is_uncompressed_little_endian:
+    if dicom_instance_metadata.bits_allocated == 16:
+      dtype = np.uint16
+    elif dicom_instance_metadata.bits_allocated == 8:
+      dtype = np.uint8
+    else:
+      raise ValueError(
+          'Unsupported bits allocated:'
+          f' {dicom_instance_metadata.bits_allocated}'
+      )
+    image = np.frombuffer(frame, dtype=dtype)
+    if dicom_instance_metadata.samples_per_pixel == 1:
+      image = np.reshape(
+          image,
+          (
+              dicom_instance_metadata.rows,
+              dicom_instance_metadata.columns,
+          ),
+      )
+      return np.stack([image, image, image], axis=2)
+    if dicom_instance_metadata.samples_per_pixel != 3:
+      raise ValueError(
+          'Unsupported samples per pixel:'
+          f' {dicom_instance_metadata.samples_per_pixel}'
+      )
+    image = np.reshape(
+        image,
+        (
+            dicom_instance_metadata.rows,
+            dicom_instance_metadata.columns,
+            dicom_instance_metadata.samples_per_pixel,
+        ),
+    )
+    return cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
   img = typing.cast(
       np.ndarray,
       dicom_frame_decoder.decode_dicom_compressed_frame_bytes(
-          frame, dicom_transfer_syntax
+          frame, dicom_instance_metadata.dicom_transfer_syntax
       ),
   )
+  if img.ndim == 2:  # convert monochrome to BGR
+    return np.stack([img, img, img], axis=2)
   if img.shape[2] == 1:
-    # convert monochrome to RGB
+    # convert monochrome to BGR
     return np.concatenate([img, img, img], axis=-1)
   # ez_wsi returns imaging in RGB ordering.
   # Return image in BGR ordering (OpenCV byte ordering).
-  return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+  return cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
 
 def get_cv2_interpolation_padding(
@@ -462,7 +502,10 @@ def encode_image(
       or compression == _Compression.JPEG_TRANSCODED_TO_JPEGXL
   ):
     return _encode_jpegxl(img, quality)
-  if compression == _Compression.RAW:
+  if compression in (
+      _Compression.EXPLICIT_VR_LITTLE_ENDIAN,
+      _Compression.IMPLICIT_VR_LITTLE_ENDIAN,
+  ):
     # Return bytes in RGB byte order regardless of input source
     if isinstance(img, PILImage):
       img = img.image

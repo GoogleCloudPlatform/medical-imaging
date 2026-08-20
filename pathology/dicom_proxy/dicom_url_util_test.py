@@ -24,7 +24,6 @@ from pathology.dicom_proxy import enum_types
 from pathology.dicom_proxy import render_frame_params
 from pathology.dicom_proxy import user_auth_util
 
-
 _UID_123 = '1.2.3'
 _UID_124 = '1.2.4'
 _UID_125 = '1.2.5'
@@ -190,7 +189,14 @@ class DicomUrlUtilTest(parameterized.TestCase):
       (enum_types.Compression.PNG, enum_types.Compression.PNG),
       (enum_types.Compression.WEBP, enum_types.Compression.PNG),
       (enum_types.Compression.GIF, enum_types.Compression.PNG),
-      (enum_types.Compression.RAW, enum_types.Compression.PNG),
+      (
+          enum_types.Compression.EXPLICIT_VR_LITTLE_ENDIAN,
+          enum_types.Compression.PNG,
+      ),
+      (
+          enum_types.Compression.IMPLICIT_VR_LITTLE_ENDIAN,
+          enum_types.Compression.PNG,
+      ),
   ])
   def test_get_rendered_frame_compression(self, compression, expected):
     result = dicom_url_util.get_rendered_frame_compression(compression)

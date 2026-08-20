@@ -17,6 +17,7 @@
 import dataclasses
 import io
 import os
+import tempfile
 from typing import Any, Mapping, Optional, Tuple
 from unittest import mock
 
@@ -37,6 +38,8 @@ from pathology.dicom_proxy import pydicom_single_instance_read_cache
 from pathology.dicom_proxy import render_frame_params
 from pathology.dicom_proxy import shared_test_util
 
+# UID for DICOM Explicit VR Little Endian (uncompressed) transfer syntax.
+_EXPLICIT_VR_LITTLE_ENDIAN = '1.2.840.10008.1.2.1'
 
 _LocalDicomInstance = parameters_exceptions_and_return_types.LocalDicomInstance
 _RenderFrameParams = render_frame_params.RenderFrameParams
@@ -181,6 +184,63 @@ class DownsampleUtilTest(parameterized.TestCase):
     )
     self.assertLen(rendered_frames.images, 1)
     self._rgb_image_almost_equal(rendered_frames.images[0], path)
+
+  def test_get_rendered_dicom_frames_explicit_vr_little_endian_no_downsample(
+      self,
+  ):
+    """Frame retrieval for Explicit VR Little Endian (uncompressed) instances.
+
+    Explicit VR Little Endian (transfer-syntax=1.2.840.10008.1.2.1) instances
+    store raw uncompressed pixel data. This test verifies that
+    get_rendered_dicom_frames correctly decodes such frames (via the RAW
+    get_local_frame_list code path) and transcodes them into the requested
+    output compression format.
+    """
+    # Build an Explicit VR Little Endian DICOM from the standard JPEG test
+    # instance by decompressing the pixel data with pydicom's PIL handler.
+    with pydicom.dcmread(
+        shared_test_util.jpeg_encoded_dicom_instance_test_path()
+    ) as ds:
+      ds.decompress('pillow')  # decodes JPEG frames → raw RGB pixel data
+      ds.is_implicit_VR = False
+      ds.is_little_endian = True
+      ds.file_meta.TransferSyntaxUID = pydicom.uid.UID(
+          _EXPLICIT_VR_LITTLE_ENDIAN
+      )
+      with tempfile.NamedTemporaryFile(suffix='.dcm', delete=False) as tmp:
+        tmp_path = tmp.name
+      ds.save_as(tmp_path, write_like_original=False)
+
+    try:
+      path = pydicom_single_instance_read_cache.PyDicomFilePath(tmp_path)
+      cache = pydicom_single_instance_read_cache.PyDicomSingleInstanceCache(
+          path
+      )
+      instance = _LocalDicomInstance(cache)
+      params = _RenderFrameParams(downsample=1.0, compression=_Compression.JPEG)
+
+      rendered_frames = downsample_util.get_rendered_dicom_frames(
+          instance, params, [10]
+      )
+    finally:
+      os.unlink(tmp_path)
+
+    # The instance transfer syntax is uncompressed (RAW). Any output
+    # compression other than RAW requires transcoding.
+    self.assertEqual(rendered_frames.compression, _Compression.JPEG)
+    self.assertTrue(rendered_frames.metrics.images_transcoded)
+    self.assertEqual(rendered_frames.metrics.frame_requests, 1)
+    self.assertEqual(
+        rendered_frames.metrics.number_of_frames_downloaded_from_store, 0
+    )
+    self.assertLen(rendered_frames.images, 1)
+    # The decoded + re-encoded frame should be a valid JPEG image.
+    with PIL.Image.open(io.BytesIO(rendered_frames.images[0])) as img:
+      self.assertEqual(img.format, 'JPEG')
+    # Verify the instance transfer syntax is Explicit VR Little Endian.
+    self.assertEqual(
+        instance.metadata.dicom_transfer_syntax, _EXPLICIT_VR_LITTLE_ENDIAN
+    )
 
   @parameterized.parameters([
       _Compression.JPEG,

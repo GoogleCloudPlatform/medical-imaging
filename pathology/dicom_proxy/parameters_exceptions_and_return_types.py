@@ -34,7 +34,6 @@ from pathology.dicom_proxy import pydicom_single_instance_read_cache
 from pathology.dicom_proxy import render_frame_params
 from pathology.dicom_proxy import user_auth_util
 
-
 # Types
 _AuthSession = user_auth_util.AuthSession
 _Compression = enum_types.Compression
@@ -403,18 +402,31 @@ class RenderedDicomFrames:
   """Return type for get_rendered_dicom_frame."""
 
   def __init__(
-      self, images: List[bytes], params: _RenderFrameParams, metrics: Metrics
+      self,
+      images: List[bytes],
+      output_compression: _Compression,
+      source_frame_content_type: str,
+      metrics: Metrics,
   ):
     """Constructor.
 
     Args:
       images: List of compressed images (bytes).  Images in order requested.
-      params: Parameters defining downsampled rendered frame request.
+      output_compression: Compression for returned imaging.
+      source_frame_content_type: DICOM transfer-syntax MIME content type of the
+        source frames (e.g. ``application/octet-stream;
+        transfer-syntax=1.2.840.10008.1.2``).  If undefined, empty string.
       metrics: Metrics describing request.
     """
     self._images = images
-    self._compression = params.compression
+    self._compression = output_compression
+    self._source_frame_content_type = source_frame_content_type
     self._metrics = metrics
+
+  @property
+  def source_frame_content_type(self) -> str:
+    """Returns list of image bytes."""
+    return self._source_frame_content_type
 
   @property
   def images(self) -> List[bytes]:
@@ -444,14 +456,24 @@ class RenderedDicomFrames:
       return 'image/png'
     if self.compression == _Compression.WEBP:
       return 'image/webp'
-    if self.compression == _Compression.RAW:
-      return 'image/raw'
+    if self.compression == _Compression.IMPLICIT_VR_LITTLE_ENDIAN:
+      return 'application/octet-stream'
+    if self.compression == _Compression.EXPLICIT_VR_LITTLE_ENDIAN:
+      return 'application/octet-stream'
     if self.compression == _Compression.GIF:
       return 'image/gif'
     if self.compression == _Compression.JPEG_TRANSCODED_TO_JPEGXL:
       return 'image/jxl'
     if self.compression == _Compression.JPEGXL:
       return 'image/jxl'
+    if self.compression == _Compression.AS_STORED_IN_DICOM_STORE:
+      source_content_type = self.source_frame_content_type.split(';')[0].strip()
+      if source_content_type:
+        return source_content_type
+      raise ValueError(
+          f'Source frame content type is "{source_content_type}" for'
+          ' AS_STORED_IN_DICOM_STORE'
+      )
     raise ValueError('Unknown image compression.')
 
   @property
@@ -467,7 +489,9 @@ class RenderedDicomFrames:
       return 'image/png'
     if self.compression == _Compression.WEBP:
       return 'image/webp'
-    if self.compression == _Compression.RAW:
+    if self.compression == _Compression.IMPLICIT_VR_LITTLE_ENDIAN:
+      return 'application/octet-stream; transfer-syntax=1.2.840.10008.1.2'
+    if self.compression == _Compression.EXPLICIT_VR_LITTLE_ENDIAN:
       return 'application/octet-stream; transfer-syntax=1.2.840.10008.1.2.1'
     if self.compression == _Compression.GIF:
       return 'image/gif'
@@ -475,4 +499,11 @@ class RenderedDicomFrames:
       return 'image/jxl; transfer-syntax=1.2.840.10008.1.2.4.111'
     if self.compression == _Compression.JPEGXL:
       return 'image/jxl; transfer-syntax=1.2.840.10008.1.2.4.112'
+    if self.compression == _Compression.AS_STORED_IN_DICOM_STORE:
+      source_content_type = self.source_frame_content_type.strip()
+      if source_content_type:
+        return source_content_type
+      raise ValueError(
+          'Source frame content type is empty for AS_STORED_IN_DICOM_STORE'
+      )
     raise ValueError('Unknown image compression.')

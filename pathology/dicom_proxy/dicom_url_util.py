@@ -406,10 +406,23 @@ def get_rendered_frame_compression(
   if compression in (
       enum_types.Compression.WEBP,
       enum_types.Compression.GIF,
-      enum_types.Compression.RAW,
+      enum_types.Compression.EXPLICIT_VR_LITTLE_ENDIAN,
+      enum_types.Compression.IMPLICIT_VR_LITTLE_ENDIAN,
   ):
     return enum_types.Compression.PNG  # PNG is a lossless compression return
     # PNG to maximize quality.
+  raise ValueError('Unhandled rendered frame compression')
+
+
+def get_rendered_frame_content_type(
+    compression: enum_types.Compression,
+) -> str:
+  """Returns MIME content type string for rendered frame request."""
+  compression = get_rendered_frame_compression(compression)
+  if compression == enum_types.Compression.JPEG:
+    return 'image/jpeg'
+  if compression == enum_types.Compression.PNG:
+    return 'image/png'
   raise ValueError('Unhandled rendered frame compression')
 
 
@@ -422,12 +435,7 @@ def _rendered_frame_accept(
     compression: Compression encoding requested by the client may not be a
       format supported by the server.
   """
-  compression = get_rendered_frame_compression(compression)
-  if compression == enum_types.Compression.JPEG:
-    return {_ACCEPT: 'image/jpeg'}
-  if compression == enum_types.Compression.PNG:
-    return {_ACCEPT: 'image/png'}
-  raise ValueError('Unhandled rendered frame compression')
+  return {_ACCEPT: get_rendered_frame_content_type(compression)}
 
 
 def download_rendered_dicom_frame(

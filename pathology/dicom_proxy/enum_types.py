@@ -36,13 +36,13 @@ class Compression(enum.Enum):
   PNG = 1
   WEBP = 2
   GIF = 3
-  RAW = 4
   NUMPY = 5  # Used internally for downsampling instance optimization
   JPEG2000 = 6
   JPEGXL = 7
   JPEG_TRANSCODED_TO_JPEGXL = 8
   AS_STORED_IN_DICOM_STORE = 9  # Return as stored on server.
-
+  IMPLICIT_VR_LITTLE_ENDIAN = 10
+  EXPLICIT_VR_LITTLE_ENDIAN = 11
 
 ICCProfile = NewType('ICCProfile', str)
 

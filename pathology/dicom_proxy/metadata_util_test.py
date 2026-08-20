@@ -39,7 +39,6 @@ from pathology.dicom_proxy import shared_test_util
 from pathology.dicom_proxy import user_auth_util
 from pathology.shared_libs.test_utils.dicom_store_mock import dicom_store_mock
 
-
 # Mark flags as parsed to avoid UnparsedFlagAccessError for tests using
 # --test_srcdir flag in parameters.
 flags.FLAGS.mark_as_parsed()
@@ -196,6 +195,26 @@ class MetadataUtilTest(parameterized.TestCase):
         shared_test_util.jpeg_encoded_dicom_instance_metadata(
             dict(dicom_transfer_syntax=uid)
         ).is_jpeg2000
+    )
+
+  @parameterized.parameters(
+      ['1.2.840.10008.1.2', '1.2.840.10008.1.2.1', '1.2.840.10008.1.2.1.99']
+  )
+  def test_is_uncompressed_little_endian_true(self, uid):
+    self.assertTrue(
+        shared_test_util.jpeg_encoded_dicom_instance_metadata(
+            dict(dicom_transfer_syntax=uid)
+        ).is_uncompressed_little_endian
+    )
+
+  @parameterized.parameters(
+      ['1.2.840.10008.1.2.4.50', '1.2.840.10008.1.2.4.90', '1.2.3']
+  )
+  def test_is_uncompressed_little_endian_false(self, uid):
+    self.assertFalse(
+        shared_test_util.jpeg_encoded_dicom_instance_metadata(
+            dict(dicom_transfer_syntax=uid)
+        ).is_uncompressed_little_endian
     )
 
   def test_get_value(self):

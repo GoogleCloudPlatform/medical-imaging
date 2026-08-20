@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """Tests for frame retrieval util."""
+
 import dataclasses
 import http.client
 import io
@@ -35,7 +36,6 @@ from pathology.dicom_proxy import dicom_url_util
 from pathology.dicom_proxy import enum_types
 from pathology.dicom_proxy import frame_retrieval_util
 from pathology.dicom_proxy import image_util
-from pathology.dicom_proxy import metadata_util
 from pathology.dicom_proxy import pydicom_single_instance_read_cache
 from pathology.dicom_proxy import render_frame_params
 from pathology.dicom_proxy import shared_test_util
@@ -166,14 +166,25 @@ class FrameRetrievalUtilTest(parameterized.TestCase):
     images = {}
     images[1] = b'1234'
     images[2] = b'5678'
-    frameimages = _FrameImages(images, _Compression.JPEG, len(images))
+    content_type = (
+        'application/octet-stream; transfer-syntax=1.2.840.10008.1.2.4.50'
+    )
+    frameimages = _FrameImages(
+        images, _Compression.JPEG, len(images), content_type
+    )
 
     self.assertEqual(frameimages.images, images)
     self.assertEqual(frameimages.compression, _Compression.JPEG)
     self.assertLen(images, frameimages.number_of_frames_downloaded_from_store)
+    self.assertEqual(frameimages.source_frame_content_type, content_type)
     self.assertEqual(
         set(dataclasses.asdict(frameimages)),
-        {'images', 'compression', 'number_of_frames_downloaded_from_store'},
+        {
+            'images',
+            'compression',
+            'number_of_frames_downloaded_from_store',
+            'source_frame_content_type',
+        },
     )
 
   def test_create_frame_images_raises_frame_retrieval_error(self):
@@ -186,7 +197,7 @@ class FrameRetrievalUtilTest(parameterized.TestCase):
         frame_retrieval_util._InvalidNumberOfReturnedFramesError
     ):
       frame_retrieval_util._create_frame_images(
-          frame_numbers, frame_data, compression
+          frame_numbers, frame_data, compression, 'image/jpeg'
       )
 
   def test_create_frame_images_raises_undefined_compression(self):
@@ -197,7 +208,7 @@ class FrameRetrievalUtilTest(parameterized.TestCase):
     ]
     with self.assertRaises(ValueError):
       frame_retrieval_util._create_frame_images(
-          frame_numbers, frame_data, compression
+          frame_numbers, frame_data, compression, 'image/jpeg'
       )
 
   @parameterized.parameters([(True, 3), (False, 0)])
@@ -215,7 +226,7 @@ class FrameRetrievalUtilTest(parameterized.TestCase):
     expected_dict = {fnum: test_bytes for fnum in frame_numbers}
 
     result = frame_retrieval_util._create_frame_images(
-        frame_numbers, frame_data, compression
+        frame_numbers, frame_data, compression, 'image/jpeg'
     )
     self.assertEqual(result.images, expected_dict)
     self.assertEqual(result.compression, compression)
@@ -350,7 +361,10 @@ class FrameRetrievalUtilTest(parameterized.TestCase):
     self.assertEqual(
         frame_images,
         frame_retrieval_util.FrameImages(
-            {(_TEST_FRAME_NUMBER - 1): b'test_data'}, _Compression.JPEG, 1
+            {(_TEST_FRAME_NUMBER - 1): b'test_data'},
+            _Compression.JPEG,
+            1,
+            'application/octet-stream; transfer-syntax=1.2.840.10008.1.2.4.50',
         ),
     )
 
@@ -387,7 +401,10 @@ class FrameRetrievalUtilTest(parameterized.TestCase):
     self.assertEqual(
         frame_images,
         frame_retrieval_util.FrameImages(
-            {0: b'test_frame_1', 1: b'test_frame_2'}, _Compression.JPEG, 2
+            {0: b'test_frame_1', 1: b'test_frame_2'},
+            _Compression.JPEG,
+            2,
+            'application/octet-stream; transfer-syntax=1.2.840.10008.1.2.4.50',
         ),
     )
 
@@ -436,6 +453,7 @@ class FrameRetrievalUtilTest(parameterized.TestCase):
             },
             requested_compression_format,
             1,
+            content_type,
         ),
     )
 
@@ -491,6 +509,7 @@ class FrameRetrievalUtilTest(parameterized.TestCase):
             },
             _Compression.JPEG,
             1,
+            'application/octet-stream; transfer-syntax=1.2.840.10008.1.2.4.50',
         ),
     )
     for frame_number, expected_data in zip(
@@ -539,7 +558,10 @@ class FrameRetrievalUtilTest(parameterized.TestCase):
     self.assertEqual(
         frame_images,
         frame_retrieval_util.FrameImages(
-            {(_TEST_FRAME_NUMBER - 1): b'test_data'}, _Compression.JPEG, 1
+            {(_TEST_FRAME_NUMBER - 1): b'test_data'},
+            _Compression.JPEG,
+            1,
+            'application/octet-stream; transfer-syntax=1.2.840.10008.1.2.4.50',
         ),
     )
 
@@ -556,9 +578,10 @@ class FrameRetrievalUtilTest(parameterized.TestCase):
       self, unused__get_rendered_frame_list_mock
   ):
     cache = shared_test_util.jpeg_encoded_pydicom_instance_cache(
-        {'dicom_transfer_syntax': metadata_util._IMPLICIT_VR_ENDIAN}
+        {'dicom_transfer_syntax': 'UNSUPPORTED_TRANSFER_SYNTAX'}
     )
-    # Set metadata to raw format to force frame rendered request.
+    # Set metadata to unsupported transfer syntax to force frame rendered
+    # request.
     requested_compression_format = _Compression.PNG
     with self.assertRaisesRegex(
         frame_retrieval_util._InvalidNumberOfReturnedFramesError,
@@ -655,6 +678,8 @@ class FrameRetrievalUtilTest(parameterized.TestCase):
       frame_retrieval_util._BASELINE_JPEG_MIME_TYPE_AND_TRANSFER_SYNTAX,
       frame_retrieval_util._JPEG2000_LOSSLESS_MIME_TYPE_AND_TRANSFER_SYNTAX,
       frame_retrieval_util._JPEG2000_LOSSY_MIME_TYPE_AND_TRANSFER_SYNTAX,
+      frame_retrieval_util._IMPLICIT_VR_LITTLE_ENDIAN_APPLICATION_OCTET_STREAM,
+      frame_retrieval_util._EXPLICIT_VR_LITTLE_ENDIAN_APPLICATION_OCTET_STREAM,
   ])
   @mock.patch.object(redis.Redis, 'set')
   @mock.patch.object(redis.Redis, 'get', autospec=True, return_value=None)

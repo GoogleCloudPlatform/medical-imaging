@@ -54,6 +54,10 @@ def create_mock_dicom_instance_metadata(
   type(md).is_baseline_jpeg = mock.PropertyMock(
       return_value=transfer_syntax == '1.2.840.10008.1.2.4.50'
   )
+  type(md).is_uncompressed_little_endian = mock.PropertyMock(
+      return_value=transfer_syntax
+      in ('1.2.840.10008.1.2', '1.2.840.10008.1.2.1', '1.2.840.10008.1.2.1.99')
+  )
   return md
 
 

@@ -119,9 +119,7 @@ class _TranscodedRenderedDicomFrames(_RenderedDicomFrames):
       is_frame_patch = True
       # Images decoded using OpenCV into BGR ordering
       decoded_source_frames = {
-          num: image_util.decode_image_bytes(
-              img, source_dicom_metadata.dicom_transfer_syntax
-          )
+          num: image_util.decode_image_bytes(img, source_dicom_metadata)
           for num, img in source_frames.images.items()
       }
 
@@ -146,7 +144,7 @@ class _TranscodedRenderedDicomFrames(_RenderedDicomFrames):
           continue
         except image_util.JpegxlToJpegTranscodeError:
           image = image_util.decode_image_bytes(
-              image, source_dicom_metadata.dicom_transfer_syntax  # pyrefly: ignore[bad-argument-type]
+              image, source_dicom_metadata  # pyrefly: ignore[bad-argument-type]
           )
       elif (
           icc_profile_transform is None
@@ -163,7 +161,7 @@ class _TranscodedRenderedDicomFrames(_RenderedDicomFrames):
         continue
       else:
         image = image_util.decode_image_bytes(
-            image, source_dicom_metadata.dicom_transfer_syntax  # pyrefly: ignore[bad-argument-type]
+            image, source_dicom_metadata  # pyrefly: ignore[bad-argument-type]
         )
       if icc_profile_transform is None:
         icc_profile = None
@@ -180,7 +178,12 @@ class _TranscodedRenderedDicomFrames(_RenderedDicomFrames):
               icc_profile if params.embed_iccprofile else None,
           )
       )
-    super().__init__(encoded_images, params, metrics)
+    # source frame content type is not relevant for transcoded requests.
+    # the source has now been transcoded into a new format.
+    source_frame_content_type = ''
+    super().__init__(
+        encoded_images, params.compression, source_frame_content_type, metrics
+    )
 
 
 def _metadata_colorspace_equals(
@@ -431,7 +434,12 @@ def _get_frames_no_downsampling(
       and not params.is_viewport_defined()
   ):
     metrics.images_transcoded = False
-    return _RenderedDicomFrames(result, params, metrics)
+    return _RenderedDicomFrames(
+        result,
+        params.compression,
+        source_frames.source_frame_content_type,
+        metrics,
+    )
   # transcode images
   metrics.images_transcoded = True
   return _TranscodedRenderedDicomFrames(
@@ -626,6 +634,7 @@ def get_rendered_dicom_frames(
   downsample_image_list = []
   minibatch_start_index = 0
   minibatch_frame_request: Optional[_MiniBatchFrameImages] = None
+  source_frame_content_type = ''
   while minibatch_start_index < len(dicom_frame_indexes):
     minibatch = _get_minibatch(
         minibatch_start_index,
@@ -654,8 +663,14 @@ def get_rendered_dicom_frames(
 
     metrics.mini_batch_requests += 1
     downsample_image_list.extend(transcoded_frames.images)
+    source_frame_content_type = transcoded_frames.source_frame_content_type
   metrics.images_transcoded = True
-  return _RenderedDicomFrames(downsample_image_list, params, metrics)
+  return _RenderedDicomFrames(
+      downsample_image_list,
+      params.compression,
+      source_frame_content_type,
+      metrics,
+  )
 
 
 def downsample_dicom_instance(
@@ -724,6 +739,7 @@ def downsample_dicom_instance(
   py = 0
   py_end = tile_height
   return_metrics = _Metrics()
+  render_frame_content_type = ''
   for _ in range(frame_height_count):
     px = 0
     px_end = tile_width
@@ -751,24 +767,22 @@ def downsample_dicom_instance(
           image_list = rendered_frames.images
           # request frames in reverse order.  Rendered frames poped from list.
           image_list.reverse()
+          render_frame_content_type = rendered_frames.source_frame_content_type
           del rendered_frames
         undecoded_image = image_list.pop()  # pytype: disable=attribute-error
       else:
         rendered_frame = get_rendered_dicom_frames(
             dicom_instance, params, [framenumber]
         )
+        render_frame_content_type = rendered_frame.source_frame_content_type
         return_metrics.add_metrics(rendered_frame.metrics)
         undecoded_image = rendered_frame.images[0]
         del rendered_frame
       if params.compression == enum_types.Compression.NUMPY:
         decoded_image = typing.cast(np.ndarray, undecoded_image)
-      elif params.compression == enum_types.Compression.RAW:
-        decoded_image = np.ndarray(
-            (tile_height, tile_width, 3), dtype=np.uint8, buffer=undecoded_image
-        )
       else:
         decoded_image = image_util.decode_image_bytes(
-            undecoded_image, dicom_instance.metadata  # pyrefly: ignore[bad-argument-type]
+            undecoded_image, dicom_instance.metadata
         )
       if instance_image is None:
         instance_image = np.zeros(
@@ -808,7 +822,8 @@ def downsample_dicom_instance(
               icc_profile if orig_params.embed_iccprofile else None,
           )
       ],
-      orig_params,
+      orig_params.compression,
+      render_frame_content_type,
       return_metrics,
   )
 
