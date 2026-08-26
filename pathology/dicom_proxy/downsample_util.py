@@ -384,25 +384,6 @@ def _get_max_downsample(metadata: metadata_util.DicomInstanceMetadata) -> float:
   )
 
 
-def _compressions_match(
-    compression1: enum_types.Compression,
-    compression2: enum_types.Compression,
-) -> bool:
-  """Returns whether two compressions match for returning images."""
-  if compression1 == compression2:
-    return True
-  little_endian_transfer_syntax = (
-      enum_types.Compression.IMPLICIT_VR_LITTLE_ENDIAN,
-      enum_types.Compression.EXPLICIT_VR_LITTLE_ENDIAN,
-  )
-  if (
-      compression1 in little_endian_transfer_syntax
-      and compression2 in little_endian_transfer_syntax
-  ):
-    return True
-  return False
-
-
 def _get_frames_no_downsampling(
     frame_indexes: List[int],
     dicom_instance_source: _DicomInstanceRequest,
@@ -448,7 +429,7 @@ def _get_frames_no_downsampling(
       source_frames.number_of_frames_downloaded_from_store
   )
   if (
-      _compressions_match(params.compression, source_frames.compression)
+      params.compression == source_frames.compression
       and icc_profile_transform is None
       and not params.is_viewport_defined()
   ):

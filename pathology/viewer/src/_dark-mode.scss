@@ -1,0 +1,46 @@
+/**
+ * Copyright 2024 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
+ * SCSS mixin for conditional dark mode styles.
+ * When ENABLE_DARK_MODE feature flag is false, dark mode is disabled.
+ * When true, dark mode respects OS/browser preference.
+ * 
+ * IMPORTANT: This mixin ONLY applies when:
+ * The html element has the 'dark-mode-enabled' class (set by app when flag is true)
+ * The OS/browser prefers dark color scheme
+ * 
+ * 
+ * Usage:
+ *   @use '../../dark-mode' as dm;
+ *   
+ *   .my-element {
+ *     color: black;
+ *     
+ *     @include dm.dark-mode {
+ *       color: var(--dark-mode-text);
+ *     }
+ *   }
+ */
+@mixin dark-mode {
+  @media (prefers-color-scheme: dark) {
+    // Check if html element has dark-mode-enabled class
+    // This ensures dark mode only applies when feature flag is enabled
+    :host-context(html.dark-mode-enabled) & {
+      @content;
+    }
+  }
+}
