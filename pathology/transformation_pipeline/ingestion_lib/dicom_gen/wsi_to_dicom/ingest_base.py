@@ -17,6 +17,7 @@ import abc
 import dataclasses
 import os
 import re
+import shlex
 import subprocess
 from typing import Any, Dict, List, Mapping, MutableMapping, Optional, Set, Union
 
@@ -211,7 +212,8 @@ def _get_wsi2dcm_cmdline(
   cmd_line = [
       (
           '/wsi-to-dicom-converter/build/wsi2dcm '
-          f'--input="{file_to_convert}" --outFolder="{output_path}" '
+          f'--input={shlex.quote(file_to_convert)} '
+          f'--outFolder={shlex.quote(output_path)} '
       ),
       default_conversion_params,
   ]
@@ -230,9 +232,9 @@ def _get_wsi2dcm_cmdline(
   # Always store pseudo thumbnail image that fits in one frame.
   cmd_line.append('--singleFrameDownsample')
   if study_uid is not None and study_uid:
-    cmd_line.append(f'--studyId={study_uid}')
+    cmd_line.append(f'--studyId={shlex.quote(study_uid)}')
   if series_uid is not None and series_uid:
-    cmd_line.append(f'--seriesId={series_uid}')
+    cmd_line.append(f'--seriesId={shlex.quote(series_uid)}')
   cmd_line = ' '.join(cmd_line)
   cloud_logging_client.debug(
       'Wsi2Dcm Command line',
