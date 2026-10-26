@@ -740,9 +740,12 @@ export class ImageViewerPageStore implements OnDestroy {
                     if (!url.startsWith(DEFAULT_VIEWER_URL)) return;
 
                     let {cohortName, series} = params;
-                    if (series) {
+                    const seriesList = series
+                        ? series.split(',').map((s) => addDicomStorePrefixIfMissing(s.trim()))
+                        : [];
+                    if (seriesList.length > 0) {
                       // Support legacy URLs
-                      series = addDicomStorePrefixIfMissing(series);
+                      series = seriesList[0];
                     }
 
                     if (!environment.IMAGE_DICOM_STORE_BASE_URL) {
@@ -767,9 +770,20 @@ export class ImageViewerPageStore implements OnDestroy {
                         this.router.navigate(['/search']);
                         return;
                     }
+                    const indexSeries = series.indexOf('/series/');
+
+                    let study: string =
+                        indexSeries === -1 ? series : series.slice(0, indexSeries);
+
                     // Check the base URL is one of the configured DICOM Stores.
                     try {
-                        dicomIdToDicomStore(series);
+                        if (seriesList.some((s) => !s)) {
+                            throw new Error('Invalid Dicom id prefix');
+                        }
+                        for (const s of seriesList) {
+                            dicomIdToDicomStore(s);
+                        }
+                        dicomIdToDicomStore(study);
                     } catch (e) {
                         this.dialogService.error(
                             'For your safety loading this slide was blocked. The DICOM store specified in your browser URL is not on the ones that were configured.')
@@ -778,11 +792,6 @@ export class ImageViewerPageStore implements OnDestroy {
                             });
                         return;
                     }
-
-                    const indexSeries = series.indexOf('/series/');
-
-                    let study: string =
-                        indexSeries === -1 ? series : series.slice(0, indexSeries);
 
                     if (this.caseId !== study) {
                         this.caseId = '';
@@ -806,7 +815,8 @@ export class ImageViewerPageStore implements OnDestroy {
                             });
                     }
 
-                    const splitViewSlideDescriptors = series.split(',').map((a => {
+                    const splitViewSlideDescriptors: Array<SlideDescriptor | undefined> =
+                        seriesList.map((a => {
                         if (!a) return undefined;
                         return { id: a };
                     }));

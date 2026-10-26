@@ -10,6 +10,7 @@ import { Observable, throwError, of, from } from 'rxjs';
 import { catchError, finalize, shareReplay, switchMap } from 'rxjs/operators';
 import { AuthService } from '../services/auth.service';
 import { AuthStateService } from '../services/auth-state.service';
+import { isAllowedAuthenticatedRequestUrl } from '../interfaces/dicom_store_descriptor';
 
 @Injectable()
 export class AuthTokenInterceptor implements HttpInterceptor {
@@ -38,6 +39,11 @@ export class AuthTokenInterceptor implements HttpInterceptor {
   }
 
   private addToken(req: HttpRequest<unknown>): Observable<HttpRequest<unknown>> {
+    // Do not attach bearer tokens to untrusted or unconfigured destination URLs.
+    if (!isAllowedAuthenticatedRequestUrl(req.url)) {
+      return of(req);
+    }
+
     // If an Authorization header already exists, keep it.
     const existingAuth = req.headers.get('Authorization') || req.headers.get('authorization');
     if (existingAuth) return of(req);
@@ -56,6 +62,10 @@ export class AuthTokenInterceptor implements HttpInterceptor {
     next: HttpHandler,
     originalError: HttpErrorResponse,
   ): Observable<HttpEvent<unknown>> {
+    // Reject token refresh and attachment if destination URL is not an allowed backend.
+    if (!isAllowedAuthenticatedRequestUrl(req.url)) {
+      return throwError(() => originalError);
+    }
     if (!this.refreshToken$) {
       this.authState.setReauthInProgress(true);
       // Use getOAuthToken() which will refresh if needed.

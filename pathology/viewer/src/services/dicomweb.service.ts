@@ -28,6 +28,7 @@ import {PathologySlide} from '../interfaces/slide_descriptor';
 import {SlideDescriptor, SlideInfo } from '../interfaces/slide_descriptor';
 import {encodeByteArray} from '../utils/crypt';
 import {environment} from '../environments/environment';
+import {isAllowedDicomWebRequestUrl} from '../interfaces/dicom_store_descriptor';
 import {DicomWebUrlConfig, constructDicomWebUrl, parseDICOMwebUrl} from '../interfaces/dicomweb';
 import {CompressionType, IccProfileType} from '../interfaces/types';
 
@@ -172,6 +173,12 @@ export class DicomwebService {
 
   private httpGetStringEncodedImage(
     url: string, compressionType: CompressionType = CompressionType.DEFAULT): Observable<string> {
+    // Block outbound image requests that do not target a configured DICOM store.
+    if (!isAllowedDicomWebRequestUrl(url)) {
+      this.logService.error(
+        { name: `httpGetImg blocked untrusted URL: "${url}"`, message: 'Untrusted DICOMweb URL' });
+      return throwError(() => new Error(`Blocked request to untrusted DICOM store URL: ${url}`));
+    }
     return this.authService.getOAuthToken().pipe(switchMap((accessToken) => {
       const headers: { [key: string]: string } = {
         'Accept': compressionType + ',multipart/related',
@@ -200,6 +207,14 @@ export class DicomwebService {
 
 
   private httpGetText(url: string): Observable<string> {
+    // Block outbound metadata requests that do not target a configured DICOM store.
+    if (!isAllowedDicomWebRequestUrl(url)) {
+      this.logService.error({
+        name: `httpGetText blocked untrusted URL: "${url}"`,
+        message: 'Untrusted DICOMweb URL'
+      });
+      return throwError(() => new Error(`Blocked request to untrusted DICOM store URL: ${url}`));
+    }
     return this.authService.getOAuthToken().pipe(switchMap((accessToken) => {
       const headers: { [key: string]: string } = {};
       if (accessToken) {
