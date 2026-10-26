@@ -29,7 +29,7 @@ import {forkJoin, from, of, ReplaySubject, throwError} from 'rxjs';
 import {bufferCount, catchError, distinctUntilChanged, first, map, mergeMap, takeUntil, tap, toArray} from 'rxjs/operators';
 
 import {InspectPageParams} from '../../app/app.routes';
-import {DICOM_STORE, DicomStores} from '../../interfaces/dicom_store_descriptor';
+import {addDicomStorePrefixIfMissing, DICOM_STORE, dicomIdToDicomStore, DicomStores} from '../../interfaces/dicom_store_descriptor';
 import {SlideInfo} from '../../interfaces/slide_descriptor';
 import {IccProfileType} from '../../interfaces/types';
 import {DicomwebService} from '../../services/dicomweb.service';
@@ -185,6 +185,11 @@ export class InspectPageComponent implements OnInit, OnDestroy {
     this.errorMsg = '';
     this.slideInfo = undefined;
     try {
+      // Normalize and validate the series URL against configured DICOM stores.
+      const normalizedSeriesUid = addDicomStorePrefixIfMissing(
+          this.urlSeriesUid.trim());
+      dicomIdToDicomStore(normalizedSeriesUid);
+      this.urlSeriesUid = normalizedSeriesUid;
       this.slideApiService.getSlideInfo(this.urlSeriesUid)
           .pipe(
               first(), catchError(val => {
