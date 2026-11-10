@@ -18,7 +18,7 @@ import dataclasses
 import os
 import re
 import subprocess
-from typing import Any, Dict, List, Mapping, MutableMapping, Optional, Set, Union
+from typing import Any, Dict, List, Mapping, MutableMapping, Optional, Sequence, Set, Union
 
 import pydicom
 import requests
@@ -196,9 +196,9 @@ def _get_wsi2dcm_cmdline(
     output_path: str,
     study_uid: Optional[str],
     series_uid: Optional[str],
-    default_conversion_params: str,
-) -> str:
-  """Returns wsi2dcm commandline.
+    default_conversion_params: Union[str, Sequence[str]],
+) -> list[str]:
+  """Returns wsi2dcm commandline arguments.
 
   Args:
     file_to_convert: Input file to convert to DICOM.
@@ -207,14 +207,19 @@ def _get_wsi2dcm_cmdline(
     study_uid: Study instance uid to set DICOM files to.
     series_uid: Series instance uid to set DICOM files to.
     default_conversion_params: Default conversion params
+
+  Raises:
+    GenDicomFailedError: If study_uid or series_uid is not a valid DICOM UID.
   """
   cmd_line = [
-      (
-          '/wsi-to-dicom-converter/build/wsi2dcm '
-          f'--input="{file_to_convert}" --outFolder="{output_path}" '
-      ),
-      default_conversion_params,
+      '/wsi-to-dicom-converter/build/wsi2dcm',
+      f'--input={file_to_convert}',
+      f'--outFolder={output_path}',
   ]
+  if isinstance(default_conversion_params, str):
+    cmd_line.extend(default_conversion_params.split())
+  else:
+    cmd_line.extend(default_conversion_params)
   if downsample_config.generate_full_pyramid:
     # levels is set to an absurdly large number to indicate multiple levels.
     # will be generated. Actual downsampled levels will be the number of levels
@@ -225,18 +230,35 @@ def _get_wsi2dcm_cmdline(
   else:
     downsamples = downsample_config.main_store.union(downsample_config.oof)  # pyrefly: ignore[missing-attribute]
     downsamples = sorted(list(downsamples))
-    downsamples = ' '.join([str(ds) for ds in downsamples])
-    cmd_line.append(f'--downsamples {downsamples}')
+    cmd_line.append('--downsamples')
+    cmd_line.extend([str(ds) for ds in downsamples])
   # Always store pseudo thumbnail image that fits in one frame.
   cmd_line.append('--singleFrameDownsample')
   if study_uid is not None and study_uid:
+    if not uid_generator.validate_uid_format(study_uid):
+      cloud_logging_client.error(
+          'StudyInstanceUID is incorrectly formatted.',
+          {ingest_const.LogKeywords.STUDY_INSTANCE_UID: study_uid},
+      )
+      raise GenDicomFailedError(
+          'StudyInstanceUID is incorrectly formatted.',
+          ingest_const.ErrorMsgs.DICOM_UID_INCORRECTLY_FORMATTED,
+      )
     cmd_line.append(f'--studyId={study_uid}')
   if series_uid is not None and series_uid:
+    if not uid_generator.validate_uid_format(series_uid):
+      cloud_logging_client.error(
+          'SeriesInstanceUID is incorrectly formatted.',
+          {ingest_const.LogKeywords.SERIES_INSTANCE_UID: series_uid},
+      )
+      raise GenDicomFailedError(
+          'SeriesInstanceUID is incorrectly formatted.',
+          ingest_const.ErrorMsgs.DICOM_UID_INCORRECTLY_FORMATTED,
+      )
     cmd_line.append(f'--seriesId={series_uid}')
-  cmd_line = ' '.join(cmd_line)
   cloud_logging_client.debug(
       'Wsi2Dcm Command line',
-      {'wsi2dcm_command_line': cmd_line},
+      {'wsi2dcm_command_line': ' '.join(cmd_line)},
   )
   return cmd_line
 
@@ -865,7 +887,7 @@ class IngestBase(metaclass=abc.ABCMeta):
       cloud_logging_client.info(
           'Starting WSI-to-DICOM conversion', {'cmd_line': cmd_line}
       )
-      subprocess.run(cmd_line, capture_output=True, check=True, shell=True)
+      subprocess.run(cmd_line, capture_output=True, check=True, shell=False)
     except subprocess.CalledProcessError as exp:
       cloud_logging_client.error(
           'WSI-to-DICOM conversion error',

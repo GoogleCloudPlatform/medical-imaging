@@ -112,7 +112,7 @@ def _get_pixel_coordinate_frames(
   for _ in range(upper_left.frame_row + 1, lower_right.frame_row + 1):
     rows.append(rows[-1] + frames_per_row)
   frame_list = list(itertools.chain(*rows))
-  return _PixelCoordFrames(frame_list, len(rows))
+  return _PixelCoordFrames(frame_list, len(rows))  # pyrefly: ignore[bad-argument-type]
 
 
 def get_downsampled_frame_coord_scale_factor(

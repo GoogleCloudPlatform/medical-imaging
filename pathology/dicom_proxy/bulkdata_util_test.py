@@ -160,7 +160,7 @@ class BulkdataUtilTest(parameterized.TestCase):
         f'{_STUDY_INSTANCE_UID}/{_SERIES_INSTANCE_UID}/instances'
     )
     self.assertEqual(
-        result.groups(), ('https', f'{str(_DICOMSTORE_BASEURL)[3:]}')  # pytype: disable=attribute-error
+        result.groups(), ('https', f'{str(_DICOMSTORE_BASEURL)[3:]}')  # pyrefly: ignore[missing-attribute]
     )
 
   @flagsaver.flagsaver(bulk_data_proxy_url='https://www.test.com/')

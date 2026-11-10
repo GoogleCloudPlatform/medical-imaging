@@ -149,7 +149,7 @@ class GcsMock(contextlib.ExitStack):
     self._mock_state = None  # Cleanup state
 
   def list_bucket_names(self) -> List[str]:
-    return self._mock_state.list_bucket_names()  # pytype: disable=attribute-error
+    return self._mock_state.list_bucket_names()  # pyrefly: ignore[missing-attribute]
 
   def get_bucket_path(self, bucket_name: str) -> str:
-    return self._mock_state.get_bucket_path(bucket_name)  # pytype: disable=attribute-error
+    return self._mock_state.get_bucket_path(bucket_name)  # pyrefly: ignore[missing-attribute]

@@ -130,7 +130,7 @@ class _TranscodedRenderedDicomFrames(_RenderedDicomFrames):
             _DicomInstanceFramePatch, image
         ).get_downsampled_image(
             decoded_source_frames  # pyrefly: ignore[bad-argument-type]
-        )  # pyrefly: ignore[bad-argument-type]
+        )
       elif (
           icc_profile_transform is None
           and not params.is_viewport_defined()
@@ -788,7 +788,7 @@ def downsample_dicom_instance(
           image_list.reverse()
           render_frame_content_type = rendered_frames.source_frame_content_type
           del rendered_frames
-        undecoded_image = image_list.pop()  # pytype: disable=attribute-error
+        undecoded_image = image_list.pop()  # pyrefly: ignore[missing-attribute]
       else:
         rendered_frame = get_rendered_dicom_frames(
             dicom_instance, params, [framenumber]

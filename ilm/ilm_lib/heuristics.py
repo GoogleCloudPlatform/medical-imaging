@@ -118,7 +118,7 @@ def _should_upgrade(
   """Whether instance should be upgraded based on metadata and conditions."""
   if not metadata.access_metadata:
     raise ValueError(f'Instance metadata missing access info: {metadata}')
-  for condition_index, condition in enumerate(upgrade_conditions):  # pyrefly: ignore[bad-argument-type]
+  for condition_index, condition in enumerate(upgrade_conditions):  # pyrefly: ignore[bad-argument-type, not-iterable]
     condition_date_after = _convert_to_date(condition.date_after)
     if condition.access_count_higher_or_equal_to:
       condition_access_count_higher_or_equal_to = (
@@ -161,7 +161,7 @@ def _should_downgrade(
   """Whether instance should be downgraded based on metadata and conditions."""
   if not metadata.access_metadata:
     raise ValueError(f'Instance metadata missing access info: {metadata}')
-  for condition_index, condition in enumerate(downgrade_conditions):  # pyrefly: ignore[bad-argument-type]
+  for condition_index, condition in enumerate(downgrade_conditions):  # pyrefly: ignore[bad-argument-type, not-iterable]
     condition_date_before = _convert_to_date(condition.date_before)
     if condition.access_count_lower_or_equal_to:
       condition_access_count_lower_or_equal_to = (

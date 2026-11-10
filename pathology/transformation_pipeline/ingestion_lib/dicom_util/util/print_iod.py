@@ -58,7 +58,8 @@ def _print_iod(
       # Cyclic graph detected in IOD.
       tag = dicom_standard.dicom_standard_util().get_tag(tag_address)
       print(
-          f'{prefix}{tag} references {tag.keyword} [Cyclic graph detected in'  # pytype: disable=attribute-error
+          # pyrefly: ignore[missing-attribute]
+          f'{prefix}{tag} references {tag.keyword} [Cyclic graph detected in'
           ' IOD sequence]'
       )
       continue

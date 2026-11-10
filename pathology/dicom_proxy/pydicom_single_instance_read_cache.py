@@ -158,17 +158,15 @@ class _InstanceFrameAccessor(Sequence[bytes]):
         return
     if self._basic_offset_table_offset > 8:
       # if dicom has basic offset table, use it.
-      # pytype: disable=module-attr
       if _PYDICOM_MAJOR_VERSION <= 2:
         fp = pydicom.filebase.DicomBytesIO(self._pixel_data)
         fp.is_little_endian = ds.is_little_endian
         _, self._offset_table = pydicom.encaps.get_frame_offsets(fp)
       else:
-        self._offset_table = pydicom.encaps.parse_basic_offsets(
+        self._offset_table = pydicom.encaps.parse_basic_offsets(  # pyrefly: ignore[missing-attribute]
             self._pixel_data,
             endianness='<' if self._byte_order == 'little' else '>',
         )
-      # pytype: enable=module-attr
       if len(self._offset_table) == self._number_of_frames:
         return
     # derive encapsulated data offset table from pixel data.

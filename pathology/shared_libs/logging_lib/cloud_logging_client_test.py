@@ -123,7 +123,7 @@ class CloudLoggingTest(parameterized.TestCase):
     ):
       cloud_logging_client_instance._py_log(
           logging.getLogger(), 'test', {'foo': 'bar'}, 99999  # pyrefly: ignore[bad-argument-type]
-      )  # pytype: disable=wrong-arg-types
+      )
 
   def test_get_source_location_to_log_with_stack_frames_back_beyond_stack(self):
     with self.assertRaises(ValueError):
@@ -721,8 +721,8 @@ class CloudLoggingTest(parameterized.TestCase):
       log_regex = re.compile(r'(.+); HOSTNAME: .*; THREAD_ID: (.+)')
       for call in mock_log.call_args_list:
         match = log_regex.fullmatch(call[0][0])
-        main_log.append(match.groups()[0])  # pytype: disable=attribute-error
-        thread_id.add(match.groups()[1])  # pytype: disable=attribute-error
+        main_log.append(match.groups()[0])  # pyrefly: ignore[missing-attribute]
+        thread_id.add(match.groups()[1])  # pyrefly: ignore[missing-attribute]
 
       # test that the thread's log signature was used for all messages
       self.assertEqual(
@@ -756,7 +756,7 @@ class CloudLoggingTest(parameterized.TestCase):
       log_regex = re.compile(r'(.+); HOSTNAME: .*; THREAD_ID: (.+)')
       for call in mock_log.call_args_list:
         match = log_regex.fullmatch(call[0][0])
-        main_log.append(match.groups()[0])  # pytype: disable=attribute-error
+        main_log.append(match.groups()[0])  # pyrefly: ignore[missing-attribute]
 
       # test that the thread's log signature was used for all messages
       self.assertEqual(

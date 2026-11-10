@@ -208,7 +208,7 @@ class FilterFileGeneratorTest(parameterized.TestCase):
 
     self.assertTrue(pixel_spacing.is_defined)  # type: ignore
     self.assertEqual(
-        pixel_spacing.min_spacing, 0.0002630310034122261  # pytype: disable=attribute-error
+        pixel_spacing.min_spacing, 0.0002630310034122261  # pyrefly: ignore[missing-attribute]
     )
 
   @mock.patch.object(

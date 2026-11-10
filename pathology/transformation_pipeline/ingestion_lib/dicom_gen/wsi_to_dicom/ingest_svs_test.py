@@ -361,7 +361,7 @@ class IngestSVSTest(parameterized.TestCase):
       self, filename, candidate_barcode_values, expected
   ):
     metadata_client = metadata_storage_client.MetadataStorageClient()
-    ingest_base_test_driver = ingest_svs.IngestSVS(None, False, metadata_client)  # pytype: disable=wrong-arg-types
+    ingest_base_test_driver = ingest_svs.IngestSVS(None, False, metadata_client)  # pyrefly: ignore[bad-argument-type]
     metadata_client.set_debug_metadata([
         gen_test_util.test_file_path(_METADATA_PATH),
         gen_test_util.test_file_path(_SCHEMA_PATH),
@@ -404,7 +404,7 @@ class IngestSVSTest(parameterized.TestCase):
         ingest_base.GcsIngestionBuckets('gs://success', 'gs://failure'),
         False,
         metadata_client,
-    )  # pytype: disable=wrong-arg-types
+    )
     metadata_client.set_debug_metadata([
         gen_test_util.test_file_path(_METADATA_PATH),
         gen_test_util.test_file_path(_SCHEMA_PATH),
@@ -446,7 +446,7 @@ class IngestSVSTest(parameterized.TestCase):
         ingest_base.GcsIngestionBuckets('gs://success', 'gs://failure'),
         False,
         metadata_client,
-    )  # pytype: disable=wrong-arg-types
+    )
     metadata_client.set_debug_metadata([
         gen_test_util.test_file_path(_METADATA_PATH),
         gen_test_util.test_file_path(_SCHEMA_PATH),

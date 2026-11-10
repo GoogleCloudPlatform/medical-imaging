@@ -53,7 +53,7 @@ class DICOMIODUtilTest(parameterized.TestCase):
         iod_path,
     )
     self.assertEqual(
-        [standard_util.get_tag(address).keyword for address in dataset.keys()],  # pytype: disable=attribute-error
+        [standard_util.get_tag(address).keyword for address in dataset.keys()],  # pyrefly: ignore[missing-attribute]
         expected,
     )
 

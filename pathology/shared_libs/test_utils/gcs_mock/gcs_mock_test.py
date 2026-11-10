@@ -70,12 +70,12 @@ class GcsMockTest(absltest.TestCase):
 
   def test_context_mgr_returns_instance_of_mock_gcs(self):
     with gcs_mock.GcsMock() as gcs_mk:
-      self.assertIsInstance(gcs_mk, gcs_mock.GcsMock)  # pytype: disable=attribute-error
+      self.assertIsInstance(gcs_mk, gcs_mock.GcsMock)
 
   def test_client_mock_gcp_state_is_context_manages_gcp_state(self):
     with gcs_mock.GcsMock() as mk:
       cl = google.cloud.storage.Client()
-      self.assertIs(mk._mock_state, cl.mock_state)  # pytype: disable=attribute-error
+      self.assertIs(mk._mock_state, cl.mock_state)  # pyrefly: ignore[missing-attribute]
 
 
 if __name__ == '__main__':

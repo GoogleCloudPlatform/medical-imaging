@@ -236,7 +236,7 @@ class DicomIodXmlParser(dicom_abstract_xml_parser.DicomAbstractXmlParser):
       xmlpart = self.download_xml('part03')
     else:
       xmlpart = self.read_xml(part3_file_path)
-    self.set_dcm_version(xmlpart.dcm_version)  # pytype: disable=wrong-arg-types
+    self.set_dcm_version(xmlpart.dcm_version)
     self._iod_parser = dicom_xml_core_parser.DicomXmlCoreParser(
         self.namespace, xmlpart.xml_root
     )
@@ -411,7 +411,7 @@ class DicomIodXmlParser(dicom_abstract_xml_parser.DicomAbstractXmlParser):
             first_line = parsed_row[0]
           # Functional groups are referenced in text and not linked by section.
           # Test for text reference and add custom linked resource.
-          if _FUNCTIONAL_GROUP_MACRO_REGEX.fullmatch(first_line):  # pytype: disable=attribute-error
+          if _FUNCTIONAL_GROUP_MACRO_REGEX.fullmatch(first_line):  # pyrefly: ignore[no-matching-overload]
             prefix_offset = first_line.index('Include') + len('Include')
             obj = LinkedObject(
                 prefix=first_line[:prefix_offset],  # pyrefly: ignore[bad-argument-type]

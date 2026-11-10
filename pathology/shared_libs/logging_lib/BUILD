@@ -65,3 +65,12 @@ py_test(
         requirement("google-cloud-logging"),
     ],
 )
+
+filegroup(
+    name = "logging_lib_sources",
+    srcs = glob(
+        ["**/*"],
+        exclude = ["BUILD"],
+    ),
+    visibility = ["//visibility:public"],
+)

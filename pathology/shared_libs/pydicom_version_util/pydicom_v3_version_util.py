@@ -27,20 +27,17 @@ def set_little_endian_explicit_vr(dcm: pydicom.FileDataset) -> None:
 
 def save_as_validated_dicom(dcm: pydicom.Dataset, filename: str) -> None:
   # pylint: disable=unexpected-keyword-arg
-  # pytype: disable=wrong-keyword-args
   dcm.save_as(
       filename,
-      enforce_file_format=True,
-      little_endian=dcm.file_meta.TransferSyntaxUID != '1.2.840.10008.1.2.2',
-      implicit_vr=dcm.file_meta.TransferSyntaxUID == '1.2.840.10008.1.2',
+      enforce_file_format=True,  # pyrefly: ignore[unexpected-keyword]
+      little_endian=dcm.file_meta.TransferSyntaxUID != '1.2.840.10008.1.2.2',  # pyrefly: ignore[unexpected-keyword]
+      implicit_vr=dcm.file_meta.TransferSyntaxUID == '1.2.840.10008.1.2',  # pyrefly: ignore[unexpected-keyword]
   )
-  # pytype: enable=wrong-keyword-args
   # pylint: enable=unexpected-keyword-arg
 
 
 def get_frame_offset_table(dcm: pydicom.Dataset) -> Sequence[int]:
-  # pytype: disable=module-attr
-  table = pydicom.encaps.parse_basic_offsets(dcm.PixelData)
+  table = pydicom.encaps.parse_basic_offsets(dcm.PixelData)  # pyrefly: ignore[missing-attribute]
   # This logic replicates pydicom V2 behavior. If the basic offset table is
   # undefined, V2 returns [0] this what what would be defined for the first
   # element regardless. For safty, we are replicating that behavior here.
@@ -50,18 +47,13 @@ def get_frame_offset_table(dcm: pydicom.Dataset) -> Sequence[int]:
   if table:
     return table
   return [0]
-  # pytype: enable=module-attr
 
 
 def has_basic_offset_table(dcm: pydicom.Dataset) -> bool:
-  # pytype: disable=module-attr
-  return bool(pydicom.encaps.parse_basic_offsets(dcm.PixelData))
-  # pytype: enable=module-attr
+  return bool(pydicom.encaps.parse_basic_offsets(dcm.PixelData))  # pyrefly: ignore[missing-attribute]
 
 
 def generate_frames(buffer: bytes, number_of_frames: int) -> Iterator[bytes]:
-  # pytype: disable=module-attr
-  return pydicom.encaps.generate_frames(
+  return pydicom.encaps.generate_frames(  # pyrefly: ignore[missing-attribute]
       buffer, number_of_frames=int(number_of_frames)
   )
-  # pytype: enable=module-attr

@@ -35,7 +35,7 @@ from pathology.shared_libs.test_utils.gcs_mock.gcs_mock_lib import gcs_test_util
 def _get_client_mock_state(
     cl: google.cloud.storage.Client,
 ) -> gcs_state_mock.GcsStateMock:
-  return cl.mock_state  # pytype: disable=attribute-error
+  return cl.mock_state  # pyrefly: ignore[missing-attribute]
 
 
 # Test Parameters

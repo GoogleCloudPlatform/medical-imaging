@@ -64,7 +64,7 @@ class ThreadExecutionTimingDataclassTest(absltest.TestCase):
     dc = execution_timer._ThreadExecutionTiming(
         stack_depth,
         function_call_index,
-        thread_lock,  # pytype: disable=wrong-arg-types
+        thread_lock,  # pyrefly: ignore[bad-argument-type]
         logged_trace,
         logged_trace_index,
         _MOCK_FLASK_REQUEST_PATH,
@@ -329,7 +329,7 @@ class ExecutionTimerTest(absltest.TestCase):
         logged_message,
     )
     self.assertIsNotNone(result)
-    self.assertGreaterEqual(float(result.groups()[0]), 1.25)  # pytype: disable=attribute-error
+    self.assertGreaterEqual(float(result.groups()[0]), 1.25)
 
     structed_log = arg_list[1]
     self.assertEqual(
@@ -365,7 +365,7 @@ class ExecutionTimerTest(absltest.TestCase):
 
     result = re.fullmatch('\n'.join(regex), log_trace)
     self.assertIsNotNone(result)
-    exec_time = list(result.groups())  # pytype: disable=attribute-error
+    exec_time = list(result.groups())
     self.assertLen(exec_time, 5)
     self.assertGreaterEqual(float(exec_time[0]), 1.25)
     self.assertGreaterEqual(float(exec_time[1]), 0.50)

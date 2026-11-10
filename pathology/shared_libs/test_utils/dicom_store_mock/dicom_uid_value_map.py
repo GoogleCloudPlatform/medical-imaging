@@ -107,7 +107,7 @@ class DicomUidValueMap(Generic[UidMapType]):
       except KeyError:
         return iter([])
       if is_instance_level:
-        return iter([child])
+        return iter([child])  # pyrefly: ignore[bad-return]
       return child._get_instances(uid, _increment_uid_index(uid_index))  # pylint: disable=protected-access  # pyrefly: ignore[missing-attribute]
     if is_instance_level:
       return iter(self._uid_value_map.values())  # pyrefly: ignore[bad-return]

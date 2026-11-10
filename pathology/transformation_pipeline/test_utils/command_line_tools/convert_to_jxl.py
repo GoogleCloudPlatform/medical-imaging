@@ -57,16 +57,14 @@ transcode_jpeg_flag = flags.DEFINE_boolean(
 
 
 def _generate_frames(buffer: bytes, number_of_frames: int) -> Iterator[bytes]:
-  # pytype: disable=module-attr
   if _PYDICOM_MAJOR_VERSION <= 2:
     return pydicom.encaps.generate_pixel_data_frame(
         buffer, int(number_of_frames)
     )
   else:
-    return pydicom.encaps.generate_frames(
+    return pydicom.encaps.generate_frames(  # pyrefly: ignore[missing-attribute]
         buffer, number_of_frames=int(number_of_frames)
     )
-  # pytype: enable=module-attr
 
 
 def _encode_jpg(img: bytes) -> bytes:

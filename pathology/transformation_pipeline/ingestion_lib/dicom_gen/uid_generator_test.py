@@ -248,6 +248,11 @@ class UidGeneratorTest(parameterized.TestCase):
       dict(testcase_name='empty_block', uid='1..1', expected=False),
       dict(testcase_name='starts_with_zero', uid='1.023.1', expected=False),
       dict(testcase_name='contains_non_number', uid='1.2A3.1', expected=False),
+      dict(
+          testcase_name='contains_multiline_non_number',
+          uid='1.2\n3\n4.1',
+          expected=False,
+      ),
       dict(testcase_name='valid_small', uid='1.2.3', expected=True),
       dict(
           testcase_name='valid_multi_number_blocks',

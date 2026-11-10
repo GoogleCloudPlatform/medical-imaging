@@ -61,7 +61,7 @@ def is_uid_block_correctly_formatted(block: str) -> bool:
   # Check block is numeric only
   if not block:
     return False
-  if re.fullmatch(_TEST_TEXT_FOR_NON_NUMBER_CHAR_REGEX, block):
+  if re.fullmatch(_TEST_TEXT_FOR_NON_NUMBER_CHAR_REGEX, block, re.DOTALL):
     return False
   # check that UID starts with number 1 or greater if the length of the block
   # is greater than 1

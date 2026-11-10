@@ -251,7 +251,7 @@ def _add_background_color(
     background_color = o_slide.properties.get(
         openslide.PROPERTY_NAME_BACKGROUND_COLOR
     )
-    color_profile = o_slide.color_profile  # pytype: disable=attribute-error
+    color_profile = o_slide.color_profile  # pyrefly: ignore[missing-attribute]
   except AttributeError:
     return
   if background_color is None:
@@ -276,7 +276,7 @@ def _add_background_color(
   )
   im = PIL.Image.new('RGB', (1, 1), f'#{background_color}')
   lab_image = ImageCms.applyTransform(im, rgb2lab)
-  l, a, b = lab_image.split()  # pylint: disable=attribute-error
+  l, a, b = lab_image.split()  # pylint: disable=attribute-error  # pyrefly: ignore[missing-attribute]
   l = int(0xFFFF * l[0, 0] / 100.0)
   a = int(0xFFFF * (a[0, 0] + 128.0) / 0xFF)
   b = int(0xFFFF * (b[0, 0] + 128.0) / 0xFF)
@@ -886,11 +886,11 @@ def init_undefined_wsi_imaging_type1_tags(dcm_file: pydicom.Dataset) -> None:
   """
   if ingest_const.DICOMTagKeywords.EXTENDED_DEPTH_OF_FIELD not in dcm_file:
     dcm_file.ExtendedDepthOfField = (
-        ingest_flags.WSI_DICOM_EXTENDED_DEPTH_OF_FIELD_DEFAULT_VALUE_FLG.value.name  # pytype: disable=attribute-error
+        ingest_flags.WSI_DICOM_EXTENDED_DEPTH_OF_FIELD_DEFAULT_VALUE_FLG.value.name
     )
   if ingest_const.DICOMTagKeywords.FOCUS_METHOD not in dcm_file:
     dcm_file.FocusMethod = (
-        ingest_flags.WSI_DICOM_FOCUS_METHOD_DEFAULT_VALUE_FLG.value.name  # pytype: disable=attribute-error
+        ingest_flags.WSI_DICOM_FOCUS_METHOD_DEFAULT_VALUE_FLG.value.name
     )
   _init_slice_thickness_metadata_if_undefined(dcm_file)
   try:
@@ -953,7 +953,6 @@ def add_metadata_to_generated_wsi_dicom(
   init_undefined_wsi_imaging_type1_tags(dcm_file)
 
 
-# pytype: disable=bad-return-type
 def get_pydicom_tags(
     pydicom_dataset: Union[str, pydicom.FileDataset],
     *tag_keywords: Union[str, Sequence[str]],
@@ -978,9 +977,6 @@ def get_pydicom_tags(
   # pydicom FileDataset
   dcm = pydicom_dataset
   return {key: dcm[key] if key in dcm else None for key in tags}
-
-
-# pytype: enable=bad-return-type
 
 
 def has_optical_path_sequence(dcm: pydicom.Dataset) -> bool:
@@ -1123,7 +1119,7 @@ def set_all_defined_pydicom_tags(
   """
   set_defined_pydicom_tags(
       dcm, tag_value_map, tag_value_map, overwrite_existing_values=True  # pyrefly: ignore[bad-argument-type]
-  )  # pytype: disable=wrong-arg-types  # mapping-is-not-sequence
+  )
 
 
 def is_unencapsulated_dicom_transfer_syntax(

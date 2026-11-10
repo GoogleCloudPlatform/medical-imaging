@@ -207,6 +207,7 @@ class RedisCache:
           db=dicom_proxy_flags.REDIS_CACHE_DB_FLG.value,
           username=dicom_proxy_flags.REDIS_USERNAME_FLG.value,
           password=dicom_proxy_flags.REDIS_AUTH_PASSWORD_FLG.value,
+          retry=redis.retry.Retry(redis.backoff.NoBackoff(), 0),
       )
       _redis_host_instance = self._redis
       return

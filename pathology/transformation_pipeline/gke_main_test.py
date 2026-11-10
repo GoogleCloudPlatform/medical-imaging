@@ -135,7 +135,7 @@ class GkeMainTest(absltest.TestCase):
     dicom_store_web_path = 'http://healthcare.dicomstore.mock/'
     with flagsaver.flagsaver(oof_dicomweb_base_url=dicom_store_web_path):
       self.assertEqual(
-          gke_main._get_oof_trigger_config().dicom_store_web_path,  # pytype: disable=attribute-error
+          gke_main._get_oof_trigger_config().dicom_store_web_path,  # pyrefly: ignore[missing-attribute]
           dicom_store_web_path,
       )
 

@@ -76,7 +76,7 @@ class DicomAbstractXmlParser:
     dcm_version = xml_root.find(f'{self.namespace}subtitle')
     if dcm_version is None:
       raise DicomIodGeneratorError('Find XML namespace.')
-    dcm_version = dcm_version.text.split()[2]  # pytype: disable=attribute-error
+    dcm_version = dcm_version.text.split()[2]  # pyrefly: ignore[missing-attribute]
     logging.info('Processing XML.')
     return DicomXmlSpec(dcm_version, xml_root)
 
@@ -95,7 +95,7 @@ class DicomAbstractXmlParser:
     dcm_version = xml_root.find(f'{self.namespace}subtitle')
     if dcm_version is None:
       raise DicomIodGeneratorError('Find XML namespace.')
-    dcm_version = dcm_version.text.split()[2]  # pytype: disable=attribute-error
+    dcm_version = dcm_version.text.split()[2]  # pyrefly: ignore[missing-attribute]
     logging.info('Processing XML.')
     return DicomXmlSpec(dcm_version, xml_root)
 

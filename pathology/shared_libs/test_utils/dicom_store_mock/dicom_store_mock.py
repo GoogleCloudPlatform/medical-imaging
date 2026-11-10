@@ -156,13 +156,11 @@ _PYDICOM_MAJOR_VERSION = int((pydicom.__version__).split('.')[0])
 
 def _generate_frames(buffer: bytes, number_of_frames: int) -> Iterator[bytes]:
   number_of_frames = int(number_of_frames)
-  # pytype: disable=module-attr
   if _PYDICOM_MAJOR_VERSION <= 2:
     return pydicom.encaps.generate_pixel_data_frame(buffer, number_of_frames)
-  return pydicom.encaps.generate_frames(
+  return pydicom.encaps.generate_frames(  # pyrefly: ignore[missing-attribute]
       buffer, number_of_frames=number_of_frames
   )
-  # pytype: enable=module-attr
 
 
 def _set_little_endian_explicit_vr(dcm: pydicom.FileDataset) -> None:
@@ -177,13 +175,11 @@ def _save_as(dcm: pydicom.FileDataset, filename: Union[str, BinaryIO]) -> None:
     dcm.save_as(filename)
   else:
     # pylint: disable=unexpected-keyword-arg
-    # pytype: disable=wrong-keyword-args
     dcm.save_as(
         filename,
-        little_endian=dcm.file_meta.TransferSyntaxUID != '1.2.840.10008.1.2.2',
-        implicit_vr=dcm.file_meta.TransferSyntaxUID == '1.2.840.10008.1.2',
+        little_endian=dcm.file_meta.TransferSyntaxUID != '1.2.840.10008.1.2.2',  # pyrefly: ignore[unexpected-keyword]
+        implicit_vr=dcm.file_meta.TransferSyntaxUID == '1.2.840.10008.1.2',  # pyrefly: ignore[unexpected-keyword]
     )
-    # pytype: enable=wrong-keyword-args
     # pylint: enable=unexpected-keyword-arg
 
 
@@ -715,7 +711,7 @@ def _convert_to_pydicom_file_dataset(
   file_meta = {}
   main_body = {}
   for tag, value in dcm.items():
-    if tag.startswith('0002'):  # pytype: disable=attribute-error
+    if tag.startswith('0002'):
       file_meta[tag] = value
     else:
       main_body[tag] = value

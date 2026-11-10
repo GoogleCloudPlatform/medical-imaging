@@ -141,9 +141,9 @@ class ColorConversionUtilTest(parameterized.TestCase):
     result = color_conversion_util._create_icc_profile_transform(
         b'123', proxy_const.ICCProfile.YES
     )
-    self.assertEqual(result.config, proxy_const.ICCProfile.YES)  # pytype: disable=attribute-error
-    self.assertIsNone(result.color_transform)  # pytype: disable=attribute-error
-    self.assertEqual(result.rendered_icc_profile, b'123')  # pytype: disable=attribute-error
+    self.assertEqual(result.config, proxy_const.ICCProfile.YES)  # pyrefly: ignore[missing-attribute]
+    self.assertIsNone(result.color_transform)  # pyrefly: ignore[missing-attribute]
+    self.assertEqual(result.rendered_icc_profile, b'123')  # pyrefly: ignore[missing-attribute]
 
   def test_create_custom_icc_profile_transform(self):
     profile_name = 'foo'
@@ -155,9 +155,9 @@ class ColorConversionUtilTest(parameterized.TestCase):
       result = color_conversion_util._create_icc_profile_transform(
           srgb_bytes, enum_types.ICCProfile(profile_name)
       )
-    self.assertEqual(result.config, profile_name)  # pytype: disable=attribute-error
-    self.assertIsNotNone(result.color_transform)  # pytype: disable=attribute-error
-    self.assertEqual(result.rendered_icc_profile, srgb_bytes)  # pytype: disable=attribute-error
+    self.assertEqual(result.config, profile_name)  # pyrefly: ignore[missing-attribute]
+    self.assertIsNotNone(result.color_transform)  # pyrefly: ignore[missing-attribute]
+    self.assertEqual(result.rendered_icc_profile, srgb_bytes)  # pyrefly: ignore[missing-attribute]
 
   def test_create_custom_icc_profile_transform_not_found(self):
     tdir = self.create_tempdir()
@@ -198,9 +198,9 @@ class ColorConversionUtilTest(parameterized.TestCase):
         result = color_conversion_util._create_icc_profile_transform(
             b'123', transform
         )
-        self.assertEqual(result.config, transform)  # pytype: disable=attribute-error
-        self.assertEqual(result.color_transform, 'MockTransform')  # pytype: disable=attribute-error
-        self.assertEqual(result.rendered_icc_profile, expected_bytes)  # pytype: disable=attribute-error
+        self.assertEqual(result.config, transform)  # pyrefly: ignore[missing-attribute]
+        self.assertEqual(result.color_transform, 'MockTransform')  # pyrefly: ignore[missing-attribute]
+        self.assertEqual(result.rendered_icc_profile, expected_bytes)  # pyrefly: ignore[missing-attribute]
         icc_transform.assert_called_once()
 
   @parameterized.parameters([
@@ -925,7 +925,7 @@ class ColorConversionUtilTest(parameterized.TestCase):
           icc_profile_metadata_cache.INSTANCE_MISSING_ICC_PROFILE_METADATA,
           redis_cache.RedisCache(),
       )
-    self.assertIsNone(redis_result.value)  # pytype: disable=attribute-error
+    self.assertIsNone(redis_result.value)  # pyrefly: ignore[missing-attribute]
 
   def test_get_cached_icc_profile_bytes_has_value(self):
     mk_profile_bytes = b'ICC_PROFILE_BYTES'
@@ -942,7 +942,7 @@ class ColorConversionUtilTest(parameterized.TestCase):
           icc_profile_metadata_cache.ICCProfileHash(mk_icc_profile_hash_value),
           redis_cache.RedisCache(),
       )
-      self.assertEqual(redis_result.value, mk_profile_bytes)  # pytype: disable=attribute-error
+      self.assertEqual(redis_result.value, mk_profile_bytes)  # pyrefly: ignore[missing-attribute]
 
   def test_get_cached_icc_profile_bytes_not_found(self):
     mk_icc_profile_hash_value = '1234'

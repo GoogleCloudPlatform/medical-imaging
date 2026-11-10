@@ -516,15 +516,15 @@ class AbstractDicomGeneration(
 
         # Download to local filename excluding any subfolders in direct path.
         download_filepath = self._get_download_filepath(
-            polling_client.current_msg.filename  # pytype: disable=attribute-error
+            polling_client.current_msg.filename  # pyrefly: ignore[missing-attribute]
         )
         ingest_file = self.get_pubsub_file(
-            polling_client.current_msg.uri, download_filepath  # pytype: disable=attribute-error
+            polling_client.current_msg.uri, download_filepath  # pyrefly: ignore[missing-attribute]
         )
 
         ingest_file.hash = hash_util.sha512hash(
             ingest_file.localfile,
-            {ingest_const.LogKeywords.URI: ingest_file.source_uri},  # pyrefly: ignore[bad-argument-type]
+            {ingest_const.LogKeywords.URI: ingest_file.source_uri},  # pyrefly: ignore[bad-assignment]
         )
         self._generate_dicom_and_push_to_store_lock_wrapper(
             ingest_file, polling_client
@@ -550,9 +550,9 @@ class AbstractDicomGeneration(
           {
               ingest_const.LogKeywords.INVALID_CHARACTER: exp.invalid_char,
               ingest_const.LogKeywords.FILENAME: os.path.basename(
-                  polling_client.current_msg.filename  # pytype: disable=attribute-error
+                  polling_client.current_msg.filename  # pyrefly: ignore[missing-attribute]
               ),
-              ingest_const.LogKeywords.URI: polling_client.current_msg.uri,  # pytype: disable=attribute-error
+              ingest_const.LogKeywords.URI: polling_client.current_msg.uri,  # pyrefly: ignore[missing-attribute]
           },
       )
       polling_client.ack()
@@ -564,9 +564,9 @@ class AbstractDicomGeneration(
           exp,
           {
               ingest_const.LogKeywords.FILENAME: os.path.basename(
-                  polling_client.current_msg.filename  # pytype: disable=attribute-error
+                  polling_client.current_msg.filename  # pyrefly: ignore[missing-attribute]
               ),
-              ingest_const.LogKeywords.URI: polling_client.current_msg.uri,  # pytype: disable=attribute-error
+              ingest_const.LogKeywords.URI: polling_client.current_msg.uri,  # pyrefly: ignore[missing-attribute]
           },
       )
       polling_client.ack()

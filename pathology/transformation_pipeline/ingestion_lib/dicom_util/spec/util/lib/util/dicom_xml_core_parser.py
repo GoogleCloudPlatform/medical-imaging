@@ -189,7 +189,7 @@ class DicomXmlCoreParser:
       )
       return text
     elif isinstance(text, List):
-      return [DicomXmlCoreParser.clean_text(item) for item in text]  # pytype: disable=bad-return-type  # always-use-return-annotations
+      return [DicomXmlCoreParser.clean_text(item) for item in text]  # pyrefly: ignore[bad-return]
 
   def parse_table_row(self, table_row) -> ParsedTableRow:
     """Parses a single row of a table.
@@ -205,7 +205,7 @@ class DicomXmlCoreParser:
     """
     parsed_tbl_row = self._get_table_row(table_row)
     if parsed_tbl_row.parsed_row:
-      parsed_tbl_row.parsed_row = [  # pytype: disable=annotation-type-mismatch  # always-use-return-annotations
+      parsed_tbl_row.parsed_row = [  # pyrefly: ignore[bad-assignment]
           DicomXmlCoreParser.clean_text(item)
           for item in parsed_tbl_row.parsed_row
       ]

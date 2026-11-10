@@ -333,7 +333,7 @@ class DICOMDataset:
         if existing_tag.sq_dataset is None:
           existing_tag.sq_dataset = tag.sq_dataset
         else:
-          existing_tag.sq_dataset.merge(tag.sq_dataset)  # pytype: disable=attribute-error  # always-use-return-annotations
+          existing_tag.sq_dataset.merge(tag.sq_dataset)
 
   def merge(self, ds: DICOMDataset):
     """Merge another DICOM dataset into this one."""
@@ -401,7 +401,7 @@ class DICOMDataset:
     for iod_module in iod_module_list:
       module_section_table_name = iod_module.module_section_table_name
       module_tables = self._dicom_standard.get_module_section_tables(
-          module_section_table_name  # pytype: disable=wrong-arg-types
+          module_section_table_name  # pyrefly: ignore[bad-argument-type]
       )
       iod_module_usage = DicomModuleUsageRequirement(iod_module.usage[0])
       for module_table in module_tables:

@@ -275,7 +275,7 @@ def _create_image_dicom_metadata(image_path: str) -> _ImageDicomMetadata:
       samples_per_pixel,
       compression_ratio,
       image_type,
-      icc_profile=img.info.get('icc_profile'),
+      icc_profile=img.info.get('icc_profile'),  # pyrefly: ignore[bad-argument-type]
       transfer_syntax=transfer_syntax,
       tif_tags=tif_tags,
   )

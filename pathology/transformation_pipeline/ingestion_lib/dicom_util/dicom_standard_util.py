@@ -273,10 +273,10 @@ class DicomStandardIODUtil(object):
     """
     if self._tags_keywords is None:
       self._build_keyword_dict()
-    address = self._tags_keywords.get(keyword)  # pytype: disable=attribute-error
+    address = self._tags_keywords.get(keyword)  # pyrefly: ignore[missing-attribute]
     if address is not None and striphex and address.startswith('0x'):
       address = address[2:]
-    return address  # pytype: disable=bad-return-type
+    return address
 
   @classmethod
   def _read_json(

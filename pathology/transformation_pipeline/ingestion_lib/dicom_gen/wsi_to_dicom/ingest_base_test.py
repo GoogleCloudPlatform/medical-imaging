@@ -19,6 +19,7 @@ import copy
 import json
 import os
 import shutil
+import subprocess
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Set, Union
 from unittest import mock
 
@@ -832,15 +833,19 @@ class IngestBaseTest(parameterized.TestCase):
   )
   def test_get_wsi2dcm_cmdline_study_seriesuid(self, studyuid, seriesuid):
     downsample_config = ingest_base.WsiDownsampleLayers(None, {2, 32})
-    expected = (
-        '/wsi-to-dicom-converter/build/wsi2dcm --input="convert.svs" '
-        '--outFolder="output_path"  default_params --levels=999 '
-        '--stopDownsamplingAtSingleFrame --singleFrameDownsample'
-    )
+    expected = [
+        '/wsi-to-dicom-converter/build/wsi2dcm',
+        '--input=convert.svs',
+        '--outFolder=output_path',
+        'default_params',
+        '--levels=999',
+        '--stopDownsamplingAtSingleFrame',
+        '--singleFrameDownsample',
+    ]
     if studyuid is not None and studyuid:
-      expected = f'{expected} --studyId={studyuid}'
+      expected.append(f'--studyId={studyuid}')
     if seriesuid is not None and seriesuid:
-      expected = f'{expected} --seriesId={seriesuid}'
+      expected.append(f'--seriesId={seriesuid}')
 
     result = ingest_base._get_wsi2dcm_cmdline(
         'convert.svs',
@@ -856,19 +861,30 @@ class IngestBaseTest(parameterized.TestCase):
   @parameterized.parameters([
       (
           ingest_base.WsiDownsampleLayers({1, 2, 8}, {2, 32}),
-          (
-              '/wsi-to-dicom-converter/build/wsi2dcm --input="convert.svs"'
-              ' --outFolder="output_path"  default_params --downsamples 1 2'
-              ' 8 32 --singleFrameDownsample'
-          ),
+          [
+              '/wsi-to-dicom-converter/build/wsi2dcm',
+              '--input=convert.svs',
+              '--outFolder=output_path',
+              'default_params',
+              '--downsamples',
+              '1',
+              '2',
+              '8',
+              '32',
+              '--singleFrameDownsample',
+          ],
       ),
       (
           ingest_base.WsiDownsampleLayers(None, {2, 32}),
-          (
-              '/wsi-to-dicom-converter/build/wsi2dcm --input="convert.svs" '
-              '--outFolder="output_path"  default_params --levels=999 '
-              '--stopDownsamplingAtSingleFrame --singleFrameDownsample'
-          ),
+          [
+              '/wsi-to-dicom-converter/build/wsi2dcm',
+              '--input=convert.svs',
+              '--outFolder=output_path',
+              'default_params',
+              '--levels=999',
+              '--stopDownsamplingAtSingleFrame',
+              '--singleFrameDownsample',
+          ],
       ),
   ])
   def test_get_wsi2dcm_cmdline(self, downsample_config, expected):
@@ -881,6 +897,116 @@ class IngestBaseTest(parameterized.TestCase):
         'default_params',
     )
     self.assertEqual(result, expected)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='malicious_study_uid_semicolon',
+          study_uid='1.2.3; id > /tmp/pwned',
+          series_uid='1.2.3.4',
+      ),
+      dict(
+          testcase_name='malicious_study_uid_command_substitution',
+          study_uid='1.2.3$(id)',
+          series_uid='1.2.3.4',
+      ),
+      dict(
+          testcase_name='malicious_series_uid_semicolon',
+          study_uid='1.2.3',
+          series_uid='1.2.3.4; id > /tmp/pwned',
+      ),
+      dict(
+          testcase_name='malicious_series_uid_flag_injection',
+          study_uid='1.2.3',
+          series_uid='1.2.3.4 --outFolder=/etc',
+      ),
+      dict(
+          testcase_name='invalid_study_uid_format',
+          study_uid='1.02.3',
+          series_uid='1.2.3.4',
+      ),
+  ])
+  def test_get_wsi2dcm_cmdline_invalid_uid_raises(self, study_uid, series_uid):
+    downsample_config = ingest_base.WsiDownsampleLayers(None, {2, 32})
+    with self.assertRaises(ingest_base.GenDicomFailedError) as ctx:
+      ingest_base._get_wsi2dcm_cmdline(
+          'convert.svs',
+          downsample_config,
+          'output_path',
+          study_uid,
+          series_uid,
+          'default_params',
+      )
+    self.assertIn(
+        ingest_const.ErrorMsgs.DICOM_UID_INCORRECTLY_FORMATTED,
+        ctx.exception.args,
+    )
+
+  @flagsaver.flagsaver(
+      metadata_bucket='test_bucket',
+      metadata_uid_validation=ingest_flags.MetadataUidValidation.LOG_WARNING,
+  )
+  @mock.patch.object(subprocess, 'run', autospec=True)
+  def test_convert_wsi_to_dicom_invokes_subprocess_without_shell(
+      self, mock_subprocess_run
+  ):
+    temp_dir = self.create_tempdir()
+    dcm_path = os.path.join(temp_dir.full_path, 'downsample-1-.dcm')
+    with open(dcm_path, 'wt') as outfile:
+      outfile.write('test')
+    ingest = _IngestBaseTestDriver()
+    downsample_config = ingest_base.WsiDownsampleLayers(None, {2, 32})
+    metadata = _dcm_json(
+        study_instance_uid='1.2.3', series_instance_uid='1.2.3.4'
+    )
+
+    result = ingest.convert_wsi_to_dicom(
+        'convert.svs', downsample_config, temp_dir.full_path, metadata
+    )
+
+    self.assertEqual(result, [dcm_path])
+    mock_subprocess_run.assert_called_once()
+    args, kwargs = mock_subprocess_run.call_args
+    self.assertIsInstance(args[0], list)
+    self.assertIn('--studyId=1.2.3', args[0])
+    self.assertIn('--seriesId=1.2.3.4', args[0])
+    self.assertFalse(kwargs.get('shell', True))
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name='invalid_study_uid_with_log_warning_flag',
+          study_uid='1.2.3; id > /tmp/pwned',
+          series_uid='1.2.3.4',
+          uid_validation=ingest_flags.MetadataUidValidation.LOG_WARNING,
+      ),
+      dict(
+          testcase_name='invalid_series_uid_with_none_flag',
+          study_uid='1.2.3',
+          series_uid='1.2.3.4; id > /tmp/pwned',
+          uid_validation=ingest_flags.MetadataUidValidation.NONE,
+      ),
+  ])
+  @flagsaver.flagsaver(metadata_bucket='test_bucket')
+  @mock.patch.object(subprocess, 'run', autospec=True)
+  def test_convert_wsi_to_dicom_invalid_uid_raises(
+      self, mock_subprocess_run, study_uid, series_uid, uid_validation
+  ):
+    temp_dir = self.create_tempdir()
+    ingest = _IngestBaseTestDriver()
+    downsample_config = ingest_base.WsiDownsampleLayers(None, {2, 32})
+    metadata = _dcm_json(
+        study_instance_uid=study_uid, series_instance_uid=series_uid
+    )
+
+    with flagsaver.flagsaver(metadata_uid_validation=uid_validation):
+      with self.assertRaises(ingest_base.GenDicomFailedError) as ctx:
+        ingest.convert_wsi_to_dicom(
+            'convert.svs', downsample_config, temp_dir.full_path, metadata
+        )
+    self.assertIn(
+        ingest_const.ErrorMsgs.DICOM_UID_INCORRECTLY_FORMATTED,
+        ctx.exception.args,
+    )
+    mock_subprocess_run.assert_not_called()
 
   def test_correct_missing_study_instance_uid_in_metadata_has_uid_succees(self):
     study_instance_uid = '1.2.3.4'
