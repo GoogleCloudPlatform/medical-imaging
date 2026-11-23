@@ -208,10 +208,19 @@ class _BigQueryMetadataTableUtil:
         f' {pk_value}.',
         bq_log,
     )
+    # Bind the (externally-influenced) primary key value as a query parameter
+    # rather than interpolating it into the SQL string, to avoid SQL injection.
+    # pk_col is resolved to an actual column name from INFORMATION_SCHEMA, so it
+    # is safe to interpolate.
     query = (
-        f'SELECT * from {full_table_name} WHERE {pk_col}="{pk_value}" LIMIT 2'
+        f'SELECT * from {full_table_name} WHERE {pk_col}=@pk_value LIMIT 2'
     )
-    query_job = self._client.query(query)
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter('pk_value', 'STRING', pk_value)
+        ]
+    )
+    query_job = self._client.query(query, job_config=job_config)
     try:
       return query_job.result()
     except (
